@@ -25,16 +25,16 @@ description: "Task list for Al-Nour Eye Hospital Management System"
 
 **Purpose**: Install dependencies, scaffold all 12 modules, configure global plumbing.
 
-- [ ] T001 Add `maatwebsite/laravel-excel` to `composer.json` and run `composer require maatwebsite/laravel-excel`
-- [ ] T002 [P] Scaffold 12 nwidart modules: `php artisan module:make Booking Clinic Labs Surgery Lasik Laser Doctor Accounting Inventory Insurance Reporting Admin`
-- [ ] T003 [P] Create `app/Repositories/BaseRepository.php` abstract class with `paginate()`, `findOrFail()`, `create()`, `update()`, `delete()` stubs
-- [ ] T004 [P] Create `app/DTOs/PatientDTO.php` readonly class (name, phone, age, national_id, gender)
-- [ ] T005 [P] Create `app/DTOs/DoctorDTO.php` readonly class (id, name, specialty, fee_type, fee_value)
-- [ ] T006 [P] Update `resources/views/app.blade.php` to add `lang="ar" dir="rtl"` on `<html>` element
-- [ ] T007 [P] Add Arabic RTL color tokens to `tailwind.config.js` (primary, accent, danger, warning, success, border, surface, text scales from HTML prototype CSS variables)
-- [ ] T008 [P] Create shared Vue layout `resources/js/Components/Layout/AppLayout.vue` (sidebar + topbar shell, role-aware nav items)
-- [ ] T009 [P] Create `resources/js/Components/Layout/Sidebar.vue` (navigation items per HTML prototype: dashboard, booking, clinic, labs, surgery, lasik, laser, accounting, inventory, insurance, reports, admin — filtered by user permissions)
-- [ ] T010 [P] Create `resources/js/Components/Layout/Topbar.vue` (page title, search bar, notification bell, new booking button)
+- [x] T001 Add `maatwebsite/laravel-excel` to `composer.json` and run `composer require maatwebsite/laravel-excel`
+- [x] T002 [P] Scaffold 12 nwidart modules: `php artisan module:make Booking Clinic Labs Surgery Lasik Laser Doctor Accounting Inventory Insurance Reporting Admin`
+- [x] T003 [P] Create `app/Repositories/BaseRepository.php` abstract class with `paginate()`, `findOrFail()`, `create()`, `update()`, `delete()` stubs
+- [x] T004 [P] Create `app/DTOs/PatientDTO.php` readonly class (name, phone, age, national_id, gender)
+- [x] T005 [P] Create `app/DTOs/DoctorDTO.php` readonly class (id, name, specialty, fee_type, fee_value)
+- [x] T006 [P] Update `resources/views/app.blade.php` to add `lang="ar" dir="rtl"` on `<html>` element
+- [x] T007 [P] Add Arabic RTL color tokens to `resources/css/app.css` (primary, accent, danger, warning, success, border, surface, text scales from HTML prototype CSS variables)
+- [x] T008 [P] Create shared Vue layout `resources/js/components/layout/AppLayout.vue` (sidebar + topbar shell, role-aware nav items)
+- [x] T009 [P] Create `resources/js/components/layout/Sidebar.vue` (navigation items per HTML prototype: dashboard, booking, clinic, labs, surgery, lasik, laser, accounting, inventory, insurance, reports, admin — filtered by user permissions)
+- [x] T010 [P] Create `resources/js/components/layout/Topbar.vue` (page title, search bar, notification bell, new booking button)
 
 ---
 
@@ -44,30 +44,30 @@ description: "Task list for Al-Nour Eye Hospital Management System"
 
 **⚠️ CRITICAL**: No user story implementation can begin until this phase is complete.
 
-- [ ] T011 Update `app/Http/Middleware/HandleInertiaRequests.php` to share: `auth_user`, `permissions` (Spatie can()), `settings` (hospital name, etc.) in the `share()` method
-- [ ] T012 [P] Create migration `database/migrations/xxxx_create_doctors_table.php` (id ULID, name, specialty, phone, fee_type enum, fee_value, user_id FK, is_active, notes, timestamps)
-- [ ] T013 [P] Create migration `database/migrations/xxxx_create_bookings_table.php` (all columns from data-model.md §Booking, including file_no UNIQUE, dept enum, service_id FK, doctor_id FK, ins_company_id FK, pay_method, pay_status, status, cancel_reason, created_by FK)
-- [ ] T014 [P] Create migration `database/migrations/xxxx_create_accounts_table.php` (ULID PK, code UNIQUE, name, group enum, nature enum, parent_id self-FK, balance decimal, is_active)
-- [ ] T015 [P] Create migration `database/migrations/xxxx_create_services_table.php` (ULID PK, name, dept enum, price, ins_price, center_type enum, center_val, duration_mins, status)
-- [ ] T016 [P] Create migration `database/migrations/xxxx_create_insurance_companies_table.php` (ULID PK, name, code, phone, address, contract_no, coverage_pct, disc_pct, contact_person, email, status enum, notes)
-- [ ] T017 [P] Create migration `database/migrations/xxxx_create_settings_table.php` (id auto-int, key UNIQUE, value text, group varchar)
-- [ ] T018 [P] Create migration `database/migrations/xxxx_create_activity_logs_table.php` (bigint PK auto, user_id FK, user_name snapshot, action, module, record_id, description, old_values JSON, new_values JSON, ip_address, created_at only — no updated_at)
-- [ ] T019 Run `php artisan migrate` to apply all Phase 2 migrations
-- [ ] T020 Create `database/seeders/RolesPermissionsSeeder.php` — seed 6 roles (admin, doctor, reception, accountant, nurse, store_keeper) and all 30 permissions from spec §6 using `spatie/laravel-permission`
-- [ ] T021 Create `database/seeders/AccountsSeeder.php` — seed 13 default GL accounts (1000–4000) per spec §5.9
-- [ ] T022 Create `database/seeders/SettingsSeeder.php` — seed hospital_name, hospital_specialty, hospital_address, mrn_format, low_stock_alerts_enabled
-- [ ] T023 Create `database/seeders/AdminUserSeeder.php` — seed default admin user, assign `admin` role via Spatie
-- [ ] T024 Run `php artisan db:seed` to apply all seeders
-- [ ] T025 [P] Create shared Vue component `resources/js/Components/Shared/DataTable.vue` (RTL table with sortable headers, pagination, row hover, actions slot — from HTML prototype `.tbl-wrap table` styles)
-- [ ] T026 [P] Create shared Vue component `resources/js/Components/Shared/Modal.vue` (overlay, modal-hd, modal-bd, modal-ft, close button — from HTML prototype `.overlay .modal` styles, sizes: sm/md/lg)
-- [ ] T027 [P] Create shared Vue component `resources/js/Components/Shared/StatCard.vue` (stat label, value, change indicator, left color bar — from HTML prototype `.stat` with `.bl .tl .gr .or .rd` classes)
-- [ ] T028 [P] Create shared Vue component `resources/js/Components/Shared/Badge.vue` (status badge with dot — b-wait, b-exam, b-done, b-surg, b-dang, b-info variants)
-- [ ] T029 [P] Create shared Vue component `resources/js/Components/Shared/SearchBar.vue` (search icon + input, from HTML prototype `.search-bar`)
-- [ ] T030 [P] Create shared Vue component `resources/js/Components/Shared/DateFilter.vue` (from/to date range pickers with apply button)
-- [ ] T031 [P] Create shared Vue component `resources/js/Components/Shared/ExportBar.vue` (Excel download + Print buttons, positioned at bottom of report cards)
-- [ ] T032 [P] Create shared Vue composable `resources/js/composables/useNotifications.ts` (show/hide snackbar messages matching HTML prototype `.snack` component)
-- [ ] T033 [P] Create shared Vue composable `resources/js/composables/useExport.ts` (trigger GET /reports/{type}/export with date params, handles file download)
-- [ ] T034 [P] Create shared Vue composable `resources/js/composables/usePrint.ts` (window.print() wrapper that adds `.printing` class to body for CSS `@media print` targeting)
+- [x] T011 Update `app/Http/Middleware/HandleInertiaRequests.php` to share: `auth_user`, `permissions` (Spatie can()), `settings` (hospital name, etc.) in the `share()` method
+- [x] T012 [P] Create migration `database/migrations/2026_04_14_200000_create_doctors_table.php`
+- [x] T013 [P] Create migration `database/migrations/2026_04_14_200003_create_bookings_table.php`
+- [x] T014 [P] Create migration `database/migrations/2026_04_14_200004_create_accounts_table.php`
+- [x] T015 [P] Create migration `database/migrations/2026_04_14_200001_create_services_table.php`
+- [x] T016 [P] Create migration `database/migrations/2026_04_14_200002_create_insurance_companies_table.php`
+- [x] T017 [P] Create migration `database/migrations/2026_04_14_200005_create_settings_table.php`
+- [x] T018 [P] Create migration `database/migrations/2026_04_14_200006_create_activity_logs_table.php`
+- [ ] T019 Run `php artisan migrate` to apply all Phase 2 migrations  *(manual — run: `php artisan migrate`)*
+- [x] T020 Create `database/seeders/RolesPermissionsSeeder.php` — seed 6 roles and all 34 permissions
+- [x] T021 Create `database/seeders/AccountsSeeder.php` — seed 13 default GL accounts (1000–4000) per spec §5.9
+- [x] T022 Create `database/seeders/SettingsSeeder.php` — seed hospital_name, hospital_specialty, hospital_address, mrn_format, low_stock_alerts_enabled
+- [x] T023 Create `database/seeders/AdminUserSeeder.php` — seed default admin user, assign `admin` role via Spatie
+- [ ] T024 Run `php artisan db:seed` to apply all seeders  *(manual — run: `php artisan db:seed`)*
+- [x] T025 [P] Create shared Vue component `resources/js/components/shared/DataTable.vue` (RTL table with sortable headers, pagination, row hover, actions slot)
+- [x] T026 [P] Create shared Vue component `resources/js/components/shared/Modal.vue` (overlay, header, body, footer slots, sizes: sm/md/lg/xl)
+- [x] T027 [P] Create shared Vue component `resources/js/components/shared/StatCard.vue` (stat label, value, change indicator, color bar, 5 color variants)
+- [x] T028 [P] Create shared Vue component `resources/js/components/shared/Badge.vue` (status badge with dot — 14 variants)
+- [x] T029 [P] Create shared Vue component `resources/js/components/shared/SearchBar.vue` (search icon + input + clear button)
+- [x] T030 [P] Create shared Vue component `resources/js/components/shared/DateFilter.vue` (from/to date range pickers with apply/clear buttons)
+- [x] T031 [P] Create shared Vue component `resources/js/components/shared/ExportBar.vue` (Excel download + Print buttons)
+- [x] T032 [P] Create shared Vue composable `resources/js/composables/useNotifications.ts`
+- [x] T033 [P] Create shared Vue composable `resources/js/composables/useExport.ts`
+- [x] T034 [P] Create shared Vue composable `resources/js/composables/usePrint.ts`
 
 **Checkpoint**: All migrations applied, seeders run, shared components exist — user story work can begin.
 
@@ -80,27 +80,27 @@ description: "Task list for Al-Nour Eye Hospital Management System"
 
 ### Implementation — Booking Module
 
-- [ ] T035 [P] [US1] Create `Modules/Booking/Models/Booking.php` Eloquent model (HasUlids, fillable, casts for ENUM columns, relationships: doctor(), service(), insuranceCompany(), clinicSheet(), surgery())
-- [ ] T036 [P] [US1] Create `Modules/Doctor/Models/Doctor.php` Eloquent model (HasUlids, fillable, relationship: bookings(), shifts(), payments(), user())
-- [ ] T037 [P] [US1] Create `Modules/Booking/DTOs/BookingData.php` readonly class (all fields from contracts/booking.md)
-- [ ] T038 [P] [US1] Create `Modules/Booking/DTOs/BookingFilterData.php` readonly class (date, dept, status, search, per_page)
-- [ ] T039 [P] [US1] Create `Modules/Booking/Repositories/Contracts/BookingRepositoryInterface.php` with all methods from contracts/booking.md
-- [ ] T040 [P] [US1] Create `Modules/Booking/Repositories/BookingRepository.php` implementing interface (extends BaseRepository, all query methods using Eloquent + spatie/laravel-query-builder for filtering)
-- [ ] T041 [P] [US1] Create `Modules/Booking/Services/MrnGeneratorService.php` (generates MRN-YYYY-XXXXX using MAX(sequence) + UNIQUE retry guard)
-- [ ] T042 [US1] Create `Modules/Booking/Services/BookingService.php` (depends on BookingRepositoryInterface + MrnGeneratorService — auto-assigns file_no, snapshots service_name and price, delegates to repo)
-- [ ] T043 [US1] Create `Modules/Booking/Actions/CreateBookingAction.php` (receives BookingData, calls BookingService::create, calls ActivityLogService::log)
-- [ ] T044 [US1] Create `Modules/Booking/Actions/UpdateBookingAction.php` (validates paid bookings cannot be soft-deleted, calls BookingService::update)
-- [ ] T045 [US1] Create `Modules/Booking/Actions/UpdateBookingStatusAction.php` (enforces status machine transitions, requires cancel_reason when status=cancelled)
-- [ ] T046 [US1] Create `Modules/Booking/Actions/CancelBookingAction.php` (blocks cancellation of paid bookings without admin override, records cancel_reason)
-- [ ] T047 [US1] Create `Modules/Booking/Http/Requests/StoreBookingRequest.php` (all validation rules from contracts/booking.md)
-- [ ] T048 [US1] Create `Modules/Booking/Http/Requests/UpdateBookingRequest.php`
-- [ ] T049 [US1] Create `Modules/Booking/Controllers/BookingController.php` (index, store, update, destroy — receives Action via constructor injection, returns Inertia responses)
-- [ ] T050 [US1] Create `Modules/Booking/Controllers/BookingStatusController.php` (update method only — PATCH /{id}/status)
-- [ ] T051 [US1] Register repository binding in `Modules/Booking/Providers/BookingServiceProvider.php` ($app->bind(BookingRepositoryInterface::class, BookingRepository::class))
-- [ ] T052 [US1] Define routes in `Modules/Booking/Routes/web.php` (GET/POST /booking, PUT /booking/{id}, PATCH /booking/{id}/status, DELETE /booking/{id}, GET /booking/{id}/receipt) with auth + permission middleware
-- [ ] T053 [US1] Create Vue page `resources/js/Pages/Booking/Index.vue` (stats row, date/dept/status filters, DataTable with booking rows, Modal trigger for BookingForm, status badge per row, print receipt button)
-- [ ] T054 [US1] Create Vue partial `resources/js/Pages/Booking/Partials/BookingForm.vue` (dept selector → service selector filtered by dept with auto-price fill, doctor selector, date/time, payment fields, insurance fields conditionally shown when pay_method=insurance)
-- [ ] T055 [US1] Create Vue page `resources/js/Pages/Booking/Receipt.vue` (print-optimized receipt: hospital name, MRN, patient, service, price, payment method, date — no sidebar)
+- [x] T035 [P] [US1] Create `Modules/Booking/Models/Booking.php`
+- [x] T036 [P] [US1] Create `Modules/Doctor/Models/Doctor.php`
+- [x] T037 [P] [US1] Create `Modules/Booking/DTOs/BookingData.php`
+- [x] T038 [P] [US1] Create `Modules/Booking/DTOs/BookingFilterData.php`
+- [x] T039 [P] [US1] Create `Modules/Booking/Repositories/Contracts/BookingRepositoryInterface.php`
+- [x] T040 [P] [US1] Create `Modules/Booking/Repositories/BookingRepository.php`
+- [x] T041 [P] [US1] Create `Modules/Booking/Services/MrnGeneratorService.php`
+- [x] T042 [US1] Create `Modules/Booking/Services/BookingService.php`
+- [x] T043 [US1] Create `Modules/Booking/Actions/CreateBookingAction.php`
+- [x] T044 [US1] Create `Modules/Booking/Actions/UpdateBookingAction.php`
+- [x] T045 [US1] Create `Modules/Booking/Actions/UpdateBookingStatusAction.php`
+- [x] T046 [US1] Create `Modules/Booking/Actions/CancelBookingAction.php`
+- [x] T047 [US1] Create `Modules/Booking/Http/Requests/StoreBookingRequest.php`
+- [x] T048 [US1] Create `Modules/Booking/Http/Requests/UpdateBookingRequest.php`
+- [x] T049 [US1] Create `Modules/Booking/Controllers/BookingController.php`
+- [x] T050 [US1] Create `Modules/Booking/Controllers/BookingStatusController.php`
+- [x] T051 [US1] Register repository binding in `Modules/Booking/Providers/BookingServiceProvider.php`
+- [x] T052 [US1] Define routes in `Modules/Booking/Routes/web.php`
+- [x] T053 [US1] Create Vue page `resources/js/pages/booking/Index.vue`
+- [x] T054 [US1] Create Vue partial `resources/js/pages/booking/Partials/BookingForm.vue`
+- [x] T055 [US1] Create Vue page `resources/js/pages/booking/Receipt.vue` (print-only, no layout)
 
 **Checkpoint**: Booking CRUD fully functional. Receptionist can register patients, view queue, change statuses. MRN generates correctly.
 
@@ -113,18 +113,18 @@ description: "Task list for Al-Nour Eye Hospital Management System"
 
 ### Implementation — Clinic Module
 
-- [ ] T056 [P] [US2] Create `Modules/Clinic/Models/ClinicSheet.php` (HasUlids, fillable, casts, relationships: booking(), doctor())
-- [ ] T057 [P] [US2] Create `Modules/Clinic/DTOs/ClinicSheetData.php` readonly class (all clinic_sheets columns)
-- [ ] T058 [P] [US2] Create `Modules/Clinic/Repositories/Contracts/ClinicSheetRepositoryInterface.php`
-- [ ] T059 [P] [US2] Create `Modules/Clinic/Repositories/ClinicSheetRepository.php`
-- [ ] T060 [US2] Create `Modules/Clinic/Services/ClinicService.php` (getTodaysQueue by dept=clinic, getPatientHistory by file_no across all clinic_sheets)
-- [ ] T061 [US2] Create `Modules/Clinic/Actions/RecordClinicSheetAction.php` (creates/updates clinic_sheet, updates booking status to `completed`, logs activity)
-- [ ] T062 [US2] Create `Modules/Clinic/Actions/ReferPatientAction.php` (sets referral_to on clinic_sheet, optionally creates follow-up booking in target dept)
-- [ ] T063 [US2] Create `Modules/Clinic/Http/Requests/StoreClinicSheetRequest.php`
-- [ ] T064 [US2] Create `Modules/Clinic/Controllers/ClinicController.php` (index — today's clinic queue; store — record sheet; show — patient full history)
-- [ ] T065 [US2] Register binding + define routes in `Modules/Clinic/Providers/ClinicServiceProvider.php` and `Modules/Clinic/Routes/web.php` (GET /clinic, GET /clinic/{bookingId}, POST /clinic/{bookingId}/sheet)
-- [ ] T066 [US2] Create Vue page `resources/js/Pages/Clinic/Index.vue` (today's booking list with status badges, click row to open patient detail)
-- [ ] T067 [US2] Create Vue page `resources/js/Pages/Clinic/Patient.vue` (left panel: patient history timeline; right panel: clinic sheet form — visual_acuity OD/OS, IOP OD/OS, anterior/posterior segment text areas, diagnosis, plan, referral selector, print button)
+- [x] T056 [P] [US2] Create `Modules/Clinic/Models/ClinicSheet.php`
+- [x] T057 [P] [US2] Create `Modules/Clinic/DTOs/ClinicSheetData.php`
+- [x] T058 [P] [US2] Create `Modules/Clinic/Repositories/Contracts/ClinicSheetRepositoryInterface.php`
+- [x] T059 [P] [US2] Create `Modules/Clinic/Repositories/ClinicSheetRepository.php`
+- [x] T060 [US2] Create `Modules/Clinic/Services/ClinicService.php`
+- [x] T061 [US2] Create `Modules/Clinic/Actions/RecordClinicSheetAction.php`
+- [x] T062 [US2] Create `Modules/Clinic/Actions/ReferPatientAction.php`
+- [x] T063 [US2] Create `Modules/Clinic/Http/Requests/StoreClinicSheetRequest.php`
+- [x] T064 [US2] Create `Modules/Clinic/Controllers/ClinicController.php`
+- [x] T065 [US2] Register binding + define routes (`Modules/Clinic/Providers/ClinicServiceProvider.php` + `Modules/Clinic/Routes/web.php`)
+- [x] T066 [US2] Create Vue page `resources/js/pages/clinic/Index.vue`
+- [x] T067 [US2] Create Vue page `resources/js/pages/clinic/Patient.vue`
 
 **Checkpoint**: Clinic queue operational. Doctors can complete consultations and view full patient history.
 

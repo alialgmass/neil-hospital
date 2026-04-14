@@ -9,9 +9,36 @@
 
 @theme inline {
     --font-sans:
-        Instrument Sans, ui-sans-serif, system-ui, sans-serif,
+        'Cairo', 'Tajawal', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+
+    /* Hospital brand palette — Al-Nour Eye Hospital */
+    --color-hospital-primary:          #0A4FA6;
+    --color-hospital-primary-light:    #1A6ED8;
+    --color-hospital-primary-dark:     #072E63;
+    --color-hospital-primary-pale:     #E8F1FB;
+
+    --color-hospital-accent:           #00B5A4;
+    --color-hospital-accent-pale:      #E0F7F5;
+
+    --color-hospital-danger:           #D63B3B;
+    --color-hospital-danger-pale:      #FDEAEA;
+
+    --color-hospital-warning:          #E07C10;
+    --color-hospital-warning-pale:     #FEF0E0;
+
+    --color-hospital-success:          #1A8C5B;
+    --color-hospital-success-pale:     #E2F5EC;
+
+    --color-hospital-bg:               #F3F6FA;
+    --color-hospital-surface:          #FFFFFF;
+    --color-hospital-surface-2:        #F8FAFD;
+    --color-hospital-border:           #DDE4EF;
+
+    --color-hospital-text:             #0D1F3C;
+    --color-hospital-text-2:           #4A5878;
+    --color-hospital-text-3:           #8A96AE;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -90,40 +117,40 @@
 }
 
 :root {
-    --background: hsl(0 0% 100%);
-    --foreground: hsl(0 0% 3.9%);
-    --card: hsl(0 0% 100%);
-    --card-foreground: hsl(0 0% 3.9%);
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(0 0% 3.9%);
-    --primary: hsl(0 0% 9%);
-    --primary-foreground: hsl(0 0% 98%);
-    --secondary: hsl(0 0% 92.1%);
-    --secondary-foreground: hsl(0 0% 9%);
-    --muted: hsl(0 0% 96.1%);
-    --muted-foreground: hsl(0 0% 45.1%);
-    --accent: hsl(0 0% 96.1%);
-    --accent-foreground: hsl(0 0% 9%);
-    --destructive: hsl(0 84.2% 60.2%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 92.8%);
-    --input: hsl(0 0% 89.8%);
-    --ring: hsl(0 0% 3.9%);
-    --chart-1: hsl(12 76% 61%);
-    --chart-2: hsl(173 58% 39%);
-    --chart-3: hsl(197 37% 24%);
-    --chart-4: hsl(43 74% 66%);
-    --chart-5: hsl(27 87% 67%);
+    --background: #F3F6FA;
+    --foreground: #0D1F3C;
+    --card: #FFFFFF;
+    --card-foreground: #0D1F3C;
+    --popover: #FFFFFF;
+    --popover-foreground: #0D1F3C;
+    --primary: #0A4FA6;
+    --primary-foreground: #FFFFFF;
+    --secondary: #E8F1FB;
+    --secondary-foreground: #072E63;
+    --muted: #F3F6FA;
+    --muted-foreground: #4A5878;
+    --accent: #00B5A4;
+    --accent-foreground: #FFFFFF;
+    --destructive: #D63B3B;
+    --destructive-foreground: #FFFFFF;
+    --border: #DDE4EF;
+    --input: #DDE4EF;
+    --ring: #1A6ED8;
+    --chart-1: #0A4FA6;
+    --chart-2: #00B5A4;
+    --chart-3: #1A8C5B;
+    --chart-4: #E07C10;
+    --chart-5: #D63B3B;
     --radius: 0.5rem;
-    --sidebar-background: hsl(0 0% 98%);
-    --sidebar-foreground: hsl(240 5.3% 26.1%);
-    --sidebar-primary: hsl(0 0% 10%);
-    --sidebar-primary-foreground: hsl(0 0% 98%);
-    --sidebar-accent: hsl(0 0% 94%);
-    --sidebar-accent-foreground: hsl(0 0% 30%);
-    --sidebar-border: hsl(0 0% 91%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(0 0% 98%);
+    --sidebar-background: #0A4FA6;
+    --sidebar-foreground: #FFFFFF;
+    --sidebar-primary: #FFFFFF;
+    --sidebar-primary-foreground: #0A4FA6;
+    --sidebar-accent: #1A6ED8;
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border: #072E63;
+    --sidebar-ring: #E8F1FB;
+    --sidebar: #0A4FA6;
 }
 
 .dark {

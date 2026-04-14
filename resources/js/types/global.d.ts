@@ -18,6 +18,12 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            /** Flat list of permission names. ['*'] means super-admin (all access). */
+            permissions: string[];
+            settings: {
+                hospital_name: string;
+                hospital_specialty: string;
+            };
             sidebarOpen: boolean;
             [key: string]: unknown;
         };
