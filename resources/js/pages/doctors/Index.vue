@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { PlusCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { PlusCircle, UserCheck, Percent, DollarSign } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -30,6 +30,10 @@ const columns = [
     { key: 'fee_value', label: 'القيمة' },
     { key: 'is_active', label: 'الحالة' },
 ];
+
+const activeCount   = computed(() => props.doctors.data.filter((d) => d.is_active).length);
+const pctCount      = computed(() => props.doctors.data.filter((d) => d.fee_type === 'percentage').length);
+const fixedCount    = computed(() => props.doctors.data.filter((d) => d.fee_type === 'fixed').length);
 
 const search = ref(props.filters.search ?? '');
 function applySearch() {
@@ -64,8 +68,45 @@ const feeTypeLabels: Record<string, string> = {
 <template>
     <Head title="إدارة الأطباء" />
 
+    <!-- Stats Row -->
+    <div class="mb-5 grid grid-cols-3 gap-4">
+        <div class="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white">
+                <UserCheck class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-xs font-medium text-blue-600">أطباء نشطون</p>
+                <p class="text-2xl font-bold text-blue-700">{{ activeCount }}</p>
+                <p class="text-xs text-blue-500">من أصل {{ doctors.total }}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl border border-purple-100 bg-purple-50 p-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-600 text-white">
+                <Percent class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-xs font-medium text-purple-600">حساب بالنسبة</p>
+                <p class="text-2xl font-bold text-purple-700">{{ pctCount }}</p>
+                <p class="text-xs text-purple-500">طبيب</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl border border-green-100 bg-green-50 p-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
+                <DollarSign class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-xs font-medium text-green-600">حساب ثابت</p>
+                <p class="text-2xl font-bold text-green-700">{{ fixedCount }}</p>
+                <p class="text-xs text-green-500">طبيب</p>
+            </div>
+        </div>
+    </div>
+
     <div class="mb-5 flex items-center justify-between gap-3">
-        <h2 class="text-lg font-bold text-hospital-text">إدارة الأطباء</h2>
+        <div>
+            <h2 class="text-lg font-bold text-hospital-text">إدارة الأطباء وصلاحياتهم</h2>
+            <p class="text-xs text-hospital-muted">تحديد نسبة أو قيمة حصة كل طبيب من الإيرادات</p>
+        </div>
         <div class="flex items-center gap-2">
             <SearchBar v-model="search" placeholder="بحث بالاسم..." @update:model-value="applySearch" />
             <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="showAdd = true">

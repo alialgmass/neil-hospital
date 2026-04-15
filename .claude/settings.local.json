@@ -30,7 +30,21 @@
       "Bash(sed -n '1,6p' \"D:/Projects/neil hospital/v3/resources/js/pages/booking/Partials/BookingForm.vue\")",
       "Bash(sed -n '1,6p' \"D:/Projects/neil hospital/v3/resources/js/pages/labs/Index.vue\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Fixed {len\\(d.get\\(\\\\\"files\\\\\",[]\\)\\)} files'\\)\")",
-      "Bash(/c/Users/Royal/.config/herd/bin/php84/php.exe vendor/bin/pint --dirty)"
+      "Bash(/c/Users/Royal/.config/herd/bin/php84/php.exe vendor/bin/pint --dirty)",
+      "Bash(ls \"D:/Projects/neil hospital/v3/\"*.html)",
+      "Bash(php vendor/bin/pint --dirty)",
+      "Bash(herd php:*)",
+      "Read(//usr/local/**)",
+      "Read(//opt/homebrew/**)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(\"./node_modules/.bin/tsc\" --noEmit)",
+      "Bash(node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(echo \"exit:$?\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ],
+  "enableAllProjectMcpServers": true
 }

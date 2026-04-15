@@ -190,6 +190,30 @@ const isCloseModalOpen = computed({
         />
     </div>
 
+    <!-- Dept Tabs -->
+    <div class="mb-4 flex gap-1 border-b border-hospital-border">
+        <button
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="selectedDept === ''
+                ? 'border-b-2 border-hospital-primary text-hospital-primary'
+                : 'text-hospital-muted hover:text-hospital-text'"
+            @click="selectedDept = ''; applySearch()"
+        >
+            كل الحجوزات
+        </button>
+        <button
+            v-for="(label, key) in deptLabels"
+            :key="key"
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="selectedDept === key
+                ? 'border-b-2 border-hospital-primary text-hospital-primary'
+                : 'text-hospital-muted hover:text-hospital-text'"
+            @click="selectedDept = key; applySearch()"
+        >
+            {{ label }}
+        </button>
+    </div>
+
     <!-- Toolbar -->
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <SearchBar
@@ -198,17 +222,6 @@ const isCloseModalOpen = computed({
             class="min-w-[220px] flex-1"
             @keyup.enter="applySearch"
         />
-
-        <select
-            v-model="selectedDept"
-            class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-            @change="applySearch"
-        >
-            <option value="">كل الأقسام</option>
-            <option v-for="(label, key) in deptLabels" :key="key" :value="key">
-                {{ label }}
-            </option>
-        </select>
 
         <select
             v-model="selectedStatus"

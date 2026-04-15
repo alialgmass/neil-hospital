@@ -3,7 +3,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { Trash2 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 defineOptions({ layout: AppLayout })
 
@@ -71,13 +71,35 @@ function submit() {
 }
 
 const returnTotal = () => form.items.reduce((s, i) => s + i.qty * i.unit_cost, 0)
+
+const totalReturns = computed(() => props.returns.data.length)
+const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Number(r.total), 0))
 </script>
 
 <template>
     <div class="p-6">
+        <!-- Stats Row -->
+        <div class="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-2">
+            <div class="flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 p-4">
+                <div class="h-10 w-10 rounded-lg bg-red-600 text-white flex items-center justify-center text-lg font-bold">↩</div>
+                <div>
+                    <p class="text-xs font-medium text-red-600">إجمالي المردودات</p>
+                    <p class="text-2xl font-bold text-red-700">{{ totalReturns }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50 p-4">
+                <div class="h-10 w-10 rounded-lg bg-orange-600 text-white flex items-center justify-center text-lg font-bold">ج</div>
+                <div>
+                    <p class="text-xs font-medium text-orange-600">قيمة المردودات</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ totalValue.toLocaleString('ar-EG') }}</p>
+                    <p class="text-xs text-orange-500">جنيه</p>
+                </div>
+            </div>
+        </div>
+
         <div class="mb-6 flex items-center justify-between">
-            <h1 class="text-2xl font-bold text-gray-800">مردودات المشتريات</h1>
-            <button class="btn-primary" @click="showModal = true">+ تسجيل مرتجع</button>
+            <h1 class="text-xl font-bold text-gray-800">سجل مردودات المشتريات</h1>
+            <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="showModal = true">+ تسجيل مرتجع</button>
         </div>
 
         <!-- Returns Table -->

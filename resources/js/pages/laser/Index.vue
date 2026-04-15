@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { CalendarPlus, ClipboardList } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -82,10 +82,32 @@ function submitReport() {
 
 const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوكوما (SLT)', 'ليزر جلوكوما (ALT)', 'ليزر ملتحمة'];
 const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين يسرى', OU: 'كلاهما' };
+
+const totalToday     = computed(() => props.surgeries.total);
+const completedToday = computed(() => props.surgeries.data.filter((s) => s.status === 'completed').length);
 </script>
 
 <template>
     <Head title="قسم الليزر" />
+
+    <!-- Stats Row -->
+    <div class="mb-5 grid grid-cols-3 gap-4">
+        <div class="rounded-xl border border-green-100 bg-green-50 p-4">
+            <p class="text-xs font-medium text-green-600">جلسات الليزر اليوم</p>
+            <p class="text-2xl font-bold text-green-700">{{ totalToday }}</p>
+            <p class="text-xs text-green-500">اليوم</p>
+        </div>
+        <div class="rounded-xl border border-teal-100 bg-teal-50 p-4">
+            <p class="text-xs font-medium text-teal-600">مكتمل</p>
+            <p class="text-2xl font-bold text-teal-700">{{ completedToday }}</p>
+            <p class="text-xs text-teal-500">{{ totalToday ? Math.round(completedToday / totalToday * 100) : 0 }}%</p>
+        </div>
+        <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
+            <p class="text-xs font-medium text-orange-600">إيراد الليزر (ج)</p>
+            <p class="text-2xl font-bold text-orange-700">—</p>
+            <p class="text-xs text-orange-500">↑ اليوم</p>
+        </div>
+    </div>
 
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-bold text-hospital-text">قسم الليزر العلاجي</h2>

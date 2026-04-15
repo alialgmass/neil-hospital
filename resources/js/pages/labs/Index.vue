@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { FlaskConical } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -81,10 +81,36 @@ const labTests = [
     'OCT (مقطعية)', 'OCT عصب بصري', 'توبوغرافيا', 'أنجيوغرافيا',
     'سونار', 'مجال بصري', 'مقاس عدسة (A-Scan)', 'تصوير ملون', 'مقاس نظر أطفال',
 ];
+
+const totalToday     = computed(() => props.queue.total);
+const completedToday = computed(() => props.queue.data.filter((b) => b.status === 'completed').length);
+const revenueToday   = computed(() =>
+    props.queue.data.filter((b) => b.pay_status === 'paid' || b.pay_status === 'partial')
+        .reduce((s, b) => s + Number((b as { price?: number }).price ?? 0), 0),
+);
 </script>
 
 <template>
     <Head title="قسم الفحوصات" />
+
+    <!-- Stats Row -->
+    <div class="mb-5 grid grid-cols-3 gap-4">
+        <div class="rounded-xl border border-teal-100 bg-teal-50 p-4">
+            <p class="text-xs font-medium text-teal-600">حجوزات الفحوصات</p>
+            <p class="text-2xl font-bold text-teal-700">{{ totalToday }}</p>
+            <p class="text-xs text-teal-500">اليوم</p>
+        </div>
+        <div class="rounded-xl border border-green-100 bg-green-50 p-4">
+            <p class="text-xs font-medium text-green-600">مكتمل</p>
+            <p class="text-2xl font-bold text-green-700">{{ completedToday }}</p>
+            <p class="text-xs text-green-500">{{ totalToday ? Math.round(completedToday / totalToday * 100) : 0 }}%</p>
+        </div>
+        <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
+            <p class="text-xs font-medium text-orange-600">إيراد الفحوصات (ج)</p>
+            <p class="text-2xl font-bold text-orange-700">{{ revenueToday.toLocaleString('ar-EG') }}</p>
+            <p class="text-xs text-orange-500">↑ اليوم</p>
+        </div>
+    </div>
 
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-bold text-hospital-text">قسم الفحوصات التشخيصية</h2>

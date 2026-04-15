@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { CalendarPlus, ClipboardList, Package } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -112,10 +112,35 @@ function submitSupplies() {
 
 const procedures = ['LASIK', 'SMILE', 'PRK', 'LASEK', 'Femto-LASIK', 'Trans PRK'];
 const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين يسرى', OU: 'كلاهما' };
+
+const totalToday     = computed(() => props.surgeries.total);
+const completedToday = computed(() => props.surgeries.data.filter((s) => s.status === 'completed').length);
+const supplyTotal    = computed(() => props.surgeries.data.reduce((s, b) => s + Number(b.supply_total ?? 0), 0));
 </script>
 
 <template>
     <Head title="قسم الليزك" />
+
+    <!-- Stats Row -->
+    <div class="mb-5 grid grid-cols-4 gap-4">
+        <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
+            <p class="text-xs font-medium text-orange-600">جلسات الليزك اليوم</p>
+            <p class="text-2xl font-bold text-orange-700">{{ totalToday }}</p>
+        </div>
+        <div class="rounded-xl border border-green-100 bg-green-50 p-4">
+            <p class="text-xs font-medium text-green-600">مكتملة</p>
+            <p class="text-2xl font-bold text-green-700">{{ completedToday }}</p>
+        </div>
+        <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <p class="text-xs font-medium text-blue-600">إيراد الليزك</p>
+            <p class="text-2xl font-bold text-blue-700">—</p>
+            <p class="text-xs text-blue-500">جنيه</p>
+        </div>
+        <div class="rounded-xl border border-teal-100 bg-teal-50 p-4">
+            <p class="text-xs font-medium text-teal-600">مستلزمات مستخدمة</p>
+            <p class="text-2xl font-bold text-teal-700">{{ supplyTotal.toLocaleString('ar-EG') }}</p>
+        </div>
+    </div>
 
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-lg font-bold text-hospital-text">قسم الليزك — تصحيح الإبصار</h2>

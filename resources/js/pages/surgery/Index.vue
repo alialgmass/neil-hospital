@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { CalendarPlus, ClipboardList, Package } from 'lucide-vue-next';
+import { CalendarPlus, ClipboardList, Grid, List, Package } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
@@ -146,15 +146,55 @@ function submitSupplies() {
 }
 
 const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين يسرى', OU: 'كلاهما' };
+
+const viewMode = ref<'table' | 'grid'>('table');
+
+const statusColors: Record<string, string> = {
+    scheduled:   'border-l-4 border-l-green-500 bg-green-50',
+    prep:        'border-l-4 border-l-yellow-500 bg-yellow-50',
+    in_progress: 'border-l-4 border-l-red-500 bg-red-50',
+    completed:   'border-l-4 border-l-gray-400 bg-gray-50',
+    cancelled:   'border-l-4 border-l-gray-300 bg-gray-50 opacity-60',
+};
+
+const statusAr: Record<string, string> = {
+    scheduled: 'مجدولة', prep: 'تحضير', in_progress: 'جارية', completed: 'مكتملة', cancelled: 'ملغاة',
+};
 </script>
 
 <template>
     <Head title="قسم العمليات" />
 
     <!-- Header -->
-    <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 class="text-lg font-bold text-hospital-text">قسم العمليات الجراحية</h2>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-bold text-hospital-text">غرف الإقامة — قسم العمليات</h2>
+            <!-- Status legend -->
+            <div class="mt-1 flex flex-wrap items-center gap-3 text-xs text-hospital-text-2">
+                <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-green-500"></span>مجدولة</span>
+                <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-red-500"></span>جارية</span>
+                <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-yellow-500"></span>تحضير</span>
+                <span class="flex items-center gap-1"><span class="inline-block h-3 w-3 rounded bg-gray-400"></span>فارغ</span>
+            </div>
+        </div>
         <div class="flex items-center gap-2">
+            <!-- View toggle -->
+            <div class="flex items-center gap-1 rounded-lg border border-hospital-border bg-white p-1">
+                <button
+                    class="rounded p-1.5 transition-colors"
+                    :class="viewMode === 'grid' ? 'bg-hospital-primary text-white' : 'text-gray-400 hover:text-gray-600'"
+                    @click="viewMode = 'grid'"
+                >
+                    <Grid class="h-4 w-4" />
+                </button>
+                <button
+                    class="rounded p-1.5 transition-colors"
+                    :class="viewMode === 'table' ? 'bg-hospital-primary text-white' : 'text-gray-400 hover:text-gray-600'"
+                    @click="viewMode = 'table'"
+                >
+                    <List class="h-4 w-4" />
+                </button>
+            </div>
             <select
                 v-model="statusFilter"
                 class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
@@ -177,8 +217,40 @@ const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين ي
         </div>
     </div>
 
-    <!-- Table -->
-    <DataTable
+    <!-- Grid View -->
+    <div v-if="viewMode === 'grid'" class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div
+            v-for="surgery in surgeries.data"
+            :key="surgery.id"
+            class="cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
+            :class="statusColors[surgery.status] ?? 'border-gray-200'"
+        >
+            <div class="mb-1 flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wide text-gray-500">
+                    {{ surgery.or_bed ? `${surgery.or_bed.room.name} — ${surgery.or_bed.bed_number}` : 'بدون سرير' }}
+                </span>
+                <span class="rounded-full px-1.5 py-0.5 text-xs font-medium" :class="{
+                    'bg-green-100 text-green-700': surgery.status === 'scheduled',
+                    'bg-red-100 text-red-700': surgery.status === 'in_progress',
+                    'bg-yellow-100 text-yellow-700': surgery.status === 'prep',
+                    'bg-gray-100 text-gray-600': surgery.status === 'completed' || surgery.status === 'cancelled',
+                }">{{ statusAr[surgery.status] }}</span>
+            </div>
+            <p class="truncate text-sm font-semibold text-hospital-text">{{ surgery.booking?.patient_name ?? '—' }}</p>
+            <p class="mt-0.5 truncate text-xs text-hospital-text-2">{{ surgery.procedure }}</p>
+            <p class="mt-1 text-xs text-hospital-muted">{{ surgery.surgeon?.name ?? 'طبيب غير محدد' }}</p>
+            <div class="mt-2 flex gap-1">
+                <button class="flex-1 rounded bg-hospital-primary/10 py-1 text-xs font-medium text-hospital-primary hover:bg-hospital-primary/20" @click.stop="openReport(surgery.id)">تقرير</button>
+                <button class="flex-1 rounded bg-hospital-accent/10 py-1 text-xs font-medium text-hospital-accent hover:bg-hospital-accent/20" @click.stop="openSupplies(surgery.id)">مستلزمات</button>
+            </div>
+        </div>
+        <div v-if="surgeries.data.length === 0" class="col-span-full py-12 text-center text-hospital-muted">
+            لا توجد عمليات مجدولة
+        </div>
+    </div>
+
+    <!-- Table View -->
+    <DataTable v-else
         :columns="columns"
         :rows="surgeries.data"
         :current-page="surgeries.current_page"
