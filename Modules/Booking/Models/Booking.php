@@ -2,11 +2,16 @@
 
 namespace Modules\Booking\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\Clinic\Models\ClinicSheet;
+use Modules\Doctor\Models\Doctor;
+use Modules\Labs\Models\DiagnosticResult;
+use Modules\Surgery\Models\Surgery;
 
 class Booking extends Model
 {
@@ -35,21 +40,25 @@ class Booking extends Model
         'status',
         'cancel_reason',
         'visit_note',
+        'bed_no',
+        'eye_side',
+        'analysis_type',
+        'analysis_notes',
         'created_by',
     ];
 
     protected $casts = [
-        'visit_date'   => 'date',
-        'price'        => 'decimal:2',
-        'discount'     => 'decimal:2',
-        'ins_amount'   => 'decimal:2',
-        'paid_amount'  => 'decimal:2',
-        'patient_age'  => 'integer',
+        'visit_date' => 'date',
+        'price' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'ins_amount' => 'decimal:2',
+        'paid_amount' => 'decimal:2',
+        'patient_age' => 'integer',
     ];
 
     public function doctor(): BelongsTo
     {
-        return $this->belongsTo(\Modules\Doctor\Models\Doctor::class);
+        return $this->belongsTo(Doctor::class);
     }
 
     public function service(): BelongsTo
@@ -64,22 +73,22 @@ class Booking extends Model
 
     public function clinicSheet(): HasOne
     {
-        return $this->hasOne(\Modules\Clinic\Models\ClinicSheet::class);
+        return $this->hasOne(ClinicSheet::class);
     }
 
     public function diagnosticResults(): HasMany
     {
-        return $this->hasMany(\Modules\Labs\Models\DiagnosticResult::class);
+        return $this->hasMany(DiagnosticResult::class);
     }
 
     public function surgery(): HasOne
     {
-        return $this->hasOne(\Modules\Surgery\Models\Surgery::class);
+        return $this->hasOne(Surgery::class);
     }
 
     public function createdBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     /** Net amount after discount. */

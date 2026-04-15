@@ -90,9 +90,37 @@ const form = useForm({
     pay_status:     (props.booking?.pay_status as string) ?? 'unpaid',
     status:         (props.booking?.status as string) ?? 'confirmed',
     visit_note:     (props.booking?.visit_note as string) ?? '',
+    bed_no:         (props.booking?.bed_no as string) ?? '',
+    eye_side:       (props.booking?.eye_side as string) ?? '',
+    analysis_type:  (props.booking?.analysis_type as string) ?? '',
+    analysis_notes: (props.booking?.analysis_notes as string) ?? '',
 });
 
 const isCreating = computed(() => props.submitMethod === 'post');
+
+const showBeds     = computed(() => form.dept === 'surgery' || form.dept === 'lasik');
+const showAnalysis = computed(() => form.dept === 'surgery' || form.dept === 'lasik');
+const showEyeSide  = computed(() => form.dept === 'surgery' || form.dept === 'lasik' || form.dept === 'laser');
+
+const deptExtraTitle = computed(() => {
+    if (form.dept === 'surgery') { return 'بيانات العملية الجراحية'; }
+    if (form.dept === 'lasik')   { return 'بيانات جلسة الليزك'; }
+    if (form.dept === 'laser')   { return 'بيانات جلسة الليزر'; }
+    return '';
+});
+
+const analysisOptions = [
+    'تحاليل ما قبل العملية (روتين)',
+    'تحاليل دم كاملة CBC',
+    'تحاليل كيمياء الدم',
+    'OCT شبكية',
+    'تصوير قرنية Topography',
+    'A-Scan قياسات',
+    'فحص مجال بصري',
+    'أنجيوغرافيا',
+    'أشعة صدر',
+    'رسم قلب ECG',
+];
 
 const filteredServices = computed(() =>
     props.services.filter((s) => s.dept === form.dept),
@@ -324,6 +352,57 @@ function submit() {
                         </button>
                     </div>
                     <p v-if="form.errors.dept" class="mt-2 text-xs text-hospital-danger">{{ form.errors.dept }}</p>
+                </div>
+
+                <!-- Dept-specific extra fields — shown for surgery / lasik / laser -->
+                <div v-if="showEyeSide" class="bk-section">
+                    <span class="bk-title bk-title-green">{{ deptExtraTitle }}</span>
+                    <div class="bk-grid-2">
+                        <!-- Eye side -->
+                        <div :class="showBeds ? '' : 'col-span-2'">
+                            <label class="bk-label">جهة العين</label>
+                            <div class="eye-side-row">
+                                <button
+                                    v-for="side in [{ v: 'OD', l: 'OD — يمين' }, { v: 'OS', l: 'OS — يسار' }, { v: 'OU', l: 'OU — كلاهما' }]"
+                                    :key="side.v"
+                                    type="button"
+                                    :class="['eye-btn', form.eye_side === side.v ? 'eye-btn-selected' : '']"
+                                    @click="form.eye_side = form.eye_side === side.v ? '' : side.v"
+                                >{{ side.l }}</button>
+                            </div>
+                        </div>
+                        <!-- Bed number — surgery / lasik only -->
+                        <div v-if="showBeds">
+                            <label class="bk-label">رقم السرير</label>
+                            <input
+                                v-model="form.bed_no"
+                                type="number"
+                                min="1"
+                                max="9999"
+                                placeholder="مثال: 5"
+                                class="bk-input"
+                            />
+                        </div>
+                        <!-- Analysis type + notes — surgery / lasik only -->
+                        <template v-if="showAnalysis">
+                            <div class="col-span-2">
+                                <label class="bk-label">نوع التحاليل / الفحص المطلوب</label>
+                                <select v-model="form.analysis_type" class="bk-input">
+                                    <option value="">— بدون —</option>
+                                    <option v-for="opt in analysisOptions" :key="opt" :value="opt">{{ opt }}</option>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="bk-label">ملاحظات التحاليل</label>
+                                <input
+                                    v-model="form.analysis_notes"
+                                    type="text"
+                                    placeholder="تفاصيل إضافية على التحاليل..."
+                                    class="bk-input"
+                                />
+                            </div>
+                        </template>
+                    </div>
                 </div>
 
                 <!-- Status selector section -->
@@ -559,6 +638,27 @@ function submit() {
 .pay-lbl { color: rgba(255,255,255,0.5); font-size: 11px; }
 .pay-val { font-weight: 600; color: #fff; font-size: 12px; }
 .pay-val-total { font-size: 16px; font-weight: 900; color: #7FFFD4; }
+
+/* ── Eye side selector ── */
+.eye-side-row {
+    display: flex;
+    gap: 6px;
+}
+.eye-btn {
+    flex: 1;
+    padding: 7px 4px;
+    border-radius: 7px;
+    border: 1.5px solid #DDE4EF;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    color: #4A5878;
+    transition: all 0.15s;
+}
+.eye-btn:hover { border-color: #1A8C5B; background: #E4F5EE; color: #1A8C5B; }
+.eye-btn-selected { border-color: #1A8C5B; background: #1A8C5B; color: #fff; }
 
 /* ── Invoice preview ── */
 .inv-preview {

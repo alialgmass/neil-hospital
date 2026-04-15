@@ -51,6 +51,10 @@ class BookingService
             'pay_status' => $data->payStatus,
             'status' => $data->status,
             'visit_note' => $data->visitNote,
+            'bed_no' => $data->bedNo,
+            'eye_side' => $data->eyeSide,
+            'analysis_type' => $data->analysisType,
+            'analysis_notes' => $data->analysisNotes,
             'created_by' => $createdBy,
         ]);
     }
@@ -77,6 +81,10 @@ class BookingService
             'pay_method' => $data->payMethod,
             'pay_status' => $data->payStatus,
             'visit_note' => $data->visitNote,
+            'bed_no' => $data->bedNo,
+            'eye_side' => $data->eyeSide,
+            'analysis_type' => $data->analysisType,
+            'analysis_notes' => $data->analysisNotes,
         ]);
     }
 }

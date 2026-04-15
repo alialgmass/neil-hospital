@@ -7,7 +7,7 @@ use Modules\Surgery\Models\Surgery;
 
 interface SurgeryRepositoryInterface
 {
-    public function paginate(string $dept, ?string $status = null, int $perPage = 20): LengthAwarePaginator;
+    public function paginateByDept(string $dept, ?string $status = null, int $perPage = 20): LengthAwarePaginator;
 
     public function findOrFail(string $id): Surgery;
 
