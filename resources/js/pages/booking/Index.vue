@@ -5,11 +5,13 @@ import {
     Edit3,
     Trash2,
     Printer,
+    X,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import DateFilter from '@/components/shared/DateFilter.vue';
+import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 import StatCard from '@/components/shared/StatCard.vue';
@@ -106,6 +108,10 @@ const statCards = computed(() => [
         color: 'danger' as const,
     },
 ]);
+
+const currentDeptLabel = computed(() =>
+    selectedDept.value ? (deptLabels[selectedDept.value] ?? selectedDept.value) : 'كل الحجوزات',
+);
 
 function applyFilter(from: string, to: string) {
     router.get(
@@ -214,32 +220,34 @@ const isCloseModalOpen = computed({
         </button>
     </div>
 
-    <!-- Toolbar -->
-    <div class="mb-4 flex flex-wrap items-end gap-3">
-        <SearchBar
-            v-model="search"
-            placeholder="بحث باسم المريض أو رقم الملف..."
-            class="min-w-[220px] flex-1"
-            @keyup.enter="applySearch"
-        />
+    <!-- Toolbar: filters on left, action on right -->
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+            <select
+                v-model="selectedStatus"
+                class="rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
+                @change="applySearch"
+            >
+                <option value="">كل الحالات</option>
+                <option value="waiting">انتظار</option>
+                <option value="confirmed">مؤكد</option>
+                <option value="in_progress">جارٍ</option>
+                <option value="completed">مكتمل</option>
+                <option value="cancelled">ملغي</option>
+            </select>
 
-        <select
-            v-model="selectedStatus"
-            class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-            @change="applySearch"
-        >
-            <option value="">كل الحالات</option>
-            <option value="waiting">انتظار</option>
-            <option value="confirmed">مؤكد</option>
-            <option value="in_progress">جارٍ</option>
-            <option value="completed">مكتمل</option>
-            <option value="cancelled">ملغي</option>
-        </select>
+            <DateFilter
+                @apply="applyFilter"
+                @clear="() => router.get('/booking')"
+            />
 
-        <DateFilter
-            @apply="applyFilter"
-            @clear="() => router.get('/booking')"
-        />
+            <SearchBar
+                v-model="search"
+                placeholder="بحث باسم المريض أو رقم الملف..."
+                class="min-w-[200px]"
+                @keyup.enter="applySearch"
+            />
+        </div>
 
         <button
             type="button"
@@ -251,62 +259,90 @@ const isCloseModalOpen = computed({
         </button>
     </div>
 
-    <!-- Table -->
-    <DataTable
-        :columns="columns"
-        :rows="bookings.data"
-        :current-page="bookings.current_page"
-        :last-page="bookings.last_page"
-        :total="bookings.total"
-        @page="goToPage"
-    >
-        <template #cell-dept="{ value }">
-            {{ deptLabels[value as string] ?? value }}
-        </template>
-        <template #cell-doctor="{ row }">
-            {{ (row as Booking).doctor?.name ?? '—' }}
-        </template>
-        <template #cell-price="{ value }">
-            {{ Number(value).toLocaleString('ar-EG') }} ج.م
-        </template>
-        <template #cell-pay_status="{ value }">
-            <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
-        </template>
-        <template #cell-status="{ value }">
-            <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
-        </template>
-        <template #actions="{ row }">
-            <div class="flex items-center justify-end gap-2">
-                <button
-                    type="button"
-                    title="طباعة إيصال"
-                    class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                    @click="printReceipt((row as Booking).id)"
-                >
-                    <Printer class="h-4 w-4" />
-                </button>
-                <button
-                    type="button"
-                    title="تعديل"
-                    class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning"
-                    @click="editBooking = row as Booking"
-                >
-                    <Edit3 class="h-4 w-4" />
-                </button>
-                <button
-                    type="button"
-                    title="إلغاء"
-                    class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                    @click="confirmCancel(row as Booking)"
-                >
-                    <Trash2 class="h-4 w-4" />
+    <!-- Table card -->
+    <div class="booking-table-card overflow-hidden rounded-xl border border-hospital-border shadow-sm">
+        <!-- Card header -->
+        <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
+            <div>
+                <p class="text-sm font-bold text-hospital-text">{{ currentDeptLabel }}</p>
+                <p class="text-xs text-hospital-text-3">{{ bookings.total }} سجل</p>
+            </div>
+            <ExportBar @print="() => window.print()" />
+        </div>
+
+        <!-- Table -->
+        <DataTable
+            :columns="columns"
+            :rows="bookings.data"
+            :current-page="bookings.current_page"
+            :last-page="bookings.last_page"
+            :total="bookings.total"
+            @page="goToPage"
+        >
+            <template #cell-dept="{ value }">
+                {{ deptLabels[value as string] ?? value }}
+            </template>
+            <template #cell-doctor="{ row }">
+                {{ (row as Booking).doctor?.name ?? '—' }}
+            </template>
+            <template #cell-price="{ value }">
+                {{ Number(value).toLocaleString('ar-EG') }} ج.م
+            </template>
+            <template #cell-pay_status="{ value }">
+                <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
+            </template>
+            <template #cell-status="{ value }">
+                <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
+            </template>
+            <template #actions="{ row }">
+                <div class="flex items-center justify-end gap-2">
+                    <button
+                        type="button"
+                        title="طباعة إيصال"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
+                        @click="printReceipt((row as Booking).id)"
+                    >
+                        <Printer class="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        title="تعديل"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning"
+                        @click="editBooking = row as Booking"
+                    >
+                        <Edit3 class="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        title="إلغاء"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                        @click="confirmCancel(row as Booking)"
+                    >
+                        <Trash2 class="h-4 w-4" />
+                    </button>
+                </div>
+            </template>
+        </DataTable>
+    </div>
+
+    <!-- Create Modal -->
+    <Modal v-model="showCreateModal" size="xl">
+        <template #header="{ close }">
+            <div class="flex items-center justify-between rounded-t-2xl px-6 py-4" style="background: linear-gradient(135deg, #072E63, #0A4FA6)">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                        <CalendarPlus class="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                        <p class="text-base font-bold text-white">شاشة الحجز الداخلي</p>
+                        <p class="text-xs text-white/60">رقم الحجز: سيتم توليده تلقائياً</p>
+                    </div>
+                </div>
+                <button type="button" class="rounded-lg p-1.5 text-white/70 transition-colors hover:bg-white/20 hover:text-white" @click="close">
+                    <X class="h-5 w-5" />
                 </button>
             </div>
         </template>
-    </DataTable>
-
-    <!-- Create Modal -->
-    <Modal v-model="showCreateModal" title="حجز جديد" size="xl">
         <BookingForm
             :services="(services as any) ?? []"
             :doctors="(doctors as any) ?? []"
@@ -322,9 +358,24 @@ const isCloseModalOpen = computed({
     <Modal
         v-model="isEditModalOpen"
         size="xl"
-        title="تعديل الحجز"
         @close="editBooking = null"
     >
+        <template #header="{ close }">
+            <div class="flex items-center justify-between rounded-t-2xl px-6 py-4" style="background: linear-gradient(135deg, #072E63, #0A4FA6)">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                        <Edit3 class="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                        <p class="text-base font-bold text-white">تعديل الحجز</p>
+                        <p class="text-xs text-white/60">{{ editBooking?.file_no ?? '' }}</p>
+                    </div>
+                </div>
+                <button type="button" class="rounded-lg p-1.5 text-white/70 transition-colors hover:bg-white/20 hover:text-white" @click="close">
+                    <X class="h-5 w-5" />
+                </button>
+            </div>
+        </template>
         <BookingForm
             v-if="editBooking"
             :services="(services as any) ?? []"
@@ -380,3 +431,12 @@ const isCloseModalOpen = computed({
         </template>
     </Modal>
 </template>
+
+<style scoped>
+/* Remove DataTable's own outer border/rounding/shadow when nested inside the card */
+.booking-table-card :deep(> div) {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+</style>

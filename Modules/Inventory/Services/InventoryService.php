@@ -2,8 +2,8 @@
 
 namespace Modules\Inventory\Services;
 
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection as SupportCollection;
 use Modules\Inventory\Models\InventoryItem;
 
 class InventoryService
@@ -45,7 +45,7 @@ class InventoryService
         return $item->refresh();
     }
 
-    public function categories(): Collection
+    public function categories(): SupportCollection
     {
         return InventoryItem::distinct('category')
             ->orderBy('category')

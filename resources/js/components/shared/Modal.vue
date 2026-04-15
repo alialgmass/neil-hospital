@@ -60,26 +60,28 @@ const sizeClasses: Record<string, string> = {
                 <!-- Panel -->
                 <div
                     :class="[
-                        'relative z-10 flex w-full flex-col rounded-2xl bg-hospital-surface shadow-2xl',
+                        'relative z-10 flex w-full flex-col rounded-2xl bg-hospital-surface shadow-2xl max-h-[90vh]',
                         sizeClasses[size],
                     ]"
                     role="dialog"
                     aria-modal="true"
                 >
-                    <!-- Header -->
-                    <div class="flex items-center justify-between border-b border-hospital-border px-6 py-4">
-                        <h2 class="text-base font-bold text-hospital-text">
-                            <slot name="title">{{ title }}</slot>
-                        </h2>
-                        <button
-                            v-if="closeable"
-                            type="button"
-                            class="rounded-lg p-1.5 text-hospital-text-3 hover:bg-hospital-bg hover:text-hospital-text transition-colors"
-                            @click="close"
-                        >
-                            <X class="h-5 w-5" />
-                        </button>
-                    </div>
+                    <!-- Header (replaceable via #header slot) -->
+                    <slot name="header" :close="close">
+                        <div class="flex items-center justify-between border-b border-hospital-border px-6 py-4">
+                            <h2 class="text-base font-bold text-hospital-text">
+                                <slot name="title">{{ title }}</slot>
+                            </h2>
+                            <button
+                                v-if="closeable"
+                                type="button"
+                                class="rounded-lg p-1.5 text-hospital-text-3 hover:bg-hospital-bg hover:text-hospital-text transition-colors"
+                                @click="close"
+                            >
+                                <X class="h-5 w-5" />
+                            </button>
+                        </div>
+                    </slot>
 
                     <!-- Body -->
                     <div class="flex-1 overflow-y-auto px-6 py-5">

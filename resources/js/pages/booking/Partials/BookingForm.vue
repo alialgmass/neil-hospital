@@ -25,7 +25,6 @@ interface Props {
     services: Service[];
     doctors: Doctor[];
     insuranceCompanies: InsuranceCompany[];
-    /** Pass existing booking to pre-fill form for editing */
     booking?: Record<string, unknown>;
     submitUrl: string;
     submitMethod?: 'post' | 'put';
@@ -42,11 +41,19 @@ const emit = defineEmits<{
 }>();
 
 const deptOptions = [
-    { value: 'clinic',  label: 'العيادة' },
-    { value: 'labs',    label: 'الفحوصات' },
-    { value: 'surgery', label: 'العمليات' },
-    { value: 'lasik',   label: 'الليزك' },
-    { value: 'laser',   label: 'الليزر' },
+    { value: 'clinic',  label: 'العيادة',   icon: '🏥', cap: 'فحص عام' },
+    { value: 'labs',    label: 'الفحوصات',  icon: '🔬', cap: 'تحاليل وأشعة' },
+    { value: 'laser',   label: 'الليزر',    icon: '💡', cap: 'ليزر علاجي' },
+    { value: 'lasik',   label: 'الليزك',    icon: '👁️', cap: 'تصحيح النظر' },
+    { value: 'surgery', label: 'العمليات',  icon: '⚕️', cap: 'جراحة عيون' },
+];
+
+const statusOptions = [
+    { value: 'confirmed',   label: 'مؤكد',   icon: '✅' },
+    { value: 'waiting',     label: 'انتظار', icon: '⏳' },
+    { value: 'in_progress', label: 'جارٍ',   icon: '🔄' },
+    { value: 'completed',   label: 'مكتمل',  icon: '🏁' },
+    { value: 'cancelled',   label: 'ملغي',   icon: '❌' },
 ];
 
 const payMethodOptions = [
@@ -81,6 +88,7 @@ const form = useForm({
     paid_amount:    (props.booking?.paid_amount as string) ?? '0',
     pay_method:     (props.booking?.pay_method as string) ?? 'cash',
     pay_status:     (props.booking?.pay_status as string) ?? 'unpaid',
+    status:         (props.booking?.status as string) ?? 'confirmed',
     visit_note:     (props.booking?.visit_note as string) ?? '',
 });
 
@@ -90,7 +98,27 @@ const filteredServices = computed(() =>
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
 
-// Auto-fill price when service is selected
+const netAmount = computed(() => {
+    const price = Number(form.price) || 0;
+    const discount = Number(form.discount) || 0;
+    const ins = Number(form.ins_amount) || 0;
+    return Math.max(0, price - discount - ins);
+});
+
+const selectedServiceName = computed(() =>
+    props.services.find((s) => s.id === form.service_id)?.name ?? form.service_name,
+);
+
+const selectedDoctorName = computed(() =>
+    props.doctors.find((d) => d.id === form.doctor_id)?.name ?? '—',
+);
+
+const selectedDeptLabel = computed(() =>
+    deptOptions.find((d) => d.value === form.dept)?.label ?? '—',
+);
+
+const showInvoicePreview = computed(() => form.pay_status === 'paid' || form.pay_status === 'partial');
+
 watch(() => form.service_id, (id) => {
     const service = props.services.find((s) => s.id === id);
 
@@ -109,163 +137,436 @@ function submit() {
 </script>
 
 <template>
-    <form class="flex flex-col gap-5" @submit.prevent="submit">
-        <!-- Patient Info -->
-        <fieldset class="rounded-xl border border-hospital-border p-4">
-            <legend class="px-2 text-xs font-semibold text-hospital-primary">بيانات المريض</legend>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <!-- Name -->
-                <div class="col-span-full sm:col-span-1 lg:col-span-2">
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">اسم المريض *</label>
-                    <input
-                        v-model="form.patient_name"
-                        type="text"
-                        class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-                        :class="{ 'border-hospital-danger': form.errors.patient_name }"
-                        placeholder="الاسم الكامل"
+    <form @submit.prevent="submit">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+            <!-- ═══ RIGHT COLUMN: patient + service ═══ -->
+            <div>
+                <!-- Patient data section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-blue">بيانات المريض</span>
+                    <div class="bk-grid-2">
+                        <!-- Name (full width) -->
+                        <div class="col-span-2">
+                            <label class="bk-label">اسم المريض *</label>
+                            <input
+                                v-model="form.patient_name"
+                                type="text"
+                                placeholder="الاسم الكامل للمريض"
+                                class="bk-input"
+                                :class="{ 'border-hospital-danger': form.errors.patient_name }"
+                            />
+                            <p v-if="form.errors.patient_name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.patient_name }}</p>
+                        </div>
+                        <!-- National ID -->
+                        <div>
+                            <label class="bk-label">الرقم القومي</label>
+                            <input v-model="form.national_id" type="text" placeholder="14 رقم" class="bk-input" />
+                        </div>
+                        <!-- Phone -->
+                        <div>
+                            <label class="bk-label">رقم الهاتف</label>
+                            <input v-model="form.patient_phone" type="tel" placeholder="01xxxxxxxxx" class="bk-input" />
+                        </div>
+                        <!-- Age -->
+                        <div>
+                            <label class="bk-label">السن</label>
+                            <input v-model="form.patient_age" type="number" min="0" max="150" placeholder="سنة" class="bk-input" />
+                        </div>
+                        <!-- Gender -->
+                        <div>
+                            <label class="bk-label">الجنس</label>
+                            <select v-model="form.gender" class="bk-input">
+                                <option value="">— اختر —</option>
+                                <option value="male">ذكر</option>
+                                <option value="female">أنثى</option>
+                            </select>
+                        </div>
+                        <!-- Date -->
+                        <div>
+                            <label class="bk-label">التاريخ *</label>
+                            <input
+                                v-model="form.visit_date"
+                                type="date"
+                                class="bk-input"
+                                :class="{ 'border-hospital-danger': form.errors.visit_date }"
+                            />
+                        </div>
+                        <!-- Time -->
+                        <div>
+                            <label class="bk-label">الوقت</label>
+                            <input v-model="form.visit_time" type="time" class="bk-input" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-teal">الخدمة والدفع</span>
+                    <div class="bk-grid-2">
+                        <!-- Service -->
+                        <div>
+                            <label class="bk-label">الخدمة</label>
+                            <select v-model="form.service_id" class="bk-input">
+                                <option value="">— اختر الخدمة —</option>
+                                <option v-for="svc in filteredServices" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
+                            </select>
+                        </div>
+                        <!-- Doctor -->
+                        <div>
+                            <label class="bk-label">الطبيب</label>
+                            <select v-model="form.doctor_id" class="bk-input">
+                                <option value="">— اختر الطبيب —</option>
+                                <option v-for="dr in doctors" :key="dr.id" :value="dr.id">{{ dr.name }}</option>
+                            </select>
+                        </div>
+                        <!-- Insurance company (conditional) -->
+                        <div v-if="isInsurance" class="col-span-2">
+                            <label class="bk-label">شركة التأمين</label>
+                            <select v-model="form.ins_company_id" class="bk-input">
+                                <option value="">— بدون تأمين —</option>
+                                <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">{{ ins.name }}</option>
+                            </select>
+                        </div>
+                        <!-- Price -->
+                        <div>
+                            <label class="bk-label">السعر الأصلي (ج)</label>
+                            <input v-model="form.price" type="number" step="0.01" min="0" class="bk-input" />
+                        </div>
+                        <!-- Discount -->
+                        <div>
+                            <label class="bk-label">الخصم (ج)</label>
+                            <input v-model="form.discount" type="number" step="0.01" min="0" class="bk-input" />
+                        </div>
+                        <!-- Insurance amount (conditional) -->
+                        <div v-if="isInsurance">
+                            <label class="bk-label">مبلغ التأمين (ج)</label>
+                            <input v-model="form.ins_amount" type="number" step="0.01" min="0" class="bk-input bk-input-readonly" readonly />
+                        </div>
+                        <!-- Final price -->
+                        <div>
+                            <label class="bk-label">الإجمالي المستحق (ج)</label>
+                            <input
+                                :value="netAmount"
+                                type="number"
+                                class="bk-input bk-input-readonly"
+                                style="font-weight: 700; color: #0A4FA6; font-size: 14px"
+                                readonly
+                            />
+                        </div>
+                        <!-- Pay method -->
+                        <div>
+                            <label class="bk-label">طريقة الدفع</label>
+                            <select v-model="form.pay_method" class="bk-input">
+                                <option v-for="opt in payMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                            </select>
+                        </div>
+                        <!-- Paid amount -->
+                        <div>
+                            <label class="bk-label">المبلغ المدفوع (ج)</label>
+                            <input v-model="form.paid_amount" type="number" step="0.01" min="0" class="bk-input" />
+                        </div>
+                        <!-- Pay status -->
+                        <div class="col-span-2">
+                            <label class="bk-label">حالة السداد</label>
+                            <select v-model="form.pay_status" class="bk-input">
+                                <option v-for="opt in payStatusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Invoice preview -->
+                    <div v-if="showInvoicePreview" class="inv-preview mt-3">
+                        <p class="inv-preview-title">🧾 فاتورة تلقائية — ستُنشأ عند الحفظ</p>
+                        <div class="inv-line"><span>الخدمة</span><span>{{ selectedServiceName || '—' }}</span></div>
+                        <div class="inv-line"><span>السعر الأصلي</span><span>{{ Number(form.price).toLocaleString('ar-EG') }} ج</span></div>
+                        <div class="inv-line"><span>الخصم</span><span>{{ Number(form.discount).toLocaleString('ar-EG') }} ج</span></div>
+                        <div v-if="isInsurance" class="inv-line"><span>مبلغ التأمين</span><span>{{ Number(form.ins_amount).toLocaleString('ar-EG') }} ج</span></div>
+                        <div class="inv-line font-bold"><span>💰 الإجمالي المستحق</span><span>{{ netAmount.toLocaleString('ar-EG') }} ج</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ LEFT COLUMN: dept routing + status + summary + notes ═══ -->
+            <div>
+                <!-- Dept routing section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-purple">التوجيه إلى قسم</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button
+                            v-for="dept in deptOptions"
+                            :key="dept.value"
+                            type="button"
+                            :class="[
+                                'dept-btn',
+                                form.dept === dept.value ? 'dept-btn-selected' : '',
+                            ]"
+                            @click="form.dept = dept.value"
+                        >
+                            <div :class="['dept-btn-icon', form.dept === dept.value ? 'dept-btn-icon-selected' : '']">
+                                {{ dept.icon }}
+                            </div>
+                            <p :class="['dept-btn-name', form.dept === dept.value ? 'text-hospital-primary' : '']">{{ dept.label }}</p>
+                            <p class="dept-btn-cap">{{ dept.cap }}</p>
+                        </button>
+                    </div>
+                    <p v-if="form.errors.dept" class="mt-2 text-xs text-hospital-danger">{{ form.errors.dept }}</p>
+                </div>
+
+                <!-- Status selector section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-orange">حالة الحجز</span>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button
+                            v-for="s in statusOptions"
+                            :key="s.value"
+                            type="button"
+                            :class="[
+                                'status-opt',
+                                form.status === s.value ? 'status-opt-selected' : '',
+                            ]"
+                            @click="form.status = s.value"
+                        >
+                            <span>{{ s.icon }}</span> {{ s.label }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-blue">ملخص الحجز</span>
+                    <div class="pay-summary">
+                        <div class="pay-row">
+                            <span class="pay-lbl">اسم المريض</span>
+                            <span class="pay-val">{{ form.patient_name || '—' }}</span>
+                        </div>
+                        <div class="pay-row">
+                            <span class="pay-lbl">القسم</span>
+                            <span class="pay-val">{{ selectedDeptLabel }}</span>
+                        </div>
+                        <div class="pay-row">
+                            <span class="pay-lbl">الخدمة</span>
+                            <span class="pay-val">{{ selectedServiceName || '—' }}</span>
+                        </div>
+                        <div class="pay-row">
+                            <span class="pay-lbl">الطبيب</span>
+                            <span class="pay-val">{{ selectedDoctorName }}</span>
+                        </div>
+                        <div class="pay-row">
+                            <span class="pay-lbl">التاريخ</span>
+                            <span class="pay-val">{{ form.visit_date }} {{ form.visit_time }}</span>
+                        </div>
+                        <div class="pay-row">
+                            <span class="pay-lbl">إجمالي المستحق</span>
+                            <span class="pay-val pay-val-total">{{ netAmount.toLocaleString('ar-EG') }} ج</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes section -->
+                <div class="bk-section">
+                    <span class="bk-title bk-title-blue">ملاحظات</span>
+                    <textarea
+                        v-model="form.visit_note"
+                        rows="3"
+                        placeholder="أي ملاحظات إضافية على الحجز..."
+                        class="bk-input resize-none"
                     />
-                    <p v-if="form.errors.patient_name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.patient_name }}</p>
-                </div>
-                <!-- Phone -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">رقم الهاتف</label>
-                    <input v-model="form.patient_phone" type="tel" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" placeholder="01xxxxxxxxx" />
-                </div>
-                <!-- Age -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">العمر</label>
-                    <input v-model="form.patient_age" type="number" min="0" max="150" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <!-- National ID -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">رقم الهوية</label>
-                    <input v-model="form.national_id" type="text" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <!-- Gender -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">الجنس</label>
-                    <select v-model="form.gender" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option value="">— اختر —</option>
-                        <option value="male">ذكر</option>
-                        <option value="female">أنثى</option>
-                    </select>
                 </div>
             </div>
-        </fieldset>
+        </div>
 
-        <!-- Visit Info -->
-        <fieldset class="rounded-xl border border-hospital-border p-4">
-            <legend class="px-2 text-xs font-semibold text-hospital-primary">تفاصيل الزيارة</legend>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <!-- Dept -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">القسم *</label>
-                    <select
-                        v-model="form.dept"
-                        class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-                        :class="{ 'border-hospital-danger': form.errors.dept }"
-                    >
-                        <option v-for="opt in deptOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
-                </div>
-                <!-- Service -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">الخدمة</label>
-                    <select v-model="form.service_id" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option value="">— اختر الخدمة —</option>
-                        <option v-for="svc in filteredServices" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
-                    </select>
-                </div>
-                <!-- Doctor -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">الطبيب</label>
-                    <select v-model="form.doctor_id" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option value="">— اختر الطبيب —</option>
-                        <option v-for="dr in doctors" :key="dr.id" :value="dr.id">{{ dr.name }}</option>
-                    </select>
-                </div>
-                <!-- Date -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">التاريخ *</label>
-                    <input
-                        v-model="form.visit_date"
-                        type="date"
-                        class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-                        :class="{ 'border-hospital-danger': form.errors.visit_date }"
-                    />
-                </div>
-                <!-- Time -->
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">الوقت</label>
-                    <input v-model="form.visit_time" type="time" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
+        <!-- Footer actions -->
+        <div class="mt-2 flex items-center justify-between border-t border-hospital-border pt-4">
+            <div class="flex items-center gap-2">
+                <div class="h-2 w-2 rounded-full bg-hospital-success" />
+                <span class="text-xs text-hospital-text-3">عند السداد سيتم إنشاء الفاتورة أوتوماتيكياً</span>
             </div>
-            <!-- Notes -->
-            <div class="mt-4">
-                <label class="mb-1 block text-xs font-medium text-hospital-text-2">ملاحظات</label>
-                <textarea v-model="form.visit_note" rows="2" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none resize-none" />
+            <div class="flex items-center gap-2">
+                <button
+                    type="button"
+                    class="rounded-lg border border-hospital-border px-4 py-2 text-sm font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg"
+                    @click="emit('cancel')"
+                >
+                    إلغاء
+                </button>
+                <button
+                    type="submit"
+                    :disabled="form.processing"
+                    class="rounded-lg bg-hospital-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60"
+                >
+                    {{ form.processing ? 'جارٍ الحفظ…' : '💾 حفظ الحجز' }}
+                </button>
             </div>
-        </fieldset>
-
-        <!-- Payment Info -->
-        <fieldset class="rounded-xl border border-hospital-border p-4">
-            <legend class="px-2 text-xs font-semibold text-hospital-primary">بيانات الدفع</legend>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">طريقة الدفع</label>
-                    <select v-model="form.pay_method" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option v-for="opt in payMethodOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
-                </div>
-                <!-- Insurance company — shown only when pay_method=insurance -->
-                <div v-if="isInsurance">
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">شركة التأمين</label>
-                    <select v-model="form.ins_company_id" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option value="">— اختر —</option>
-                        <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">{{ ins.name }}</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">السعر (ج.م)</label>
-                    <input v-model="form.price" type="number" step="0.01" min="0" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">خصم</label>
-                    <input v-model="form.discount" type="number" step="0.01" min="0" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <div v-if="isInsurance">
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">مبلغ التأمين</label>
-                    <input v-model="form.ins_amount" type="number" step="0.01" min="0" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">المبلغ المدفوع</label>
-                    <input v-model="form.paid_amount" type="number" step="0.01" min="0" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                </div>
-                <div>
-                    <label class="mb-1 block text-xs font-medium text-hospital-text-2">حالة السداد</label>
-                    <select v-model="form.pay_status" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
-                        <option v-for="opt in payStatusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
-                </div>
-            </div>
-        </fieldset>
-
-        <!-- Actions -->
-        <div class="flex items-center justify-end gap-3">
-            <button
-                type="button"
-                class="rounded-lg border border-hospital-border px-5 py-2 text-sm font-medium text-hospital-text-2 hover:bg-hospital-bg transition-colors"
-                @click="emit('cancel')"
-            >
-                إلغاء
-            </button>
-            <button
-                type="submit"
-                :disabled="form.processing"
-                class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white hover:bg-hospital-primary-light disabled:opacity-60 transition-colors"
-            >
-                {{ form.processing ? 'جارٍ الحفظ…' : 'حفظ الحجز' }}
-            </button>
         </div>
     </form>
 </template>
+
+<style scoped>
+/* ── Section wrapper ── */
+.bk-section {
+    background: var(--color-hospital-bg, #F3F6FA);
+    border: 1.5px solid var(--color-hospital-border, #DDE4EF);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+
+/* ── Section title badge ── */
+.bk-title {
+    display: inline-block;
+    border-radius: 6px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 12px;
+    letter-spacing: 0.3px;
+}
+.bk-title-blue   { background: #0A4FA6; }
+.bk-title-teal   { background: #00B5A4; }
+.bk-title-purple { background: #7B2FA6; }
+.bk-title-orange { background: #E07C10; }
+.bk-title-green  { background: #1A8C5B; }
+
+/* ── Form grid ── */
+.bk-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* ── Field label ── */
+.bk-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #4A5878;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 3px;
+}
+
+/* ── Input / select / textarea ── */
+.bk-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1.5px solid #DDE4EF;
+    border-radius: 7px;
+    font-size: 12px;
+    font-family: inherit;
+    color: #0D1F3C;
+    background: #fff;
+    direction: rtl;
+    transition: border-color 0.15s;
+}
+.bk-input:focus {
+    outline: none;
+    border-color: #0A4FA6;
+    box-shadow: 0 0 0 3px rgba(10, 79, 166, 0.1);
+}
+.bk-input-readonly {
+    background: #F3F6FA;
+    color: #4A5878;
+}
+
+/* ── Dept routing buttons ── */
+.dept-btn {
+    border: 2px solid #DDE4EF;
+    border-radius: 10px;
+    padding: 10px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.18s;
+    background: #fff;
+}
+.dept-btn:hover { border-color: #0A4FA6; background: #E8F1FB; }
+.dept-btn-selected { border-color: #0A4FA6; background: #E8F1FB; }
+
+.dept-btn-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    background: #F3F6FA;
+    font-size: 16px;
+    transition: all 0.18s;
+}
+.dept-btn-icon-selected { background: #0A4FA6; }
+
+.dept-btn-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0D1F3C;
+}
+.dept-btn-cap {
+    font-size: 9px;
+    color: #8A96AE;
+    margin-top: 2px;
+}
+
+/* ── Status buttons ── */
+.status-opt {
+    padding: 7px 6px;
+    border-radius: 8px;
+    border: 1.5px solid #DDE4EF;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    color: #4A5878;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.status-opt:hover { border-color: #0A4FA6; background: #E8F1FB; color: #0A4FA6; }
+.status-opt-selected { border-color: #0A4FA6; background: #0A4FA6; color: #fff; }
+
+/* ── Summary panel ── */
+.pay-summary {
+    background: #0D1F3C;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 12px;
+}
+.pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pay-row:last-child { border-bottom: none; }
+.pay-lbl { color: rgba(255,255,255,0.5); font-size: 11px; }
+.pay-val { font-weight: 600; color: #fff; font-size: 12px; }
+.pay-val-total { font-size: 16px; font-weight: 900; color: #7FFFD4; }
+
+/* ── Invoice preview ── */
+.inv-preview {
+    background: #fffef5;
+    border: 1.5px dashed #E07C10;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11px;
+}
+.inv-preview-title {
+    font-weight: 700;
+    color: #E07C10;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+.inv-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #F3F6FA;
+    color: #0D1F3C;
+}
+.inv-line:last-child { border-bottom: none; }
+</style>

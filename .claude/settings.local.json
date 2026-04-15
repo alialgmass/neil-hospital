@@ -40,11 +40,17 @@
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(\"./node_modules/.bin/tsc\" --noEmit)",
       "Bash(node_modules/typescript/bin/tsc --noEmit)",
-      "Bash(echo \"exit:$?\")"
+      "Bash(echo \"exit:$?\")",
+      "Bash(\"/c/Users/Royal/AppData/Local/Herd/bin/php\" vendor/bin/pint --dirty --format agent)",
+      "Bash(where php *)",
+      "Bash(find /c /d -name \"php.exe\" -maxdepth 6)",
+      "Bash(\"C:\\\\Users\\\\Royal\\\\.config\\\\herd\\\\bin\\\\php.bat\" vendor/bin/pint --dirty --format agent)",
+      "Bash(\"C:\\\\Users\\\\Royal\\\\.config\\\\herd\\\\bin\\\\php.bat\" artisan *)",
+      "Bash(grep *)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "laravel-boost"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

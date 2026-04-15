@@ -41,7 +41,7 @@ class ReportingService
                 'bookings.file_no',
                 'bookings.patient_name',
                 'bookings.dept',
-                'bookings.service',
+                'bookings.service_name',
                 'doctors.name as doctor_name',
                 'bookings.price',
                 'bookings.pay_status',
@@ -104,21 +104,21 @@ class ReportingService
     // 4. Doctor Payments Report
     public function doctorPayments(string $from, string $to, ?string $doctorId = null): array
     {
-        $rows = DB::table('doctor_payments')
-            ->join('doctors', 'doctor_payments.doctor_id', '=', 'doctors.id')
-            ->leftJoin('users', 'doctor_payments.paid_by', '=', 'users.id')
+        $rows = DB::table('dr_payments')
+            ->join('doctors', 'dr_payments.doctor_id', '=', 'doctors.id')
+            ->leftJoin('users', 'dr_payments.created_by', '=', 'users.id')
             ->select(
                 'doctors.name as doctor_name',
-                'doctor_payments.amount',
-                'doctor_payments.period_from',
-                'doctor_payments.period_to',
-                'doctor_payments.paid_at',
+                'dr_payments.amount',
+                'dr_payments.period_from',
+                'dr_payments.period_to',
+                'dr_payments.paid_at',
                 'users.name as paid_by_name',
-                'doctor_payments.notes',
+                'dr_payments.notes',
             )
-            ->when($doctorId, fn ($q, $v) => $q->where('doctor_payments.doctor_id', $v))
-            ->whereBetween('doctor_payments.paid_at', [$from, $to])
-            ->orderByDesc('doctor_payments.paid_at')
+            ->when($doctorId, fn ($q, $v) => $q->where('dr_payments.doctor_id', $v))
+            ->whereBetween('dr_payments.paid_at', [$from, $to])
+            ->orderByDesc('dr_payments.paid_at')
             ->get()
             ->toArray();
 
@@ -205,7 +205,7 @@ class ReportingService
     public function profitLoss(string $from, string $to): array
     {
         $revenues = DB::table('journal_entries')
-            ->join('accounts', 'journal_entries.credit_account', '=', 'accounts.id')
+            ->join('accounts', 'journal_entries.credit_account_id', '=', 'accounts.id')
             ->where('accounts.group', 'revenues')
             ->whereBetween('journal_entries.date', [$from, $to])
             ->select('accounts.name', DB::raw('SUM(journal_entries.amount) as amount'))
@@ -214,7 +214,7 @@ class ReportingService
             ->toArray();
 
         $expenses = DB::table('journal_entries')
-            ->join('accounts', 'journal_entries.debit_account', '=', 'accounts.id')
+            ->join('accounts', 'journal_entries.debit_account_id', '=', 'accounts.id')
             ->where('accounts.group', 'expenses')
             ->whereBetween('journal_entries.date', [$from, $to])
             ->select('accounts.name', DB::raw('SUM(journal_entries.amount) as amount'))
@@ -233,7 +233,7 @@ class ReportingService
     public function expenseAnalysis(string $from, string $to): array
     {
         $rows = DB::table('journal_entries')
-            ->join('accounts', 'journal_entries.debit_account', '=', 'accounts.id')
+            ->join('accounts', 'journal_entries.debit_account_id', '=', 'accounts.id')
             ->where('accounts.group', 'expenses')
             ->whereBetween('journal_entries.date', [$from, $to])
             ->select(

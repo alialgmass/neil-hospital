@@ -50,7 +50,7 @@ class LedgerController extends Controller
                 ? $this->ledgerService->accountStatement($accountId, $from, $to)
                 : null,
             'accounts' => $this->journalService->accounts(),
-            'filters' => compact('account_id', 'from', 'to'),
+            'filters' => ['account_id' => $accountId, 'from' => $from, 'to' => $to],
         ]);
     }
 }
