@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
+use Modules\Inventory\Models\InventoryItem;
 use Modules\Surgery\Actions\RecordSuppliesUsedAction;
 use Modules\Surgery\Actions\RecordSurgeryReportAction;
 use Modules\Surgery\Actions\ScheduleSurgeryAction;
@@ -53,9 +54,15 @@ class SurgeryController extends Controller
                 }]);
         }])->orderBy('name')->get();
 
+        $inventoryItems = InventoryItem::select('id', 'name', 'code', 'sell_price', 'quantity')
+            ->where('quantity', '>', 0)
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render($page, [
             'surgeries' => $surgeries,
             'orRooms' => $orRooms,
+            'inventoryItems' => $inventoryItems,
             'doctors' => Doctor::select('id', 'name')->orderBy('name')->get(),
             'bookings' => $bookings,
             'dept' => $dept,

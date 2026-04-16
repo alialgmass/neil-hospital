@@ -43,6 +43,13 @@ interface Paginator {
 const props = defineProps<{
     surgeries: Paginator;
     orRooms: OrRoom[];
+    inventoryItems: {
+        id: string;
+        name: string;
+        code: string;
+        sell_price: number;
+        quantity: number;
+    }[];
     doctors: { id: string; name: string }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
@@ -219,14 +226,26 @@ function submitReport() {
 const showSupplies = ref(false);
 const suppliesTarget = ref<string>('');
 interface SupplyItem {
+    inventory_item_id: string;
     name: string;
     qty: number;
     unit_cost: number;
 }
-const supplyItems = ref<SupplyItem[]>([{ name: '', qty: 1, unit_cost: 0 }]);
+const supplyItems = ref<SupplyItem[]>([
+    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
+]);
 const suppliesTotal = computed(() =>
     supplyItems.value.reduce((s, i) => s + i.qty * i.unit_cost, 0),
 );
+
+function selectInventoryItem(item: SupplyItem, inventoryId: string) {
+    const inv = props.inventoryItems.find((i) => i.id === inventoryId);
+    if (inv) {
+        item.inventory_item_id = inventoryId;
+        item.name = inv.name;
+        item.unit_cost = inv.sell_price;
+    }
+}
 
 function addSupplyRow() {
     supplyItems.value.push({ name: '', qty: 1, unit_cost: 0 });
@@ -752,18 +771,32 @@ function submitSupplies() {
                 :key="idx"
                 class="grid grid-cols-12 items-center gap-2"
             >
-                <input
-                    v-model="item.name"
-                    type="text"
-                    placeholder="اسم الصنف"
+                <select
+                    :value="item.inventory_item_id"
                     class="dept-input col-span-5"
-                />
+                    @change="
+                        selectInventoryItem(
+                            item,
+                            ($event.target as HTMLSelectElement).value,
+                        )
+                    "
+                >
+                    <option value="">— اختر صنف —</option>
+                    <option
+                        v-for="inv in inventoryItems"
+                        :key="inv.id"
+                        :value="inv.id"
+                    >
+                        {{ inv.name }} ({{ inv.code }}) - متوفر:
+                        {{ inv.quantity }}
+                    </option>
+                </select>
                 <input
                     v-model.number="item.qty"
                     type="number"
                     min="1"
                     placeholder="الكمية"
-                    class="dept-input col-span-3"
+                    class="dept-input col-span-2"
                 />
                 <input
                     v-model.number="item.unit_cost"
