@@ -248,14 +248,21 @@ function selectInventoryItem(item: SupplyItem, inventoryId: string) {
 }
 
 function addSupplyRow() {
-    supplyItems.value.push({ name: '', qty: 1, unit_cost: 0 });
+    supplyItems.value.push({
+        inventory_item_id: '',
+        name: '',
+        qty: 1,
+        unit_cost: 0,
+    });
 }
 function removeSupplyRow(i: number) {
     supplyItems.value.splice(i, 1);
 }
 function openSupplies(id: string) {
     suppliesTarget.value = id;
-    supplyItems.value = [{ name: '', qty: 1, unit_cost: 0 }];
+    supplyItems.value = [
+        { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
+    ];
     showSupplies.value = true;
 }
 function submitSupplies() {
