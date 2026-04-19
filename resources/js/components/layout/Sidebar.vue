@@ -68,7 +68,7 @@ const navGroups: NavGroup[] = [
         label: 'الأطباء',
         items: [
             { title: 'إدارة الأطباء', href: '/doctors', icon: UserCog, permission: 'doctors.view' },
-            { title: 'مستحقات الأطباء', href: '/doctor-payments', icon: Wallet, permission: 'drpayments.view' },
+            { title: 'مستحقات الأطباء', href: '/dr-payments', icon: Wallet, permission: 'drpayments.view' },
         ],
     },
     {

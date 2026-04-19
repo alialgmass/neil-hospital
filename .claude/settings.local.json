@@ -54,7 +54,9 @@
       "Bash(\"/c/Users/Royal/.config/herd/bin/php84/php.exe\" artisan *)",
       "Bash(\"/c/Users/Royal/.config/herd/bin/php84/php.exe\" vendor/bin/pint database/migrations/2026_04_15_203752_add_missing_settings_rows.php)",
       "Bash(/c/Users/Royal/.config/herd/bin/php84/php.exe artisan *)",
-      "Bash(\"/c/Users/Royal/.config/herd/bin/php84/php.exe\" vendor/bin/pint Modules/Surgery/Controllers/SurgeryController.php Modules/Surgery/DTOs/SurgeryData.php Modules/Surgery/Http/Requests/StoreSurgeryRequest.php Modules/Surgery/Services/SurgeryService.php Modules/Surgery/Repositories/SurgeryRepository.php Modules/Surgery/Models/Surgery.php database/migrations/2026_04_15_204942_add_bed_no_to_surgeries_table.php)"
+      "Bash(\"/c/Users/Royal/.config/herd/bin/php84/php.exe\" vendor/bin/pint Modules/Surgery/Controllers/SurgeryController.php Modules/Surgery/DTOs/SurgeryData.php Modules/Surgery/Http/Requests/StoreSurgeryRequest.php Modules/Surgery/Services/SurgeryService.php Modules/Surgery/Repositories/SurgeryRepository.php Modules/Surgery/Models/Surgery.php database/migrations/2026_04_15_204942_add_bed_no_to_surgeries_table.php)",
+      "Bash(php artisan *)",
+      "Bash(cmd *)"
     ]
   },
   "enableAllProjectMcpServers": true,
