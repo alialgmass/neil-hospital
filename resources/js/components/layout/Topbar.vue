@@ -16,7 +16,7 @@ function logout() {
 }
 
 function newBooking() {
-    router.visit('/booking/create');
+    router.visit('/booking');
 }
 
 function toggleUserMenu() {
