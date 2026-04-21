@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3'
-import { Edit2, Trash2 } from 'lucide-vue-next'
+import { Building2, Edit2, FileText, Plus, Shield, Trash2, TrendingUp } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Badge from '@/components/shared/Badge.vue'
 import Modal from '@/components/shared/Modal.vue'
+import StatCard from '@/components/shared/StatCard.vue'
 
 defineOptions({ layout: AppLayout })
 
@@ -114,10 +115,10 @@ const claimStatusLabels: Record<string, string> = {
 
 const claimStatusVariants: Record<string, string> = {
     draft: 'inactive',
-    submitted: 'active',
-    approved: 'active',
-    rejected: 'cancelled',
-    paid: 'active',
+    submitted: 'info',
+    approved: 'success',
+    rejected: 'danger',
+    paid: 'paid',
 }
 
 function search() {
@@ -171,13 +172,14 @@ function confirmDelete(id: string) {
 
 function deleteCompany() {
     if (!deletingCompanyId.value) {
-return
-}
+        return
+    }
 
     router.delete(`/insurance/${deletingCompanyId.value}`, {
         onSuccess: () => {
- showDeleteModal.value = false; deletingCompanyId.value = null 
-},
+            showDeleteModal.value = false
+            deletingCompanyId.value = null
+        },
     })
 }
 
@@ -204,318 +206,393 @@ function openStatusModal(claim: Claim) {
     statusForm.approved_amount = claim.approved_amount
     statusForm.paid_amount = claim.paid_amount
     statusForm.rejection_reason = claim.rejection_reason ?? ''
-    statusForm.submission_date = claim.submission_date ?? ''
-    statusForm.approval_date = claim.approval_date ?? ''
-    statusForm.payment_date = claim.payment_date ?? ''
+    statusForm.submission_date = (claim as any).submission_date ?? ''
+    statusForm.approval_date = (claim as any).approval_date ?? ''
+    statusForm.payment_date = (claim as any).payment_date ?? ''
     statusForm.notes = claim.notes ?? ''
     showStatusModal.value = true
 }
 
 function submitStatus() {
     if (!editingClaim.value) {
-return
-}
+        return
+    }
 
     statusForm.put(`/insurance/claims/${editingClaim.value.id}`, {
-        onSuccess: () => {
- showStatusModal.value = false 
-},
+        onSuccess: () => { showStatusModal.value = false },
     })
 }
 
 function deleteClaim(id: number) {
     if (!confirm('هل تريد حذف هذه المطالبة؟')) {
-return
-}
+        return
+    }
 
     router.delete(`/insurance/claims/${id}`)
 }
 
+function companyInitials(name: string): string {
+    return name.trim().charAt(0)
+}
+
 const tabs = [
-    { key: 'companies', label: 'شركات التأمين' },
-    { key: 'pricelists', label: 'قوائم الأسعار' },
-    { key: 'contracts', label: 'العقود' },
-    { key: 'claims', label: 'المطالبات' },
-    { key: 'approved', label: 'الخدمات المعتمدة' },
+    { key: 'companies', label: 'شركات التأمين', icon: Building2 },
+    { key: 'pricelists', label: 'قوائم الأسعار', icon: FileText },
+    { key: 'contracts', label: 'العقود', icon: Shield },
+    { key: 'claims', label: 'المطالبات', icon: TrendingUp },
 ] as const
 </script>
 
 <template>
-    <div class="p-6">
+    <div class="space-y-6 p-6">
         <!-- Stats Row -->
-        <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div class="rounded-xl border border-blue-100 bg-blue-50 p-4">
-                <div class="text-xs font-semibold text-blue-600">شركات التأمين</div>
-                <div class="mt-1 text-2xl font-bold text-blue-700">{{ companies.data.length }}</div>
-                <div class="mt-0.5 text-xs text-blue-500">شركة مسجلة</div>
-            </div>
-            <div class="rounded-xl border border-green-100 bg-green-50 p-4">
-                <div class="text-xs font-semibold text-green-600">عقود نشطة</div>
-                <div class="mt-1 text-2xl font-bold text-green-700">{{ activeCount }}</div>
-                <div class="mt-0.5 text-xs text-green-500">سارية</div>
-            </div>
-            <div class="rounded-xl border border-teal-100 bg-teal-50 p-4">
-                <div class="text-xs font-semibold text-teal-600">مطالبات هذا الشهر</div>
-                <div class="mt-1 text-2xl font-bold text-teal-700">{{ stats.monthly_claims_count }}</div>
-                <div class="mt-0.5 text-xs text-teal-500">مطالبة</div>
-            </div>
-            <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
-                <div class="text-xs font-semibold text-orange-600">إجمالي المطالبات (ج)</div>
-                <div class="mt-1 text-2xl font-bold text-orange-700">{{ stats.monthly_claims_total.toLocaleString('ar-EG') }}</div>
-                <div class="mt-0.5 text-xs text-orange-500">↑ هذا الشهر</div>
-            </div>
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard
+                label="شركات التأمين"
+                :value="companies.data.length"
+                :icon="Building2"
+                color="primary"
+                change="شركة مسجلة"
+            />
+            <StatCard
+                label="عقود نشطة"
+                :value="activeCount"
+                :icon="Shield"
+                color="success"
+                change="سارية المفعول"
+                :change-positive="true"
+            />
+            <StatCard
+                label="مطالبات هذا الشهر"
+                :value="stats.monthly_claims_count"
+                :icon="FileText"
+                color="accent"
+                change="هذا الشهر"
+            />
+            <StatCard
+                label="إجمالي المطالبات"
+                :value="stats.monthly_claims_total.toLocaleString('ar-EG') + ' ج'"
+                :icon="TrendingUp"
+                color="warning"
+                change="↑ هذا الشهر"
+                :change-positive="true"
+            />
         </div>
 
-        <!-- Tabs -->
-        <div class="mb-5 flex gap-1 border-b border-gray-200">
-            <button
-                v-for="tab in tabs"
-                :key="tab.key"
-                class="px-4 py-2 text-sm font-medium transition-colors"
-                :class="activeTab === tab.key ? 'border-b-2 border-hospital-primary text-hospital-primary' : 'text-gray-500 hover:text-gray-700'"
-                @click="activeTab = tab.key"
-            >
-                {{ tab.label }}
-            </button>
-        </div>
-
-        <!-- Companies Tab -->
-        <div v-if="activeTab === 'companies'">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <input
-                    v-model="searchQuery"
-                    class="w-72 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                    type="text"
-                    placeholder="بحث باسم الشركة..."
-                    @input="search"
-                />
-                <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openCreate">
-                    + شركة جديدة
+        <!-- Main Card -->
+        <div class="overflow-hidden rounded-2xl border border-hospital-border bg-hospital-surface shadow-sm">
+            <!-- Tab Bar -->
+            <div class="flex border-b border-hospital-border bg-gray-50/60 px-4">
+                <button
+                    v-for="tab in tabs"
+                    :key="tab.key"
+                    class="flex items-center gap-2 border-b-2 px-4 py-3.5 text-sm font-medium transition-colors"
+                    :class="activeTab === tab.key
+                        ? 'border-hospital-primary text-hospital-primary'
+                        : 'border-transparent text-hospital-text-3 hover:text-hospital-text'"
+                    @click="activeTab = tab.key"
+                >
+                    <component :is="tab.icon" class="h-4 w-4" />
+                    {{ tab.label }}
+                    <span
+                        v-if="tab.key === 'companies'"
+                        class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                        :class="activeTab === 'companies' ? 'bg-hospital-primary text-white' : 'bg-gray-200 text-gray-500'"
+                    >
+                        {{ companies.data.length }}
+                    </span>
+                    <span
+                        v-if="tab.key === 'claims'"
+                        class="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                        :class="activeTab === 'claims' ? 'bg-hospital-primary text-white' : 'bg-gray-200 text-gray-500'"
+                    >
+                        {{ claims.data.length }}
+                    </span>
                 </button>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الشركة</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الكود</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الهاتف</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">رقم العقد</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">التغطية %</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الخصم %</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الحالة</th>
-                            <th class="px-4 py-3"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="company in companies.data" :key="company.id" class="border-t border-gray-100 hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium">{{ company.name }}</td>
-                            <td class="px-4 py-3 text-gray-500">{{ company.code || '—' }}</td>
-                            <td class="px-4 py-3">{{ company.phone || '—' }}</td>
-                            <td class="px-4 py-3 text-gray-500">{{ company.contract_no || '—' }}</td>
-                            <td class="px-4 py-3">
-                                <span class="font-semibold text-blue-700">{{ company.coverage_pct }}%</span>
-                            </td>
-                            <td class="px-4 py-3 text-gray-600">{{ company.disc_pct }}%</td>
-                            <td class="px-4 py-3">
-                                <Badge :variant="company.status === 'active' ? 'active' : 'cancelled'">
-                                    {{ company.status === 'active' ? 'نشط' : 'غير نشط' }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <button class="text-gray-400 hover:text-blue-600" @click="openEdit(company)">
-                                        <Edit2 class="h-4 w-4" />
-                                    </button>
-                                    <button class="text-gray-400 hover:text-red-500" @click="confirmDelete(company.id)">
-                                        <Trash2 class="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="companies.data.length === 0">
-                            <td class="px-4 py-8 text-center text-gray-400" colspan="8">لا توجد شركات تأمين</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Price Lists Tab -->
-        <div v-else-if="activeTab === 'pricelists'">
-            <div class="mb-4 flex justify-end">
-                <a href="/insurance/price-lists" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90">
-                    إدارة قوائم الأسعار
-                </a>
-            </div>
-            <div class="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-400 shadow-sm">
-                <p class="mb-3 text-4xl">📋</p>
-                <p class="font-medium">قوائم الأسعار المرتبطة بشركات التأمين</p>
-                <p class="mt-1 text-sm">يمكنك إدارة قوائم الأسعار من الصفحة المخصصة لها</p>
-            </div>
-        </div>
-
-        <!-- Contracts Tab -->
-        <div v-else-if="activeTab === 'contracts'">
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الشركة</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">رقم العقد</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">تاريخ البداية</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">تاريخ الانتهاء</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الحالة</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="px-4 py-8 text-center text-gray-400" colspan="5">لا توجد عقود مسجلة</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Claims Tab -->
-        <div v-else-if="activeTab === 'claims'">
-            <div class="mb-4 flex items-center justify-between gap-3">
-                <select v-model="claimsCompanyFilter" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none" @change="filterClaims">
-                    <option value="">كل الشركات</option>
-                    <option v-for="c in companies.data" :key="c.id" :value="c.id">{{ c.name }}</option>
-                </select>
-                <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openCreateClaim">
-                    + مطالبة جديدة
-                </button>
-            </div>
-
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div class="border-b border-gray-100 px-4 py-3 font-semibold text-gray-700">سجل المطالبات</div>
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الشركة</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">المريض</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الخدمة</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">السعر الكلي</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">يتحمله التأمين</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">يتحمله المريض</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">التاريخ</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">الحالة</th>
-                            <th class="px-4 py-3"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="claim in claims.data" :key="claim.id" class="border-t border-gray-100 hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium">{{ claim.company?.name || '—' }}</td>
-                            <td class="px-4 py-3">
-                                <div>{{ claim.patient_name }}</div>
-                                <div v-if="claim.file_no" class="text-xs text-gray-400">{{ claim.file_no }}</div>
-                            </td>
-                            <td class="px-4 py-3 text-gray-600">{{ claim.service_name }}</td>
-                            <td class="px-4 py-3 font-medium">{{ claim.invoice_amount.toFixed(2) }} ج</td>
-                            <td class="px-4 py-3 text-blue-700">{{ claim.insurance_share.toFixed(2) }} ج</td>
-                            <td class="px-4 py-3 text-orange-700">{{ claim.patient_share.toFixed(2) }} ج</td>
-                            <td class="px-4 py-3 text-gray-500">{{ claim.service_date }}</td>
-                            <td class="px-4 py-3">
-                                <Badge :variant="claimStatusVariants[claim.status] as any">
-                                    {{ claimStatusLabels[claim.status] }}
-                                </Badge>
-                            </td>
-                            <td class="px-4 py-3">
-                                <div class="flex items-center gap-2">
-                                    <button class="text-gray-400 hover:text-blue-600" @click="openStatusModal(claim)">
-                                        <Edit2 class="h-4 w-4" />
-                                    </button>
-                                    <button v-if="claim.status === 'draft'" class="text-gray-400 hover:text-red-500" @click="deleteClaim(claim.id)">
-                                        <Trash2 class="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="claims.data.length === 0">
-                            <td class="px-4 py-8 text-center text-gray-400" colspan="9">لا توجد مطالبات</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Approved Services Tab -->
-        <div v-else-if="activeTab === 'approved'">
-            <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                ℹ️ الخدمات المعتمدة هي الخدمات التي توافق عليها كل شركة تأمين ويتم صرفها مباشرة على حساب التأمين.
-            </div>
-            <div v-for="company in companies.data.filter((c) => c.status === 'active')" :key="company.id" class="mb-4">
-                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                        <span class="font-semibold text-gray-700">{{ company.name }}</span>
-                        <span class="text-xs text-gray-400">تغطية {{ company.coverage_pct }}%</span>
+            <!-- Companies Tab -->
+            <div v-if="activeTab === 'companies'" class="p-5">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <div class="relative w-72">
+                        <input
+                            v-model="searchQuery"
+                            class="w-full rounded-lg border border-hospital-border bg-white py-2 pl-3 pr-9 text-sm text-hospital-text placeholder:text-hospital-text-3 focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            type="text"
+                            placeholder="بحث باسم الشركة..."
+                            @input="search"
+                        />
+                        <svg class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-hospital-text-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
-                    <div class="px-4 py-6 text-center text-sm text-gray-400">لم يتم تحديد خدمات معتمدة بعد</div>
+                    <button
+                        class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
+                        @click="openCreate"
+                    >
+                        <Plus class="h-4 w-4" />
+                        شركة جديدة
+                    </button>
+                </div>
+
+                <div class="overflow-hidden rounded-xl border border-hospital-border">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-hospital-border bg-gray-50/80">
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الشركة</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الكود / العقد</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الهاتف</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">التغطية</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الخصم</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الحالة</th>
+                                <th class="px-4 py-3" />
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-hospital-border">
+                            <tr
+                                v-for="company in companies.data"
+                                :key="company.id"
+                                class="group bg-white transition-colors hover:bg-hospital-primary/5"
+                            >
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-hospital-primary-pale text-sm font-bold text-hospital-primary">
+                                            {{ companyInitials(company.name) }}
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-hospital-text">{{ company.name }}</div>
+                                            <div v-if="company.contact_person" class="text-xs text-hospital-text-3">{{ company.contact_person }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="text-xs font-mono text-hospital-text-3">{{ company.code || '—' }}</div>
+                                    <div class="text-xs text-hospital-text-3">{{ company.contract_no || '' }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-hospital-text-3">{{ company.phone || '—' }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex items-center justify-center rounded-lg bg-blue-50 px-2 py-0.5 text-sm font-bold text-blue-700">
+                                        {{ company.coverage_pct }}%
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-center text-sm text-hospital-text-3">{{ company.disc_pct }}%</td>
+                                <td class="px-4 py-3 text-center">
+                                    <Badge :variant="company.status === 'active' ? 'active' : 'inactive'" />
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                        <button
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
+                                            title="تعديل"
+                                            @click="openEdit(company)"
+                                        >
+                                            <Edit2 class="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                                            title="حذف"
+                                            @click="confirmDelete(company.id)"
+                                        >
+                                            <Trash2 class="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="companies.data.length === 0">
+                                <td colspan="7" class="px-4 py-12 text-center">
+                                    <Building2 class="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                                    <p class="font-medium text-gray-400">لا توجد شركات تأمين</p>
+                                    <p class="mt-1 text-sm text-gray-300">ابدأ بإضافة شركة جديدة</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <div v-if="companies.data.filter((c) => c.status === 'active').length === 0" class="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-400">
-                لا توجد شركات تأمين نشطة
+
+            <!-- Price Lists Tab -->
+            <div v-else-if="activeTab === 'pricelists'" class="p-5">
+                <div class="mb-4 flex justify-end">
+                    <a
+                        href="/insurance/price-lists"
+                        class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90"
+                    >
+                        <FileText class="h-4 w-4" />
+                        إدارة قوائم الأسعار
+                    </a>
+                </div>
+                <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-hospital-border bg-gray-50/60 py-16">
+                    <FileText class="mb-4 h-12 w-12 text-gray-300" />
+                    <p class="font-semibold text-gray-400">قوائم الأسعار</p>
+                    <p class="mt-1 text-sm text-gray-300">يمكنك إدارة قوائم الأسعار من الصفحة المخصصة لها</p>
+                </div>
+            </div>
+
+            <!-- Contracts Tab -->
+            <div v-else-if="activeTab === 'contracts'" class="p-5">
+                <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-hospital-border bg-gray-50/60 py-16">
+                    <Shield class="mb-4 h-12 w-12 text-gray-300" />
+                    <p class="font-semibold text-gray-400">لا توجد عقود مسجلة</p>
+                    <p class="mt-1 text-sm text-gray-300">سيتم إضافة إدارة العقود قريباً</p>
+                </div>
+            </div>
+
+            <!-- Claims Tab -->
+            <div v-else-if="activeTab === 'claims'" class="p-5">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <select
+                        v-model="claimsCompanyFilter"
+                        class="rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                        @change="filterClaims"
+                    >
+                        <option value="">كل الشركات</option>
+                        <option v-for="c in companies.data" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                    <button
+                        class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
+                        @click="openCreateClaim"
+                    >
+                        <Plus class="h-4 w-4" />
+                        مطالبة جديدة
+                    </button>
+                </div>
+
+                <div class="overflow-hidden rounded-xl border border-hospital-border">
+                    <div class="border-b border-hospital-border bg-gray-50/80 px-4 py-2.5">
+                        <span class="text-xs font-semibold uppercase tracking-wide text-hospital-text-3">سجل المطالبات</span>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-hospital-border bg-gray-50/40">
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الشركة</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المريض</th>
+                                <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الخدمة</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الفاتورة</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">التأمين</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المريض</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">التاريخ</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الحالة</th>
+                                <th class="px-4 py-3" />
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-hospital-border">
+                            <tr
+                                v-for="claim in claims.data"
+                                :key="claim.id"
+                                class="group bg-white transition-colors hover:bg-hospital-primary/5"
+                            >
+                                <td class="px-4 py-3">
+                                    <span class="font-medium text-hospital-text">{{ claim.company?.name || '—' }}</span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="font-medium text-hospital-text">{{ claim.patient_name }}</div>
+                                    <div v-if="claim.file_no" class="font-mono text-xs text-hospital-text-3">{{ claim.file_no }}</div>
+                                </td>
+                                <td class="px-4 py-3 text-hospital-text-3">{{ claim.service_name }}</td>
+                                <td class="px-4 py-3 text-center font-semibold tabular-nums text-hospital-text">
+                                    {{ claim.invoice_amount.toFixed(2) }}
+                                    <span class="text-xs text-hospital-text-3">ج</span>
+                                </td>
+                                <td class="px-4 py-3 text-center font-semibold tabular-nums text-hospital-primary">
+                                    {{ claim.insurance_share.toFixed(2) }}
+                                    <span class="text-xs text-hospital-text-3">ج</span>
+                                </td>
+                                <td class="px-4 py-3 text-center font-semibold tabular-nums text-hospital-warning">
+                                    {{ claim.patient_share.toFixed(2) }}
+                                    <span class="text-xs text-hospital-text-3">ج</span>
+                                </td>
+                                <td class="px-4 py-3 text-center text-xs tabular-nums text-hospital-text-3">{{ claim.service_date }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <Badge :variant="claimStatusVariants[claim.status] as any">
+                                        {{ claimStatusLabels[claim.status] }}
+                                    </Badge>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                        <button
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
+                                            title="تحديث الحالة"
+                                            @click="openStatusModal(claim)"
+                                        >
+                                            <Edit2 class="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            v-if="claim.status === 'draft'"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                                            title="حذف"
+                                            @click="deleteClaim(claim.id)"
+                                        >
+                                            <Trash2 class="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="claims.data.length === 0">
+                                <td colspan="9" class="px-4 py-12 text-center">
+                                    <TrendingUp class="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                                    <p class="font-medium text-gray-400">لا توجد مطالبات</p>
+                                    <p class="mt-1 text-sm text-gray-300">ابدأ بإنشاء مطالبة جديدة</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- Create / Edit Company Modal -->
         <Modal v-model="showModal" :title="editingCompany ? 'تعديل شركة التأمين' : 'إضافة شركة تأمين'" @close="closeModal">
             <form class="space-y-4" @submit.prevent="submit">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-3">
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">اسم الشركة *</label>
-                        <input v-model="form.name" :class="['input-field', form.errors.name && 'border-red-400']" type="text" required />
-                        <p v-if="form.errors.name" class="mt-1 text-xs text-red-500">{{ form.errors.name }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">اسم الشركة <span class="text-hospital-danger">*</span></label>
+                        <input v-model="form.name" :class="['input-field', form.errors.name && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="text" required />
+                        <p v-if="form.errors.name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.name }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">الكود</label>
-                        <input v-model="form.code" :class="['input-field', form.errors.code && 'border-red-400']" type="text" />
-                        <p v-if="form.errors.code" class="mt-1 text-xs text-red-500">{{ form.errors.code }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الكود</label>
+                        <input v-model="form.code" :class="['input-field', form.errors.code && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="text" />
+                        <p v-if="form.errors.code" class="mt-1 text-xs text-hospital-danger">{{ form.errors.code }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">رقم العقد</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">رقم العقد</label>
                         <input v-model="form.contract_no" class="input-field" type="text" />
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">الهاتف</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الهاتف</label>
                         <input v-model="form.phone" class="input-field" type="text" />
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">المسؤول</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المسؤول</label>
                         <input v-model="form.contact_person" class="input-field" type="text" />
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">نسبة التغطية %</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">نسبة التغطية %</label>
                         <input v-model.number="form.coverage_pct" class="input-field" type="number" min="0" max="100" step="0.01" />
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">نسبة الخصم %</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">نسبة الخصم %</label>
                         <input v-model.number="form.disc_pct" class="input-field" type="number" min="0" max="100" step="0.01" />
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">الحالة</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الحالة</label>
                         <select v-model="form.status" class="input-field">
                             <option value="active">نشط</option>
                             <option value="inactive">غير نشط</option>
                         </select>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">البريد الإلكتروني</label>
-                        <input v-model="form.email" :class="['input-field', form.errors.email && 'border-red-400']" type="email" />
-                        <p v-if="form.errors.email" class="mt-1 text-xs text-red-500">{{ form.errors.email }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">البريد الإلكتروني</label>
+                        <input v-model="form.email" :class="['input-field', form.errors.email && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="email" />
+                        <p v-if="form.errors.email" class="mt-1 text-xs text-hospital-danger">{{ form.errors.email }}</p>
                     </div>
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">ملاحظات</label>
-                        <textarea v-model="form.notes" class="input-field" rows="2" />
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">ملاحظات</label>
+                        <textarea v-model="form.notes" class="input-field resize-none" rows="2" />
                     </div>
                 </div>
-                <div class="flex justify-end gap-3">
+                <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
                     <button type="submit" class="btn-primary" :disabled="form.processing">
-                        {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ' }}
+                        {{ form.processing ? 'جارٍ الحفظ...' : editingCompany ? 'حفظ التعديلات' : 'إضافة الشركة' }}
                     </button>
                 </div>
             </form>
@@ -523,11 +600,20 @@ const tabs = [
 
         <!-- Delete Confirmation Modal -->
         <Modal v-model="showDeleteModal" title="تأكيد الحذف" size="sm" @close="showDeleteModal = false">
-            <p class="text-sm text-gray-600">هل أنت متأكد من حذف هذه الشركة؟ سيتم حذف جميع البيانات المرتبطة بها.</p>
-            <div class="mt-4 flex justify-end gap-3">
+            <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-hospital-danger-pale">
+                    <Trash2 class="h-5 w-5 text-hospital-danger" />
+                </div>
+                <div>
+                    <p class="font-medium text-hospital-text">حذف شركة التأمين</p>
+                    <p class="mt-1 text-sm text-hospital-text-3">هل أنت متأكد؟ سيتم حذف جميع البيانات المرتبطة بها ولا يمكن التراجع.</p>
+                </div>
+            </div>
+            <div class="mt-5 flex justify-end gap-2 border-t border-hospital-border pt-4">
                 <button class="btn-secondary" @click="showDeleteModal = false">إلغاء</button>
-                <button class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" @click="deleteCompany">
-                    حذف
+                <button class="flex items-center gap-2 rounded-lg bg-hospital-danger px-4 py-2 text-sm font-medium text-white hover:bg-hospital-danger/90" @click="deleteCompany">
+                    <Trash2 class="h-4 w-4" />
+                    تأكيد الحذف
                 </button>
             </div>
         </Modal>
@@ -535,56 +621,64 @@ const tabs = [
         <!-- New Claim Modal -->
         <Modal v-model="showClaimModal" title="إنشاء مطالبة جديدة" size="lg" @close="closeClaimModal">
             <form class="space-y-4" @submit.prevent="submitClaim">
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-3">
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">شركة التأمين *</label>
-                        <select v-model="claimForm.insurance_company_id" :class="['input-field', claimForm.errors.insurance_company_id && 'border-red-400']" required>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">شركة التأمين <span class="text-hospital-danger">*</span></label>
+                        <select v-model="claimForm.insurance_company_id" :class="['input-field', claimForm.errors.insurance_company_id && 'border-hospital-danger ring-1 ring-hospital-danger/30']" required>
                             <option value="">— اختر الشركة —</option>
                             <option v-for="c in companies.data" :key="c.id" :value="c.id">{{ c.name }}</option>
                         </select>
-                        <p v-if="claimForm.errors.insurance_company_id" class="mt-1 text-xs text-red-500">{{ claimForm.errors.insurance_company_id }}</p>
+                        <p v-if="claimForm.errors.insurance_company_id" class="mt-1 text-xs text-hospital-danger">{{ claimForm.errors.insurance_company_id }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">اسم المريض *</label>
-                        <input v-model="claimForm.patient_name" :class="['input-field', claimForm.errors.patient_name && 'border-red-400']" type="text" required />
-                        <p v-if="claimForm.errors.patient_name" class="mt-1 text-xs text-red-500">{{ claimForm.errors.patient_name }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">اسم المريض <span class="text-hospital-danger">*</span></label>
+                        <input v-model="claimForm.patient_name" :class="['input-field', claimForm.errors.patient_name && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="text" required />
+                        <p v-if="claimForm.errors.patient_name" class="mt-1 text-xs text-hospital-danger">{{ claimForm.errors.patient_name }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium">رقم الملف</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">رقم الملف</label>
                         <input v-model="claimForm.file_no" class="input-field" type="text" />
                     </div>
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">الخدمة *</label>
-                        <input v-model="claimForm.service_name" :class="['input-field', claimForm.errors.service_name && 'border-red-400']" type="text" required />
-                        <p v-if="claimForm.errors.service_name" class="mt-1 text-xs text-red-500">{{ claimForm.errors.service_name }}</p>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الخدمة <span class="text-hospital-danger">*</span></label>
+                        <input v-model="claimForm.service_name" :class="['input-field', claimForm.errors.service_name && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="text" required />
+                        <p v-if="claimForm.errors.service_name" class="mt-1 text-xs text-hospital-danger">{{ claimForm.errors.service_name }}</p>
                     </div>
+
+                    <!-- Amount fields with dividing line -->
+                    <div class="col-span-2 mt-1 border-t border-hospital-border pt-3">
+                        <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المبالغ المالية</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="mb-1 block text-xs text-hospital-text-3">إجمالي الفاتورة (ج) <span class="text-hospital-danger">*</span></label>
+                                <input v-model.number="claimForm.invoice_amount" :class="['input-field', claimForm.errors.invoice_amount && 'border-hospital-danger ring-1 ring-hospital-danger/30']" type="number" min="0" step="0.01" required />
+                                <p v-if="claimForm.errors.invoice_amount" class="mt-1 text-xs text-hospital-danger">{{ claimForm.errors.invoice_amount }}</p>
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs text-hospital-text-3">الخصم (ج)</label>
+                                <input v-model.number="claimForm.discount" class="input-field" type="number" min="0" step="0.01" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs text-hospital-text-3">حصة التأمين (ج)</label>
+                                <input v-model.number="claimForm.insurance_share" class="input-field" type="number" min="0" step="0.01" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs text-hospital-text-3">حصة المريض (ج)</label>
+                                <input v-model.number="claimForm.patient_share" class="input-field" type="number" min="0" step="0.01" />
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium">إجمالي الفاتورة (ج) *</label>
-                        <input v-model.number="claimForm.invoice_amount" :class="['input-field', claimForm.errors.invoice_amount && 'border-red-400']" type="number" min="0" step="0.01" required />
-                        <p v-if="claimForm.errors.invoice_amount" class="mt-1 text-xs text-red-500">{{ claimForm.errors.invoice_amount }}</p>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium">الخصم (ج)</label>
-                        <input v-model.number="claimForm.discount" class="input-field" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium">حصة التأمين (ج)</label>
-                        <input v-model.number="claimForm.insurance_share" class="input-field" type="number" min="0" step="0.01" />
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-sm font-medium">حصة المريض (ج)</label>
-                        <input v-model.number="claimForm.patient_share" class="input-field" type="number" min="0" step="0.01" />
-                    </div>
-                    <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">تاريخ الخدمة *</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">تاريخ الخدمة <span class="text-hospital-danger">*</span></label>
                         <input v-model="claimForm.service_date" class="input-field" type="date" required />
                     </div>
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">ملاحظات</label>
-                        <textarea v-model="claimForm.notes" class="input-field" rows="2" />
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">ملاحظات</label>
+                        <textarea v-model="claimForm.notes" class="input-field resize-none" rows="2" />
                     </div>
                 </div>
-                <div class="flex justify-end gap-3">
+                <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="closeClaimModal">إلغاء</button>
                     <button type="submit" class="btn-primary" :disabled="claimForm.processing">
                         {{ claimForm.processing ? 'جارٍ الحفظ...' : 'إنشاء المطالبة' }}
@@ -596,50 +690,60 @@ const tabs = [
         <!-- Claim Status Modal -->
         <Modal v-model="showStatusModal" title="تحديث حالة المطالبة" @close="showStatusModal = false">
             <form class="space-y-4" @submit.prevent="submitStatus">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">الحالة *</label>
-                        <select v-model="statusForm.status" class="input-field">
-                            <option value="draft">مسودة</option>
-                            <option value="submitted">مُرسلة</option>
-                            <option value="approved">معتمدة</option>
-                            <option value="rejected">مرفوضة</option>
-                            <option value="paid">مسددة</option>
-                        </select>
+                <!-- Status selector with visual indicators -->
+                <div>
+                    <label class="mb-2 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">الحالة الجديدة</label>
+                    <div class="grid grid-cols-5 gap-2">
+                        <button
+                            v-for="(label, key) in claimStatusLabels"
+                            :key="key"
+                            type="button"
+                            class="rounded-lg border px-2 py-2 text-center text-xs font-medium transition-all"
+                            :class="statusForm.status === key
+                                ? 'border-hospital-primary bg-hospital-primary text-white shadow-sm'
+                                : 'border-hospital-border bg-white text-hospital-text-3 hover:border-hospital-primary/50 hover:text-hospital-primary'"
+                            @click="statusForm.status = key as Claim['status']"
+                        >
+                            {{ label }}
+                        </button>
                     </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
                     <div v-if="statusForm.status === 'submitted'">
-                        <label class="mb-1 block text-sm font-medium">تاريخ الإرسال</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">تاريخ الإرسال</label>
                         <input v-model="statusForm.submission_date" class="input-field" type="date" />
                     </div>
                     <div v-if="statusForm.status === 'approved' || statusForm.status === 'paid'">
-                        <label class="mb-1 block text-sm font-medium">المبلغ المعتمد (ج)</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المبلغ المعتمد (ج)</label>
                         <input v-model.number="statusForm.approved_amount" class="input-field" type="number" min="0" step="0.01" />
                     </div>
                     <div v-if="statusForm.status === 'approved'">
-                        <label class="mb-1 block text-sm font-medium">تاريخ الاعتماد</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">تاريخ الاعتماد</label>
                         <input v-model="statusForm.approval_date" class="input-field" type="date" />
                     </div>
                     <div v-if="statusForm.status === 'paid'">
-                        <label class="mb-1 block text-sm font-medium">المبلغ المسدد (ج)</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">المبلغ المسدد (ج)</label>
                         <input v-model.number="statusForm.paid_amount" class="input-field" type="number" min="0" step="0.01" />
                     </div>
                     <div v-if="statusForm.status === 'paid'">
-                        <label class="mb-1 block text-sm font-medium">تاريخ السداد</label>
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">تاريخ السداد</label>
                         <input v-model="statusForm.payment_date" class="input-field" type="date" />
                     </div>
                     <div v-if="statusForm.status === 'rejected'" class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">سبب الرفض</label>
-                        <textarea v-model="statusForm.rejection_reason" class="input-field" rows="2" />
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">سبب الرفض</label>
+                        <textarea v-model="statusForm.rejection_reason" class="input-field resize-none" rows="2" />
                     </div>
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium">ملاحظات</label>
-                        <textarea v-model="statusForm.notes" class="input-field" rows="2" />
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-hospital-text-3">ملاحظات</label>
+                        <textarea v-model="statusForm.notes" class="input-field resize-none" rows="2" />
                     </div>
                 </div>
-                <div class="flex justify-end gap-3">
+
+                <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="showStatusModal = false">إلغاء</button>
                     <button type="submit" class="btn-primary" :disabled="statusForm.processing">
-                        {{ statusForm.processing ? 'جارٍ الحفظ...' : 'حفظ' }}
+                        {{ statusForm.processing ? 'جارٍ الحفظ...' : 'حفظ التغييرات' }}
                     </button>
                 </div>
             </form>
