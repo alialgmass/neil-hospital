@@ -176,7 +176,7 @@ function printList(list: PriceList) {
         </div>
 
         <!-- Create Modal -->
-        <Modal :show="showModal" title="إنشاء قائمة أسعار" @close="showModal = false">
+        <Modal v-model="showModal" title="إنشاء قائمة أسعار" @close="showModal = false">
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">

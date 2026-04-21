@@ -29,6 +29,7 @@ const props = defineProps<{
 const activeTab = ref<'companies' | 'pricelists' | 'contracts' | 'claims' | 'approved'>('companies')
 const showModal = ref(false)
 const editingCompany = ref<Company | null>(null)
+const claimsCompanyFilter = ref('')
 
 const form = useForm({
     name: '',
@@ -244,7 +245,7 @@ const tabs = [
         <!-- Claims Tab -->
         <div v-else-if="activeTab === 'claims'">
             <div class="mb-4 flex items-center justify-between gap-3">
-                <select class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none">
+                <select v-model="claimsCompanyFilter" class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none">
                     <option value="">كل الشركات</option>
                     <option v-for="c in companies.data" :key="c.id" :value="c.id">{{ c.name }}</option>
                 </select>
@@ -265,14 +266,16 @@ const tabs = [
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">الشركة</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">المريض</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">الخدمة</th>
-                            <th class="px-4 py-3 text-right font-semibold text-gray-600">المبلغ</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-600">السعر الكلي</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-600">يتحمله التأمين</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-600">يتحمله المريض</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">التاريخ</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">الحالة</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="px-4 py-8 text-center text-gray-400" colspan="6">لا توجد مطالبات</td>
+                            <td class="px-4 py-8 text-center text-gray-400" colspan="8">لا توجد مطالبات</td>
                         </tr>
                     </tbody>
                 </table>
@@ -301,7 +304,7 @@ const tabs = [
         </div>
 
         <!-- Create / Edit Modal -->
-        <Modal :show="showModal" :title="editingCompany ? 'تعديل شركة التأمين' : 'إضافة شركة تأمين'" @close="showModal = false">
+        <Modal v-model="showModal" :title="editingCompany ? 'تعديل شركة التأمين' : 'إضافة شركة تأمين'" @close="showModal = false">
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">

@@ -46,6 +46,7 @@ class BookingController extends Controller
             'todayStats' => $this->bookingRepository->countByDeptForDate(today()->toDateString()),
             'services' => $formResources['services'],
             'insuranceCompanies' => $formResources['insuranceCompanies'],
+            'priceLists' => $formResources['priceLists'],
             'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
             'orRooms' => $orRooms,
         ]);

@@ -21,6 +21,19 @@ interface InsuranceCompany {
     name: string;
 }
 
+interface PriceListItem {
+    service_id: string;
+    price: number;
+}
+
+interface PriceList {
+    id: string;
+    name: string;
+    ins_company_id: string;
+    ins_coverage: number;
+    items: PriceListItem[];
+}
+
 interface OrBed {
     id: number;
     bed_number: number;
@@ -38,6 +51,7 @@ interface Props {
     services: Service[];
     doctors: Doctor[];
     insuranceCompanies: InsuranceCompany[];
+    priceLists: PriceList[];
     orRooms?: OrRoom[];
     booking?: Record<string, unknown>;
     submitUrl: string;
@@ -190,6 +204,14 @@ function selectBed(bed: OrBed) {
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
 
+const priceListId = ref('');
+
+const filteredPriceLists = computed(() =>
+    props.priceLists.filter(
+        (pl) => !form.ins_company_id || pl.ins_company_id === form.ins_company_id,
+    ),
+);
+
 const netAmount = computed(() => {
     const price = Number(form.price) || 0;
     const discount = Number(form.discount) || 0;
@@ -215,19 +237,40 @@ const showInvoicePreview = computed(
     () => form.pay_status === 'paid' || form.pay_status === 'partial',
 );
 
-watch(
-    () => form.service_id,
-    (id) => {
-        const service = props.services.find((s) => s.id === id);
+function recalcPrice() {
+    const service = props.services.find((s) => s.id === form.service_id);
+    if (!service) return;
 
-        if (service) {
-            form.service_name = service.name;
-            form.price = isInsurance.value
-                ? String(service.ins_price)
-                : String(service.price);
-        }
-    },
-);
+    form.service_name = service.name;
+
+    if (isInsurance.value && priceListId.value) {
+        const pl = props.priceLists.find((p) => p.id === priceListId.value);
+        const item = pl?.items.find((i) => i.service_id === form.service_id);
+        const itemPrice = item?.price ?? service.ins_price ?? service.price;
+        form.price = String(itemPrice);
+        form.ins_amount = pl
+            ? String(Math.round((itemPrice * pl.ins_coverage) / 100 * 100) / 100)
+            : '0';
+    } else if (isInsurance.value) {
+        form.price = String(service.ins_price ?? service.price);
+        form.ins_amount = '0';
+    } else {
+        form.price = String(service.price);
+        form.ins_amount = '0';
+    }
+}
+
+watch(() => form.service_id, recalcPrice);
+watch(() => form.pay_method, () => {
+    if (!form.service_id) return;
+    recalcPrice();
+    if (!isInsurance.value) {
+        form.ins_company_id = '';
+        priceListId.value = '';
+        form.ins_amount = '0';
+    }
+});
+watch(priceListId, recalcPrice);
 
 function submit() {
     const method = props.submitMethod === 'put' ? form.put : form.post;
@@ -371,115 +414,73 @@ function submit() {
                     <!-- Pricing & payment — edit only -->
                     <template v-if="!isCreating">
                         <div class="bk-grid-2 mt-3">
-                            <!-- Insurance company (conditional) -->
-                            <div v-if="isInsurance" class="col-span-2">
-                                <label class="bk-label">شركة التأمين</label>
-                                <select
-                                    v-model="form.ins_company_id"
-                                    class="bk-input"
-                                >
-                                    <option value="">— بدون تأمين —</option>
-                                    <option
-                                        v-for="ins in insuranceCompanies"
-                                        :key="ins.id"
-                                        :value="ins.id"
-                                    >
-                                        {{ ins.name }}
-                                    </option>
-                                </select>
-                            </div>
-                            <!-- Price -->
-                            <div>
-                                <label class="bk-label">السعر الأصلي (ج)</label>
-                                <input
-                                    v-model="form.price"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    class="bk-input"
-                                />
-                            </div>
-                            <!-- Discount -->
-                            <div>
-                                <label class="bk-label">الخصم (ج)</label>
-                                <input
-                                    v-model="form.discount"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    class="bk-input"
-                                />
-                            </div>
-                            <!-- Insurance amount (conditional) -->
-                            <div v-if="isInsurance">
-                                <label class="bk-label">مبلغ التأمين (ج)</label>
-                                <input
-                                    v-model="form.ins_amount"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    class="bk-input bk-input-readonly"
-                                    readonly
-                                />
-                            </div>
-                            <!-- Final price -->
-                            <div>
-                                <label class="bk-label"
-                                    >الإجمالي المستحق (ج)</label
-                                >
-                                <input
-                                    :value="netAmount"
-                                    type="number"
-                                    class="bk-input bk-input-readonly"
-                                    style="
-                                        font-weight: 700;
-                                        color: #0a4fa6;
-                                        font-size: 14px;
-                                    "
-                                    readonly
-                                />
-                            </div>
                             <!-- Pay method -->
                             <div>
                                 <label class="bk-label">طريقة الدفع</label>
-                                <select
-                                    v-model="form.pay_method"
-                                    class="bk-input"
-                                >
-                                    <option
-                                        v-for="opt in payMethodOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
+                                <select v-model="form.pay_method" class="bk-input">
+                                    <option v-for="opt in payMethodOptions" :key="opt.value" :value="opt.value">
                                         {{ opt.label }}
                                     </option>
                                 </select>
                             </div>
+
                             <!-- Paid amount -->
                             <div>
-                                <label class="bk-label"
-                                    >المبلغ المدفوع (ج)</label
-                                >
-                                <input
-                                    v-model="form.paid_amount"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    class="bk-input"
-                                />
+                                <label class="bk-label">المبلغ المدفوع (ج)</label>
+                                <input v-model="form.paid_amount" type="number" step="0.01" min="0" class="bk-input" />
                             </div>
+
+                            <!-- Insurance company + price list (when insurance) -->
+                            <template v-if="isInsurance">
+                                <div>
+                                    <label class="bk-label">شركة التأمين</label>
+                                    <select v-model="form.ins_company_id" class="bk-input" @change="priceListId = ''">
+                                        <option value="">— اختر الشركة —</option>
+                                        <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">
+                                            {{ ins.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="bk-label">قائمة الأسعار</label>
+                                    <select v-model="priceListId" class="bk-input">
+                                        <option value="">— اختر القائمة —</option>
+                                        <option v-for="pl in filteredPriceLists" :key="pl.id" :value="pl.id">
+                                            {{ pl.name }} ({{ pl.ins_coverage }}%)
+                                        </option>
+                                    </select>
+                                </div>
+                            </template>
+
+                            <!-- Price -->
+                            <div>
+                                <label class="bk-label">السعر الأصلي (ج)</label>
+                                <input v-model="form.price" type="number" step="0.01" min="0" class="bk-input" />
+                            </div>
+
+                            <!-- Discount -->
+                            <div>
+                                <label class="bk-label">الخصم (ج)</label>
+                                <input v-model="form.discount" type="number" step="0.01" min="0" class="bk-input" />
+                            </div>
+
+                            <!-- Insurance amount -->
+                            <div v-if="isInsurance">
+                                <label class="bk-label">مبلغ التأمين (ج)</label>
+                                <input v-model="form.ins_amount" type="number" step="0.01" min="0" class="bk-input bk-input-readonly" readonly />
+                            </div>
+
+                            <!-- Net due -->
+                            <div>
+                                <label class="bk-label">الإجمالي المستحق (ج)</label>
+                                <input :value="netAmount" type="number" class="bk-input bk-input-readonly" style="font-weight:700;color:#0a4fa6;font-size:14px;" readonly />
+                            </div>
+
                             <!-- Pay status -->
                             <div class="col-span-2">
                                 <label class="bk-label">حالة السداد</label>
-                                <select
-                                    v-model="form.pay_status"
-                                    class="bk-input"
-                                >
-                                    <option
-                                        v-for="opt in payStatusOptions"
-                                        :key="opt.value"
-                                        :value="opt.value"
-                                    >
+                                <select v-model="form.pay_status" class="bk-input">
+                                    <option v-for="opt in payStatusOptions" :key="opt.value" :value="opt.value">
                                         {{ opt.label }}
                                     </option>
                                 </select>
@@ -540,14 +541,42 @@ function submit() {
                         </div>
                     </template>
 
-                    <!-- Creating hint -->
-                    <p
-                        v-else
-                        class="mt-3 rounded-lg border border-hospital-warning-pale bg-hospital-warning-pale/40 px-3 py-2 text-xs text-hospital-warning"
-                    >
-                        💡 يمكن تسجيل الدفع لاحقاً من خلال زر "دفع" في قائمة
-                        الحجوزات
-                    </p>
+                    <!-- Create mode: pay method + insurance -->
+                    <div v-else class="bk-grid-2 mt-3">
+                        <div class="col-span-2">
+                            <label class="bk-label">طريقة الدفع</label>
+                            <select v-model="form.pay_method" class="bk-input">
+                                <option v-for="opt in payMethodOptions" :key="opt.value" :value="opt.value">
+                                    {{ opt.label }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <template v-if="isInsurance">
+                            <div>
+                                <label class="bk-label">شركة التأمين</label>
+                                <select v-model="form.ins_company_id" class="bk-input" @change="priceListId = ''">
+                                    <option value="">— اختر الشركة —</option>
+                                    <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">
+                                        {{ ins.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="bk-label">قائمة الأسعار</label>
+                                <select v-model="priceListId" class="bk-input">
+                                    <option value="">— اختر القائمة —</option>
+                                    <option v-for="pl in filteredPriceLists" :key="pl.id" :value="pl.id">
+                                        {{ pl.name }} ({{ pl.ins_coverage }}%)
+                                    </option>
+                                </select>
+                            </div>
+                        </template>
+
+                        <p class="col-span-2 rounded-lg border border-hospital-warning-pale bg-hospital-warning-pale/40 px-3 py-2 text-xs text-hospital-warning">
+                            💡 يمكن إكمال بيانات الدفع لاحقاً من خلال زر "دفع" في قائمة الحجوزات
+                        </p>
+                    </div>
                 </div>
             </div>
 

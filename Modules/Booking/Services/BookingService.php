@@ -10,6 +10,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
+use Modules\Insurance\Models\PriceList;
 
 class BookingService
 {
@@ -18,12 +19,17 @@ class BookingService
         private readonly MrnGeneratorService $mrnGenerator,
     ) {}
 
-    /** @return array{services: Collection, insuranceCompanies: Collection} */
+    /** @return array{services: Collection, insuranceCompanies: Collection, priceLists: Collection} */
     public function getFormResources(): array
     {
         return [
             'services' => Service::select('id', 'name', 'dept', 'price', 'ins_price')->orderBy('name')->get(),
             'insuranceCompanies' => InsuranceCompany::select('id', 'name')->orderBy('name')->get(),
+            'priceLists' => PriceList::select('id', 'name', 'ins_company_id', 'ins_coverage')
+                ->where('is_active', true)
+                ->with('items:price_list_id,service_id,price')
+                ->orderBy('name')
+                ->get(),
         ];
     }
 

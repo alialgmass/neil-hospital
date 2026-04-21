@@ -45,7 +45,7 @@ class ServiceController extends Controller
             'status' => 'nullable|in:active,inactive',
         ]);
 
-        Service::create($data);
+        Service::create($this->appendShares($data));
 
         return back()->with('success', 'تم إضافة الخدمة بنجاح.');
     }
@@ -65,7 +65,7 @@ class ServiceController extends Controller
             'status' => 'nullable|in:active,inactive',
         ]);
 
-        $service->update($data);
+        $service->update($this->appendShares($data));
 
         return back()->with('success', 'تم تعديل الخدمة بنجاح.');
     }
@@ -75,6 +75,22 @@ class ServiceController extends Controller
         Service::findOrFail($id)->delete();
 
         return back()->with('success', 'تم حذف الخدمة.');
+    }
+
+    /** @param array<string, mixed> $data */
+    private function appendShares(array $data): array
+    {
+        $price = (float) ($data['price'] ?? 0);
+        $val = (float) ($data['center_val'] ?? 0);
+
+        $centerShare = $data['center_type'] === 'pct'
+            ? round($price * $val / 100, 2)
+            : $val;
+
+        $data['center_share'] = $centerShare;
+        $data['dr_share'] = round($price - $centerShare, 2);
+
+        return $data;
     }
 
     public function import(Request $request): RedirectResponse

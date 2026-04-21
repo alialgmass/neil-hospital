@@ -78,18 +78,20 @@ function openEdit(svc: Service) {
     showModal.value = true;
 }
 
+function closeModal() {
+    showModal.value = false;
+    form.reset();
+    form.clearErrors();
+}
+
 function submit() {
     if (editingService.value) {
         form.put(`/services/${editingService.value.id}`, {
-            onSuccess: () => {
-                showModal.value = false;
-            },
+            onSuccess: closeModal,
         });
     } else {
         form.post('/services', {
-            onSuccess: () => {
-                showModal.value = false;
-            },
+            onSuccess: closeModal,
         });
     }
 }
@@ -287,145 +289,111 @@ function drSharePreview(): number {
 
         <!-- Create/Edit Modal -->
         <Modal
-            :show="showModal"
+            v-model="showModal"
             :title="editingService ? 'تعديل خدمة' : 'إضافة خدمة'"
-            @close="showModal = false"
-            :model-value="showModal"
+            @close="closeModal"
         >
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="col-span-2">
-                        <label class="mb-1 block text-sm font-medium"
-                            >اسم الخدمة *</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">اسم الخدمة *</label>
                         <input
                             v-model="form.name"
-                            class="input-field"
+                            :class="['input-field', form.errors.name && 'border-red-400']"
                             type="text"
                             required
                         />
-                        <p v-if="form.errors.name" class="text-sm text-red-500">
-                            {{ form.errors.name }}
-                        </p>
+                        <p v-if="form.errors.name" class="mt-1 text-xs text-red-500">{{ form.errors.name }}</p>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >القسم *</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">القسم *</label>
                         <select
                             v-model="form.dept"
-                            class="input-field"
+                            :class="['input-field', form.errors.dept && 'border-red-400']"
                             required
                         >
-                            <option
-                                v-for="(label, key) in deptLabels"
-                                :key="key"
-                                :value="key"
-                            >
-                                {{ label }}
-                            </option>
+                            <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
                         </select>
+                        <p v-if="form.errors.dept" class="mt-1 text-xs text-red-500">{{ form.errors.dept }}</p>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >الحالة</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">الحالة</label>
                         <select v-model="form.status" class="input-field">
                             <option value="active">نشط</option>
                             <option value="inactive">غير نشط</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >السعر الأساسي (ج)</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">السعر الأساسي (ج)</label>
                         <input
                             v-model.number="form.price"
-                            class="input-field"
+                            :class="['input-field', form.errors.price && 'border-red-400']"
                             type="number"
                             min="0"
                             step="0.01"
                         />
+                        <p v-if="form.errors.price" class="mt-1 text-xs text-red-500">{{ form.errors.price }}</p>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >سعر التأمين (ج)</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">سعر التأمين (ج)</label>
                         <input
                             v-model.number="form.ins_price"
-                            class="input-field"
+                            :class="['input-field', form.errors.ins_price && 'border-red-400']"
                             type="number"
                             min="0"
                             step="0.01"
                         />
+                        <p v-if="form.errors.ins_price" class="mt-1 text-xs text-red-500">{{ form.errors.ins_price }}</p>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >نوع حصة المركز</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">نوع حصة المركز</label>
                         <select v-model="form.center_type" class="input-field">
                             <option value="pct">نسبة %</option>
                             <option value="fixed">قيمة ثابتة</option>
                         </select>
                     </div>
+
                     <div>
                         <label class="mb-1 block text-sm font-medium">
-                            {{
-                                form.center_type === 'pct'
-                                    ? 'النسبة %'
-                                    : 'القيمة الثابتة (ج)'
-                            }}
+                            {{ form.center_type === 'pct' ? 'النسبة %' : 'القيمة الثابتة (ج)' }}
                         </label>
                         <input
                             v-model.number="form.center_val"
-                            class="input-field"
+                            :class="['input-field', form.errors.center_val && 'border-red-400']"
                             type="number"
                             min="0"
                             step="0.01"
                         />
+                        <p v-if="form.errors.center_val" class="mt-1 text-xs text-red-500">{{ form.errors.center_val }}</p>
                     </div>
+
                     <div>
-                        <label class="mb-1 block text-sm font-medium"
-                            >مدة الخدمة (دقيقة)</label
-                        >
+                        <label class="mb-1 block text-sm font-medium">مدة الخدمة (دقيقة)</label>
                         <input
                             v-model.number="form.duration_mins"
-                            class="input-field"
+                            :class="['input-field', form.errors.duration_mins && 'border-red-400']"
                             type="number"
                             min="1"
                         />
+                        <p v-if="form.errors.duration_mins" class="mt-1 text-xs text-red-500">{{ form.errors.duration_mins }}</p>
                     </div>
                 </div>
 
                 <!-- Preview -->
-                <div
-                    v-if="form.price > 0"
-                    class="rounded-lg border border-blue-100 bg-blue-50 p-3"
-                >
-                    <p class="text-sm font-medium text-blue-800">
-                        معاينة التوزيع:
-                    </p>
-                    <p class="text-sm text-blue-700">
-                        حصة المركز: {{ centerSharePreview() }}
-                    </p>
-                    <p class="text-sm text-green-700">
-                        مستحق الطبيب: {{ drSharePreview().toFixed(2) }} ج
-                    </p>
+                <div v-if="form.price > 0" class="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                    <p class="text-sm font-medium text-blue-800">معاينة التوزيع:</p>
+                    <p class="text-sm text-blue-700">حصة المركز: {{ centerSharePreview() }}</p>
+                    <p class="text-sm text-green-700">مستحق الطبيب: {{ drSharePreview().toFixed(2) }} ج</p>
                 </div>
 
                 <div class="flex justify-end gap-3">
-                    <button
-                        type="button"
-                        class="btn-secondary"
-                        @click="showModal = false"
-                    >
-                        إلغاء
-                    </button>
-                    <button
-                        type="submit"
-                        class="btn-primary"
-                        :disabled="form.processing"
-                    >
+                    <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
+                    <button type="submit" class="btn-primary" :disabled="form.processing">
                         {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ' }}
                     </button>
                 </div>
@@ -434,10 +402,9 @@ function drSharePreview(): number {
 
         <!-- Import Modal -->
         <Modal
-            :show="showImportModal"
+            v-model="showImportModal"
             title="استيراد الخدمات من Excel"
             @close="showImportModal = false"
-            :model-value="showImportModal"
         >
             <form class="space-y-4" @submit.prevent="submitImport">
                 <p class="text-sm text-gray-600">
