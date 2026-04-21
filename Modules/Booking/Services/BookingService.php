@@ -63,7 +63,7 @@ class BookingService
             'pay_status' => $data->payStatus,
             'status' => $data->status,
             'visit_note' => $data->visitNote,
-            'bed_no' => $data->bedNo,
+            'bed_id' => $data->bedId,
             'eye_side' => $data->eyeSide,
             'analysis_type' => $data->analysisType,
             'analysis_notes' => $data->analysisNotes,

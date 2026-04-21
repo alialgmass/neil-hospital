@@ -33,7 +33,7 @@ class StoreBookingRequest extends FormRequest
             'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
             'pay_status' => ['required', 'in:unpaid,partial,paid'],
             'visit_note' => ['nullable', 'string', 'max:2000'],
-            'bed_no' => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'bed_id' => ['nullable', 'integer','exists:or_beds,id'],
             'eye_side' => ['nullable', 'in:OD,OS,OU'],
             'analysis_type' => ['nullable', 'string', 'max:150'],
             'analysis_notes' => ['nullable', 'string', 'max:500'],

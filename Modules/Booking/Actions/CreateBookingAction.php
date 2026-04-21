@@ -22,11 +22,13 @@ class CreateBookingAction
         $booking = $this->bookingService->create($data, $createdBy);
 
         if (in_array($data->dept, ['surgery', 'lasik'])) {
-            $this->surgeryService->schedule(new SurgeryData(
+        $aa=    $this->surgeryService->schedule(new SurgeryData(
                 bookingId: $booking->id,
                 dept: $data->dept,
+                orBedId: $data->bedId,
                 surgeonId: $data->doctorId,
             ));
+            dd($aa);
         }
 
         $this->activityLog->log(
