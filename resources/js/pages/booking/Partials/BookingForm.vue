@@ -173,7 +173,7 @@ const selectedBedId = ref<number | null>(
 
 function isBedOccupied(bed: OrBed): boolean {
     return (
-        bed.status !== 'available' || (!!bed.surgery && bed.surgery !== null)
+        bed.status != 'available' || (!!bed.surgery && bed.surgery !== null)
     );
 }
 

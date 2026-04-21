@@ -66,7 +66,9 @@
       "Bash(\"C:/Users/Royal/.config/herd/bin/php.bat\" artisan *)",
       "Bash(\"C:/Users/Royal/.config/herd/bin/php.bat\" vendor/bin/pint --dirty --format agent)",
       "Bash(vendor/bin/pint --dirty --format agent Modules/Booking/Controllers/BookingController.php)",
-      "Bash(./vendor/bin/pint --dirty Modules/Booking/Controllers/BookingController.php)"
+      "Bash(./vendor/bin/pint --dirty Modules/Booking/Controllers/BookingController.php)",
+      "mcp__laravel-boost__last-error",
+      "mcp__laravel-boost__database-schema"
     ]
   },
   "enableAllProjectMcpServers": true,
