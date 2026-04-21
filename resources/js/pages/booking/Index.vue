@@ -78,12 +78,20 @@ const payForm = useForm({ paid_amount: '', pay_method: 'cash' });
 
 const isPayModalOpen = computed({
     get: () => !!payTarget.value,
-    set: (val) => { if (!val) { payTarget.value = null; payForm.reset(); } },
+    set: (val) => {
+ if (!val) {
+ payTarget.value = null; payForm.reset(); 
+} 
+},
 });
 
 const payRemaining = computed(() => {
-    if (!payTarget.value) return 0;
+    if (!payTarget.value) {
+return 0;
+}
+
     const net = Math.max(0, Number(payTarget.value.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
+
     return Math.max(0, net - Number(payTarget.value.paid_amount));
 });
 
@@ -93,9 +101,14 @@ function openPay(booking: Booking) {
 }
 
 function submitPay() {
-    if (!payTarget.value) return;
+    if (!payTarget.value) {
+return;
+}
+
     payForm.patch(`/booking/${payTarget.value.id}/pay`, {
-        onSuccess: () => { payTarget.value = null; payForm.reset(); },
+        onSuccess: () => {
+ payTarget.value = null; payForm.reset(); 
+},
     });
 }
 const search = ref(props.filters.search ?? '');

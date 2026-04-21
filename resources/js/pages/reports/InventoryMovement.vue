@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
-import Badge from '@/components/shared/Badge.vue'
 import { router } from '@inertiajs/vue3'
 import { ref } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import Badge from '@/components/shared/Badge.vue'
 
 defineOptions({ layout: AppLayout })
 

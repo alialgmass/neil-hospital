@@ -121,6 +121,7 @@ const occupiedBedIds = computed(() => {
             }
         });
     });
+
     return ids;
 });
 
@@ -180,7 +181,10 @@ const scheduleForm = useForm({
 });
 
 function selectOrBed(bedId: number) {
-    if (occupiedBedIds.value.includes(bedId)) return;
+    if (occupiedBedIds.value.includes(bedId)) {
+return;
+}
+
     scheduleForm.or_bed_id = scheduleForm.or_bed_id === bedId ? null : bedId;
 }
 
@@ -196,8 +200,12 @@ function submitSchedule() {
 function getBedLabel(bedId: number): string {
     for (const room of props.orRooms) {
         const bed = room.beds.find((b) => b.id === bedId);
-        if (bed) return `${room.name} - سرير ${bed.bed_number}`;
+
+        if (bed) {
+return `${room.name} - سرير ${bed.bed_number}`;
+}
     }
+
     return '';
 }
 
@@ -257,6 +265,7 @@ function openSupplies(id: string) {
 }
 function selectInventoryItem(item: SupplyItem, inventoryId: string) {
     const inv = props.inventoryItems.find((i) => i.id === inventoryId);
+
     if (inv) {
         item.inventory_item_id = inventoryId;
         item.name = inv.name;

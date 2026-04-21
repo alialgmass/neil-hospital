@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
 import { useForm } from '@inertiajs/vue3'
+import AppLayout from '@/components/layout/AppLayout.vue'
 
 defineOptions({ layout: AppLayout })
 

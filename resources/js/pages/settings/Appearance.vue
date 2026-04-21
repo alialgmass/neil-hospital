@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { Monitor, Moon, Sun } from 'lucide-vue-next';
-import { edit } from '@/routes/appearance';
 import { useAppearance } from '@/composables/useAppearance';
+import { edit } from '@/routes/appearance';
 
 defineOptions({
     layout: {

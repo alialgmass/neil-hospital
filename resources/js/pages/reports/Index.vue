@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
 import { Link } from '@inertiajs/vue3'
 import {
     BarChart2,
@@ -13,6 +12,7 @@ import {
     Users,
     Wallet,
 } from 'lucide-vue-next'
+import AppLayout from '@/components/layout/AppLayout.vue'
 
 defineOptions({ layout: AppLayout })
 

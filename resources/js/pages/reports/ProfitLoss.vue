@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
 import { router } from '@inertiajs/vue3'
 import { Download } from 'lucide-vue-next'
 import { ref } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 
 defineOptions({ layout: AppLayout })
 
@@ -35,7 +35,9 @@ function exportExcel() {
     window.location.href = `/reports/profit-loss/export?from=${from.value}&to=${to.value}`
 }
 
-function printPage() { window.print() }
+function printPage() {
+ window.print() 
+}
 </script>
 
 <template>

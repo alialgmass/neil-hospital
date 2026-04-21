@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
-import Modal from '@/components/shared/Modal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import Modal from '@/components/shared/Modal.vue'
 
 defineOptions({ layout: AppLayout })
 

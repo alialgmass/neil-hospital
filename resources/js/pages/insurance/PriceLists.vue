@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
-import Badge from '@/components/shared/Badge.vue'
-import Modal from '@/components/shared/Modal.vue'
 import { useForm } from '@inertiajs/vue3'
 import { ChevronDown, ChevronUp, Printer, Trash2 } from 'lucide-vue-next'
 import { ref } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import Badge from '@/components/shared/Badge.vue'
+import Modal from '@/components/shared/Modal.vue'
 
 defineOptions({ layout: AppLayout })
 
@@ -83,13 +83,16 @@ function removeServiceRow(index: number) {
 
 function onServiceSelect(index: number) {
     const svc = props.services.find((s) => s.id === form.items[index].service_id)
+
     if (svc) {
         form.items[index].price = svc.ins_price || svc.price
     }
 }
 
 function submit() {
-    form.post('/price-lists', { onSuccess: () => { showModal.value = false; form.reset() } })
+    form.post('/price-lists', { onSuccess: () => {
+ showModal.value = false; form.reset() 
+} })
 }
 
 function toggleExpand(id: string) {

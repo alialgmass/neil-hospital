@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import AppLayout from '@/components/layout/AppLayout.vue'
-import Badge from '@/components/shared/Badge.vue'
-import Modal from '@/components/shared/Modal.vue'
 import { router, useForm } from '@inertiajs/vue3'
 import { Minus, Plus, Trash2 } from 'lucide-vue-next'
 import { ref } from 'vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
+import Badge from '@/components/shared/Badge.vue'
+import Modal from '@/components/shared/Modal.vue'
 
 defineOptions({ layout: AppLayout })
 
@@ -65,6 +65,7 @@ function removeItemRow(form: typeof issueForm | typeof addForm, index: number) {
 
 function onItemSelect(form: typeof issueForm | typeof addForm, index: number) {
     const selected = props.items.find((i) => i.id === form.items[index].item_id)
+
     if (selected) {
         form.items[index].item_name = selected.name
         form.items[index].unit_cost = selected.unit_cost

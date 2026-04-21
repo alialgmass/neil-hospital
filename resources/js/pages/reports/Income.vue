@@ -52,6 +52,7 @@ function pct(revenue: number) {
     if (totalRevenue === 0) {
         return '0';
     }
+
     return ((revenue / totalRevenue) * 100).toFixed(1);
 }
 
@@ -59,6 +60,7 @@ const filteredDept = () => {
     if (!deptFilter.value) {
         return props.revenueByDept;
     }
+
     return props.revenueByDept.filter((r) => r.dept === deptFilter.value);
 };
 </script>

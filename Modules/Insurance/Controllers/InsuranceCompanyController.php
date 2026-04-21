@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Insurance\Actions\CreateInsuranceCompanyAction;
+use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Services\InsuranceService;
 
 class InsuranceCompanyController extends Controller
@@ -20,11 +21,26 @@ class InsuranceCompanyController extends Controller
     public function index(): Response
     {
         $search = request('search');
+        $companyFilter = request('company_id');
         $companies = $this->insuranceService->list($search, 20);
+
+        $claimsQuery = InsuranceClaim::with(['company:id,name', 'service:id,name'])
+            ->when($companyFilter, fn ($q, $v) => $q->where('insurance_company_id', $v))
+            ->orderByDesc('claim_date')
+            ->orderByDesc('created_at');
+
+        $thisMonth = now()->startOfMonth();
+        $monthlyClaimsCount = InsuranceClaim::where('claim_date', '>=', $thisMonth)->count();
+        $monthlyClaimsTotal = InsuranceClaim::where('claim_date', '>=', $thisMonth)->sum('insurance_share');
 
         return Inertia::render('insurance/Companies', [
             'companies' => $companies,
-            'filters' => ['search' => $search],
+            'filters' => ['search' => $search, 'company_id' => $companyFilter],
+            'claims' => $claimsQuery->paginate(30)->withQueryString(),
+            'stats' => [
+                'monthly_claims_count' => $monthlyClaimsCount,
+                'monthly_claims_total' => round((float) $monthlyClaimsTotal, 2),
+            ],
         ]);
     }
 
@@ -68,5 +84,13 @@ class InsuranceCompanyController extends Controller
         $this->insuranceService->update($id, $data);
 
         return back()->with('success', 'تم تعديل شركة التأمين بنجاح.');
+    }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $company = $this->insuranceService->findById($id);
+        $company->delete();
+
+        return back()->with('success', 'تم حذف شركة التأمين.');
     }
 }

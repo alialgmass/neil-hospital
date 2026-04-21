@@ -31,6 +31,11 @@ class InsuranceService
         return $this->repository->create($data);
     }
 
+    public function findById(string $id): InsuranceCompany
+    {
+        return $this->repository->findById($id);
+    }
+
     public function update(string $id, array $data): InsuranceCompany
     {
         return $this->repository->update($id, $data);

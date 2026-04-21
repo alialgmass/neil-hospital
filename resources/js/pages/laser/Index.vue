@@ -68,7 +68,9 @@ const scheduleForm = useForm({
 });
 function submitSchedule() {
     scheduleForm.post('/laser', {
-        onSuccess: () => { showSchedule.value = false; scheduleForm.reset(); },
+        onSuccess: () => {
+ showSchedule.value = false; scheduleForm.reset(); 
+},
     });
 }
 
@@ -76,9 +78,13 @@ function submitSchedule() {
 const showReport   = ref(false);
 const reportTarget = ref('');
 const reportForm   = useForm({ op_report: '', post_op_notes: '', complications: '' });
-function openReport(id: string) { reportTarget.value = id; reportForm.reset(); showReport.value = true; }
+function openReport(id: string) {
+ reportTarget.value = id; reportForm.reset(); showReport.value = true; 
+}
 function submitReport() {
-    reportForm.post(`/laser/${reportTarget.value}/report`, { onSuccess: () => { showReport.value = false; } });
+    reportForm.post(`/laser/${reportTarget.value}/report`, { onSuccess: () => {
+ showReport.value = false; 
+} });
 }
 
 const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوكوما (SLT)', 'ليزر جلوكوما (ALT)', 'ليزر ملتحمة'];
