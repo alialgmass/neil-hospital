@@ -53,7 +53,12 @@ class InsuranceClaimController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
+        $oldStatus = $claim->status;
         $claim->update($data);
+
+        if ($data['status'] === 'paid' && $claim->booking_id && $oldStatus !== 'paid') {
+            $claim->booking->update(['pay_status' => 'paid']);
+        }
 
         return back()->with('success', 'تم تحديث المطالبة بنجاح.');
     }
