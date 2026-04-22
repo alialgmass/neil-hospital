@@ -20,7 +20,7 @@ class RecordSuppliesUsedAction
 
         $this->activityLog->log(
             action:      'supplies_recorded',
-            module:      $surgery->dept,
+            module:      get_class($surgery->dept),
             recordId:    $data->surgeryId,
             description: "تسجيل مستلزمات: إجمالي = {$surgery->supply_total} ج.م",
         );
