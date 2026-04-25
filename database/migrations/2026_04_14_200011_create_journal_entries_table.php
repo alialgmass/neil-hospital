@@ -16,7 +16,7 @@ return new class extends Migration
             $table->ulid('credit_account_id');
             $table->decimal('amount', 12, 2);
             $table->string('reference', 80)->nullable();
-            $table->enum('source', ['manual', 'auto_booking', 'auto_payment'])->default('manual');
+            $table->string('source', 30)->default('manual');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
 

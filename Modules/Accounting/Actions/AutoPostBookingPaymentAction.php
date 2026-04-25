@@ -45,7 +45,7 @@ class AutoPostBookingPaymentAction
 
         // 2. Auto-post journal entry: Debit Cash / Credit Revenue
         $cashAccount = $this->findAccount($booking->pay_method === PayMethod::Card ? '1100' : '1000');
-        $revenueAccount = $this->findRevenueAccount($booking->dept);
+        $revenueAccount = $this->findRevenueAccount($booking->dept, $booking->service_id);
 
         if ($cashAccount && $revenueAccount) {
             $this->journalService->record([
@@ -65,8 +65,18 @@ class AutoPostBookingPaymentAction
         return DB::table('accounts')->where('code', $code)->value('id');
     }
 
-    private function findRevenueAccount(Department $dept): ?string
+    private function findRevenueAccount(Department $dept, ?string $serviceId = null): ?string
     {
+        if ($serviceId) {
+            $serviceAccountId = DB::table('services')
+                ->where('id', $serviceId)
+                ->value('revenue_account_id');
+
+            if ($serviceAccountId) {
+                return $serviceAccountId;
+            }
+        }
+
         $codeMap = [
             Department::Clinic->value => '2000',
             Department::Labs->value => '2100',

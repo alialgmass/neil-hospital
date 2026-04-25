@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Accounting\Models\Account;
 use Modules\Admin\Actions\CreateServiceAction;
 use Modules\Admin\Actions\UpdateServiceAction;
 use Modules\Admin\Http\Requests\StoreServiceRequest;
@@ -26,9 +27,15 @@ class ServicesController extends Controller
         $dept = request('dept');
         $search = request('search');
 
+        $revenueAccounts = Account::where('group', 'revenues')
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
         return Inertia::render('admin/Services', [
             'services' => $this->serviceManager->list($dept, $search),
             'filters' => compact('dept', 'search'),
+            'revenueAccounts' => $revenueAccounts,
         ]);
     }
 

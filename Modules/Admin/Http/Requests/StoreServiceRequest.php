@@ -29,6 +29,7 @@ class StoreServiceRequest extends FormRequest
             'center_val' => ['nullable', 'numeric', 'min:0'],
             'duration_mins' => ['nullable', 'integer', 'min:1'],
             'status' => ['nullable', "in:{$statuses}"],
+            'revenue_account_id' => ['nullable', 'ulid', 'exists:accounts,id'],
         ];
     }
 }

@@ -4,6 +4,8 @@ namespace Modules\Inventory\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Accounting\Models\Account;
 
 class Service extends Model
 {
@@ -22,6 +24,7 @@ class Service extends Model
         'dr_share',
         'duration_mins',
         'status',
+        'revenue_account_id',
     ];
 
     protected function casts(): array
@@ -33,6 +36,11 @@ class Service extends Model
             'center_share' => 'float',
             'dr_share' => 'float',
         ];
+    }
+
+    public function revenueAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'revenue_account_id');
     }
 
     public function scopeActive($query)

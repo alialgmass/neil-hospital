@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Modules\Accounting\Models\Account;
 use Modules\Inventory\Imports\ServicesImport;
 use Modules\Inventory\Services\MedicalServiceService;
 
@@ -21,9 +22,15 @@ class ServiceController extends Controller
     {
         $filters = request()->only(['search', 'dept', 'status']);
 
+        $revenueAccounts = Account::where('group', 'revenues')
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
+
         return Inertia::render('inventory/Services', [
             'services' => $this->service->list($filters, 30),
             'filters' => $filters,
+            'revenueAccounts' => $revenueAccounts,
         ]);
     }
 
@@ -38,6 +45,7 @@ class ServiceController extends Controller
             'center_val' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
+            'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
         ]);
 
         $this->service->create($data);
@@ -56,6 +64,7 @@ class ServiceController extends Controller
             'center_val' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
+            'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
         ]);
 
         $this->service->update($id, $data);
@@ -88,6 +97,12 @@ class ServiceController extends Controller
         $import = new ServicesImport;
         Excel::import($import, $request->file('file'));
 
-        return back()->with('success', "تم الاستيراد: {$import->created} جديدة، {$import->updated} محدّثة، {$import->skipped} متجاهلة.");
+        Inertia::flash('importResult', [
+            'created' => $import->created,
+            'updated' => $import->updated,
+            'skipped' => $import->skipped,
+        ]);
+
+        return back();
     }
 }
