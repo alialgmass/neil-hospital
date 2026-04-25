@@ -10,11 +10,13 @@ use Modules\Admin\Actions\CreateServiceAction;
 use Modules\Admin\Actions\UpdateServiceAction;
 use Modules\Admin\Http\Requests\StoreServiceRequest;
 use Modules\Admin\Http\Requests\UpdateServiceRequest;
+use Modules\Admin\Services\ServiceManagementService;
 use Modules\Booking\Models\Service;
 
 class ServicesController extends Controller
 {
     public function __construct(
+        private readonly ServiceManagementService $serviceManager,
         private readonly CreateServiceAction $createAction,
         private readonly UpdateServiceAction $updateAction,
     ) {}
@@ -24,15 +26,8 @@ class ServicesController extends Controller
         $dept = request('dept');
         $search = request('search');
 
-        $services = Service::query()
-            ->when($dept, fn ($q) => $q->where('dept', $dept))
-            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            ->orderBy('dept')
-            ->orderBy('name')
-            ->paginate(40);
-
         return Inertia::render('admin/Services', [
-            'services' => $services,
+            'services' => $this->serviceManager->list($dept, $search),
             'filters' => compact('dept', 'search'),
         ]);
     }

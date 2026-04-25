@@ -2,6 +2,7 @@
 
 namespace Modules\Reporting\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -13,17 +14,17 @@ class DashboardService
         $bookings = DB::table('bookings')->whereDate('visit_date', $today);
 
         return [
-            'today_bookings'  => (clone $bookings)->count(),
-            'today_revenue'   => (float) (clone $bookings)->where('pay_status', '!=', 'unpaid')->sum('price'),
-            'today_paid'      => (clone $bookings)->where('pay_status', 'paid')->count(),
-            'today_pending'   => (clone $bookings)->where('pay_status', 'unpaid')->count(),
+            'today_bookings' => (clone $bookings)->count(),
+            'today_revenue' => (float) (clone $bookings)->where('pay_status', '!=', 'unpaid')->sum('price'),
+            'today_paid' => (clone $bookings)->where('pay_status', 'paid')->count(),
+            'today_pending' => (clone $bookings)->where('pay_status', 'unpaid')->count(),
         ];
     }
 
     public function revenueByDept(?string $from = null, ?string $to = null): array
     {
         $from = $from ?? today()->startOfMonth()->toDateString();
-        $to   = $to   ?? today()->toDateString();
+        $to = $to ?? today()->toDateString();
 
         return DB::table('bookings')
             ->select('dept', DB::raw('COUNT(*) as cases'), DB::raw('SUM(price) as revenue'))
@@ -38,7 +39,7 @@ class DashboardService
     public function revenueByDoctor(?string $from = null, ?string $to = null): array
     {
         $from = $from ?? today()->startOfMonth()->toDateString();
-        $to   = $to   ?? today()->toDateString();
+        $to = $to ?? today()->toDateString();
 
         return DB::table('bookings')
             ->join('doctors', 'bookings.doctor_id', '=', 'doctors.id')
@@ -53,13 +54,13 @@ class DashboardService
 
     public function treasuryBalance(): array
     {
-        $totalIn  = DB::table('treasury_entries')->where('type', 'in')->sum('amount');
+        $totalIn = DB::table('treasury_entries')->where('type', 'in')->sum('amount');
         $totalOut = DB::table('treasury_entries')->where('type', 'out')->sum('amount');
 
         return [
-            'total_in'  => (float) $totalIn,
+            'total_in' => (float) $totalIn,
             'total_out' => (float) $totalOut,
-            'balance'   => (float) ($totalIn - $totalOut),
+            'balance' => (float) ($totalIn - $totalOut),
         ];
     }
 
@@ -70,7 +71,7 @@ class DashboardService
             ->count();
     }
 
-    public function todayQueue(): \Illuminate\Support\Collection
+    public function todayQueue(): Collection
     {
         return DB::table('bookings')
             ->leftJoin('doctors', 'bookings.doctor_id', '=', 'doctors.id')
@@ -81,7 +82,7 @@ class DashboardService
                 'bookings.dept',
                 'bookings.status',
                 'bookings.pay_status',
-                //'bookings.time',
+                // 'bookings.time',
                 'doctors.name as doctor_name',
             )
            // ->whereDate('bookings.date', today())
@@ -89,5 +90,21 @@ class DashboardService
           //  ->orderBy('bookings.time')
             ->limit(20)
             ->get();
+    }
+
+    public function getIncomeStats(string $from, string $to): array
+    {
+        $bookings = DB::table('bookings')
+            ->whereBetween('visit_date', [$from, $to]);
+
+        $totalRevenue = (float) (clone $bookings)->where('pay_status', '!=', 'unpaid')->sum('price');
+        $paidCount = (clone $bookings)->where('pay_status', 'paid')->count();
+        $pendingAmount = (float) (clone $bookings)->where('pay_status', 'unpaid')->sum('price');
+        $todayRevenue = (float) DB::table('bookings')
+            ->whereDate('visit_date', today())
+            ->where('pay_status', '!=', 'unpaid')
+            ->sum('price');
+
+        return compact('totalRevenue', 'paidCount', 'pendingAmount', 'todayRevenue');
     }
 }

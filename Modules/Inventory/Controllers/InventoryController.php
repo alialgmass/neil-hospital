@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Inventory\Enums\ItemCategory;
+use Modules\Inventory\Enums\ItemUnit;
 use Modules\Inventory\Services\InventoryService;
 
 class InventoryController extends Controller
@@ -22,29 +25,30 @@ class InventoryController extends Controller
         $filters = request()->only(['search', 'category', 'low_stock']);
 
         return Inertia::render('inventory/Index', [
-            'items'           => $this->inventoryService->list($filters, 30),
-            'categories'      => $this->inventoryService->categories(),
-            'lowStockCount'   => $this->inventoryService->lowStockCount(),
-            'totalValue'      => $this->inventoryService->totalValue(),
+            'items' => $this->inventoryService->list($filters, 30),
+            'categories' => collect(ItemCategory::cases())->map(fn ($c) => ['value' => $c->value, 'label' => $c->label()]),
+            'units' => collect(ItemUnit::cases())->map(fn ($u) => ['value' => $u->value, 'label' => $u->label()]),
+            'lowStockCount' => $this->inventoryService->lowStockCount(),
+            'totalValue' => $this->inventoryService->totalValue(),
             'openOrdersCount' => $this->inventoryService->openOrdersCount(),
-            'filters'         => $filters,
+            'filters' => $filters,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:200'],
-            'code'         => ['nullable', 'string', 'max:40', 'unique:inventory,code'],
-            'category'     => ['nullable', 'string', 'max:80'],
-            'unit'         => ['nullable', 'string', 'max:30'],
-            'quantity'     => ['nullable', 'numeric', 'min:0'],
+            'name' => ['required', 'string', 'max:200'],
+            'code' => ['nullable', 'string', 'max:40', 'unique:inventory,code'],
+            'category' => ['nullable', Rule::enum(ItemCategory::class)],
+            'unit' => ['nullable', Rule::enum(ItemUnit::class)],
+            'quantity' => ['nullable', 'numeric', 'min:0'],
             'min_quantity' => ['nullable', 'numeric', 'min:0'],
-            'unit_cost'    => ['nullable', 'numeric', 'min:0'],
-            'sell_price'   => ['nullable', 'numeric', 'min:0'],
-            'supplier_id'  => ['nullable', 'exists:suppliers,id'],
-            'expiry_date'  => ['nullable', 'date'],
-            'location'     => ['nullable', 'string', 'max:80'],
+            'unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'sell_price' => ['nullable', 'numeric', 'min:0'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'expiry_date' => ['nullable', 'date'],
+            'location' => ['nullable', 'string', 'max:80'],
         ]);
 
         $item = $this->inventoryService->create($data);
@@ -57,16 +61,16 @@ class InventoryController extends Controller
     public function update(Request $request, string $id): RedirectResponse
     {
         $data = $request->validate([
-            'name'         => ['required', 'string', 'max:200'],
-            'code'         => ['nullable', 'string', 'max:40', "unique:inventory,code,{$id}"],
-            'category'     => ['nullable', 'string', 'max:80'],
-            'unit'         => ['nullable', 'string', 'max:30'],
+            'name' => ['required', 'string', 'max:200'],
+            'code' => ['nullable', 'string', 'max:40', "unique:inventory,code,{$id}"],
+            'category' => ['nullable', Rule::enum(ItemCategory::class)],
+            'unit' => ['nullable', Rule::enum(ItemUnit::class)],
             'min_quantity' => ['nullable', 'numeric', 'min:0'],
-            'unit_cost'    => ['nullable', 'numeric', 'min:0'],
-            'sell_price'   => ['nullable', 'numeric', 'min:0'],
-            'supplier_id'  => ['nullable', 'exists:suppliers,id'],
-            'expiry_date'  => ['nullable', 'date'],
-            'location'     => ['nullable', 'string', 'max:80'],
+            'unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'sell_price' => ['nullable', 'numeric', 'min:0'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'expiry_date' => ['nullable', 'date'],
+            'location' => ['nullable', 'string', 'max:80'],
         ]);
 
         $item = $this->inventoryService->update($id, $data);

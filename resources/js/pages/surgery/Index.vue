@@ -92,6 +92,7 @@ watch(statusFilter, () => {
     if (filterTimeout) {
         clearTimeout(filterTimeout);
     }
+
     filterTimeout = setTimeout(() => applyFilters(), 300);
 });
 
@@ -108,10 +109,10 @@ const bedMap = computed(() => {
     let counter = 1;
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
-            const surgery = props.surgeries.data.find((s) => s.or_bed_id === bed.id) ?? null;
-            map[counter++] = { room, bed, surgery };
+            map[counter++] = { room, bed, surgery: bed.surgery ?? null };
         });
     });
+
     return map;
 });
 
@@ -145,11 +146,12 @@ const occupiedBedIds = computed(() => {
     const ids: number[] = [];
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
-            if (bed.status !== 'available' && bed.surgery && ['scheduled', 'prep', 'in_progress'].includes(bed.surgery.status)) {
+            if (bed.surgery && ['scheduled', 'prep', 'in_progress'].includes(bed.surgery.status)) {
                 ids.push(bed.id);
             }
         });
     });
+
     return ids;
 });
 
@@ -177,6 +179,7 @@ function closeOverlay() {
 
 function selectNewSupplyItem(item: NewSupplyItem, inventoryId: string) {
     const inv = props.inventoryItems.find((i) => i.id === inventoryId);
+
     if (inv) {
         item.inventory_item_id = inventoryId;
         item.name = inv.name;
@@ -200,7 +203,7 @@ function submitOverlaySupplies() {
 
     router.post(
         `/surgery/${selectedCase.value!.id}/supplies`,
-        { surgery_id: selectedCase.value!.id, items: [...existing, ...adding] },
+        { surgery_id: selectedCase.value!.id, items: [...existing, ...adding] as any },
         {
             onSuccess: () => {
                 newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
@@ -233,6 +236,7 @@ const nextStatuses = computed(() => {
             { value: 'cancelled', label: 'إلغاء', color: '#95A5A6' },
         ],
     };
+
     return c ? (map[c] ?? []) : [];
 });
 
@@ -245,6 +249,7 @@ function updateStatus(newStatus: string) {
                 if (selectedCase.value) {
                     selectedCase.value.status = newStatus as Surgery['status'];
                 }
+
                 toast.success('تم تحديث حالة العملية');
             },
         },
@@ -266,15 +271,22 @@ const scheduleForm = useForm({
 });
 
 function selectOrBed(bedId: number) {
-    if (occupiedBedIds.value.includes(bedId)) return;
+    if (occupiedBedIds.value.includes(bedId)) {
+return;
+}
+
     scheduleForm.or_bed_id = scheduleForm.or_bed_id === bedId ? null : bedId;
 }
 
 function getBedLabel(bedId: number): string {
     for (const room of props.orRooms) {
         const bed = room.beds.find((b) => b.id === bedId);
-        if (bed) return `${room.name} - سرير ${bed.bed_number}`;
+
+        if (bed) {
+return `${room.name} - سرير ${bed.bed_number}`;
+}
     }
+
     return '';
 }
 

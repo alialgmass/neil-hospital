@@ -3,6 +3,7 @@
 namespace Modules\Booking\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Modules\Surgery\Services\SurgeryService;
 
 class UpdateBookingRequest extends FormRequest
 {
@@ -34,7 +35,24 @@ class UpdateBookingRequest extends FormRequest
             'pay_status' => ['required', 'in:unpaid,partial,paid'],
             'status' => ['nullable', 'in:waiting,confirmed,in_progress,completed,cancelled'],
             'visit_note' => ['nullable', 'string', 'max:2000'],
-            'bed_no' => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'bed_id' => [
+                'nullable',
+                'required_if:dept,surgery,lasik',
+                'exists:or_beds,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $service = app(SurgeryService::class);
+                        $bookingId = $this->route('booking');
+                        $excludeSurgeryId = null;
+                        if ($bookingId) {
+                            $excludeSurgeryId = $service->findByBooking($bookingId)?->id;
+                        }
+                        if (! $service->isBedAvailable($value, $this->visit_date, $excludeSurgeryId)) {
+                            $fail('هذا السرير مشغول في التاريخ المحدد أو يوجد به مريض حالياً.');
+                        }
+                    }
+                },
+            ],
             'eye_side' => ['nullable', 'in:OD,OS,OU'],
             'analysis_type' => ['nullable', 'string', 'max:150'],
             'analysis_notes' => ['nullable', 'string', 'max:500'],

@@ -28,12 +28,12 @@ class DoctorClaimsController extends Controller
     public function calculate(): Response
     {
         $doctorId = request('doctor_id');
-        $from     = request('from');
-        $to       = request('to');
+        $from = request('from');
+        $to = request('to');
 
         return Inertia::render('doctors/Claims', [
             'doctors' => $this->claimsService->doctors(),
-            'claims'  => $doctorId && $from && $to
+            'claims' => $doctorId && $from && $to
                 ? $this->claimsService->calculateClaims($doctorId, $from, $to)
                 : null,
             'filters' => compact('doctor_id', 'from', 'to'),
@@ -43,21 +43,21 @@ class DoctorClaimsController extends Controller
     public function pay(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'doctor_id'   => ['required', 'exists:doctors,id'],
-            'amount'      => ['required', 'numeric', 'min:0.01'],
+            'doctor_id' => ['required', 'exists:doctors,id'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
             'period_from' => ['required', 'date'],
-            'period_to'   => ['required', 'date'],
-            'paid_at'     => ['required', 'date'],
-            'method'      => ['required', 'in:cash,transfer'],
-            'notes'       => ['nullable', 'string'],
+            'period_to' => ['required', 'date'],
+            'paid_at' => ['required', 'date'],
+            'method' => ['required', 'in:cash,transfer'],
+            'notes' => ['nullable', 'string'],
         ]);
 
         $payment = $this->claimsService->recordPayment($data);
 
         $this->activityLog->log(
-            action:      'dr_payment',
-            module:      'doctors',
-            recordId:    $payment->id,
+            action: 'dr_payment',
+            module: 'doctors',
+            recordId: $payment->id,
             description: "دفعة للدكتور: {$payment->amount} ج.م",
         );
 

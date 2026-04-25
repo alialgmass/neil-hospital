@@ -2,9 +2,12 @@
 
 namespace Modules\Booking\Actions;
 
+use App\Enums\Department;
 use App\Services\ActivityLogService;
+use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayMethod;
+use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
 use Modules\Insurance\Models\InsuranceClaim;
@@ -17,6 +20,7 @@ class CreateBookingAction
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly SurgeryService $surgeryService,
+        private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly ActivityLogService $activityLog,
     ) {}
 
@@ -24,7 +28,7 @@ class CreateBookingAction
     {
         $booking = $this->bookingService->create($data, $createdBy);
 
-        if ($data->payMethod === PayMethod::Insurance->value && $data->insCompanyId) {
+        if ( $data->insCompanyId) {
             $patientShare = max(0, $data->price - $data->discount - $data->insAmount);
 
             InsuranceClaim::create([
@@ -40,20 +44,25 @@ class CreateBookingAction
                 'patient_share' => $patientShare,
                 'approved_amount' => 0,
                 'paid_amount' => 0,
-                'status' => DraftState::$name,
+                'status' => DraftState::class,
                 'service_date' => $data->visitDate,
                 'claim_date' => today()->toDateString(),
                 'created_by' => $createdBy,
             ]);
         }
 
-        if (in_array($data->dept, ['surgery', 'lasik'])) {
+        if (in_array($data->dept, [Department::Surgery, Department::Lasik])) {
             $this->surgeryService->schedule(new SurgeryData(
                 bookingId: $booking->id,
                 dept: $data->dept,
                 orBedId: $data->bedId,
                 surgeonId: $data->doctorId,
             ));
+        }
+
+        // Automatic Accounting Entry
+        if ($booking->pay_status === PayStatus::Paid) {
+            $this->autoPost->execute($booking);
         }
 
         $this->activityLog->log(

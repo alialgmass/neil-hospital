@@ -6,13 +6,6 @@ interface InsuranceCompany {
     name: string;
 }
 
-interface PriceList {
-    id: string;
-    name: string;
-    ins_company_id: string;
-    ins_coverage: number;
-}
-
 interface Props {
     modelValue: {
         pay_method: string;
@@ -24,8 +17,6 @@ interface Props {
         pay_status: string;
     };
     insuranceCompanies: InsuranceCompany[];
-    priceLists: PriceList[];
-    priceListId: string;
     isInsurance: boolean;
     netAmount: number;
 }
@@ -34,7 +25,6 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: Props['modelValue']): void;
-    (e: 'update:priceListId', value: string): void;
 }>();
 
 const payMethodOptions = [
@@ -50,13 +40,6 @@ const payStatusOptions = [
     { value: 'paid', label: 'مسدد' },
 ];
 
-const filteredPriceLists = computed(() =>
-    (props.priceLists ?? []).filter(
-        (pl) =>
-            !props.modelValue.ins_company_id ||
-            pl.ins_company_id === props.modelValue.ins_company_id,
-    ),
-);
 
 function update(field: keyof Props['modelValue'], value: string) {
     emit('update:modelValue', { ...props.modelValue, [field]: value });
@@ -64,7 +47,6 @@ function update(field: keyof Props['modelValue'], value: string) {
 
 function handleInsCompanyChange(value: string) {
     update('ins_company_id', value);
-    emit('update:priceListId', '');
 }
 </script>
 
@@ -128,23 +110,6 @@ function handleInsCompanyChange(value: string) {
                         :value="ins.id"
                     >
                         {{ ins.name }}
-                    </option>
-                </select>
-            </div>
-            <div>
-                <label class="bk-label">قائمة الأسعار</label>
-                <select
-                    :value="priceListId"
-                    class="bk-input"
-                    @change="emit('update:priceListId', ($event.target as HTMLSelectElement).value)"
-                >
-                    <option value="">— اختر القائمة —</option>
-                    <option
-                        v-for="pl in filteredPriceLists"
-                        :key="pl.id"
-                        :value="pl.id"
-                    >
-                        {{ pl.name }} ({{ pl.ins_coverage }}%)
                     </option>
                 </select>
             </div>

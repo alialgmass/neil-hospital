@@ -10,7 +10,6 @@ use Modules\Insurance\Actions\CreateInsuranceCompanyAction;
 use Modules\Insurance\Actions\UpdateInsuranceCompanyAction;
 use Modules\Insurance\Http\Requests\StoreInsuranceCompanyRequest;
 use Modules\Insurance\Http\Requests\UpdateInsuranceCompanyRequest;
-use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Services\InsuranceService;
 
 class InsuranceCompanyController extends Controller
@@ -25,25 +24,12 @@ class InsuranceCompanyController extends Controller
     {
         $search = request('search');
         $companyFilter = request('company_id');
-        $companies = $this->insuranceService->list($search, 20);
-
-        $claimsQuery = InsuranceClaim::with(['company:id,name', 'service:id,name'])
-            ->when($companyFilter, fn ($q, $v) => $q->where('insurance_company_id', $v))
-            ->orderByDesc('claim_date')
-            ->orderByDesc('created_at');
-
-        $thisMonth = now()->startOfMonth();
-        $monthlyClaimsCount = InsuranceClaim::where('claim_date', '>=', $thisMonth)->count();
-        $monthlyClaimsTotal = InsuranceClaim::where('claim_date', '>=', $thisMonth)->sum('insurance_share');
 
         return Inertia::render('insurance/Companies', [
-            'companies' => $companies,
+            'companies' => $this->insuranceService->list($search, 20),
             'filters' => ['search' => $search, 'company_id' => $companyFilter],
-            'claims' => $claimsQuery->paginate(30)->withQueryString(),
-            'stats' => [
-                'monthly_claims_count' => $monthlyClaimsCount,
-                'monthly_claims_total' => round((float) $monthlyClaimsTotal, 2),
-            ],
+            'claims' => $this->insuranceService->getClaimsList($companyFilter, 30)->withQueryString(),
+            'stats' => $this->insuranceService->getMonthlyClaimsStats(),
         ]);
     }
 

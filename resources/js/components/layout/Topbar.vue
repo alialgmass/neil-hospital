@@ -12,6 +12,9 @@ const page = usePage<{
 }>();
 
 const user = computed(() => page.props.auth?.user);
+const userName = computed(() => user.value?.name ?? 'المستخدم');
+const userRole = computed(() => user.value?.role ?? 'مسؤول');
+const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
 const alertCount = computed(() => page.props.alert_count ?? 0);
 const alerts = computed(() => page.props.alerts);
 

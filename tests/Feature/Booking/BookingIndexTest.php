@@ -83,11 +83,11 @@ class BookingIndexTest extends TestCase
         );
     }
 
-    public function test_booking_index_does_not_return_or_rooms(): void
+    public function test_booking_index_returns_or_rooms_in_props(): void
     {
         $response = $this->actingAs($this->user)->get('/booking');
 
         $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->missing('orRooms'));
+        $response->assertInertia(fn ($page) => $page->has('orRooms'));
     }
 }

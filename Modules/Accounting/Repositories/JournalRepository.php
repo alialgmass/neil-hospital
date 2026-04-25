@@ -12,8 +12,8 @@ class JournalRepository implements JournalRepositoryInterface
     {
         return JournalEntry::query()
             ->with(['debitAccount', 'creditAccount', 'creator'])
-            ->when($filters['from']   ?? null, fn ($q, $v) => $q->whereDate('date', '>=', $v))
-            ->when($filters['to']     ?? null, fn ($q, $v) => $q->whereDate('date', '<=', $v))
+            ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('date', '>=', $v))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('date', '<=', $v))
             ->when($filters['source'] ?? null, fn ($q, $v) => $q->where('source', $v))
             ->orderByDesc('date')
             ->orderByDesc('created_at')

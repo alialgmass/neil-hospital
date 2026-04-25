@@ -3,6 +3,7 @@
 namespace Modules\Booking\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Modules\Surgery\Services\SurgeryService;
 
 class StoreBookingRequest extends FormRequest
 {
@@ -33,7 +34,19 @@ class StoreBookingRequest extends FormRequest
             'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
             'pay_status' => ['nullable', 'in:unpaid,partial,paid'],
             'visit_note' => ['nullable', 'string', 'max:2000'],
-            'bed_id' => ['nullable', 'integer', 'exists:or_beds,id'],
+            'bed_id' => [
+                'nullable',
+                'required_if:dept,surgery,lasik',
+                'exists:or_beds,id',
+                function ($attribute, $value, $fail) {
+                    if ($value) {
+                        $service = app(SurgeryService::class);
+                        if (! $service->isBedAvailable($value, $this->visit_date)) {
+                            $fail('هذا السرير مشغول في التاريخ المحدد أو يوجد به مريض حالياً.');
+                        }
+                    }
+                },
+            ],
             'eye_side' => ['nullable', 'in:OD,OS,OU'],
             'analysis_type' => ['nullable', 'string', 'max:150'],
             'analysis_notes' => ['nullable', 'string', 'max:500'],

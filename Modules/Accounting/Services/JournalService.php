@@ -2,7 +2,9 @@
 
 namespace Modules\Accounting\Services;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\Accounting\Enums\AccountNature;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Repositories\Contracts\JournalRepositoryInterface;
@@ -24,18 +26,18 @@ class JournalService
         ]);
 
         // Update account balances
-        $this->adjustBalance($data['debit_account_id'],  $data['amount'], 'debit');
-        $this->adjustBalance($data['credit_account_id'], $data['amount'], 'credit');
+        $this->adjustBalance($data['debit_account_id'], $data['amount'], AccountNature::Debit);
+        $this->adjustBalance($data['credit_account_id'], $data['amount'], AccountNature::Credit);
 
         return $entry;
     }
 
-    public function accounts(): \Illuminate\Database\Eloquent\Collection
+    public function accounts(): Collection
     {
         return Account::where('is_active', true)->orderBy('code')->get();
     }
 
-    private function adjustBalance(string $accountId, float $amount, string $side): void
+    private function adjustBalance(string $accountId, float $amount, AccountNature $side): void
     {
         $account = Account::findOrFail($accountId);
 

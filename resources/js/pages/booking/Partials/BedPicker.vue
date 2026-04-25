@@ -33,7 +33,7 @@ const bedPickerColor = computed(() =>
 const hasRooms = computed(() => props.orRooms.length > 0);
 
 function isBedOccupied(bed: OrBed): boolean {
-    return bed.status != 'available' || (!!bed.surgery && bed.surgery !== null);
+    return !!bed.surgery && bed.surgery !== null;
 }
 
 function selectBed(bed: OrBed) {

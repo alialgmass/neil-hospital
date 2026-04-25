@@ -2,6 +2,7 @@
 
 namespace Modules\Accounting\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -20,16 +21,16 @@ class MonthlySettlement extends Model
     ];
 
     protected $casts = [
-        'total_revenue'       => 'decimal:2',
-        'total_expenses'      => 'decimal:2',
+        'total_revenue' => 'decimal:2',
+        'total_expenses' => 'decimal:2',
         'total_doctor_claims' => 'decimal:2',
         'net_surplus_deficit' => 'decimal:2',
-        'is_locked'           => 'boolean',
-        'locked_at'           => 'datetime',
+        'is_locked' => 'boolean',
+        'locked_at' => 'datetime',
     ];
 
     public function lockedBy(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'locked_by');
+        return $this->belongsTo(User::class, 'locked_by');
     }
 }

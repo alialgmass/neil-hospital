@@ -14,7 +14,7 @@ class AlertService
     {
         return [
             'inventory' => $this->getLowStockAlerts(),
-            'finance'   => $this->getUnpaidBookingAlerts(),
+            'finance' => $this->getUnpaidBookingAlerts(),
         ];
     }
 
@@ -24,6 +24,7 @@ class AlertService
     public function getAlertCount(): int
     {
         $alerts = $this->getAlerts();
+
         return count($alerts['inventory']) + count($alerts['finance']);
     }
 
@@ -36,11 +37,11 @@ class AlertService
             ->where('min_quantity', '>', 0)
             ->get()
             ->map(fn ($item) => [
-                'type'    => 'low_stock',
-                'title'   => 'نقص في المخزون',
-                'message' => "الصنف ({$item->name}) وصل للحد الأدنى ({$item->quantity} {$item->unit})",
+                'type' => 'low_stock',
+                'title' => 'نقص في المخزون',
+                'message' => "الصنف ({$item->name}) وصل للحد الأدنى ({$item->quantity} ".($item->unit?->label() ?? '').')',
                 'item_id' => $item->id,
-                'level'   => 'warning',
+                'level' => 'warning',
             ])
             ->toArray();
     }
@@ -54,11 +55,11 @@ class AlertService
             ->where('visit_date', '<', now()->subDay())
             ->get()
             ->map(fn ($booking) => [
-                'type'    => 'unpaid_booking',
-                'title'   => 'حجز غير محصل',
+                'type' => 'unpaid_booking',
+                'title' => 'حجز غير محصل',
                 'message' => "الحجز ({$booking->file_no}) للمريض {$booking->patient_name} لم يتم تحصيله منذ يوم",
                 'booking_id' => $booking->id,
-                'level'   => 'danger',
+                'level' => 'danger',
             ])
             ->toArray();
     }

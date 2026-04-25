@@ -11,25 +11,23 @@ use Modules\Doctor\Actions\UpdateDoctorAction;
 use Modules\Doctor\Http\Requests\StoreDoctorRequest;
 use Modules\Doctor\Http\Requests\UpdateDoctorRequest;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorService;
 
 class DoctorController extends Controller
 {
     public function __construct(
+        private readonly DoctorService $doctorService,
         private readonly CreateDoctorAction $createAction,
         private readonly UpdateDoctorAction $updateAction,
     ) {}
 
     public function index(): Response
     {
-        $search = request('search');
-        $doctors = Doctor::query()
-            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            ->orderBy('name')
-            ->paginate(30);
+        $filters = request()->only(['search']);
 
         return Inertia::render('doctors/Index', [
-            'doctors' => $doctors,
-            'filters' => ['search' => $search],
+            'doctors' => $this->doctorService->list($filters),
+            'filters' => $filters,
         ]);
     }
 

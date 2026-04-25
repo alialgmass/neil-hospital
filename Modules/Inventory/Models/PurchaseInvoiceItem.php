@@ -12,9 +12,9 @@ class PurchaseInvoiceItem extends Model
     protected $fillable = ['invoice_id', 'item_id', 'item_name', 'qty', 'unit_cost', 'total'];
 
     protected $casts = [
-        'qty'       => 'decimal:2',
+        'qty' => 'decimal:2',
         'unit_cost' => 'decimal:2',
-        'total'     => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     public function invoice(): BelongsTo

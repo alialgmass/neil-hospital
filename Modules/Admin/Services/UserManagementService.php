@@ -4,38 +4,57 @@ namespace Modules\Admin\Services;
 
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
-use Modules\Admin\Repositories\Contracts\UserRepositoryInterface;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class UserManagementService
 {
-    public function __construct(
-        private readonly UserRepositoryInterface $userRepository,
-    ) {}
-
-    public function listUsers(): LengthAwarePaginator
+    public function getUsers(int $perPage = 30): LengthAwarePaginator
     {
-        return $this->userRepository->paginate(25);
+        return User::with('roles')
+            ->orderBy('name')
+            ->paginate($perPage);
+    }
+
+    public function getRolesWithPermissions(): Collection
+    {
+        return Role::with('permissions')->orderBy('name')->get();
+    }
+
+    public function getAllPermissions(): Collection
+    {
+        return Permission::orderBy('name')->get();
+    }
+
+    public function syncRolePermissions(string|int $roleId, array $permissions): void
+    {
+        $role = Role::findOrFail($roleId);
+        $role->syncPermissions($permissions);
+    }
+
+    public function getRoles(): Collection
+    {
+        return Role::orderBy('name')->get(['id', 'name']);
     }
 
     public function createUser(array $data): User
     {
-        $user = $this->userRepository->create([
+        $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
 
-        if (! empty($data['role'])) {
-            $this->userRepository->assignRole($user, $data['role']);
-        }
+        $user->assignRole($data['role']);
 
         return $user;
     }
 
-    public function assignRole(int $userId, string $role): void
+    public function syncUserRole(string|int $userId, string $roleName): void
     {
-        $user = $this->userRepository->findById($userId);
-        $this->userRepository->assignRole($user, $role);
+        $user = User::findOrFail($userId);
+        $user->syncRoles([$roleName]);
     }
 }

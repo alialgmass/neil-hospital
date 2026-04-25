@@ -5,6 +5,7 @@ namespace Modules\Inventory\Actions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Admin\Services\ActivityLogService;
+use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Services\InventoryService;
@@ -35,7 +36,7 @@ class IssueStockPermitAction
 
             $permit = StockPermit::create([
                 ...$data,
-                'type' => 'out',
+                'type' => PermitType::OUT,
                 'permit_no' => $this->generatePermitNo(),
                 'created_by' => auth()->id(),
             ]);

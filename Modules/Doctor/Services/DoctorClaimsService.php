@@ -5,7 +5,6 @@ namespace Modules\Doctor\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorPayment;
-use Modules\Doctor\Models\DoctorShift;
 
 class DoctorClaimsService
 {
@@ -25,7 +24,7 @@ class DoctorClaimsService
         $bookings = DB::table('bookings')
             ->where('doctor_id', $doctorId)
             ->where('pay_status', 'paid')
-            ->whereBetween('date', [$from, $to])
+            ->whereBetween('visit_date', [$from, $to])
             ->get();
 
         $rows = [];
@@ -36,15 +35,15 @@ class DoctorClaimsService
             $totalDrShare += $drShare;
 
             $rows[] = [
-                'booking_id'   => $booking->id,
-                'file_no'      => $booking->file_no,
+                'booking_id' => $booking->id,
+                'file_no' => $booking->file_no,
                 'patient_name' => $booking->patient_name,
-                'date'         => $booking->date,
-                'dept'         => $booking->dept,
-                'service'      => $booking->service,
-                'paid'         => (float) $booking->price,
-                'ins_amount'   => (float) $booking->ins_amount,
-                'dr_share'     => $drShare,
+                'date' => $booking->visit_date,
+                'dept' => $booking->dept,
+                'service' => $booking->service_name,
+                'paid' => (float) $booking->paid_amount,
+                'ins_amount' => (float) $booking->ins_amount,
+                'dr_share' => $drShare,
             ];
         }
 
@@ -53,9 +52,9 @@ class DoctorClaimsService
 
     private function computeDrShare(Doctor $doctor, object $booking): float
     {
-        $paid      = (float) $booking->price;
+        $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
-        $dept      = $booking->dept;
+        $dept = $booking->dept;
 
         return match (true) {
             // Surgery/Lasik: dr_share = paid − supply_total
@@ -88,13 +87,13 @@ class DoctorClaimsService
      */
     private function computeInsuranceSurgeryShare(object $booking): float
     {
-        $total       = (float) $booking->price + (float) $booking->ins_amount;
+        $total = (float) $booking->paid_amount + (float) $booking->ins_amount;
         $supplyTotal = (float) DB::table('surgeries')
             ->where('booking_id', $booking->id)
             ->value('supply_total') ?? 0.0;
 
         $drFixedFee = (float) DB::table('services')
-            ->where('name', $booking->service)
+            ->where('name', $booking->service_name)
             ->where('dept', $booking->dept)
             ->value('dr_share') ?? 0.0;
 
@@ -122,13 +121,13 @@ class DoctorClaimsService
             ->sum('amount');
 
         return [
-            'doctor'       => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type],
-            'period_from'  => $from,
-            'period_to'    => $to,
+            'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type],
+            'period_from' => $from,
+            'period_to' => $to,
             'total_claims' => $total,
-            'paid_amount'  => $alreadyPaid,
-            'net_due'      => max(0, $total - $alreadyPaid),
-            'rows'         => $rows,
+            'paid_amount' => $alreadyPaid,
+            'net_due' => max(0, $total - $alreadyPaid),
+            'rows' => $rows,
         ];
     }
 

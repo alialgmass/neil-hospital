@@ -40,27 +40,27 @@ class ReferPatientAction
             $originalBooking = Booking::findOrFail($bookingId);
 
             $followUpData = BookingData::fromArray([
-                'patient_name'  => $originalBooking->patient_name,
+                'patient_name' => $originalBooking->patient_name,
                 'patient_phone' => $originalBooking->patient_phone,
-                'patient_age'   => $originalBooking->patient_age,
-                'national_id'   => $originalBooking->national_id,
-                'gender'        => $originalBooking->gender,
-                'dept'          => $referralTo,
-                'doctor_id'     => $originalBooking->doctor_id,
-                'visit_date'    => today()->addDay()->toDateString(),
-                'pay_method'    => 'cash',
-                'pay_status'    => 'unpaid',
-                'status'        => 'waiting',
-                'visit_note'    => "إحالة من العيادة — حجز #{$originalBooking->file_no}",
+                'patient_age' => $originalBooking->patient_age,
+                'national_id' => $originalBooking->national_id,
+                'gender' => $originalBooking->gender,
+                'dept' => $referralTo,
+                'doctor_id' => $originalBooking->doctor_id,
+                'visit_date' => today()->addDay()->toDateString(),
+                'pay_method' => 'cash',
+                'pay_status' => 'unpaid',
+                'status' => 'waiting',
+                'visit_note' => "إحالة من العيادة — حجز #{$originalBooking->file_no}",
             ]);
 
             $this->createBookingAction->execute($followUpData, $referringUserId);
         }
 
         $this->activityLog->log(
-            action:      'referred',
-            module:      'clinic',
-            recordId:    $bookingId,
+            action: 'referred',
+            module: 'clinic',
+            recordId: $bookingId,
             description: "إحالة المريض إلى: {$referralTo}",
         );
     }

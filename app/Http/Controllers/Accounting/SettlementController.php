@@ -19,7 +19,7 @@ class SettlementController extends Controller
         $preview = $this->settlementService->preview($month);
 
         return Inertia::render('accounting/Settlement', [
-            'month'   => $month,
+            'month' => $month,
             'preview' => $preview,
         ]);
     }

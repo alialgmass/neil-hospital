@@ -2,8 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AlertService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -51,12 +51,12 @@ class HandleInertiaRequests extends Middleware
                 : [],
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
-                'hospital_name'      => config('app.name', 'مستشفى النور'),
+                'hospital_name' => config('app.name', 'مستشفى النور'),
                 'hospital_specialty' => 'طب وجراحة العيون',
             ],
             // Alerts for notification bell
-            'alerts' => $user ? (new \App\Services\AlertService())->getAlerts() : [],
-            'alert_count' => $user ? (new \App\Services\AlertService())->getAlertCount() : 0,
+            'alerts' => $user ? (new AlertService)->getAlerts() : [],
+            'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -56,6 +56,7 @@ interface Props {
     priceLists?: { id: string; name: string; ins_company_id: string; ins_coverage: number; items: { service_id: string; price: number }[] }[];
     insuranceCompanies?: { id: string; name: string }[];
     orRooms?: { id: number; name: string; beds: { id: number; bed_number: number }[] }[];
+    today?: string;
 }
 
 const props = defineProps<Props>();
@@ -216,10 +217,34 @@ function confirmCancel(booking: Booking) {
     cancelReason.value = '';
 }
 
+function updateBookingStatus(id: string, status: string) {
+    router.patch(`/booking/${id}/status`, { status }, {
+        preserveScroll: true,
+        onSuccess: () => toast.success('تم تحديث الحالة'),
+    });
+}
+
+// Mirrors BookingStatus::config() transition rules
+const bookingNextStates: Record<string, { value: string; label: string }[]> = {
+    waiting:     [{ value: 'confirmed', label: 'مؤكد' }, { value: 'cancelled', label: 'ملغي' }],
+    confirmed:   [{ value: 'in_progress', label: 'جارٍ' }, { value: 'cancelled', label: 'ملغي' }],
+    in_progress: [{ value: 'completed', label: 'مكتمل' }, { value: 'cancelled', label: 'ملغي' }],
+    completed:   [],
+    cancelled:   [],
+};
+
+const bookingStatusLabel: Record<string, string> = {
+    waiting: 'انتظار',
+    confirmed: 'مؤكد',
+    in_progress: 'جارٍ',
+    completed: 'مكتمل',
+    cancelled: 'ملغي',
+};
+
 function doCancel() {
     if (!cancelTarget.value) {
-return;
-}
+        return;
+    }
 
     router.delete(`/booking/${cancelTarget.value.id}`, {
         data: { cancel_reason: cancelReason.value },
@@ -375,8 +400,31 @@ const isCloseModalOpen = computed({
             <template #cell-pay_status="{ value }">
                 <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
             </template>
-            <template #cell-status="{ value }">
-                <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
+            <template #cell-status="{ row }">
+                <select
+                    :value="(row as Booking).status"
+                    class="rounded border border-hospital-border bg-white px-2 py-1 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-hospital-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    :class="{
+                        'text-hospital-text-3': (row as Booking).status === 'waiting',
+                        'text-hospital-primary': (row as Booking).status === 'confirmed',
+                        'text-hospital-warning': (row as Booking).status === 'in_progress',
+                        'text-hospital-success': (row as Booking).status === 'completed',
+                        'text-hospital-danger': (row as Booking).status === 'cancelled',
+                    }"
+                    :disabled="!bookingNextStates[(row as Booking).status]?.length"
+                    @change="updateBookingStatus((row as Booking).id, ($event.target as HTMLSelectElement).value)"
+                >
+                    <option :value="(row as Booking).status" disabled>
+                        {{ bookingStatusLabel[(row as Booking).status] }}
+                    </option>
+                    <option
+                        v-for="next in bookingNextStates[(row as Booking).status]"
+                        :key="next.value"
+                        :value="next.value"
+                    >
+                        {{ next.label }}
+                    </option>
+                </select>
             </template>
             <template #actions="{ row }">
                 <div class="flex items-center justify-end gap-2">
@@ -443,6 +491,7 @@ const isCloseModalOpen = computed({
             :insurance-companies="(insuranceCompanies as any) ?? []"
             :price-lists="(priceLists as any) ?? []"
             :or-rooms="(orRooms as any) ?? []"
+            :today="today"
             submit-url="/booking"
             submit-method="post"
             @success="showCreateModal = false; toast.success('تم إنشاء الحجز بنجاح')"
@@ -480,6 +529,7 @@ const isCloseModalOpen = computed({
             :price-lists="(priceLists as any) ?? []"
             :or-rooms="(orRooms as any) ?? []"
             :booking="editBooking as Record<string, unknown>"
+            :today="today"
             :submit-url="`/booking/${editBooking.id}`"
             submit-method="put"
             @success="editBooking = null; toast.success('تم تحديث الحجز بنجاح')"

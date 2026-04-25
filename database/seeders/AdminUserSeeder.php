@@ -13,8 +13,8 @@ class AdminUserSeeder extends Seeder
         $admin = User::firstOrCreate(
             ['email' => 'admin@hospital.local'],
             [
-                'name'              => 'مدير النظام',
-                'password'          => Hash::make('password'),
+                'name' => 'مدير النظام',
+                'password' => Hash::make('password'),
                 'email_verified_at' => now(),
             ],
         );

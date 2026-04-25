@@ -11,20 +11,20 @@ use Modules\Accounting\Actions\UpdateAccountAction;
 use Modules\Accounting\Http\Requests\StoreAccountRequest;
 use Modules\Accounting\Http\Requests\UpdateAccountRequest;
 use Modules\Accounting\Models\Account;
+use Modules\Accounting\Services\AccountService;
 
 class ChartOfAccountsController extends Controller
 {
     public function __construct(
+        private readonly AccountService $accountService,
         private readonly CreateAccountAction $createAction,
         private readonly UpdateAccountAction $updateAction,
     ) {}
 
     public function index(): Response
     {
-        $accounts = Account::orderBy('code')->get();
-
         return Inertia::render('accounting/ChartOfAccounts', [
-            'accounts' => $accounts,
+            'accounts' => $this->accountService->all(),
         ]);
     }
 

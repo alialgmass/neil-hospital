@@ -14,7 +14,7 @@ class TreasuryRepository implements TreasuryRepositoryInterface
             ->with(['account', 'creator'])
             ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('date', '>=', $v))
-            ->when($filters['to'] ?? null,   fn ($q, $v) => $q->whereDate('date', '<=', $v))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('date', '<=', $v))
             ->orderByDesc('date')
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -30,13 +30,13 @@ class TreasuryRepository implements TreasuryRepositoryInterface
         $query = TreasuryEntry::query()
             ->when($upToDate, fn ($q) => $q->whereDate('date', '<=', $upToDate));
 
-        $totalIn  = (clone $query)->where('type', 'in')->sum('amount');
+        $totalIn = (clone $query)->where('type', 'in')->sum('amount');
         $totalOut = (clone $query)->where('type', 'out')->sum('amount');
 
         return [
-            'total_in'  => (float) $totalIn,
+            'total_in' => (float) $totalIn,
             'total_out' => (float) $totalOut,
-            'balance'   => (float) ($totalIn - $totalOut),
+            'balance' => (float) ($totalIn - $totalOut),
         ];
     }
 }

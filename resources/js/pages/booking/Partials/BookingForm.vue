@@ -65,12 +65,14 @@ interface Props {
     priceLists?: PriceList[];
     orRooms?: OrRoom[];
     booking?: Record<string, unknown>;
+    today?: string;
     submitUrl: string;
     submitMethod?: 'post' | 'put';
 }
 
 const props = withDefaults(defineProps<Props>(), {
     booking: undefined,
+    today: undefined,
     submitMethod: 'post',
     orRooms: () => [],
     priceLists: () => [],
@@ -102,7 +104,8 @@ const form = useForm({
     ins_company_id: (props.booking?.ins_company_id as string) ?? '',
     visit_date:
         (props.booking?.visit_date as string) ??
-        new Date().toISOString().slice(0, 10),
+        props.today ??
+        '',
     visit_time: (props.booking?.visit_time as string) ?? '',
     price: (props.booking?.price as string) ?? '0',
     discount: (props.booking?.discount as string) ?? '0',
@@ -155,12 +158,8 @@ const filteredServices = computed(() =>
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
 
-const priceListId = ref('');
-
-const filteredPriceLists = computed(() =>
-    (props.priceLists ?? []).filter(
-        (pl) => !form.ins_company_id || pl.ins_company_id === form.ins_company_id,
-    ),
+const activePriceList = computed(() =>
+    props.priceLists?.find((pl) => pl.ins_company_id === form.ins_company_id),
 );
 
 const netAmount = computed(() => {
@@ -198,8 +197,8 @@ return;
 
     form.service_name = service.name;
 
-    if (isInsurance.value && priceListId.value) {
-        const pl = props.priceLists.find((p) => p.id === priceListId.value);
+    if (isInsurance.value && activePriceList.value) {
+        const pl = activePriceList.value;
         const item = pl?.items.find((i) => i.service_id === form.service_id);
         const itemPrice = item?.price ?? service.ins_price ?? service.price;
         form.price = String(itemPrice);
@@ -218,18 +217,17 @@ return;
 watch(() => form.service_id, recalcPrice);
 watch(() => form.pay_method, () => {
     if (!form.service_id) {
-return;
-}
+        return;
+    }
 
     recalcPrice();
 
     if (!isInsurance.value) {
         form.ins_company_id = '';
-        priceListId.value = '';
         form.ins_amount = '0';
     }
 });
-watch(priceListId, recalcPrice);
+watch(() => form.ins_company_id, recalcPrice);
 
 function submit() {
     const method = props.submitMethod === 'put' ? form.put : form.post;
@@ -277,12 +275,10 @@ function submit() {
                             pay_status: form.pay_status,
                         }"
                         :insurance-companies="insuranceCompanies"
-                        :price-lists="filteredPriceLists"
-                        :price-list-id="priceListId"
+                        :price-lists="priceLists"
                         :is-insurance="isInsurance"
                         :net-amount="netAmount"
                         @update:model-value="(v) => Object.assign(form, v)"
-                        @update:price-list-id="priceListId = $event"
                     />
                     <InvoicePreview
                         v-if="showInvoicePreview"
@@ -307,26 +303,15 @@ function submit() {
                                 <option value="insurance">تأمين</option>
                             </select>
                         </div>
-                        <template v-if="isInsurance">
-                            <div>
-                                <label class="bk-label">شركة التأمين</label>
-                                <select v-model="form.ins_company_id" class="bk-input" @change="priceListId = ''">
-                                    <option value="">— اختر الشركة —</option>
-                                    <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">
-                                        {{ ins.name }}
-                                    </option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="bk-label">قائمة الأسعار</label>
-                                <select v-model="priceListId" class="bk-input">
-                                    <option value="">— اختر القائمة —</option>
-                                    <option v-for="pl in filteredPriceLists" :key="pl.id" :value="pl.id">
-                                        {{ pl.name }} ({{ pl.ins_coverage }}%)
-                                    </option>
-                                </select>
-                            </div>
-                        </template>
+                        <div class="col-span-2">
+                            <label class="bk-label">شركة التأمين</label>
+                            <select v-model="form.ins_company_id" class="bk-input">
+                                <option value="">— غير تابع لتأمين —</option>
+                                <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">
+                                    {{ ins.name }}
+                                </option>
+                            </select>
+                        </div>
                     </div>
                     <p class="mt-3 rounded-lg border border-hospital-warning-pale bg-hospital-warning-pale/40 px-3 py-2 text-xs text-hospital-warning">
                         💡 يمكن إكمال بيانات الدفع لاحقاً من خلال زر "دفع" في قائمة الحجوزات

@@ -13,16 +13,15 @@ use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
-use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
-use Modules\Doctor\Models\Doctor;
-use Modules\Surgery\Models\OrRoom;
+use Modules\Surgery\Services\SurgeryService;
 
 class BookingController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
+        private readonly SurgeryService $surgeryService,
         private readonly CreateBookingAction $createAction,
         private readonly UpdateBookingAction $updateAction,
         private readonly CancelBookingAction $cancelAction,
@@ -32,23 +31,19 @@ class BookingController extends Controller
     public function index(): Response
     {
         $filter = BookingFilterData::fromArray(request()->all());
-        $bookings = $this->bookingService->list($filter);
+        $filterDate = request('date') ?? today()->toDateString();
         $formResources = $this->bookingService->getFormResources();
 
-        $orRooms = OrRoom::with(['beds' => function ($q) {
-            $q->orderBy('bed_number')
-                ->with(['surgery' => fn ($sq) => $sq->whereIn('status', ['scheduled', 'prep', 'in_progress'])]);
-        }])->orderBy('name')->get();
-
         return Inertia::render('booking/Index', [
-            'bookings' => $bookings,
+            'bookings' => $this->bookingService->list($filter),
             'filters' => request()->only(['date', 'date_from', 'date_to', 'dept', 'status', 'pay_status', 'search']),
             'todayStats' => $this->bookingRepository->countByDeptForDate(today()->toDateString()),
             'services' => $formResources['services'],
             'insuranceCompanies' => $formResources['insuranceCompanies'],
             'priceLists' => $formResources['priceLists'],
-            'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
-            'orRooms' => $orRooms,
+            'doctors' => $formResources['doctors'],
+            'orRooms' => $this->surgeryService->getOrRoomsForDate($filterDate),
+            'today' => today()->toDateString(),
         ]);
     }
 
@@ -91,12 +86,7 @@ class BookingController extends Controller
 
     public function patientFile(string $fileNo): Response
     {
-        $bookings = Booking::query()
-            ->where('file_no', $fileNo)
-            ->with(['doctor:id,name', 'clinicSheet', 'diagnosticResults', 'surgery'])
-            ->orderByDesc('visit_date')
-            ->get();
-
+        $bookings = $this->bookingService->getPatientFile($fileNo);
         $patient = $bookings->first();
 
         return Inertia::render('booking/PatientFile', [

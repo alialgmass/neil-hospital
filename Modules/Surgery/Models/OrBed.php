@@ -4,6 +4,7 @@ namespace Modules\Surgery\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class OrBed extends Model
 {
@@ -16,8 +17,8 @@ class OrBed extends Model
         return $this->belongsTo(OrRoom::class, 'room_id');
     }
 
-    public function surgery(): BelongsTo
+    public function surgery(): HasOne
     {
-        return $this->belongsTo(Surgery::class);
+        return $this->hasOne(Surgery::class, 'or_bed_id');
     }
 }

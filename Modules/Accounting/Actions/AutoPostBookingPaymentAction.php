@@ -2,9 +2,13 @@
 
 namespace Modules\Accounting\Actions;
 
+use App\Enums\Department;
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\TreasuryService;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 
 class AutoPostBookingPaymentAction
@@ -31,16 +35,16 @@ class AutoPostBookingPaymentAction
 
         // 1. Create treasury entry
         $this->treasuryService->record([
-            'type' => 'in',
+            'type' => TreasuryType::In,
             'description' => "دفعة حجز: {$booking->file_no} — {$booking->patient_name}",
             'amount' => $amount,
             'date' => $date,
-            'source' => 'booking',
+            'source' => JournalSource::BOOKING,
             'booking_id' => $booking->id,
         ]);
 
         // 2. Auto-post journal entry: Debit Cash / Credit Revenue
-        $cashAccount = $this->findAccount($booking->pay_method === 'card' ? '1100' : '1000');
+        $cashAccount = $this->findAccount($booking->pay_method === PayMethod::Card ? '1100' : '1000');
         $revenueAccount = $this->findRevenueAccount($booking->dept);
 
         if ($cashAccount && $revenueAccount) {
@@ -50,7 +54,7 @@ class AutoPostBookingPaymentAction
                 'debit_account_id' => $cashAccount,
                 'credit_account_id' => $revenueAccount,
                 'amount' => $amount,
-                'source' => 'auto_booking',
+                'source' => JournalSource::BOOKING,
                 'reference' => $booking->file_no,
             ]);
         }
@@ -61,16 +65,16 @@ class AutoPostBookingPaymentAction
         return DB::table('accounts')->where('code', $code)->value('id');
     }
 
-    private function findRevenueAccount(string $dept): ?string
+    private function findRevenueAccount(Department $dept): ?string
     {
         $codeMap = [
-            'clinic' => '2000',
-            'labs' => '2100',
-            'surgery' => '2200',
-            'lasik' => '2300',
-            'laser' => '2400',
+            Department::Clinic->value => '2000',
+            Department::Labs->value => '2100',
+            Department::Surgery->value => '2200',
+            Department::Lasik->value => '2300',
+            Department::Laser->value => '2400',
         ];
 
-        return $this->findAccount($codeMap[$dept] ?? '2000');
+        return $this->findAccount($codeMap[$dept->value] ?? '2000');
     }
 }

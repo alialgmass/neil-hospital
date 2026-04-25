@@ -28,25 +28,16 @@ class ScheduleSurgeryAction
         $existing = $this->surgeryService->findByBooking($data->bookingId);
 
         if ($existing) {
-            $oldBedId = $existing->or_bed_id;
             $surgery = $this->surgeryService->update($existing->id, $data);
-
-            if ($oldBedId && $oldBedId !== $data->orBedId) {
-                $this->surgeryService->markBedAvailable($oldBedId);
-            }
         } else {
             $surgery = $this->surgeryService->schedule($data);
         }
 
-        if ($data->orBedId) {
-            $this->surgeryService->markBedOccupied($data->orBedId);
-        }
-
         $this->activityLog->log(
             action: 'scheduled',
-            module: $data->dept,
+            module: $data->dept->value,
             recordId: $surgery->id,
-            description: "جدولة {$data->dept} للحجز: {$data->bookingId}",
+            description: "جدولة {$data->dept->label()} للحجز: {$data->bookingId}",
         );
 
         return $surgery;

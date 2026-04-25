@@ -8,9 +8,14 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Services\BookingService;
 
 class SalesInvoiceController extends Controller
 {
+    public function __construct(
+        private readonly BookingService $bookingService
+    ) {}
+
     public function show(string $bookingId): Response
     {
         $booking = Booking::with(['doctor', 'creator'])->findOrFail($bookingId);
@@ -30,19 +35,7 @@ class SalesInvoiceController extends Controller
             'discount' => 'nullable|numeric|min:0',
         ]);
 
-        $booking = Booking::findOrFail($data['booking_id']);
-
-        $totalPaid = (float) $data['amount_paid'];
-        $netDue = $booking->price - ((float) ($data['discount'] ?? 0));
-
-        $payStatus = $totalPaid >= $netDue ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid');
-
-        $booking->update([
-            'pay_status' => $payStatus,
-            'pay_method' => $data['pay_method'],
-            'ins_amount' => $data['ins_amount'] ?? 0,
-            'discount' => $data['discount'] ?? 0,
-        ]);
+        $booking = $this->bookingService->recordPayment($data['booking_id'], $data);
 
         return redirect("/booking/{$booking->id}/receipt")->with('success', 'تم إصدار الفاتورة بنجاح.');
     }

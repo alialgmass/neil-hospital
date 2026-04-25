@@ -22,9 +22,9 @@ class JournalController extends Controller
         $filters = request()->only(['from', 'to', 'source']);
 
         return Inertia::render('journal/Index', [
-            'entries'  => $this->journalService->list($filters, 30),
+            'entries' => $this->journalService->list($filters, 30),
             'accounts' => $this->journalService->accounts(),
-            'filters'  => $filters,
+            'filters' => $filters,
         ]);
     }
 
@@ -33,9 +33,9 @@ class JournalController extends Controller
         $entry = $this->journalService->record($request->validated());
 
         $this->activityLog->log(
-            action:      'journal_entry',
-            module:      'accounting',
-            recordId:    $entry->id,
+            action: 'journal_entry',
+            module: 'accounting',
+            recordId: $entry->id,
             description: "قيد يومية: {$entry->description} — {$entry->amount} ج.م",
         );
 

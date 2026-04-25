@@ -19,9 +19,9 @@ class RecordSuppliesUsedAction
         $surgery = $this->surgeryService->recordSupplies($data);
 
         $this->activityLog->log(
-            action:      'supplies_recorded',
-            module:      get_class($surgery->dept),
-            recordId:    $data->surgeryId,
+            action: 'supplies_recorded',
+            module: $surgery->dept->value,
+            recordId: $data->surgeryId,
             description: "تسجيل مستلزمات: إجمالي = {$surgery->supply_total} ج.م",
         );
 

@@ -5,6 +5,8 @@ namespace Modules\Clinic\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 
 class ClinicSheet extends Model
 {
@@ -29,17 +31,17 @@ class ClinicSheet extends Model
 
     protected $casts = [
         'recorded_at' => 'datetime',
-        'iop_od'      => 'decimal:1',
-        'iop_os'      => 'decimal:1',
+        'iop_od' => 'decimal:1',
+        'iop_os' => 'decimal:1',
     ];
 
     public function booking(): BelongsTo
     {
-        return $this->belongsTo(\Modules\Booking\Models\Booking::class);
+        return $this->belongsTo(Booking::class);
     }
 
     public function doctor(): BelongsTo
     {
-        return $this->belongsTo(\Modules\Doctor\Models\Doctor::class);
+        return $this->belongsTo(Doctor::class);
     }
 }

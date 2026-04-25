@@ -13,7 +13,7 @@ class Supplier extends Model
     protected $fillable = ['name', 'phone', 'email', 'address', 'tax_no', 'balance', 'is_active', 'notes'];
 
     protected $casts = [
-        'balance'   => 'decimal:2',
+        'balance' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

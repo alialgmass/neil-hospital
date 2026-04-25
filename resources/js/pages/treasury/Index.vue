@@ -87,6 +87,10 @@ const sourceLabels: Record<string, string> = {
 
 const totalIn  = computed(() => props.entries.data.filter(e => e.type === 'in').reduce((s, e) => s + Number(e.amount), 0));
 const totalOut = computed(() => props.entries.data.filter(e => e.type === 'out').reduce((s, e) => s + Number(e.amount), 0));
+
+function printPage() {
+    window.print();
+}
 </script>
 
 <template>
@@ -163,7 +167,7 @@ const totalOut = computed(() => props.entries.data.filter(e => e.type === 'out')
         >
             <PlusCircle class="h-4 w-4" /> قيد يدوي
         </button>
-        <button class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="() => window.print()">🖨️ طباعة</button>
+        <button class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="printPage">🖨️ طباعة</button>
     </div>
 
     <!-- Table Card -->

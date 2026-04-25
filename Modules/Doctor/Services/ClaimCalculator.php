@@ -32,7 +32,7 @@ class ClaimCalculator
             } elseif ($doctor->fee_type === FeeType::Fixed) {
                 $claim = (float) $doctor->fee_value;
             } elseif ($doctor->fee_type === FeeType::Insurance) {
-                // If insurance, claim is usually a percentage of the amount NOT covered by insurance, 
+                // If insurance, claim is usually a percentage of the amount NOT covered by insurance,
                 // or a different specific logic. For now, we'll treat it as percentage of total.
                 $claim = $revenue * ((float) $doctor->fee_value / 100);
             }

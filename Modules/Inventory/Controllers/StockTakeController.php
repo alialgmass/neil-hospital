@@ -8,22 +8,19 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Inventory\Actions\StockTakeAdjustmentAction;
-use Modules\Inventory\Models\InventoryItem;
+use Modules\Inventory\Services\InventoryService;
 
 class StockTakeController extends Controller
 {
     public function __construct(
+        private readonly InventoryService $inventoryService,
         private readonly StockTakeAdjustmentAction $adjustmentAction,
     ) {}
 
     public function index(): Response
     {
-        $items = InventoryItem::orderBy('category')->orderBy('name')->get([
-            'id', 'name', 'code', 'category', 'unit', 'quantity', 'min_quantity',
-        ]);
-
         return Inertia::render('inventory/StockTake', [
-            'items' => $items,
+            'items' => $this->inventoryService->getStockTakeItems(),
         ]);
     }
 

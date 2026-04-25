@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-
 @import 'tw-animate-css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -7,98 +6,89 @@
 
 @custom-variant dark (&:is(.dark *));
 
-    /* Hospital brand palette — Al-Nour Eye Hospital (v20 FINAL) */
-    --color-hospital-primary:          #0A4FA6;
-    --color-hospital-primary-light:    #1A6ED8;
-    --color-hospital-primary-pale:     #E8F1FB;
-    --color-hospital-primary-dark:     #072E63;
-
-    --color-hospital-accent:           #00B5A4;
-    --color-hospital-accent-pale:      #E0F7F5;
-
-    --color-hospital-danger:           #D63B3B;
-    --color-hospital-danger-pale:      #FDEAEA;
-
-    --color-hospital-warning:          #E07C10;
-    --color-hospital-warning-pale:     #FEF0E0;
-
-    --color-hospital-success:          #1A8C5B;
-    --color-hospital-success-pale:     #E2F5EC;
-
-    --color-hospital-bg:               #F3F6FA;
-    --color-hospital-surface:          #FFFFFF;
-    --color-hospital-surface-2:        #F8FAFD;
-    --color-hospital-border:           #DDE4EF;
-
-    --color-hospital-text:             #0D1F3C;
-    --color-hospital-text-2:           #4A5878;
-    --color-hospital-text-3:           #8A96AE;
-
-    /* Extended tokens from v20 */
-    --hospital-sh: 0 2px 12px rgba(10, 79, 166, .08);
-    --hospital-shl: 0 8px 32px rgba(10, 79, 166, .14);
-    --hospital-rl: 14px;
-    --hospital-r: 10px;
-
-    --radius-lg: 14px;
-    --radius-md: 10px;
-    --radius-sm: 6px;
-
-    --color-background: var(--hospital-bg);
-    --color-foreground: var(--hospital-text);
-
-    --color-card: var(--hospital-surface);
-    --color-card-foreground: var(--hospital-text);
-
-    --color-primary: var(--hospital-primary);
-    --color-primary-foreground: #FFFFFF;
-
-    --color-sidebar: var(--hospital-primary-dark);
-    --color-sidebar-foreground: rgba(255, 255, 255, .6);
-    --color-sidebar-primary: #FFFFFF;
-    --color-sidebar-accent: rgba(255, 255, 255, .12);
-    --color-sidebar-border: rgba(255, 255, 255, .08);
-}
-
-@layer base {
-    * {
-        @apply border-hospital-border outline-hospital-primary/50;
-    }
-    body {
-        @apply bg-hospital-bg text-hospital-text font-sans antialiased;
-        direction: rtl;
-    }
-}
-
 :root {
-    --background: #F3F6FA;
-    --foreground: #0D1F3C;
-    --card: #FFFFFF;
-    --card-foreground: #0D1F3C;
-    --primary: #0A4FA6;
-    --primary-foreground: #FFFFFF;
-    --accent: #00B5A4;
-    --accent-foreground: #FFFFFF;
-    --destructive: #D63B3B;
-    --destructive-foreground: #FFFFFF;
-    --border: #DDE4EF;
-    --input: #DDE4EF;
-    --ring: #1A6ED8;
-    --radius: 0.75rem;
-
-    /* Legacy reference from HTML */
-    --p: #0A4FA6; --pl: #1A6ED8; --pp: #E8F1FB; --pd: #072E63;
-    --a: #00B5A4; --ap: #E0F7F5;
-    --d: #D63B3B; --dp: #FDEAEA;
-    --w: #E07C10; --wp: #FEF0E0;
-    --s: #1A8C5B; --sp: #E2F5EC;
-    --bg: #F3F6FA; --sf: #FFF; --sf2: #F8FAFD;
-    --br: #DDE4EF; --t: #0D1F3C; --t2: #4A5878; --t3: #8A96AE;
-    --r: 10px; --rl: 14px;
+    /* Hospital brand palette — Al-Nour Eye Hospital (v20 FINAL) */
+    --p: #0A4FA6;
+    --pl: #1A6ED8;
+    --pp: #E8F1FB;
+    --pd: #072E63;
+    --a: #00B5A4;
+    --ap: #E0F7F5;
+    --d: #D63B3B;
+    --dp: #FDEAEA;
+    --w: #E07C10;
+    --wp: #FEF0E0;
+    --s: #1A8C5B;
+    --sp: #E2F5EC;
+    --bg: #F3F6FA;
+    --sf: #FFF;
+    --sf2: #F8FAFD;
+    --br: #DDE4EF;
+    --t: #0D1F3C;
+    --t2: #4A5878;
+    --t3: #8A96AE;
+    --r: 10px;
+    --rl: 14px;
     --sh: 0 2px 12px rgba(10, 79, 166, .08);
     --shl: 0 8px 32px rgba(10, 79, 166, .14);
-}
+    --font: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
 
+    /* Shadcn/UI Variable Mappings */
+    --background: var(--bg);
+    --foreground: var(--t);
+    --card: var(--sf);
+    --card-foreground: var(--t);
+    --popover: var(--sf);
+    --popover-foreground: var(--t);
+    --primary: var(--p);
+    --primary-foreground: #FFFFFF;
+    --secondary: var(--pp);
+    --secondary-foreground: var(--p);
+    --muted: var(--sf2);
+    --muted-foreground: var(--t3);
+    --accent: var(--a);
+    --accent-foreground: #FFFFFF;
+    --destructive: var(--d);
+    --destructive-foreground: #FFFFFF;
+    --border: var(--br);
+    --input: var(--br);
+    --ring: var(--pl);
+    --radius: 0.75rem;
+
+    /* Sidebar Mappings */
+    --sidebar-background: var(--pd);
+    --sidebar-foreground: rgba(255, 255, 255, 0.6);
+    --sidebar-primary: #FFFFFF;
+    --sidebar-accent: rgba(255, 255, 255, 0.12);
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-ring: var(--a);
+
+    /* Hospital semantic color aliases — used by scoped CSS and @theme inline */
+    --color-hospital-primary: var(--p);
+    --color-hospital-primary-light: var(--pl);
+    --color-hospital-primary-pale: var(--pp);
+    --color-hospital-primary-dark: var(--pd);
+    --color-hospital-accent: var(--a);
+    --color-hospital-accent-pale: var(--ap);
+    --color-hospital-success: var(--s);
+    --color-hospital-success-pale: var(--sp);
+    --color-hospital-warning: var(--w);
+    --color-hospital-warning-pale: var(--wp);
+    --color-hospital-danger: var(--d);
+    --color-hospital-danger-pale: var(--dp);
+    --color-hospital-bg: var(--bg);
+    --color-hospital-surface: var(--sf);
+    --color-hospital-surface-2: var(--sf2);
+    --color-hospital-muted: var(--sf2);
+    --color-hospital-border: var(--br);
+    --color-hospital-text: var(--t);
+    --color-hospital-text-2: var(--t2);
+    --color-hospital-text-3: var(--t3);
+
+    /* Hospital utility CSS variables (used by scoped styles, not Tailwind utilities) */
+    --hospital-rl: var(--rl);
+    --hospital-sh: var(--sh);
+}
 
 .dark {
     --background: hsl(0 0% 3.9%);
@@ -120,26 +110,70 @@
     --border: hsl(0 0% 14.9%);
     --input: hsl(0 0% 14.9%);
     --ring: hsl(0 0% 83.1%);
-    --chart-1: hsl(220 70% 50%);
-    --chart-2: hsl(160 60% 45%);
-    --chart-3: hsl(30 80% 55%);
-    --chart-4: hsl(280 65% 60%);
-    --chart-5: hsl(340 75% 55%);
-    --sidebar-background: hsl(0 0% 7%);
-    --sidebar-foreground: hsl(0 0% 95.9%);
-    --sidebar-primary: hsl(360, 100%, 100%);
-    --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(0 0% 15.9%);
-    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-    --sidebar-border: hsl(0 0% 15.9%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(240 5.9% 10%);
+}
+
+@theme inline {
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-sidebar-background: var(--sidebar-background);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    /* Hospital color utilities */
+    --color-hospital-primary: var(--p);
+    --color-hospital-primary-light: var(--pl);
+    --color-hospital-primary-pale: var(--pp);
+    --color-hospital-primary-dark: var(--pd);
+    --color-hospital-accent: var(--a);
+    --color-hospital-accent-pale: var(--ap);
+    --color-hospital-success: var(--s);
+    --color-hospital-success-pale: var(--sp);
+    --color-hospital-warning: var(--w);
+    --color-hospital-warning-pale: var(--wp);
+    --color-hospital-danger: var(--d);
+    --color-hospital-danger-pale: var(--dp);
+    --color-hospital-bg: var(--bg);
+    --color-hospital-surface: var(--sf);
+    --color-hospital-surface-2: var(--sf2);
+    --color-hospital-muted: var(--sf2);
+    --color-hospital-border: var(--br);
+    --color-hospital-text: var(--t);
+    --color-hospital-text-2: var(--t2);
+    --color-hospital-text-3: var(--t3);
+
+    /* Hospital font */
+    --font-sans: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
 }
 
 @layer base {
     * {
         @apply border-border outline-ring/50;
     }
+
     body {
         @apply bg-background text-foreground;
     }
@@ -221,8 +255,20 @@
     }
 
     /* Color adjustments for print */
-    .text-hospital-primary  { color: #0A4FA6 !important; }
-    .text-hospital-success  { color: #1A8C5B !important; }
-    .text-hospital-danger   { color: #D63B3B !important; }
-    .bg-hospital-primary    { background: #0A4FA6 !important; -webkit-print-color-adjust: exact; }
+    .text-hospital-primary {
+        color: #0A4FA6 !important;
+    }
+
+    .text-hospital-success {
+        color: #1A8C5B !important;
+    }
+
+    .text-hospital-danger {
+        color: #D63B3B !important;
+    }
+
+    .bg-hospital-primary {
+        background: #0A4FA6 !important;
+        -webkit-print-color-adjust: exact;
+    }
 }

@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Modules\Doctor\Models\Doctor;
 use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 use Modules\Inventory\Models\InventoryItem;
 
 class DemoDataSeeder extends Seeder
@@ -49,7 +49,7 @@ class DemoDataSeeder extends Seeder
         foreach ($items as $item) {
             InventoryItem::create(array_merge($item, [
                 'id' => (string) Str::ulid(),
-                'code' => 'INV-' . rand(1000, 9999),
+                'code' => 'INV-'.rand(1000, 9999),
                 'category' => 'medical',
                 'unit' => 'قطعة',
                 'unit_cost' => rand(10, 500),
@@ -60,12 +60,12 @@ class DemoDataSeeder extends Seeder
         for ($i = 0; $i < 20; $i++) {
             $date = now()->subDays(rand(0, 5));
             $isOldUnpaid = $i < 3; // First 3 are old unpaid for alerts
-            
+
             Booking::create([
                 'id' => (string) Str::ulid(),
-                'file_no' => 'F-' . (1000 + $i),
-                'patient_name' => 'مريض رقم ' . ($i + 1),
-                'patient_phone' => '0100' . rand(1000000, 9999999),
+                'file_no' => 'F-'.(1000 + $i),
+                'patient_name' => 'مريض رقم '.($i + 1),
+                'patient_phone' => '0100'.rand(1000000, 9999999),
                 'dept' => collect(['clinic', 'surgery', 'lasik'])->random(),
                 'service_name' => 'كشف عيون شامل',
                 'doctor_id' => $allDoctors->random()->id,

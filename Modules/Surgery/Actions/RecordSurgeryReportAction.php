@@ -6,6 +6,7 @@ use App\Services\ActivityLogService;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\Repositories\Contracts\SurgeryRepositoryInterface;
 use Modules\Surgery\Services\SurgeryService;
+use Modules\Surgery\States\CompletedState;
 
 class RecordSurgeryReportAction
 {
@@ -23,7 +24,7 @@ class RecordSurgeryReportAction
             'op_report' => $report['op_report'] ?? null,
             'post_op_notes' => $report['post_op_notes'] ?? null,
             'complications' => $report['complications'] ?? null,
-            'status' => 'completed',
+            'status' => CompletedState::$name,
             'ended_at' => now(),
         ]);
 
@@ -33,7 +34,7 @@ class RecordSurgeryReportAction
 
         $this->activityLog->log(
             action: 'report_recorded',
-            module: $surgery->dept,
+            module: $surgery->dept->value,
             recordId: $surgeryId,
             description: "تسجيل تقرير العملية: {$surgeryId}",
         );

@@ -16,11 +16,11 @@ class Service extends Model
     ];
 
     protected $casts = [
-        'price'        => 'decimal:2',
-        'ins_price'    => 'decimal:2',
-        'center_val'   => 'decimal:2',
+        'price' => 'decimal:2',
+        'ins_price' => 'decimal:2',
+        'center_val' => 'decimal:2',
         'center_share' => 'decimal:2',
-        'dr_share'     => 'decimal:2',
+        'dr_share' => 'decimal:2',
     ];
 
     public function scopeActive($query)

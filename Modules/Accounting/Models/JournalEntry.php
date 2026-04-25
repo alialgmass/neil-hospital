@@ -2,9 +2,11 @@
 
 namespace Modules\Accounting\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Accounting\Enums\JournalSource;
 
 class JournalEntry extends Model
 {
@@ -17,7 +19,8 @@ class JournalEntry extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
-        'date'   => 'date',
+        'date' => 'date',
+        'source' => JournalSource::class,
     ];
 
     public function debitAccount(): BelongsTo
@@ -32,6 +35,6 @@ class JournalEntry extends Model
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

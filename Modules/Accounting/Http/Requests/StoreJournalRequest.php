@@ -14,12 +14,12 @@ class StoreJournalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'date'              => ['required', 'date'],
-            'description'       => ['required', 'string', 'max:300'],
-            'debit_account_id'  => ['required', 'exists:accounts,id'],
+            'date' => ['required', 'date'],
+            'description' => ['required', 'string', 'max:300'],
+            'debit_account_id' => ['required', 'exists:accounts,id'],
             'credit_account_id' => ['required', 'exists:accounts,id', 'different:debit_account_id'],
-            'amount'            => ['required', 'numeric', 'min:0.01'],
-            'reference'         => ['nullable', 'string', 'max:80'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reference' => ['nullable', 'string', 'max:80'],
         ];
     }
 }

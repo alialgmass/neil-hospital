@@ -9,7 +9,6 @@ use Inertia\Response;
 use Modules\Insurance\Actions\ManagePriceListAction;
 use Modules\Insurance\Http\Requests\StorePriceListRequest;
 use Modules\Insurance\Services\InsuranceService;
-use Modules\Inventory\Models\Service;
 
 class PriceListController extends Controller
 {
@@ -25,7 +24,7 @@ class PriceListController extends Controller
                 fn ($pl) => tap($pl, fn ($p) => $p->load('items.service:id,name,dept'))
             ),
             'companies' => $this->insuranceService->allActive(),
-            'services' => Service::active()->orderBy('dept')->orderBy('name')->get(['id', 'name', 'dept', 'price', 'ins_price']),
+            'services' => $this->insuranceService->getSelectableServices(),
         ]);
     }
 

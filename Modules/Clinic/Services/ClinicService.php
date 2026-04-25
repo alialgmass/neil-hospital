@@ -2,7 +2,7 @@
 
 namespace Modules\Clinic\Services;
 
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Clinic\Repositories\Contracts\ClinicSheetRepositoryInterface;
@@ -15,7 +15,7 @@ class ClinicService
     ) {}
 
     /** Today's clinic bookings for the queue view. */
-    public function getTodaysQueue(?string $date = null): \Illuminate\Pagination\LengthAwarePaginator
+    public function getTodaysQueue(?string $date = null): LengthAwarePaginator
     {
         $filterDate = $date ?? today()->toDateString();
 

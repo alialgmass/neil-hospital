@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Inventory\Models\Supplier;
 use Modules\Inventory\Services\PurchaseInvoiceService;
 
 class PurchaseInvoiceController extends Controller
@@ -23,29 +22,29 @@ class PurchaseInvoiceController extends Controller
         $filters = request()->only(['from', 'to']);
 
         return Inertia::render('purchases/Index', [
-            'invoices'  => $this->purchaseService->list($filters, 30),
-            'suppliers' => Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'filters'   => $filters,
+            'invoices' => $this->purchaseService->list($filters, 30),
+            'suppliers' => $this->purchaseService->getActiveSuppliers(),
+            'filters' => $filters,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'invoice_no'    => ['required', 'string', 'max:50', 'unique:purchase_invoices,invoice_no'],
-            'supplier_id'   => ['nullable', 'exists:suppliers,id'],
-            'invoice_date'  => ['required', 'date'],
-            'discount'      => ['nullable', 'numeric', 'min:0'],
-            'paid_amount'   => ['nullable', 'numeric', 'min:0'],
-            'notes'         => ['nullable', 'string'],
-            'items'         => ['required', 'array', 'min:1'],
+            'invoice_no' => ['required', 'string', 'max:50', 'unique:purchase_invoices,invoice_no'],
+            'supplier_id' => ['nullable', 'exists:suppliers,id'],
+            'invoice_date' => ['required', 'date'],
+            'discount' => ['nullable', 'numeric', 'min:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['required', 'array', 'min:1'],
             'items.*.item_name' => ['required', 'string', 'max:200'],
-            'items.*.item_id'   => ['nullable', 'exists:inventory,id'],
-            'items.*.qty'       => ['required', 'numeric', 'min:0.01'],
+            'items.*.item_id' => ['nullable', 'exists:inventory,id'],
+            'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
         ]);
 
-        $items   = $data['items'];
+        $items = $data['items'];
         $invoice = $this->purchaseService->create($data, $items);
 
         $this->activityLog->log('purchase_invoice', 'inventory', $invoice->id, "فاتورة مشتريات: {$invoice->invoice_no}");

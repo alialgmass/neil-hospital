@@ -5,38 +5,32 @@ namespace Modules\Admin\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Admin\Services\SettingsService;
 
 class SettingsController extends Controller
 {
+    public function __construct(
+        private readonly SettingsService $service
+    ) {}
+
     public function index(): Response
     {
-        $settings = DB::table('settings')
-            ->orderBy('group')
-            ->orderBy('key')
-            ->get()
-            ->keyBy('key');
-
         return Inertia::render('admin/Settings', [
-            'settings' => $settings,
+            'settings' => $this->service->all(),
         ]);
     }
 
     public function update(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'settings'              => ['required', 'array'],
-            'settings.*.key'        => ['required', 'string'],
-            'settings.*.value'      => ['nullable', 'string'],
+            'settings' => ['required', 'array'],
+            'settings.*.key' => ['required', 'string'],
+            'settings.*.value' => ['nullable', 'string'],
         ]);
 
-        foreach ($data['settings'] as $setting) {
-            DB::table('settings')
-                ->where('key', $setting['key'])
-                ->update(['value' => $setting['value'] ?? '']);
-        }
+        $this->service->updateBulk($data['settings']);
 
         return back()->with('success', 'تم حفظ الإعدادات بنجاح.');
     }

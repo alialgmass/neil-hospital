@@ -8,7 +8,6 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Accounting\Http\Requests\StoreTreasuryRequest;
-use Modules\Accounting\Models\TreasuryEntry;
 use Modules\Accounting\Services\TreasuryService;
 
 class TreasuryController extends Controller
@@ -22,14 +21,11 @@ class TreasuryController extends Controller
     {
         $filters = request()->only(['type', 'from', 'to']);
 
-        $todayIn  = TreasuryEntry::where('type', 'in')->whereDate('date', today())->sum('amount');
-        $todayOut = TreasuryEntry::where('type', 'out')->whereDate('date', today())->sum('amount');
-
         return Inertia::render('treasury/Index', [
-            'entries'  => $this->treasuryService->list($filters, 30),
-            'balance'  => $this->treasuryService->balance(),
-            'todayNet' => (float) ($todayIn - $todayOut),
-            'filters'  => $filters,
+            'entries' => $this->treasuryService->list($filters, 30),
+            'balance' => $this->treasuryService->balance(),
+            'todayNet' => $this->treasuryService->todayNet(),
+            'filters' => $filters,
         ]);
     }
 
@@ -38,10 +34,10 @@ class TreasuryController extends Controller
         $entry = $this->treasuryService->record($request->validated());
 
         $this->activityLog->log(
-            action:      'treasury_entry',
-            module:      'treasury',
-            recordId:    $entry->id,
-            description: "{$entry->type}: {$entry->description} — {$entry->amount} ج.م",
+            action: 'treasury_entry',
+            module: 'treasury',
+            recordId: $entry->id,
+            description: "{$entry->type->label()}: {$entry->description} — {$entry->amount} ج.م",
         );
 
         return back()->with('success', 'تم تسجيل حركة الخزنة بنجاح.');

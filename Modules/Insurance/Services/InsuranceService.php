@@ -4,6 +4,7 @@ namespace Modules\Insurance\Services;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\InsuranceCompany;
 use Modules\Insurance\Models\PriceList;
 use Modules\Insurance\Models\PriceListItem;
@@ -88,5 +89,34 @@ class InsuranceService
         return PriceList::with('company')
             ->orderByDesc('created_at')
             ->paginate($perPage);
+    }
+
+    public function getClaimsList(?string $companyId = null, int $perPage = 30): LengthAwarePaginator
+    {
+        return InsuranceClaim::with(['company:id,name', 'service:id,name'])
+            ->when($companyId, fn ($q, $v) => $q->where('insurance_company_id', $v))
+            ->orderByDesc('claim_date')
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+    }
+
+    public function getMonthlyClaimsStats(): array
+    {
+        $thisMonth = now()->startOfMonth();
+        $monthlyClaimsCount = InsuranceClaim::where('claim_date', '>=', $thisMonth)->count();
+        $monthlyClaimsTotal = InsuranceClaim::where('claim_date', '>=', $thisMonth)->sum('insurance_share');
+
+        return [
+            'monthly_claims_count' => $monthlyClaimsCount,
+            'monthly_claims_total' => round((float) $monthlyClaimsTotal, 2),
+        ];
+    }
+
+    public function getSelectableServices(): Collection
+    {
+        return Service::active()
+            ->orderBy('dept')
+            ->orderBy('name')
+            ->get(['id', 'name', 'dept', 'price', 'ins_price']);
     }
 }
