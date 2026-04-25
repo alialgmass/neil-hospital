@@ -36,7 +36,7 @@ class DoctorClaimsController extends Controller
             'claims' => $doctorId && $from && $to
                 ? $this->claimsService->calculateClaims($doctorId, $from, $to)
                 : null,
-            'filters' => compact('doctor_id', 'from', 'to'),
+            'filters' => ['doctor_id' => $doctorId, 'from' => $from, 'to' => $to],
         ]);
     }
 

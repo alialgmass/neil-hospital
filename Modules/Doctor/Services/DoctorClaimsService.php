@@ -3,6 +3,7 @@
 namespace Modules\Doctor\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorPayment;
 
@@ -17,7 +18,7 @@ class DoctorClaimsService
         $doctor = Doctor::findOrFail($doctorId);
 
         // If insurance doctor → zero entitlement (paid directly)
-        if ($doctor->fee_type === 'insurance') {
+        if ($doctor->fee_type === FeeType::Insurance) {
             return $this->buildClaimsResult($doctor, $from, $to, 0, []);
         }
 
@@ -56,6 +57,12 @@ class DoctorClaimsService
         $insAmount = (float) $booking->ins_amount;
         $dept = $booking->dept;
 
+        // Per-department fee override takes priority
+        $deptFee = $doctor->dept_fees[$dept] ?? null;
+        if ($deptFee) {
+            return $this->computeFromFeeEntry($deptFee, $paid);
+        }
+
         return match (true) {
             // Surgery/Lasik: dr_share = paid − supply_total
             in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $paid),
@@ -65,6 +72,17 @@ class DoctorClaimsService
 
             // Clinic, Labs, Laser: dr_share = paid − center_share (from service definition)
             default => $this->computeServiceShare($doctor, $paid, $insAmount),
+        };
+    }
+
+    private function computeFromFeeEntry(array $deptFee, float $paid): float
+    {
+        $feeValue = (float) ($deptFee['fee_value'] ?? 0);
+
+        return match ($deptFee['fee_type'] ?? '') {
+            'percentage' => round($paid * ($feeValue / 100), 2),
+            'fixed' => $feeValue,
+            default => 0.0,
         };
     }
 
@@ -106,7 +124,7 @@ class DoctorClaimsService
      */
     private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount): float
     {
-        if ($doctor->fee_type === 'percentage') {
+        if ($doctor->fee_type === FeeType::Percentage) {
             return round($paid * ($doctor->fee_value / 100), 2);
         }
 
@@ -121,7 +139,7 @@ class DoctorClaimsService
             ->sum('amount');
 
         return [
-            'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type],
+            'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type->value],
             'period_from' => $from,
             'period_to' => $to,
             'total_claims' => $total,

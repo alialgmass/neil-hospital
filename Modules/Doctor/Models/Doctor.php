@@ -20,6 +20,7 @@ class Doctor extends Model
         'phone',
         'fee_type',
         'fee_value',
+        'dept_fees',
         'user_id',
         'is_active',
         'notes',
@@ -29,6 +30,7 @@ class Doctor extends Model
         'fee_value' => 'decimal:2',
         'is_active' => 'boolean',
         'fee_type' => FeeType::class,
+        'dept_fees' => 'array',
     ];
 
     public function user(): BelongsTo

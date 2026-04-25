@@ -24,6 +24,9 @@ class UpdateDoctorRequest extends FormRequest
             'fee_type' => ['required', "in:{$feeTypes}"],
             'fee_value' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'dept_fees' => ['nullable', 'array'],
+            'dept_fees.*.fee_type' => ['required_with:dept_fees', "in:{$feeTypes}"],
+            'dept_fees.*.fee_value' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

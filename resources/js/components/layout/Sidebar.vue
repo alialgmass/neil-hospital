@@ -10,6 +10,7 @@ import {
     Dot,
     UserCog,
     Wallet,
+    Calculator,
     BookOpen,
     Library,
     ShoppingCart,
@@ -68,7 +69,8 @@ const navGroups: NavGroup[] = [
         label: 'الأطباء',
         items: [
             { title: 'إدارة الأطباء', href: '/doctors', icon: UserCog, permission: 'doctors.view' },
-            { title: 'مستحقات الأطباء', href: '/dr-payments', icon: Wallet, permission: 'drpayments.view' },
+            { title: 'مستحقات الأطباء', href: '/dr-claims', icon: Calculator, permission: 'drpayments.view' },
+            { title: 'مدفوعات الأطباء', href: '/dr-payments', icon: Wallet, permission: 'drpayments.view' },
         ],
     },
     {
