@@ -134,9 +134,12 @@ class DoctorClaimsService
 
     private function buildClaimsResult(Doctor $doctor, string $from, string $to, float $total, array $rows): array
     {
-        $alreadyPaid = (float) DoctorPayment::where('doctor_id', $doctor->id)
+        $paymentRecords = DoctorPayment::where('doctor_id', $doctor->id)
             ->whereBetween('paid_at', [$from, $to])
-            ->sum('amount');
+            ->orderBy('paid_at')
+            ->get(['id', 'amount', 'paid_at', 'method', 'notes']);
+
+        $alreadyPaid = (float) $paymentRecords->sum('amount');
 
         return [
             'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type->value],
@@ -146,6 +149,13 @@ class DoctorClaimsService
             'paid_amount' => $alreadyPaid,
             'net_due' => max(0, $total - $alreadyPaid),
             'rows' => $rows,
+            'payments' => $paymentRecords->map(fn ($p) => [
+                'id' => $p->id,
+                'amount' => (float) $p->amount,
+                'paid_at' => $p->paid_at->toDateString(),
+                'method' => $p->method,
+                'notes' => $p->notes,
+            ])->values()->toArray(),
         ];
     }
 
@@ -155,6 +165,18 @@ class DoctorClaimsService
             ...$data,
             'created_by' => auth()->id(),
         ]);
+    }
+
+    public function summarizeAll(string $from, string $to): array
+    {
+        return Doctor::where('is_active', true)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Doctor $doctor) => collect($this->calculateClaims($doctor->id, $from, $to))
+                ->only(['doctor', 'total_claims', 'paid_amount', 'net_due'])
+                ->toArray())
+            ->values()
+            ->toArray();
     }
 
     public function doctors()

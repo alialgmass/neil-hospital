@@ -4,6 +4,7 @@ namespace Modules\Doctor\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogService;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,21 +20,25 @@ class DoctorClaimsController extends Controller
 
     public function index(): Response
     {
+        $from = request('from', Carbon::now()->startOfMonth()->toDateString());
+        $to = request('to', Carbon::now()->toDateString());
+
         return Inertia::render('doctors/Claims', [
-            'doctors' => $this->claimsService->doctors(),
-            'filters' => request()->only(['doctor_id', 'from', 'to']),
+            'summaries' => $this->claimsService->summarizeAll($from, $to),
+            'claims' => null,
+            'filters' => compact('from', 'to'),
         ]);
     }
 
     public function calculate(): Response
     {
         $doctorId = request('doctor_id');
-        $from = request('from');
-        $to = request('to');
+        $from = request('from', Carbon::now()->startOfMonth()->toDateString());
+        $to = request('to', Carbon::now()->toDateString());
 
         return Inertia::render('doctors/Claims', [
-            'doctors' => $this->claimsService->doctors(),
-            'claims' => $doctorId && $from && $to
+            'summaries' => $this->claimsService->summarizeAll($from, $to),
+            'claims' => $doctorId
                 ? $this->claimsService->calculateClaims($doctorId, $from, $to)
                 : null,
             'filters' => ['doctor_id' => $doctorId, 'from' => $from, 'to' => $to],
