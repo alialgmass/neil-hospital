@@ -8,42 +8,110 @@ use Illuminate\Support\Str;
 
 class AccountsSeeder extends Seeder
 {
-    /** Default chart of accounts from spec §5.9. */
+    /**
+     * Full chart of accounts per the Al-Nour accounting guide.
+     * Format: code => [name, group, nature, parentCode|null]
+     */
     private const ACCOUNTS = [
-        // code  => [name, group, nature]
-        '1000' => ['الصندوق النقدي',         'assets',      'debit'],
-        '1100' => ['البنك',                   'assets',      'debit'],
-        '1200' => ['ذمم التأمين',             'assets',      'debit'],
-        '2000' => ['إيرادات العيادة',          'revenues',    'credit'],
-        '2100' => ['إيرادات الفحوصات',         'revenues',    'credit'],
-        '2200' => ['إيرادات العمليات',         'revenues',    'credit'],
-        '2300' => ['إيرادات الليزك',           'revenues',    'credit'],
-        '2400' => ['إيرادات الليزر',           'revenues',    'credit'],
-        '3000' => ['مستلزمات العمليات',        'expenses',    'debit'],
-        '3100' => ['مستحقات الأطباء',          'expenses',    'debit'],
-        '3200' => ['رواتب الموظفين',           'expenses',    'debit'],
-        '3300' => ['مصروفات تشغيلية',          'expenses',    'debit'],
-        '4000' => ['رأس المال',               'equity',      'credit'],
+        // ── ASSETS ─────────────────────────────────────────────────
+        '1000' => ['الأصول المتداولة',                       'assets',      'debit',  null],
+        '1010' => ['الخزنة الرئيسية',                        'assets',      'debit',  '1000'],
+        '1020' => ['البنك — الحساب الجاري',                   'assets',      'debit',  '1000'],
+        '1030' => ['ذمم مدينة — تأمين صحي',                  'assets',      'debit',  '1000'],
+        '1040' => ['ذمم مدينة — مرضى (آجل)',                 'assets',      'debit',  '1000'],
+        '1050' => ['المخزون (المستلزمات الطبية)',              'assets',      'debit',  '1000'],
+        '1060' => ['مصروفات مقدمة',                          'assets',      'debit',  '1000'],
+        '1100' => ['الأصول الثابتة',                         'assets',      'debit',  null],
+        '1110' => ['الأجهزة والمعدات الطبية',                 'assets',      'debit',  '1100'],
+        '1120' => ['م. مجمعة — الأجهزة الطبية',              'assets',      'credit', '1100'],
+        '1130' => ['التجهيزات والأثاث',                      'assets',      'debit',  '1100'],
+        '1140' => ['أجهزة حاسوب وأنظمة',                    'assets',      'debit',  '1100'],
+
+        // ── LIABILITIES ────────────────────────────────────────────
+        '2000' => ['الخصوم المتداولة',                       'liabilities', 'credit', null],
+        '2010' => ['مستحقات الأطباء',                        'liabilities', 'credit', '2000'],
+        '2020' => ['الموردون (مستحقات مشتريات)',              'liabilities', 'credit', '2000'],
+        '2030' => ['ضريبة القيمة المضافة المستحقة',          'liabilities', 'credit', '2000'],
+        '2040' => ['مستحقات موظفين (رواتب)',                  'liabilities', 'credit', '2000'],
+        '2050' => ['أمانات — دفعات تأمين مُحصَّلة',           'liabilities', 'credit', '2000'],
+        '2100' => ['خصوم طويلة الأجل',                       'liabilities', 'credit', null],
+        '2110' => ['قروض بنكية طويلة الأجل',                 'liabilities', 'credit', '2100'],
+
+        // ── EQUITY ─────────────────────────────────────────────────
+        '3010' => ['رأس المال',                              'equity',      'credit', null],
+        '3020' => ['الأرباح المُبقاة',                        'equity',      'credit', null],
+        '3030' => ['صافي الربح السنوي',                      'equity',      'credit', null],
+
+        // ── REVENUES ───────────────────────────────────────────────
+        '4000' => ['الإيرادات التشغيلية الرئيسية',            'revenues',    'credit', null],
+        '4010' => ['إيرادات العيادة الخارجية (كشف)',          'revenues',    'credit', '4000'],
+        '4020' => ['إيرادات الفحوصات والمختبر',               'revenues',    'credit', '4000'],
+        '4030' => ['إيرادات غرفة العمليات الجراحية',          'revenues',    'credit', '4000'],
+        '4040' => ['إيرادات وحدة الليزك',                    'revenues',    'credit', '4000'],
+        '4050' => ['إيرادات الليزر التشخيصي/العلاجي',        'revenues',    'credit', '4000'],
+        '4100' => ['إيرادات التأمين',                        'revenues',    'credit', null],
+        '4110' => ['إيرادات التأمين الصحي — حصة المستشفى',   'revenues',    'credit', '4100'],
+        '4120' => ['إيرادات التأمين المحصلة فعلياً',          'revenues',    'credit', '4100'],
+        '4200' => ['إيرادات أخرى',                           'revenues',    'credit', null],
+        '4210' => ['إيرادات بيع مستلزمات للمرضى',            'revenues',    'credit', '4200'],
+        '4220' => ['إيرادات متنوعة',                         'revenues',    'credit', '4200'],
+
+        // ── EXPENSES ───────────────────────────────────────────────
+        '5000' => ['تكاليف الخدمات الطبية المباشرة',          'expenses',    'debit',  null],
+        '5010' => ['تكلفة مستلزمات العمليات الجراحية',        'expenses',    'debit',  '5000'],
+        '5020' => ['تكلفة مستلزمات وحدة الليزك',              'expenses',    'debit',  '5000'],
+        '5030' => ['تكلفة الأدوية والقطرات',                  'expenses',    'debit',  '5000'],
+        '5100' => ['مستحقات الأطباء (مصروفات)',               'expenses',    'debit',  null],
+        '5110' => ['نصيب الطبيب — العيادة والكشف',            'expenses',    'debit',  '5100'],
+        '5120' => ['نصيب الطبيب — العمليات الجراحية',         'expenses',    'debit',  '5100'],
+        '5130' => ['أتعاب طبيب التأمين (مبلغ ثابت/حالة)',    'expenses',    'debit',  '5100'],
+        '5200' => ['المصروفات التشغيلية',                     'expenses',    'debit',  null],
+        '5210' => ['رواتب وأجور الموظفين',                    'expenses',    'debit',  '5200'],
+        '5220' => ['الإيجار',                                'expenses',    'debit',  '5200'],
+        '5230' => ['الكهرباء والمياه والاتصالات',             'expenses',    'debit',  '5200'],
+        '5240' => ['مصروفات الصيانة',                        'expenses',    'debit',  '5200'],
+        '5250' => ['مصروفات إدارية وتسويقية',                 'expenses',    'debit',  '5200'],
+        '5260' => ['استهلاك الأصول الثابتة',                  'expenses',    'debit',  '5200'],
+        '5270' => ['مصروفات المشتريات الآجلة',                'expenses',    'debit',  '5200'],
     ];
 
     public function run(): void
     {
-        foreach (self::ACCOUNTS as $code => [$name, $group, $nature]) {
-            DB::table('accounts')->updateOrInsert(
-                ['code' => $code],
-                [
-                    'id' => (string) Str::ulid(),
+        $codeToId = [];
+
+        foreach (self::ACCOUNTS as $code => [$name, $group, $nature, $parentCode]) {
+            $parentId = $parentCode
+                ? ($codeToId[$parentCode] ?? DB::table('accounts')->where('code', $parentCode)->value('id'))
+                : null;
+
+            $existing = DB::table('accounts')->where('code', $code)->first();
+
+            if ($existing) {
+                DB::table('accounts')->where('code', $code)->update([
+                    'name' => $name,
+                    'group' => $group,
+                    'nature' => $nature,
+                    'parent_id' => $parentId,
+                    'is_active' => true,
+                    'updated_at' => now(),
+                ]);
+                $codeToId[$code] = $existing->id;
+            } else {
+                $id = (string) Str::ulid();
+                DB::table('accounts')->insert([
+                    'id' => $id,
                     'code' => $code,
                     'name' => $name,
                     'group' => $group,
                     'nature' => $nature,
-                    'parent_id' => null,
+                    'parent_id' => $parentId,
                     'balance' => 0,
                     'is_active' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
-                ],
-            );
+                ]);
+                $codeToId[$code] = $id;
+            }
         }
     }
 }

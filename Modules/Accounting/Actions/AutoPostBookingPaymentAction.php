@@ -4,6 +4,7 @@ namespace Modules\Accounting\Actions;
 
 use App\Enums\Department;
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\JournalService;
@@ -19,9 +20,9 @@ class AutoPostBookingPaymentAction
     ) {}
 
     /**
-     * Post a payment for a booking to the treasury and journal.
+     * Post a booking payment to the treasury and journal.
      *
-     * @param  float|null  $amount  Payment amount; defaults to booking's paid_amount.
+     * @param  float|null  $amount  Defaults to booking's paid_amount.
      */
     public function execute(Booking $booking, ?float $amount = null): void
     {
@@ -33,7 +34,7 @@ class AutoPostBookingPaymentAction
 
         $date = $booking->visit_date->toDateString();
 
-        // 1. Create treasury entry
+        // 1. Treasury entry (cash movement)
         $this->treasuryService->record([
             'type' => TreasuryType::In,
             'description' => "دفعة حجز: {$booking->file_no} — {$booking->patient_name}",
@@ -43,33 +44,46 @@ class AutoPostBookingPaymentAction
             'booking_id' => $booking->id,
         ]);
 
-        // 2. Auto-post journal entry: Debit Cash / Credit Revenue
-        $cashAccount = $this->findAccount($booking->pay_method === PayMethod::Card ? '1100' : '1000');
-        $revenueAccount = $this->findRevenueAccount($booking->dept, $booking->service_id);
+        // 2. Determine debit account (cash/bank/receivable)
+        $debitCode = $this->debitAccountCode($booking);
+        $debitAccId = $this->findAccountId($debitCode);
 
-        if ($cashAccount && $revenueAccount) {
+        // 3. Determine credit account (revenue by dept or service-specific)
+        $creditAccId = $this->findRevenueAccountId($booking);
+
+        if ($debitAccId && $creditAccId) {
             $this->journalService->record([
                 'date' => $date,
                 'description' => "إيراد حجز: {$booking->file_no} — {$booking->service_name}",
-                'debit_account_id' => $cashAccount,
-                'credit_account_id' => $revenueAccount,
+                'debit_account_id' => $debitAccId,
+                'credit_account_id' => $creditAccId,
                 'amount' => $amount,
                 'source' => JournalSource::BOOKING,
                 'reference' => $booking->file_no,
+                'cost_center' => $this->costCenter($booking->dept),
             ]);
         }
     }
 
-    private function findAccount(string $code): ?string
+    private function debitAccountCode(Booking $booking): string
+    {
+        return match ($booking->pay_method) {
+            PayMethod::Card, PayMethod::Transfer => '1020', // Bank
+            default => '1010', // Main Cash
+        };
+    }
+
+    private function findAccountId(string $code): ?string
     {
         return DB::table('accounts')->where('code', $code)->value('id');
     }
 
-    private function findRevenueAccount(Department $dept, ?string $serviceId = null): ?string
+    private function findRevenueAccountId(Booking $booking): ?string
     {
-        if ($serviceId) {
+        // Service-specific revenue account takes priority
+        if ($booking->service_id) {
             $serviceAccountId = DB::table('services')
-                ->where('id', $serviceId)
+                ->where('id', $booking->service_id)
                 ->value('revenue_account_id');
 
             if ($serviceAccountId) {
@@ -77,14 +91,26 @@ class AutoPostBookingPaymentAction
             }
         }
 
-        $codeMap = [
-            Department::Clinic->value => '2000',
-            Department::Labs->value => '2100',
-            Department::Surgery->value => '2200',
-            Department::Lasik->value => '2300',
-            Department::Laser->value => '2400',
+        // Fall back to dept-level account per guide chart
+        $deptCodeMap = [
+            Department::Clinic->value => '4010',
+            Department::Labs->value => '4020',
+            Department::Surgery->value => '4030',
+            Department::Lasik->value => '4040',
+            Department::Laser->value => '4050',
         ];
 
-        return $this->findAccount($codeMap[$dept->value] ?? '2000');
+        return $this->findAccountId($deptCodeMap[$booking->dept->value] ?? '4010');
+    }
+
+    private function costCenter(Department $dept): CostCenter
+    {
+        return match ($dept) {
+            Department::Clinic => CostCenter::Clinic,
+            Department::Labs => CostCenter::Lab,
+            Department::Surgery => CostCenter::Surgery,
+            Department::Lasik => CostCenter::Lasik,
+            Department::Laser => CostCenter::Laser,
+        };
     }
 }

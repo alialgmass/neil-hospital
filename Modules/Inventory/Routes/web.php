@@ -5,6 +5,7 @@ use Modules\Inventory\Controllers\InventoryController;
 use Modules\Inventory\Controllers\PurchaseInvoiceController;
 use Modules\Inventory\Controllers\PurchaseReturnController;
 use Modules\Inventory\Controllers\ServiceController;
+use Modules\Inventory\Controllers\StockIssueController;
 use Modules\Inventory\Controllers\StockPermitController;
 use Modules\Inventory\Controllers\StockTakeController;
 use Modules\Inventory\Controllers\SupplierController;
@@ -47,6 +48,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
+            ->middleware('can:inventory.write')
+            ->name('store');
+    });
+
+    // Stock Issue Vouchers — dedicated daily view
+    Route::prefix('stock-issue')->name('stock-issue.')->group(function () {
+        Route::get('/', [StockIssueController::class, 'index'])
+            ->middleware('can:inventory.view')
+            ->name('index');
+
+        Route::post('/', [StockIssueController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
     });

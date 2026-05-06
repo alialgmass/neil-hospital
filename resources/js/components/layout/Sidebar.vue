@@ -24,6 +24,7 @@ import {
     TrendingUp,
     Scale,
     FileText,
+    ClipboardList,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -89,6 +90,7 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'الخدمات والأسعار', href: '/services', icon: Tags, permission: 'services.view' },
             { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view' },
+            { title: 'أذون الصرف', href: '/stock-issue', icon: ClipboardList, permission: 'inventory.view' },
             { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view' },
         ],
     },

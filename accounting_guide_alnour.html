@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>الدليل المحاسبي — مستشفى النور لطب وجراحة العيون</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;900&display=swap');
+
+:root {
+  --navy: #072E63;
+  --blue: #0A4FA6;
+  --blue-lt: #1A6ED8;
+  --blue-pale: #E8F1FB;
+  --teal: #00B5A4;
+  --teal-pale: #E0F7F5;
+  --green: #1A8C5B;
+  --green-pale: #E2F5EC;
+  --red: #D63B3B;
+  --red-pale: #FDEAEA;
+  --orange: #E07C10;
+  --orange-pale: #FEF0E0;
+  --gold: #C9A227;
+  --gold-pale: #FBF4DC;
+  --bg: #F0F4FA;
+  --surface: #FFFFFF;
+  --surface2: #F8FAFD;
+  --border: #DDE4EF;
+  --text: #0D1F3C;
+  --text2: #3D4F6E;
+  --text3: #8A96AE;
+  --radius: 12px;
+  --shadow: 0 2px 16px rgba(10,79,166,.08);
+  --shadow-lg: 0 8px 40px rgba(10,79,166,.14);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.7;
+  direction: rtl;
+}
+
+/* ── COVER ── */
+.cover {
+  background: linear-gradient(145deg, var(--navy) 0%, var(--blue) 60%, var(--teal) 100%);
+  color: #fff;
+  padding: 60px 40px 50px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+.cover::before {
+  content: '';
+  position: absolute;
+  top: -80px; right: -80px;
+  width: 300px; height: 300px;
+  background: rgba(255,255,255,.05);
+  border-radius: 50%;
+}
+.cover::after {
+  content: '';
+  position: absolute;
+  bottom: -60px; left: -60px;
+  width: 220px; height: 220px;
+  background: rgba(0,181,164,.15);
+  border-radius: 50%;
+}
+.cover-logo {
+  width: 80px; height: 80px;
+  background: rgba(255,255,255,.15);
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  margin-bottom: 20px;
+  backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(255,255,255,.25);
+}
+.cover h1 {
+  font-family: 'Tajawal', sans-serif;
+  font-size: 34px;
+  font-weight: 900;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+.cover h2 {
+  font-size: 18px;
+  font-weight: 400;
+  opacity: .75;
+  margin-bottom: 30px;
+}
+.cover-meta {
+  display: inline-flex;
+  gap: 24px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 40px;
+  padding: 10px 28px;
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+}
+.cover-meta span::before { content: '◆ '; opacity: .5; }
+
+/* ── LAYOUT ── */
+.container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+/* ── SECTIONS ── */
+.chapter {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 28px;
+  overflow: hidden;
+  page-break-inside: avoid;
+}
+.chapter-header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.chapter-num {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+.chapter-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.chapter-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.chapter-body { padding: 20px 22px; }
+
+/* ── ACCOUNT TREE ── */
+.acc-group {
+  margin-bottom: 20px;
+}
+.acc-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.acc-group-title .badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* ── ACCOUNTS TABLE ── */
+.acc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.acc-table th {
+  background: var(--navy);
+  color: #fff;
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+}
+.acc-table th:first-child { border-radius: 0 6px 6px 0; }
+.acc-table th:last-child { border-radius: 6px 0 0 6px; }
+.acc-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.acc-table tbody tr:hover { background: var(--surface2); }
+.acc-table tbody tr:last-child td { border-bottom: none; }
+.acc-table .parent-row td {
+  font-weight: 700;
+  background: var(--blue-pale);
+  color: var(--navy);
+  font-size: 12px;
+}
+.acc-table .child-row td:first-child {
+  padding-right: 28px;
+}
+.acc-table .sub-row td:first-child {
+  padding-right: 46px;
+}
+.acc-code {
+  font-family: monospace;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.nature-dr { color: var(--green); font-weight: 600; font-size: 11px; }
+.nature-cr { color: var(--red); font-weight: 600; font-size: 11px; }
+.acc-link {
+  font-size: 10px;
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  display: inline-block;
+  margin-top: 2px;
+}
+
+/* ── JOURNAL ENTRIES ── */
+.je-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 20px;
+}
+.je-table th {
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 11px;
+  text-align: right;
+}
+.je-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.je-table .je-dr td { font-weight: 700; }
+.je-table .je-cr td { color: var(--text2); padding-right: 28px; }
+.je-table .je-cr td:first-child { padding-right: 28px; }
+.je-table .je-total td {
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  font-size: 11px;
+}
+.je-header {
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.je-header .je-ref {
+  font-family: monospace;
+  background: rgba(255,255,255,.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.je-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.je-scenario {
+  background: var(--orange-pale);
+  border: 1px solid #F0C070;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: var(--text2);
+  margin-bottom: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.je-scenario-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── TRIAL BALANCE SAMPLE ── */
+.tb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.tb-table th {
+  background: var(--navy);
+  color: #fff;
+  padding: 9px 12px;
+  text-align: center;
+  font-size: 11px;
+}
+.tb-table th:first-child, .tb-table th:nth-child(2) { text-align: right; }
+.tb-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.tb-table td:first-child, .tb-table td:nth-child(2) { text-align: right; }
+.tb-table .tb-group-row td { background: var(--blue-pale); font-weight: 700; color: var(--navy); font-size: 11px; }
+.tb-table .tb-total-row td { background: var(--navy); color: #fff; font-weight: 900; font-size: 13px; }
+.tb-table .dr-val { color: var(--green); font-weight: 700; }
+.tb-table .cr-val { color: var(--red); font-weight: 700; }
+.tb-balanced { background: var(--green-pale); border: 1.5px solid var(--green); border-radius: 8px; padding: 10px 16px; text-align: center; font-weight: 700; color: var(--green); margin-top: 10px; font-size: 13px; }
+
+/* ── INCOME STATEMENT ── */
+.is-section {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.is-header {
+  padding: 9px 14px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.is-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.is-row:last-child { border-bottom: none; }
+.is-row.total {
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(0,0,0,.03);
+}
+.is-row.net {
+  background: var(--navy);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  padding: 12px 14px;
+}
+.is-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+
+/* ── COST CENTERS ── */
+.cc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 16px; }
+.cc-card {
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.cc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 5px; height: 100%;
+}
+.cc-name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.cc-code { font-family: monospace; font-size: 10px; color: var(--text3); margin-bottom: 10px; }
+.cc-items { font-size: 11px; color: var(--text2); }
+.cc-items li { padding: 2px 0; }
+
+/* ── FLOW DIAGRAM ── */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.flow-node {
+  background: var(--blue-pale);
+  border: 1.5px solid var(--blue);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--navy);
+  text-align: center;
+  min-width: 100px;
+}
+.flow-arrow {
+  color: var(--blue);
+  font-size: 18px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.flow-node.highlight {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+
+/* ── INFO BOXES ── */
+.info-box {
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+}
+.info-box .icon { font-size: 18px; flex-shrink: 0; }
+.info-note { background: var(--blue-pale); border-right: 4px solid var(--blue); color: var(--navy); }
+.info-warn { background: var(--orange-pale); border-right: 4px solid var(--orange); color: #7A4500; }
+.info-success { background: var(--green-pale); border-right: 4px solid var(--green); color: #0D4A2E; }
+.info-formula { background: var(--gold-pale); border-right: 4px solid var(--gold); color: #5A440A; }
+
+/* ── AMOUNT DISPLAY ── */
+.amt-dr { color: var(--green); font-weight: 700; }
+.amt-cr { color: var(--red); font-weight: 700; }
+
+/* ── LEDGER ── */
+.ledger-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ledger-table th { background: var(--teal); color: #fff; padding: 8px 10px; font-size: 11px; text-align: center; }
+.ledger-table th:first-child, .ledger-table th:nth-child(2) { text-align: right; }
+.ledger-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: center; }
+.ledger-table td:first-child, .ledger-table td:nth-child(2) { text-align: right; }
+.ledger-table .ledger-balance { font-weight: 700; }
+.ledger-table .ledger-open { background: var(--teal-pale); font-weight: 700; }
+.ledger-table .ledger-close { background: var(--navy); color: #fff; font-weight: 900; }
+
+/* ── SECTION DIVIDER ── */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 16px;
+}
+.section-divider .line { flex: 1; height: 1px; background: var(--border); }
+.section-divider .label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── GRID ── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+
+/* ── NAV TOC ── */
+.toc {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 28px;
+  overflow: hidden;
+}
+.toc-header {
+  background: var(--navy);
+  color: #fff;
+  padding: 14px 22px;
+  font-weight: 700;
+  font-size: 14px;
+}
+.toc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.toc-item {
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text2);
+  text-decoration: none;
+  transition: background .15s;
+}
+.toc-item:hover { background: var(--blue-pale); }
+.toc-item:nth-child(even) { border-right: 1px solid var(--border); }
+.toc-num {
+  width: 24px; height: 24px;
+  background: var(--blue);
+  color: #fff;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+
+/* ── PRINT ── */
+@media print {
+  .cover { page-break-after: always; }
+  .chapter { page-break-inside: avoid; margin-bottom: 18px; }
+  body { font-size: 11px; }
+  .cover h1 { font-size: 26px; }
+  .cc-grid { grid-template-columns: repeat(2,1fr); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .g2, .toc-grid, .cc-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <div class="cover-logo">👁</div>
+  <h1>الدليل المحاسبي الشامل</h1>
+  <h2>مستشفى النور لطب وجراحة العيون</h2>
+  <div class="cover-meta">
+    <span>دليل الحسابات</span>
+    <span>القيود اليومية</span>
+    <span>ميزان المراجعة</span>
+    <span>قائمة الدخل</span>
+    <span>مراكز التكلفة</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════ TOC ═══════════════ -->
+<div class="toc">
+  <div class="toc-header">📋 فهرس الدليل المحاسبي</div>
+  <div class="toc-grid">
+    <a class="toc-item" href="#ch1"><div class="toc-num">١</div> دليل الحسابات الرئيسي (Chart of Accounts)</a>
+    <a class="toc-item" href="#ch2"><div class="toc-num">٢</div> مراكز التكلفة (Cost Centers)</a>
+    <a class="toc-item" href="#ch3"><div class="toc-num">٣</div> القيود اليومية — المرضى والخدمات</a>
+    <a class="toc-item" href="#ch4"><div class="toc-num">٤</div> قيود مستحقات الأطباء</a>
+    <a class="toc-item" href="#ch5"><div class="toc-num">٥</div> قيود التأمين والمطالبات</a>
+    <a class="toc-item" href="#ch6"><div class="toc-num">٦</div> قيود المخزون والمستلزمات</a>
+    <a class="toc-item" href="#ch7"><div class="toc-num">٧</div> دفتر الأستاذ — نماذج مختارة</a>
+    <a class="toc-item" href="#ch8"><div class="toc-num">٨</div> ميزان المراجعة</a>
+    <a class="toc-item" href="#ch9"><div class="toc-num">٩</div> قائمة الدخل التفصيلية</a>
+    <a class="toc-item" href="#ch10"><div class="toc-num">١٠</div> ربط النظام بالمحاسبة — خريطة التدفق</a>
+  </div>
+</div>
+
+<!-- ═══════════════ CH1 — CHART OF ACCOUNTS ═══════════════ -->
+<div class="chapter" id="ch1">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E8F1FB;color:#0A4FA6">١</div>
+    <div>
+      <div class="chapter-title">دليل الحسابات الرئيسي</div>
+      <div class="chapter-sub">Chart of Accounts — مستشفى النور لطب وجراحة العيون</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="info-box info-note">
+      <span class="icon">📌</span>
+      <div>يتكون الدليل من <strong>5 مجموعات رئيسية</strong> بترقيم هرمي. كل قيد يومي في النظام يُغذّي حساباً من هذا الدليل تلقائياً، ومنه ينعكس على ميزان المراجعة وقائمة الدخل.</div>
+    </div>
+
+    <!-- GROUP 1: ASSETS -->
+    <div class="acc-group">
+      <div class="acc-group-title" style="background:#E8F1FB;color:#072E63">
+        <span style="font-size:18px">🏦</span>
+        <span>المجموعة الأولى — الأصول</span>
+        <span class="badge" style="background:#0A4FA6;color:#fff">1000–1999</span>
+        <span style="font-size:11px;color:#4A5878;margin-right:auto">طبيعة: مدين ↑</span>
+      </div>
+      <table class="acc-table">
+        <thead>
+          <tr>
+            <th style="width:90px">كود الحساب</th>
+            <th>اسم الحساب</th>
+            <th style="width:70px">الطبيعة</th>
+            <th>الربط بالنظام</th>
+            <th style="width:80px">مركز التكلفة</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="parent-row"><td colspan="5">1000 — الأصول المتداولة</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1010</span></td>
+            <td><strong>الخزنة الرئيسية</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>يُغذَّى تلقائياً عند كل سداد مريض (كاش) أو قيد تحصيل <span class="acc-link">treasuryEntries</span></td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1020</span></td>
+            <td><strong>البنك — الحساب الجاري</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>قيود تحويل بنكي — بطاقات ائتمان — شيكات</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1030</span></td>
+            <td><strong>ذمم مدينة — تأمين صحي</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>عند تقديم مطالبة تأمين → <span class="acc-link">insClaims</span> — يُقيَّد تلقائياً من كل حجز به تأمين</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1040</span></td>
+            <td><strong>ذمم مدينة — مرضى (آجل)</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>حجوزات بحالة «لم يسدد» / «جزئي» → <span class="acc-link">payStatus</span></td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1050</span></td>
+            <td><strong>المخزون (المستلزمات الطبية)</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>كل صنف في <span class="acc-link">inventory</span> → qty × cost = رصيد المخزون</td>
+            <td>CC-INV</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1060</span></td>
+            <td><strong>مصروفات مقدمة (دفعات مقدمة)</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>إيجار أو تأمين مدفوع مقدماً</td>
+            <td>—</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">1100 — الأصول الثابتة</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1110</span></td>
+            <td><strong>الأجهزة والمعدات الطبية</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>أجهزة الليزك، Phaco، قياس ضغط العين</td>
+            <td>CC-EQUIP</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1120</span></td>
+            <td><strong>م. مجمعة — الأجهزة الطبية</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>استهلاك سنوي / شهري على الأجهزة</td>
+            <td>CC-EQUIP</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1130</span></td>
+            <td><strong>التجهيزات والأثاث</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">1140</span></td>
+            <td><strong>أجهزة حاسوب وأنظمة</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>خوادم نظام الإدارة</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GROUP 2: LIABILITIES -->
+    <div class="acc-group">
+      <div class="acc-group-title" style="background:#FDEAEA;color:#7A1E1E">
+        <span style="font-size:18px">💳</span>
+        <span>المجموعة الثانية — الخصوم</span>
+        <span class="badge" style="background:#D63B3B;color:#fff">2000–2999</span>
+        <span style="font-size:11px;color:#7A1E1E;margin-right:auto">طبيعة: دائن ↑</span>
+      </div>
+      <table class="acc-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>اسم الحساب</th><th style="width:70px">الطبيعة</th><th>الربط بالنظام</th><th style="width:80px">مركز التكلفة</th></tr></thead>
+        <tbody>
+          <tr class="parent-row"><td colspan="5">2000 — الخصوم المتداولة</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2010</span></td>
+            <td><strong>مستحقات الأطباء</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>يُغذَّى تلقائياً من <span class="acc-link">drPayments</span> + حسابات نصيب الطبيب من كل حجز</td>
+            <td>CC-DR</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2020</span></td>
+            <td><strong>الموردون (مستحقات مشتريات)</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>فواتير الشراء الآجل → <span class="acc-link">purchaseInvoices</span></td>
+            <td>CC-INV</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2030</span></td>
+            <td><strong>ضريبة القيمة المضافة المستحقة</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>14% على الخدمات الخاضعة للضريبة</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2040</span></td>
+            <td><strong>مستحقات موظفين (رواتب)</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>رواتب لم تُصرف بعد نهاية الشهر</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2050</span></td>
+            <td><strong>أمانات — دفعات تأمين مُحصَّلة</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>مبالغ تحصّلت من التأمين ولم تُوزَّع</td>
+            <td>—</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">2100 — خصوم طويلة الأجل</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">2110</span></td>
+            <td><strong>قروض بنكية طويلة الأجل</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GROUP 3: EQUITY -->
+    <div class="acc-group">
+      <div class="acc-group-title" style="background:#E0F7F5;color:#005048">
+        <span style="font-size:18px">🏛</span>
+        <span>المجموعة الثالثة — حقوق الملكية</span>
+        <span class="badge" style="background:#00B5A4;color:#fff">3000–3999</span>
+        <span style="font-size:11px;color:#005048;margin-right:auto">طبيعة: دائن ↑</span>
+      </div>
+      <table class="acc-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>اسم الحساب</th><th style="width:70px">الطبيعة</th><th>الربط بالنظام</th><th style="width:80px">مركز التكلفة</th></tr></thead>
+        <tbody>
+          <tr class="child-row"><td><span class="acc-code">3010</span></td><td><strong>رأس المال</strong></td><td><span class="nature-cr">دائن</span></td><td>رأس مال المستشمرين</td><td>—</td></tr>
+          <tr class="child-row"><td><span class="acc-code">3020</span></td><td><strong>الأرباح المُبقاة</strong></td><td><span class="nature-cr">دائن</span></td><td>أرباح سنوات سابقة لم تُوزَّع</td><td>—</td></tr>
+          <tr class="child-row"><td><span class="acc-code">3030</span></td><td><strong>صافي الربح السنوي</strong></td><td><span class="nature-cr">دائن</span></td><td>يُحسب تلقائياً: الإيرادات − المصروفات</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GROUP 4: REVENUES -->
+    <div class="acc-group">
+      <div class="acc-group-title" style="background:#E2F5EC;color:#0D4A2E">
+        <span style="font-size:18px">💰</span>
+        <span>المجموعة الرابعة — الإيرادات</span>
+        <span class="badge" style="background:#1A8C5B;color:#fff">4000–4999</span>
+        <span style="font-size:11px;color:#0D4A2E;margin-right:auto">طبيعة: دائن ↑</span>
+      </div>
+      <table class="acc-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>اسم الحساب</th><th style="width:70px">الطبيعة</th><th>الربط بالنظام</th><th style="width:80px">مركز التكلفة</th></tr></thead>
+        <tbody>
+          <tr class="parent-row"><td colspan="5">4000 — الإيرادات التشغيلية الرئيسية</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4010</span></td>
+            <td><strong>إيرادات العيادة الخارجية (كشف)</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>حجوزات <code>dept='clinic'</code> المكتملة</td>
+            <td>CC-CLINIC</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4020</span></td>
+            <td><strong>إيرادات الفحوصات والمختبر</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>حجوزات <code>dept='labs'</code></td>
+            <td>CC-LAB</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4030</span></td>
+            <td><strong>إيرادات غرفة العمليات الجراحية</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>حجوزات <code>dept='surgery'</code> → السعر الكلي للعملية</td>
+            <td>CC-SURG</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4040</span></td>
+            <td><strong>إيرادات وحدة الليزك</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>حجوزات <code>dept='lasik'</code></td>
+            <td>CC-LASIK</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4050</span></td>
+            <td><strong>إيرادات الليزر التشخيصي/العلاجي</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>حجوزات <code>dept='laser'</code></td>
+            <td>CC-LASER</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">4100 — إيرادات التأمين</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4110</span></td>
+            <td><strong>إيرادات التأمين الصحي — حصة المستشفى</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>قيمة مطالبات التأمين → <span class="acc-link">insAmount</span></td>
+            <td>CC-INS</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4120</span></td>
+            <td><strong>إيرادات التأمين المحصلة فعلياً</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>بعد قبول المطالبة وتحصيلها من شركة التأمين</td>
+            <td>CC-INS</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">4200 — إيرادات أخرى</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4210</span></td>
+            <td><strong>إيرادات بيع مستلزمات للمرضى (مبيعات)</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>فواتير البيع → <span class="acc-link">salesInvoices</span></td>
+            <td>CC-INV</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">4220</span></td>
+            <td><strong>إيرادات متنوعة</strong></td>
+            <td><span class="nature-cr">دائن</span></td>
+            <td>إيصالات استلام نقدي يدوية</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- GROUP 5: EXPENSES -->
+    <div class="acc-group">
+      <div class="acc-group-title" style="background:#FDEAEA;color:#7A1E1E">
+        <span style="font-size:18px">📉</span>
+        <span>المجموعة الخامسة — المصروفات</span>
+        <span class="badge" style="background:#D63B3B;color:#fff">5000–5999</span>
+        <span style="font-size:11px;color:#7A1E1E;margin-right:auto">طبيعة: مدين ↑</span>
+      </div>
+      <table class="acc-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>اسم الحساب</th><th style="width:70px">الطبيعة</th><th>الربط بالنظام</th><th style="width:80px">مركز التكلفة</th></tr></thead>
+        <tbody>
+          <tr class="parent-row"><td colspan="5">5000 — تكاليف الخدمات الطبية المباشرة</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5010</span></td>
+            <td><strong>تكلفة مستلزمات العمليات الجراحية</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>مستلزمات محسوبة من <span class="acc-link">suppliesUsed</span> لكل عملية جراحية</td>
+            <td>CC-SURG</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5020</span></td>
+            <td><strong>تكلفة مستلزمات وحدة الليزك</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>مستلزمات الليزك</td>
+            <td>CC-LASIK</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5030</span></td>
+            <td><strong>تكلفة الأدوية والقطرات</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>صنف نوع <code>medicine</code> في المخزون</td>
+            <td>CC-CLINIC</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">5100 — مستحقات الأطباء</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5110</span></td>
+            <td><strong>نصيب الطبيب — العيادة والكشف</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>نسبة الطبيب من إيراد العيادة (عادة 40%)</td>
+            <td>CC-CLINIC</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5120</span></td>
+            <td><strong>نصيب الطبيب — العمليات الجراحية</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>سعر العملية − تكلفة المستلزمات = صافي نصيب الطبيب</td>
+            <td>CC-SURG</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5130</span></td>
+            <td><strong>أتعاب طبيب التأمين (مبلغ ثابت/حالة)</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>مبلغ ثابت محدد في كل خدمة → <span class="acc-link">insDrFee</span></td>
+            <td>CC-INS</td>
+          </tr>
+          <tr class="parent-row"><td colspan="5">5200 — المصروفات التشغيلية</td></tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5210</span></td>
+            <td><strong>رواتب وأجور الموظفين</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>قيد شهري يدوي من إيصال صرف نقدي</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5220</span></td>
+            <td><strong>الإيجار</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>إيصال صرف من الخزنة</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5230</span></td>
+            <td><strong>الكهرباء والمياه والاتصالات</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5240</span></td>
+            <td><strong>مصروفات الصيانة</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>صيانة الأجهزة الطبية</td>
+            <td>CC-EQUIP</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5250</span></td>
+            <td><strong>مصروفات إدارية وتسويقية</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5260</span></td>
+            <td><strong>استهلاك الأصول الثابتة</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>قيد شهري تلقائي</td>
+            <td>CC-EQUIP</td>
+          </tr>
+          <tr class="child-row">
+            <td><span class="acc-code">5270</span></td>
+            <td><strong>مصروفات المشتريات الآجلة</strong></td>
+            <td><span class="nature-dr">مدين</span></td>
+            <td>فواتير شراء مستلزمات → <span class="acc-link">purchaseInvoices</span></td>
+            <td>CC-INV</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH2 — COST CENTERS ═══════════════ -->
+<div class="chapter" id="ch2">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E0F7F5;color:#00B5A4">٢</div>
+    <div>
+      <div class="chapter-title">مراكز التكلفة</div>
+      <div class="chapter-sub">Cost Centers — تتبع الإيرادات والتكاليف حسب القسم</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="info-box info-note">
+      <span class="icon">🎯</span>
+      <div>مراكز التكلفة تتيح معرفة <strong>ربحية كل قسم على حدة</strong> دون انتظار التقرير السنوي. كل قيد يُنسَب لمركز تكلفة محدد عند الإنشاء.</div>
+    </div>
+
+    <div class="cc-grid">
+      <div class="cc-card" style="background:#E8F1FB; border-right-color: var(--blue);">
+        <div class="cc-card::before" style="background:var(--blue)"></div>
+        <div class="cc-name" style="color:var(--navy)">🏥 العيادة الخارجية</div>
+        <div class="cc-code">CC-CLINIC</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4010</li>
+          <li>تكاليف: 5030 + 5110</li>
+          <li>مصدر: dept = 'clinic'</li>
+          <li>معادلة الطبيب: نسبة متغيرة من الكشف</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#FEF0E0; border-right-color: var(--orange);">
+        <div class="cc-name" style="color:#7A4500">🔬 الفحوصات والمختبر</div>
+        <div class="cc-code">CC-LAB</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4020</li>
+          <li>تكاليف: 5030</li>
+          <li>مصدر: dept = 'labs'</li>
+          <li>بدون نصيب طبيب مباشر</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#E2F5EC; border-right-color: var(--green);">
+        <div class="cc-name" style="color:#0D4A2E">🔪 غرفة العمليات الجراحية</div>
+        <div class="cc-code">CC-SURG</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4030</li>
+          <li>تكاليف: 5010 + 5120</li>
+          <li>مصدر: dept = 'surgery'</li>
+          <li>معادلة الطبيب: السعر − المستلزمات</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#F3E8FD; border-right-color: #7B2FA6;">
+        <div class="cc-name" style="color:#4A0F7A">💡 وحدة الليزك</div>
+        <div class="cc-code">CC-LASIK</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4040</li>
+          <li>تكاليف: 5020</li>
+          <li>مصدر: dept = 'lasik'</li>
+          <li>معادلة الطبيب: نسبة مئوية متفق عليها</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#E0F7F5; border-right-color: var(--teal);">
+        <div class="cc-name" style="color:#005048">⚡ الليزر التشخيصي/العلاجي</div>
+        <div class="cc-code">CC-LASER</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4050</li>
+          <li>تكاليف: متغيرة</li>
+          <li>مصدر: dept = 'laser'</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#FBF4DC; border-right-color: var(--gold);">
+        <div class="cc-name" style="color:#5A440A">🏦 التأمين الصحي</div>
+        <div class="cc-code">CC-INS</div>
+        <ul class="cc-items">
+          <li>إيرادات: 4110 + 4120</li>
+          <li>تكاليف: 5130 (أتعاب طبيب التأمين)</li>
+          <li>مصدر: insClaims</li>
+          <li>يُعالَج كمركز مستقل</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#FDEAEA; border-right-color: var(--red);">
+        <div class="cc-name" style="color:#7A1E1E">👨‍⚕️ الأطباء والمستحقات</div>
+        <div class="cc-code">CC-DR</div>
+        <ul class="cc-items">
+          <li>تكاليف: 5110 + 5120 + 5130</li>
+          <li>مصدر: drPayments + docTotals</li>
+          <li>تقرير مفصل لكل طبيب</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#F8FAFD; border-right-color: var(--text2);">
+        <div class="cc-name" style="color:var(--text)">📦 إدارة المخزون</div>
+        <div class="cc-code">CC-INV</div>
+        <ul class="cc-items">
+          <li>أصول: 1050</li>
+          <li>تكاليف: 5010 + 5020</li>
+          <li>مصدر: inventory + purchaseInvoices</li>
+        </ul>
+      </div>
+      <div class="cc-card" style="background:#E8F1FB; border-right-color: var(--blue-lt);">
+        <div class="cc-name" style="color:var(--navy)">⚙️ الأجهزة والمعدات</div>
+        <div class="cc-code">CC-EQUIP</div>
+        <ul class="cc-items">
+          <li>أصول: 1110 + 1120</li>
+          <li>تكاليف: 5240 + 5260</li>
+          <li>استهلاك شهري</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="info-box info-formula">
+      <span class="icon">🧮</span>
+      <div>
+        <strong>صافي ربح كل مركز تكلفة =</strong><br>
+        إجمالي إيرادات المركز − (نصيب الأطباء + تكلفة المستلزمات + حصة المصاريف الثابتة المُوزَّعة)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CH3 — DAILY JOURNAL: PATIENTS ═══════════════ -->
+<div class="chapter" id="ch3">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E2F5EC;color:#1A8C5B">٣</div>
+    <div>
+      <div class="chapter-title">القيود اليومية — المرضى والخدمات</div>
+      <div class="chapter-sub">قيود تُولَّد تلقائياً من النظام عند إتمام الحجز</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <!-- SCENARIO 1 -->
+    <div class="je-scenario">
+      <span class="je-scenario-icon">📋</span>
+      <div><strong>سيناريو ١ — كشف عيادة (نقدي)</strong><br>مريض يدفع 350 ج كاش لكشف عيادة، طبيب نسبته 40%، المستشفى 60%</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header">
+        <span>إيراد حجز عيادة — كاش — BK-0145</span>
+        <span class="je-ref">auto-generated</span>
+      </div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">1010</span></td><td>الخزنة الرئيسية — استلام كشف د. محمود — أحمد علي</td><td class="amt-dr">350 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">4010</span></td><td>إيرادات العيادة الخارجية — كشف عيادة</td><td>—</td><td class="amt-cr">350 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>350 ج</td><td>350 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-box info-formula" style="margin-bottom:16px">
+      <span class="icon">🧮</span>
+      <div>قيد <strong>توزيع نصيب الطبيب</strong> (يُنشأ في نهاية اليوم/الشيفت):<br>
+      مدين: 5110 نصيب الطبيب — العيادة <strong>140 ج</strong> | دائن: 2010 مستحقات الأطباء <strong>140 ج</strong></div>
+    </div>
+
+    <!-- SCENARIO 2 -->
+    <div class="je-scenario">
+      <span class="je-scenario-icon">🔬</span>
+      <div><strong>سيناريو ٢ — فحوصات مختبر (آجل)</strong><br>مريض يؤجل سداد 200 ج تحاليل</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>إيراد فحوصات — آجل — BK-0146</span><span class="je-ref">auto-generated</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">1040</span></td><td>ذمم مدينة — مرضى آجل — سمية حسن</td><td class="amt-dr">200 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">4020</span></td><td>إيرادات الفحوصات والمختبر</td><td>—</td><td class="amt-cr">200 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>200 ج</td><td>200 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-box info-note" style="margin-bottom:16px">
+      <span class="icon">💡</span>
+      <div>عند تحصيل المبلغ لاحقاً: مدين 1010 الخزنة / دائن 1040 ذمم مدينة — بنفس المبلغ 200 ج</div>
+    </div>
+
+    <!-- SCENARIO 3 -->
+    <div class="je-scenario">
+      <span class="je-scenario-icon">🔪</span>
+      <div><strong>سيناريو ٣ — عملية جراحية بمستلزمات</strong><br>عملية ساد سعرها 3,500 ج، مستلزمات استُخدمت 800 ج، نصيب الطبيب = الكلي − المستلزمات = 2,700 ج</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>إيراد عملية جراحية — BK-0147 — د. عمرو رضا</span><span class="je-ref">auto-generated</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">1010</span></td><td>الخزنة — استلام ثمن عملية ساد — محمد فريد</td><td class="amt-dr">3,500 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">4030</span></td><td>إيرادات غرفة العمليات — عملية ساد</td><td>—</td><td class="amt-cr">3,500 ج</td></tr>
+          <tr><td colspan="4" style="padding:3px;background:var(--border);font-size:10px;text-align:center;color:var(--text2)">قيد موازٍ — تكلفة المستلزمات (SUP-0147)</td></tr>
+          <tr class="je-dr"><td><span class="acc-code">5010</span></td><td>تكلفة مستلزمات العمليات — عملية ساد — محمد فريد</td><td class="amt-dr">800 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">1050</span></td><td>المخزون — صرف مستلزمات للعملية</td><td>—</td><td class="amt-cr">800 ج</td></tr>
+          <tr><td colspan="4" style="padding:3px;background:var(--border);font-size:10px;text-align:center;color:var(--text2)">قيد توزيع نصيب الطبيب (نهاية الشيفت)</td></tr>
+          <tr class="je-dr"><td><span class="acc-code">5120</span></td><td>نصيب الطبيب — عمليات جراحية — د. عمرو رضا</td><td class="amt-dr">2,700 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">2010</span></td><td>مستحقات الأطباء — د. عمرو رضا</td><td>—</td><td class="amt-cr">2,700 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>7,000 ج</td><td>7,000 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH4 — DOCTOR DUES ═══════════════ -->
+<div class="chapter" id="ch4">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#FEF0E0;color:#E07C10">٤</div>
+    <div>
+      <div class="chapter-title">قيود مستحقات الأطباء وصرف الرواتب</div>
+      <div class="chapter-sub">ربط نصيب الطبيب بالقيود المحاسبية حسب نوع القسم</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="info-box info-formula">
+      <span class="icon">🧮</span>
+      <div>
+        <strong>معادلات حساب نصيب الطبيب حسب القسم:</strong><br>
+        🏥 <strong>العيادة/الفحوصات:</strong> نصيب الطبيب = المبلغ المدفوع × نسبة الطبيب (مثال: 40%)<br>
+        🔪 <strong>العمليات الجراحية:</strong> نصيب الطبيب = السعر الكلي − إجمالي تكلفة المستلزمات<br>
+        💡 <strong>الليزك:</strong> نصيب الطبيب = السعر × نسبة متفق عليها (مثال: 50%)<br>
+        🏦 <strong>التأمين:</strong> أتعاب ثابتة لكل حالة (insDrFee من جدول الخدمات)
+      </div>
+    </div>
+
+    <!-- قيد توزيع الشيفت -->
+    <div class="je-scenario">
+      <span class="je-scenario-icon">🗓</span>
+      <div><strong>سيناريو — تسجيل شيفت طبيب يومي</strong><br>د. مصطفى أنهى شيفت عيادة — 12 حالة — مجموع محصّل 4,200 ج — نسبته 40% = مستحق 1,680 ج</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>توزيع شيفت طبيب — DR-SHIFT-005</span><span class="je-ref">drPayments</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">5110</span></td><td>نصيب الطبيب — عيادة — د. مصطفى — 40% من 4,200 ج</td><td class="amt-dr">1,680 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">2010</span></td><td>مستحقات الأطباء — د. مصطفى</td><td>—</td><td class="amt-cr">1,680 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>1,680 ج</td><td>1,680 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- قيد صرف المستحقات -->
+    <div class="je-scenario">
+      <span class="je-scenario-icon">💸</span>
+      <div><strong>سيناريو — صرف مستحقات طبيب (نهاية الأسبوع/الشهر)</strong><br>صرف 5,000 ج لد. مصطفى نقداً من الخزنة</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>صرف مستحقات طبيب — VCH-2087 — د. مصطفى</span><span class="je-ref">drPayments</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">2010</span></td><td>مستحقات الأطباء — د. مصطفى — تسوية مستحقات</td><td class="amt-dr">5,000 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">1010</span></td><td>الخزنة الرئيسية — صرف مستحقات</td><td>—</td><td class="amt-cr">5,000 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>5,000 ج</td><td>5,000 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH5 — INSURANCE ═══════════════ -->
+<div class="chapter" id="ch5">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#FBF4DC;color:#C9A227">٥</div>
+    <div>
+      <div class="chapter-title">قيود التأمين الصحي والمطالبات</div>
+      <div class="chapter-sub">دورة التأمين الكاملة: تقديم → موافقة → تحصيل</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="flow">
+      <div class="flow-node">تقديم مطالبة</div>
+      <div class="flow-arrow">←</div>
+      <div class="flow-node">موافقة التأمين</div>
+      <div class="flow-arrow">←</div>
+      <div class="flow-node">تحصيل المبلغ</div>
+      <div class="flow-arrow">←</div>
+      <div class="flow-node highlight">تسوية الحساب</div>
+    </div>
+
+    <div class="je-scenario">
+      <span class="je-scenario-icon">🏦</span>
+      <div><strong>سيناريو — خدمة تأمين: سعر أصلي 1,000 ج، تغطية 80% (800 ج تأمين، 200 ج يدفع المريض)</strong></div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>قيد ١ — تقديم الخدمة وتسجيل المطالبة — INS-0088</span><span class="je-ref">booking + insClaims</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">كود الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">1010</span></td><td>الخزنة — حصة المريض (20%)</td><td class="amt-dr">200 ج</td><td>—</td></tr>
+          <tr class="je-dr"><td><span class="acc-code">1030</span></td><td>ذمم مدينة — تأمين (حصة التأمين 80%)</td><td class="amt-dr">800 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">4010</span></td><td>إيرادات العيادة — خدمة مؤمَّنة</td><td>—</td><td class="amt-cr">1,000 ج</td></tr>
+          <tr><td colspan="4" style="padding:3px;background:var(--border);font-size:10px;text-align:center;color:var(--text2)">قيد ٢ — بعد تحصيل مبلغ التأمين من الشركة</td></tr>
+          <tr class="je-dr"><td><span class="acc-code">1010</span></td><td>الخزنة — تحصيل مطالبة من شركة التأمين</td><td class="amt-dr">800 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">1030</span></td><td>ذمم مدينة تأمين — تصفية المطالبة</td><td>—</td><td class="amt-cr">800 ج</td></tr>
+          <tr><td colspan="4" style="padding:3px;background:var(--border);font-size:10px;text-align:center;color:var(--text2)">قيد ٣ — أتعاب طبيب التأمين (مبلغ ثابت مثلاً 50 ج للحالة)</td></tr>
+          <tr class="je-dr"><td><span class="acc-code">5130</span></td><td>أتعاب طبيب التأمين — د. الطبيب</td><td class="amt-dr">50 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">2010</span></td><td>مستحقات الأطباء — د. الطبيب — تأمين</td><td>—</td><td class="amt-cr">50 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع الكلي</td><td>1,850 ج</td><td>1,850 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH6 — INVENTORY ═══════════════ -->
+<div class="chapter" id="ch6">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E0F7F5;color:#00B5A4">٦</div>
+    <div>
+      <div class="chapter-title">قيود المخزون والمستلزمات الطبية</div>
+      <div class="chapter-sub">شراء → صرف → استخدام في العمليات</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="g2">
+      <div>
+        <div class="je-scenario"><span class="je-scenario-icon">📦</span><div><strong>شراء مستلزمات طبية نقداً</strong><br>فاتورة شراء عدسات جراحية 2,500 ج</div></div>
+        <div class="je-wrap">
+          <div class="je-header"><span>فاتورة شراء — PI-0050</span><span class="je-ref">purchaseInvoices</span></div>
+          <table class="je-table">
+            <thead><tr><th>الحساب</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+            <tbody>
+              <tr class="je-dr"><td><span class="acc-code">1050</span></td><td>المخزون — عدسات جراحية</td><td class="amt-dr">2,500 ج</td><td>—</td></tr>
+              <tr class="je-cr"><td><span class="acc-code">1010</span></td><td>الخزنة</td><td>—</td><td class="amt-cr">2,500 ج</td></tr>
+              <tr class="je-total"><td colspan="2">المجموع</td><td>2,500 ج</td><td>2,500 ج</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="je-scenario"><span class="je-scenario-icon">🏪</span><div><strong>شراء مستلزمات آجل (من مورد)</strong><br>فاتورة من المورد قطرات وأدوية 1,800 ج آجل</div></div>
+        <div class="je-wrap">
+          <div class="je-header"><span>فاتورة شراء آجل — PI-0051</span><span class="je-ref">purchaseInvoices</span></div>
+          <table class="je-table">
+            <thead><tr><th>الحساب</th><th>البيان</th><th>مدين</th><th>دائن</th></tr></thead>
+            <tbody>
+              <tr class="je-dr"><td><span class="acc-code">1050</span></td><td>المخزون — أدوية وقطرات</td><td class="amt-dr">1,800 ج</td><td>—</td></tr>
+              <tr class="je-cr"><td><span class="acc-code">2020</span></td><td>الموردون — آجل</td><td>—</td><td class="amt-cr">1,800 ج</td></tr>
+              <tr class="je-total"><td colspan="2">المجموع</td><td>1,800 ج</td><td>1,800 ج</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="je-scenario">
+      <span class="je-scenario-icon">🔧</span>
+      <div><strong>صرف مستلزمات لعملية جراحية</strong><br>عدسة × 1 (600 ج) + خيط جراحي × 2 (200 ج) = إجمالي 800 ج — تُخصم تلقائياً من المخزون</div>
+    </div>
+    <div class="je-wrap">
+      <div class="je-header"><span>صرف مستلزمات للعملية — SUP-0147</span><span class="je-ref">suppliesUsed[bkId]</span></div>
+      <table class="je-table">
+        <thead><tr><th style="width:90px">الحساب</th><th>البيان</th><th style="width:80px">مدين</th><th style="width:80px">دائن</th></tr></thead>
+        <tbody>
+          <tr class="je-dr"><td><span class="acc-code">5010</span></td><td>تكلفة مستلزمات العمليات — عملية ساد — محمد فريد</td><td class="amt-dr">800 ج</td><td>—</td></tr>
+          <tr class="je-cr"><td><span class="acc-code">1050</span></td><td>المخزون — خروج مستلزمات</td><td>—</td><td class="amt-cr">800 ج</td></tr>
+          <tr class="je-total"><td colspan="2">المجموع</td><td>800 ج</td><td>800 ج</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH7 — GENERAL LEDGER ═══════════════ -->
+<div class="chapter" id="ch7">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E0F7F5;color:#00B5A4">٧</div>
+    <div>
+      <div class="chapter-title">دفتر الأستاذ — نماذج مختارة</div>
+      <div class="chapter-sub">General Ledger — أبريل 2026 (عينة)</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <!-- LEDGER: CASH -->
+    <div style="margin-bottom:20px">
+      <div style="background:var(--teal);color:#fff;padding:9px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px;display:flex;justify-content:space-between">
+        <span>📒 حساب: الخزنة الرئيسية</span>
+        <span style="font-family:monospace;font-size:11px;opacity:.8">كود: 1010 | مدين بطبيعته</span>
+      </div>
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th><th>البيان</th><th>مرجع</th><th>مدين</th><th>دائن</th><th>الرصيد</th><th>ط</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ledger-open">
+            <td>01/04/2026</td><td>رصيد أول المدة</td><td>—</td><td class="amt-dr">45,000</td><td>—</td><td class="ledger-balance">45,000</td><td>م</td>
+          </tr>
+          <tr>
+            <td>02/04/2026</td><td>إيراد كشف عيادة — BK-0145</td><td>BK-0145</td><td class="amt-dr">350</td><td>—</td><td>45,350</td><td>م</td>
+          </tr>
+          <tr>
+            <td>02/04/2026</td><td>إيراد عملية جراحية — BK-0147</td><td>BK-0147</td><td class="amt-dr">3,500</td><td>—</td><td>48,850</td><td>م</td>
+          </tr>
+          <tr>
+            <td>03/04/2026</td><td>فاتورة شراء مستلزمات — PI-0050</td><td>PI-0050</td><td>—</td><td class="amt-cr">2,500</td><td>46,350</td><td>م</td>
+          </tr>
+          <tr>
+            <td>04/04/2026</td><td>صرف مستحقات د. عمرو — VCH-2087</td><td>VCH-2087</td><td>—</td><td class="amt-cr">5,000</td><td>41,350</td><td>م</td>
+          </tr>
+          <tr>
+            <td>05/04/2026</td><td>إيرادات ليزك — BK-0152</td><td>BK-0152</td><td class="amt-dr">8,500</td><td>—</td><td>49,850</td><td>م</td>
+          </tr>
+          <tr class="ledger-close">
+            <td>30/04/2026</td><td colspan="2">رصيد آخر المدة</td><td>—</td><td>—</td><td class="ledger-balance">87,400</td><td>م</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- LEDGER: DOCTOR DUES -->
+    <div>
+      <div style="background:var(--orange);color:#fff;padding:9px 14px;border-radius:8px 8px 0 0;font-weight:700;font-size:13px;display:flex;justify-content:space-between">
+        <span>📒 حساب: مستحقات الأطباء</span>
+        <span style="font-family:monospace;font-size:11px;opacity:.8">كود: 2010 | دائن بطبيعته</span>
+      </div>
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>التاريخ</th><th>البيان</th><th>مرجع</th><th>مدين</th><th>دائن</th><th>الرصيد</th><th>ط</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="ledger-open">
+            <td>01/04/2026</td><td>رصيد أول المدة</td><td>—</td><td>—</td><td class="amt-cr">12,000</td><td class="ledger-balance">12,000</td><td>د</td>
+          </tr>
+          <tr>
+            <td>02/04/2026</td><td>نصيب د. محمود — شيفت عيادة</td><td>SHIFT-004</td><td>—</td><td class="amt-cr">1,400</td><td>13,400</td><td>د</td>
+          </tr>
+          <tr>
+            <td>02/04/2026</td><td>نصيب د. عمرو — عملية ساد</td><td>SUP-0147</td><td>—</td><td class="amt-cr">2,700</td><td>16,100</td><td>د</td>
+          </tr>
+          <tr>
+            <td>04/04/2026</td><td>صرف د. عمرو — VCH-2087</td><td>VCH-2087</td><td class="amt-dr">5,000</td><td>—</td><td>11,100</td><td>د</td>
+          </tr>
+          <tr class="ledger-close">
+            <td>30/04/2026</td><td colspan="2">رصيد آخر المدة</td><td>—</td><td>—</td><td class="ledger-balance">18,750</td><td>د</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH8 — TRIAL BALANCE ═══════════════ -->
+<div class="chapter" id="ch8">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E8F1FB;color:#0A4FA6">٨</div>
+    <div>
+      <div class="chapter-title">ميزان المراجعة</div>
+      <div class="chapter-sub">Trial Balance — مستشفى النور — للفترة من 1 أبريل إلى 30 أبريل 2026</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="info-box info-note">
+      <span class="icon">⚖️</span>
+      <div>يُولَّد ميزان المراجعة تلقائياً من جميع حركات القيود اليومية. الشرط الأساسي: <strong>إجمالي المدين = إجمالي الدائن</strong></div>
+    </div>
+
+    <table class="tb-table">
+      <thead>
+        <tr>
+          <th style="width:80px">كود</th>
+          <th>اسم الحساب</th>
+          <th style="width:90px">مدين (ج)</th>
+          <th style="width:90px">دائن (ج)</th>
+          <th style="width:90px">الرصيد المدين</th>
+          <th style="width:90px">الرصيد الدائن</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tb-group-row"><td colspan="6">الأصول</td></tr>
+        <tr><td>1010</td><td>الخزنة الرئيسية</td><td class="dr-val">87,400</td><td>—</td><td class="dr-val">87,400</td><td>—</td></tr>
+        <tr><td>1020</td><td>البنك</td><td class="dr-val">24,000</td><td>—</td><td class="dr-val">24,000</td><td>—</td></tr>
+        <tr><td>1030</td><td>ذمم مدينة — تأمين</td><td class="dr-val">14,200</td><td>—</td><td class="dr-val">14,200</td><td>—</td></tr>
+        <tr><td>1040</td><td>ذمم مدينة — مرضى</td><td class="dr-val">8,600</td><td>—</td><td class="dr-val">8,600</td><td>—</td></tr>
+        <tr><td>1050</td><td>المخزون</td><td class="dr-val">31,500</td><td class="cr-val">12,400</td><td class="dr-val">19,100</td><td>—</td></tr>
+        <tr class="tb-group-row"><td colspan="6">الخصوم</td></tr>
+        <tr><td>2010</td><td>مستحقات الأطباء</td><td class="dr-val">18,000</td><td class="cr-val">36,750</td><td>—</td><td class="cr-val">18,750</td></tr>
+        <tr><td>2020</td><td>الموردون</td><td>—</td><td class="cr-val">7,800</td><td>—</td><td class="cr-val">7,800</td></tr>
+        <tr><td>2040</td><td>مستحقات موظفين</td><td>—</td><td class="cr-val">12,000</td><td>—</td><td class="cr-val">12,000</td></tr>
+        <tr class="tb-group-row"><td colspan="6">الإيرادات</td></tr>
+        <tr><td>4010</td><td>إيرادات العيادة</td><td>—</td><td class="cr-val">42,300</td><td>—</td><td class="cr-val">42,300</td></tr>
+        <tr><td>4020</td><td>إيرادات الفحوصات</td><td>—</td><td class="cr-val">18,700</td><td>—</td><td class="cr-val">18,700</td></tr>
+        <tr><td>4030</td><td>إيرادات العمليات</td><td>—</td><td class="cr-val">87,500</td><td>—</td><td class="cr-val">87,500</td></tr>
+        <tr><td>4040</td><td>إيرادات الليزك</td><td>—</td><td class="cr-val">54,000</td><td>—</td><td class="cr-val">54,000</td></tr>
+        <tr><td>4050</td><td>إيرادات الليزر</td><td>—</td><td class="cr-val">12,400</td><td>—</td><td class="cr-val">12,400</td></tr>
+        <tr><td>4110</td><td>إيرادات التأمين</td><td>—</td><td class="cr-val">28,600</td><td>—</td><td class="cr-val">28,600</td></tr>
+        <tr class="tb-group-row"><td colspan="6">المصروفات</td></tr>
+        <tr><td>5010</td><td>تكلفة مستلزمات العمليات</td><td class="dr-val">12,400</td><td>—</td><td class="dr-val">12,400</td><td>—</td></tr>
+        <tr><td>5110</td><td>نصيب الأطباء — عيادة</td><td class="dr-val">16,920</td><td>—</td><td class="dr-val">16,920</td><td>—</td></tr>
+        <tr><td>5120</td><td>نصيب الأطباء — عمليات</td><td class="dr-val">19,830</td><td>—</td><td class="dr-val">19,830</td><td>—</td></tr>
+        <tr><td>5130</td><td>أتعاب طبيب التأمين</td><td class="dr-val">2,860</td><td>—</td><td class="dr-val">2,860</td><td>—</td></tr>
+        <tr><td>5210</td><td>رواتب الموظفين</td><td class="dr-val">24,000</td><td>—</td><td class="dr-val">24,000</td><td>—</td></tr>
+        <tr><td>5220</td><td>الإيجار</td><td class="dr-val">8,000</td><td>—</td><td class="dr-val">8,000</td><td>—</td></tr>
+        <tr><td>5230</td><td>كهرباء ومياه</td><td class="dr-val">3,200</td><td>—</td><td class="dr-val">3,200</td><td>—</td></tr>
+        <tr><td>5270</td><td>مصروفات مشتريات</td><td class="dr-val">7,800</td><td>—</td><td class="dr-val">7,800</td><td>—</td></tr>
+        <tr class="tb-total-row">
+          <td colspan="2">الإجمالي</td>
+          <td>278,510 ج</td>
+          <td>278,510 ج</td>
+          <td>186,110 ج</td>
+          <td>186,110 ج</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="tb-balanced">✅ الميزان متوازن — إجمالي المدين = إجمالي الدائن = 278,510 جنيه</div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH9 — INCOME STATEMENT ═══════════════ -->
+<div class="chapter" id="ch9">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#E2F5EC;color:#1A8C5B">٩</div>
+    <div>
+      <div class="chapter-title">قائمة الدخل التفصيلية</div>
+      <div class="chapter-sub">Income Statement — مستشفى النور — أبريل 2026</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <!-- REVENUES -->
+    <div class="is-section" style="border:1px solid #B7DFCC">
+      <div class="is-header" style="background:var(--green-pale);color:var(--green)">💰 إيرادات التشغيل</div>
+      <div class="is-row"><span>إيرادات العيادة الخارجية (4010) <span class="is-sub">382 زيارة × متوسط 110 ج</span></span><span class="amt-cr">42,300 ج</span></div>
+      <div class="is-row"><span>إيرادات الفحوصات والمختبر (4020) <span class="is-sub">255 فحص</span></span><span class="amt-cr">18,700 ج</span></div>
+      <div class="is-row"><span>إيرادات العمليات الجراحية (4030) <span class="is-sub">25 عملية</span></span><span class="amt-cr">87,500 ج</span></div>
+      <div class="is-row"><span>إيرادات وحدة الليزك (4040) <span class="is-sub">18 حالة</span></span><span class="amt-cr">54,000 ج</span></div>
+      <div class="is-row"><span>إيرادات الليزر التشخيصي (4050)</span><span class="amt-cr">12,400 ج</span></div>
+      <div class="is-row"><span>إيرادات التأمين الصحي (4110)</span><span class="amt-cr">28,600 ج</span></div>
+      <div class="is-row total"><span>إجمالي الإيرادات</span><span class="amt-cr" style="font-size:15px">243,500 ج</span></div>
+    </div>
+
+    <!-- COST OF SERVICES -->
+    <div class="is-section" style="border:1px solid #F0C0C0">
+      <div class="is-header" style="background:var(--red-pale);color:var(--red)">🔧 تكلفة الخدمات الطبية المباشرة</div>
+      <div class="is-row"><span>تكلفة مستلزمات العمليات الجراحية (5010)</span><span class="amt-dr">12,400 ج</span></div>
+      <div class="is-row"><span>تكلفة مستلزمات الليزك (5020)</span><span class="amt-dr">4,200 ج</span></div>
+      <div class="is-row"><span>الأدوية والقطرات (5030)</span><span class="amt-dr">1,800 ج</span></div>
+      <div class="is-row total"><span>إجمالي تكلفة الخدمات</span><span class="amt-dr">18,400 ج</span></div>
+    </div>
+
+    <!-- GROSS PROFIT -->
+    <div class="is-section" style="border:1.5px solid var(--blue)">
+      <div class="is-row" style="background:var(--blue-pale);font-weight:700;font-size:14px">
+        <span>🏆 مجمل الربح التشغيلي</span>
+        <span style="color:var(--blue)">225,100 ج</span>
+      </div>
+    </div>
+
+    <!-- DOCTOR FEES -->
+    <div class="is-section" style="border:1px solid #F8D9A0">
+      <div class="is-header" style="background:var(--orange-pale);color:#7A4500">👨‍⚕️ مستحقات وأتعاب الأطباء</div>
+      <div class="is-row"><span>نصيب الأطباء — عيادة وفحوصات (5110) <span class="is-sub">40% من إيرادات العيادة</span></span><span class="amt-dr">16,920 ج</span></div>
+      <div class="is-row"><span>نصيب الأطباء — عمليات جراحية (5120) <span class="is-sub">سعر العملية − المستلزمات</span></span><span class="amt-dr">19,830 ج</span></div>
+      <div class="is-row"><span>نصيب الأطباء — ليزك (5120) <span class="is-sub">50%</span></span><span class="amt-dr">27,000 ج</span></div>
+      <div class="is-row"><span>أتعاب طبيب التأمين (5130) <span class="is-sub">50 ج × عدد حالات التأمين</span></span><span class="amt-dr">2,860 ج</span></div>
+      <div class="is-row total"><span>إجمالي مستحقات الأطباء</span><span class="amt-dr">66,610 ج</span></div>
+    </div>
+
+    <!-- OPERATING EXPENSES -->
+    <div class="is-section" style="border:1px solid #F0C0C0">
+      <div class="is-header" style="background:var(--red-pale);color:var(--red)">📋 المصروفات التشغيلية العامة</div>
+      <div class="is-row"><span>رواتب الموظفين (5210)</span><span class="amt-dr">24,000 ج</span></div>
+      <div class="is-row"><span>الإيجار (5220)</span><span class="amt-dr">8,000 ج</span></div>
+      <div class="is-row"><span>كهرباء ومياه (5230)</span><span class="amt-dr">3,200 ج</span></div>
+      <div class="is-row"><span>صيانة (5240)</span><span class="amt-dr">1,500 ج</span></div>
+      <div class="is-row"><span>مصروفات إدارية (5250)</span><span class="amt-dr">2,100 ج</span></div>
+      <div class="is-row"><span>استهلاك الأصول الثابتة (5260)</span><span class="amt-dr">3,800 ج</span></div>
+      <div class="is-row total"><span>إجمالي المصروفات التشغيلية</span><span class="amt-dr">42,600 ج</span></div>
+    </div>
+
+    <!-- NET PROFIT -->
+    <div class="is-section">
+      <div class="is-row net">
+        <span>💎 صافي الربح التشغيلي قبل الضريبة</span>
+        <span>115,890 ج</span>
+      </div>
+      <div class="is-row" style="background:var(--red-pale)">
+        <span>ضريبة الدخل (15%)</span>
+        <span class="amt-dr">17,384 ج</span>
+      </div>
+      <div class="is-row" style="background:var(--green-pale);font-weight:900;font-size:15px">
+        <span style="color:var(--green)">✅ صافي الربح بعد الضريبة</span>
+        <span class="amt-cr">98,506 ج</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════ CH10 — SYSTEM FLOW ═══════════════ -->
+<div class="chapter" id="ch10">
+  <div class="chapter-header">
+    <div class="chapter-num" style="background:#FDEAEA;color:#D63B3B">١٠</div>
+    <div>
+      <div class="chapter-title">ربط النظام بالمحاسبة — خريطة التدفق</div>
+      <div class="chapter-sub">كيف تتحول كل عملية في النظام إلى قيد محاسبي</div>
+    </div>
+  </div>
+  <div class="chapter-body">
+
+    <div class="info-box info-success">
+      <span class="icon">🔗</span>
+      <div>كل إجراء في نظام مستشفى النور يُنشئ قيداً محاسبياً تلقائياً. الجدول التالي يوضح خريطة الربط الكاملة.</div>
+    </div>
+
+    <table class="acc-table">
+      <thead>
+        <tr>
+          <th>الإجراء في النظام</th>
+          <th>مصدر البيانات</th>
+          <th style="width:120px">القيد المحاسبي</th>
+          <th style="width:80px">مركز التكلفة</th>
+          <th style="width:80px">ينعكس على</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>حجز وسداد مريض (كاش)</strong></td><td>bookings — payStatus = مسدد</td><td>مدين 1010 / دائن 4xxx</td><td>حسب القسم</td><td>الخزنة + الإيرادات</td></tr>
+        <tr><td><strong>حجز بالآجل</strong></td><td>bookings — payStatus = لم يسدد</td><td>مدين 1040 / دائن 4xxx</td><td>حسب القسم</td><td>ذمم مدينة</td></tr>
+        <tr><td><strong>تحصيل مبلغ مؤجل</strong></td><td>تحديث payStatus</td><td>مدين 1010 / دائن 1040</td><td>—</td><td>الخزنة</td></tr>
+        <tr><td><strong>إضافة مستلزمات للعملية</strong></td><td>suppliesUsed[bkId]</td><td>مدين 5010 / دائن 1050</td><td>CC-SURG</td><td>تكاليف + مخزون</td></tr>
+        <tr><td><strong>تسجيل شيفت طبيب</strong></td><td>doctorShifts</td><td>مدين 5110 / دائن 2010</td><td>CC-DR</td><td>مستحقات + تكاليف</td></tr>
+        <tr><td><strong>صرف مستحقات طبيب</strong></td><td>drPayments</td><td>مدين 2010 / دائن 1010</td><td>CC-DR</td><td>الخزنة + مستحقات</td></tr>
+        <tr><td><strong>مطالبة تأمين</strong></td><td>insClaims</td><td>مدين 1030 / دائن 4110</td><td>CC-INS</td><td>ذمم تأمين</td></tr>
+        <tr><td><strong>تحصيل تأمين</strong></td><td>insClaims — status = محصّلة</td><td>مدين 1010 / دائن 1030</td><td>CC-INS</td><td>الخزنة</td></tr>
+        <tr><td><strong>فاتورة شراء نقدي</strong></td><td>purchaseInvoices</td><td>مدين 1050 / دائن 1010</td><td>CC-INV</td><td>مخزون + خزنة</td></tr>
+        <tr><td><strong>فاتورة شراء آجل</strong></td><td>purchaseInvoices</td><td>مدين 1050 / دائن 2020</td><td>CC-INV</td><td>مخزون + موردون</td></tr>
+        <tr><td><strong>سداد مورد</strong></td><td>treasuryEntries — src=cashpayment</td><td>مدين 2020 / دائن 1010</td><td>CC-INV</td><td>الخزنة + موردون</td></tr>
+        <tr><td><strong>إيصال صرف يدوي</strong></td><td>treasuryEntries — type=out</td><td>مدين حساب مصروف / دائن 1010</td><td>—</td><td>الخزنة + مصروفات</td></tr>
+        <tr><td><strong>إيصال استلام نقدي</strong></td><td>treasuryEntries — src=cashreceipt</td><td>مدين 1010 / دائن 4220</td><td>—</td><td>الخزنة + إيرادات</td></tr>
+        <tr><td><strong>فاتورة بيع مستلزمات</strong></td><td>salesInvoices</td><td>مدين 1010 / دائن 4210</td><td>CC-INV</td><td>الخزنة + إيرادات</td></tr>
+      </tbody>
+    </table>
+
+    <div class="section-divider"><div class="line"></div><div class="label">ملاحظات ختامية</div><div class="line"></div></div>
+
+    <div class="g2">
+      <div class="info-box info-warn">
+        <span class="icon">⚠️</span>
+        <div>
+          <strong>نقاط تستوجب المراجعة اليدوية:</strong><br>
+          • الاستهلاك الشهري للأصول الثابتة<br>
+          • رواتب الموظفين (قيد يدوي نهاية كل شهر)<br>
+          • تسويات نهاية السنة (closing entries)<br>
+          • مصروفات مقدمة وإيرادات مؤجلة
+        </div>
+      </div>
+      <div class="info-box info-success">
+        <span class="icon">✅</span>
+        <div>
+          <strong>ما يُولَّد تلقائياً من النظام:</strong><br>
+          • قيود الحجوزات والمدفوعات<br>
+          • قيود مستلزمات العمليات<br>
+          • قيود مستحقات الأطباء<br>
+          • قيود فواتير الشراء<br>
+          • قيود مطالبات التأمين
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box info-formula">
+      <span class="icon">🧮</span>
+      <div>
+        <strong>معادلة التحقق الأساسية (المعادلة المحاسبية):</strong><br>
+        <strong>الأصول = الخصوم + حقوق الملكية</strong><br>
+        أي: (1010 + 1020 + 1030 + 1040 + 1050 + ...) = (2010 + 2020 + 2030 + ...) + (3010 + 3020 + 3030)
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px;border-top:1px solid var(--border);margin-top:12px">
+  مستشفى النور لطب وجراحة العيون — الدليل المحاسبي الشامل — إصدار 2026<br>
+  يُراجَع ويُحدَّث مع كل تعديل جوهري على بنية النظام أو هيكل الخدمات
+</div>
+
+</div><!-- /container -->
+</body>
+</html>

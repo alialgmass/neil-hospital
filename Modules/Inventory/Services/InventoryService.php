@@ -8,6 +8,7 @@ use Modules\Inventory\Enums\InvoiceStatus;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\PurchaseInvoice;
 use Modules\Inventory\Models\StockPermit;
+use Modules\Inventory\Models\StockPermitItem;
 use Modules\Inventory\Models\Supplier;
 
 class InventoryService
@@ -92,6 +93,34 @@ class InventoryService
     public function getSelectableItems(): Collection
     {
         return InventoryItem::orderBy('name')->get(['id', 'name', 'unit', 'quantity', 'unit_cost']);
+    }
+
+    public function adjustQuantity(string $id, float $delta): void
+    {
+        InventoryItem::where('id', $id)->increment('quantity', $delta);
+    }
+
+    public function getIssuedPermits(string $date, int $perPage = 20): LengthAwarePaginator
+    {
+        return StockPermit::query()
+            ->where('type', 'out')
+            ->whereDate('created_at', $date)
+            ->with(['items', 'creator:id,name'])
+            ->orderByDesc('created_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function getDailyConsumption(string $date): Collection
+    {
+        return StockPermitItem::query()
+            ->join('stock_permits', 'stock_permit_items.permit_id', '=', 'stock_permits.id')
+            ->where('stock_permits.type', 'out')
+            ->whereDate('stock_permits.created_at', $date)
+            ->selectRaw('stock_permit_items.item_id, stock_permit_items.item_name, SUM(stock_permit_items.qty) as total_qty, SUM(stock_permit_items.qty * stock_permit_items.unit_cost) as total_value')
+            ->groupBy('stock_permit_items.item_id', 'stock_permit_items.item_name')
+            ->orderByDesc('total_value')
+            ->get();
     }
 
     // --- Supplier Methods ---

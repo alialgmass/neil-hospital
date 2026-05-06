@@ -17,7 +17,7 @@ class ServiceRevenueAccountTest extends TestCase
 {
     use RefreshDatabase;
 
-    // The migration seeds accounts 2500, 2600, 2700. Retrieve them by code.
+    // Accounts 2500, 2600, 2700 are inserted by migration add_revenue_account_to_services_table.
     private function account(string $code): Account
     {
         return Account::where('code', $code)->firstOrFail();
@@ -97,11 +97,15 @@ class ServiceRevenueAccountTest extends TestCase
 
     public function test_auto_post_uses_service_revenue_account_when_set(): void
     {
-        // Seed cash and dept-level accounts
-        $cashAccount = $this->createAccount('1000', 'الصندوق', AccountGroup::Assets);
-        $this->createAccount('2400', 'إيرادات الليزر');
+        // Seed the cash account (1010) and dept-level fallback account (4050 = Laser revenue)
+        $cashAccount = Account::create([
+            'code' => '1010', 'name' => 'الخزنة الرئيسية',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        $this->createAccount('4050', 'إيرادات الليزر');
 
-        // Use the migration-seeded account 2500 as the service-specific account
+        // Migration-seeded account 2500 used as service-specific revenue account
         $specificRevenueAccount = $this->account('2500');
 
         $service = Service::create([
@@ -124,7 +128,7 @@ class ServiceRevenueAccountTest extends TestCase
         $this->assertEquals(1000, (float) $entry->amount);
 
         // The dept-level account should NOT have been credited
-        $deptAccount = Account::where('code', '2400')->first();
+        $deptAccount = Account::where('code', '4050')->first();
         $this->assertNull(
             JournalEntry::where('credit_account_id', $deptAccount->id)->first(),
             'Dept-level account should not be credited when service has a specific revenue account',
@@ -133,8 +137,12 @@ class ServiceRevenueAccountTest extends TestCase
 
     public function test_auto_post_falls_back_to_dept_account_when_service_has_no_revenue_account(): void
     {
-        $this->createAccount('1000', 'الصندوق', AccountGroup::Assets);
-        $deptAccount = $this->createAccount('2400', 'إيرادات الليزر');
+        Account::create([
+            'code' => '1010', 'name' => 'الخزنة الرئيسية',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        $deptAccount = $this->createAccount('4050', 'إيرادات الليزر');
 
         $service = Service::create([
             'name' => 'ليزر',
@@ -157,8 +165,12 @@ class ServiceRevenueAccountTest extends TestCase
 
     public function test_auto_post_falls_back_to_dept_account_when_no_service_id(): void
     {
-        $this->createAccount('1000', 'الصندوق', AccountGroup::Assets);
-        $deptAccount = $this->createAccount('2400', 'إيرادات الليزر');
+        Account::create([
+            'code' => '1010', 'name' => 'الخزنة الرئيسية',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        $deptAccount = $this->createAccount('4050', 'إيرادات الليزر');
 
         $booking = $this->makeBooking(['service_id' => null]);
 

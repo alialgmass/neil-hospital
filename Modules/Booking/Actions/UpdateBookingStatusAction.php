@@ -5,6 +5,7 @@ namespace Modules\Booking\Actions;
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\ReverseBookingPaymentAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
@@ -20,6 +21,7 @@ class UpdateBookingStatusAction
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly SurgeryService $surgeryService,
         private readonly AutoPostBookingPaymentAction $autoPost,
+        private readonly ReverseBookingPaymentAction $reversal,
         private readonly ActivityLogService $activityLog,
     ) {}
 
@@ -46,9 +48,13 @@ class UpdateBookingStatusAction
             $this->surgeryService->updateStatusByBooking($booking->id, (string) $booking->status);
         }
 
-        // 2. Accounting Sync
+        // 2. Accounting Sync — post on completion, reverse on cancellation
         if ($booking->status instanceof CompletedState && $booking->pay_status === PayStatus::Paid) {
             $this->autoPost->execute($booking);
+        }
+
+        if ($booking->status instanceof CancelledState) {
+            $this->reversal->execute($booking);
         }
 
         $this->activityLog->log(
