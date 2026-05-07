@@ -67,6 +67,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:reports.clinical')
         ->name('archive');
 
+    Route::post('/archive', [ArchiveController::class, 'store'])
+        ->middleware('can:reports.clinical')
+        ->name('archive.store');
+
     // Activity log
     Route::get('/activity-log', [ActivityLogController::class, 'index'])
         ->middleware('can:users.manage')

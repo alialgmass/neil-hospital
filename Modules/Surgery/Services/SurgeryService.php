@@ -9,6 +9,7 @@ use Modules\Booking\States\ConfirmedState as BookingConfirmedState;
 use Modules\Booking\States\WaitingState as BookingWaitingState;
 use Modules\Doctor\Models\Doctor;
 use Modules\Inventory\Models\InventoryItem;
+use Modules\Inventory\Models\SupplyBundle;
 use Modules\Surgery\Actions\UpdateSurgeryStatusAction;
 use Modules\Surgery\DTOs\SuppliesUsedData;
 use Modules\Surgery\DTOs\SurgeryData;
@@ -22,9 +23,7 @@ use Modules\Surgery\States\ScheduledState;
 
 class SurgeryService
 {
-    public function __construct(private readonly SurgeryRepositoryInterface $surgeryRepository)
-    {
-    }
+    public function __construct(private readonly SurgeryRepositoryInterface $surgeryRepository) {}
 
     public function list(string $dept, ?string $status = null, int $perPage = 20): LengthAwarePaginator
     {
@@ -76,14 +75,15 @@ class SurgeryService
     public function updateStatusByBooking(string $bookingId, string $status): void
     {
         $surgery = $this->findByBooking($bookingId);
-        if ($surgery)
+        if ($surgery) {
             app(UpdateSurgeryStatusAction::class)->execute($surgery->id, $status);
+        }
     }
 
     public function isBedAvailable(int $bedId, string $scheduledAt, ?string $excludeSurgeryId = null): bool
     {
-        return !Surgery::where('or_bed_id', $bedId)
-            ->when($excludeSurgeryId, fn($q) => $q->where('id', '!=', $excludeSurgeryId))
+        return ! Surgery::where('or_bed_id', $bedId)
+            ->when($excludeSurgeryId, fn ($q) => $q->where('id', '!=', $excludeSurgeryId))
             ->where(function ($query) use ($scheduledAt) {
                 // 1. Physically occupied by an active surgery right now
                 $query->whereIn('status', [PrepState::$name, InProgressState::$name])
@@ -129,9 +129,9 @@ class SurgeryService
     /** OR rooms with each bed's active surgery (any dept) so cross-dept occupancy is visible. */
     public function getOrRoomsWithBedStatus(string $dept, string $date): Collection
     {
-        return OrRoom::with(['beds' => function ($q) use ($date) {
+        return OrRoom::with(['beds' => function ($q) {
             $q->orderBy('bed_number')
-                ->with(['surgery' => function ($sq) use ($date) {
+                ->with(['surgery' => function ($sq) {
                     $sq->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name])
                         ->with(['booking', 'surgeon']);
                 }]);
@@ -141,9 +141,9 @@ class SurgeryService
     /** OR rooms for a given date — shows any active surgery regardless of dept (for booking bed picker). */
     public function getOrRoomsForDate(string $date): Collection
     {
-        return OrRoom::with(['beds' => function ($q) use ($date) {
+        return OrRoom::with(['beds' => function ($q) {
             $q->orderBy('bed_number')
-                ->with(['surgery' => function ($sq) use ($date) {
+                ->with(['surgery' => function ($sq) {
                     $sq->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name]);
                 }]);
         }])->orderBy('name')->get();
@@ -152,7 +152,7 @@ class SurgeryService
     /** Total paid revenue for a given dept on today. */
     public function getTodayRevenue(string $dept): float
     {
-        return (float)Booking::where('dept', $dept)
+        return (float) Booking::where('dept', $dept)
             ->whereDate('visit_date', today())
             ->sum('paid_amount');
     }
@@ -171,7 +171,7 @@ class SurgeryService
                     });
             })
             ->get()
-            ->map(fn(OrBed $bed) => [
+            ->map(fn (OrBed $bed) => [
                 'id' => $bed->id,
                 'label' => "{$bed->room->name} — سرير {$bed->bed_number}",
                 'room' => $bed->room->name,
@@ -190,5 +190,16 @@ class SurgeryService
             ->where('quantity', '>', 0)
             ->orderBy('name')
             ->get();
+    }
+
+    public function getActiveBundles(string $dept): Collection
+    {
+        return SupplyBundle::with('items')
+            ->where('is_active', true)
+            ->where(function ($q) use ($dept) {
+                $q->where('dept', $dept)->orWhereNull('dept');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'dept', 'price', 'notes']);
     }
 }

@@ -3,8 +3,10 @@
 namespace Modules\Inventory\Models;
 
 use App\Enums\Department;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Inventory\Enums\PermitType;
 
@@ -29,5 +31,10 @@ class StockPermit extends Model
     public function items(): HasMany
     {
         return $this->hasMany(StockPermitItem::class, 'permit_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

@@ -61,10 +61,18 @@ interface NewSupplyItem {
     unit_cost: number;
 }
 
+interface Bundle {
+    id: string;
+    name: string;
+    price: number;
+    dept: string | null;
+}
+
 const props = defineProps<{
     surgeries: Paginator;
     orRooms: OrRoom[];
     inventoryItems: { id: string; name: string; code: string; sell_price: number; quantity: number }[];
+    bundles: Bundle[];
     doctors: { id: string; name: string }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
@@ -181,10 +189,29 @@ const overlayReportForm = useForm({ op_report: '', post_op_notes: '', complicati
 const newSupplyItems = ref<NewSupplyItem[]>([{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]);
 const newSuppliesTotal = computed(() => newSupplyItems.value.reduce((s, i) => s + i.qty * i.unit_cost, 0));
 
+// Bundle selection
+const newBundlePick = ref('');
+const selectedBundles = ref<{ bundle_id: string; name: string; price: number; qty: number }[]>([]);
+const bundlesTotal = computed(() => selectedBundles.value.reduce((s, b) => s + b.price * b.qty, 0));
+
+function addBundleToSelected() {
+    if (!newBundlePick.value) return;
+    const bundle = props.bundles.find((b) => b.id === newBundlePick.value);
+    if (!bundle) return;
+    selectedBundles.value.push({ bundle_id: bundle.id, name: bundle.name, price: bundle.price, qty: 1 });
+    newBundlePick.value = '';
+}
+
+function removeBundleFromSelected(idx: number) {
+    selectedBundles.value.splice(idx, 1);
+}
+
 function openCase(surgery: Surgery, tab: 'supplies' | 'report' | 'status' = 'supplies') {
     selectedCase.value = surgery;
     activeOverlayTab.value = tab;
     newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+    newBundlePick.value = '';
+    selectedBundles.value = [];
     overlayReportForm.op_report = surgery.op_report ?? '';
     overlayReportForm.post_op_notes = surgery.post_op_notes ?? '';
     overlayReportForm.complications = surgery.complications ?? '';
@@ -218,17 +245,22 @@ function submitOverlaySupplies() {
         .filter((i) => i.inventory_item_id !== '')
         .map((i) => ({ ...i, total: i.qty * i.unit_cost }));
 
-    if (adding.length === 0) {
-        toast.error('يرجى إضافة صنف واحد على الأقل');
+    if (adding.length === 0 && selectedBundles.value.length === 0) {
+        toast.error('يرجى إضافة صنف أو بند واحد على الأقل');
         return;
     }
 
-    const newTotal = adding.reduce((sum, item) => sum + (item.total ?? item.qty * item.unit_cost), 0);
+    const newTotal =
+        adding.reduce((sum, item) => sum + (item.total ?? item.qty * item.unit_cost), 0) + bundlesTotal.value;
     const optimisticSupplies = [...existing, ...adding];
 
     router.post(
         `/surgery/${selectedCase.value!.id}/supplies`,
-        { surgery_id: selectedCase.value!.id, items: [...existing, ...adding] as any },
+        {
+            surgery_id: selectedCase.value!.id,
+            items: adding as any,
+            bundles: selectedBundles.value.map((b) => ({ bundle_id: b.bundle_id, qty: b.qty })),
+        },
         {
             onSuccess: (page) => {
                 if (page.props.flash?.surgery) {
@@ -239,6 +271,8 @@ function submitOverlaySupplies() {
                     selectedCase.value!.supply_total = (parseFloat(String(selectedCase.value!.supply_total)) + newTotal).toFixed(2);
                 }
                 newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+                newBundlePick.value = '';
+                selectedBundles.value = [];
                 toast.success('تم تسجيل المستلزمات بنجاح');
             },
             onError: () => {
@@ -581,8 +615,48 @@ function submitSchedule() {
 
                     <!-- Add supply form -->
                     <div class="overlay-card mb-4">
-                        <div class="overlay-card-hd">إضافة مستلزم عملية</div>
+                        <div class="overlay-card-hd">إضافة مستلزمات عملية</div>
                         <div class="p-4">
+
+                            <!-- Bundle picker -->
+                            <div v-if="bundles.length" class="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-3">
+                                <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-700">📦 البنود الجاهزة</div>
+                                <div class="flex gap-2">
+                                    <select v-model="newBundlePick" class="overlay-input flex-1 text-sm">
+                                        <option value="">— اختر بنداً —</option>
+                                        <option v-for="b in bundles" :key="b.id" :value="b.id">
+                                            {{ b.name }} — {{ Number(b.price).toLocaleString('ar-EG') }} ج
+                                        </option>
+                                    </select>
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green whitespace-nowrap"
+                                        @click="addBundleToSelected"
+                                    >+ إضافة</button>
+                                </div>
+                                <div v-if="selectedBundles.length" class="mt-2 space-y-1.5">
+                                    <div
+                                        v-for="(b, idx) in selectedBundles"
+                                        :key="idx"
+                                        class="flex items-center gap-2 rounded-md bg-white px-3 py-2 shadow-sm"
+                                    >
+                                        <span class="flex-1 text-sm font-medium text-purple-800">📦 {{ b.name }}</span>
+                                        <input
+                                            v-model.number="b.qty"
+                                            type="number"
+                                            min="1"
+                                            class="overlay-input w-16 text-center text-sm"
+                                        />
+                                        <span class="text-sm font-semibold text-purple-700 w-24 text-left">
+                                            {{ (b.price * b.qty).toLocaleString('ar-EG') }} ج
+                                        </span>
+                                        <button type="button" class="text-red-400 hover:text-red-600" @click="removeBundleFromSelected(idx)">×</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Individual items -->
+                            <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">أصناف فردية</div>
                             <div
                                 v-for="(item, idx) in newSupplyItems"
                                 :key="idx"
@@ -624,18 +698,19 @@ function submitSchedule() {
                                     @click="removeNewSupplyRow(idx)"
                                 >×</button>
                             </div>
-                            <button class="mt-2 text-sm text-[#1A8C5B] hover:underline" @click="addNewSupplyRow">
-                                + إضافة صنف آخر
+                            <button class="mt-1 text-sm text-[#1A8C5B] hover:underline" @click="addNewSupplyRow">
+                                + إضافة صنف فردي
                             </button>
+
                             <!-- Total preview -->
-                            <div v-if="newSuppliesTotal > 0" class="overlay-total-preview">
+                            <div v-if="newSuppliesTotal + bundlesTotal > 0" class="overlay-total-preview">
                                 الإجمالي المضاف:
                                 <strong style="color:#1A8C5B;font-size:14px">
-                                    {{ newSuppliesTotal.toLocaleString('ar-EG') }} ج
+                                    {{ (newSuppliesTotal + bundlesTotal).toLocaleString('ar-EG') }} ج
                                 </strong>
                             </div>
                             <div class="mt-3 flex justify-end gap-2">
-                                <button class="overlay-btn-grey" @click="newSupplyItems = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]">
+                                <button class="overlay-btn-grey" @click="newSupplyItems = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]; selectedBundles = []">
                                     مسح
                                 </button>
                                 <button class="overlay-btn-green" @click="submitOverlaySupplies">
@@ -667,7 +742,10 @@ function submitSchedule() {
                                 <tbody>
                                     <tr v-for="(s, i) in selectedCase.supplies_used" :key="i">
                                         <td>{{ i + 1 }}</td>
-                                        <td>{{ s.name || '—' }}</td>
+                                        <td>
+                                            <span v-if="(s as any).is_bundle" class="ml-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">بند</span>
+                                            {{ s.name || '—' }}
+                                        </td>
                                         <td>{{ s.qty }}</td>
                                         <td>{{ Number(s.unit_cost).toLocaleString('ar-EG') }} ج</td>
                                         <td class="font-semibold">{{ Number(s.total).toLocaleString('ar-EG') }} ج</td>

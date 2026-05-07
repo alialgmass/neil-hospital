@@ -9,6 +9,7 @@ use Modules\Inventory\Controllers\StockIssueController;
 use Modules\Inventory\Controllers\StockPermitController;
 use Modules\Inventory\Controllers\StockTakeController;
 use Modules\Inventory\Controllers\SupplierController;
+use Modules\Inventory\Controllers\SupplyBundleController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Inventory items
@@ -50,6 +51,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
+    });
+
+    // Supply Bundles (بنود المستلزمات)
+    Route::prefix('supply-bundles')->name('supply-bundles.')->group(function () {
+        Route::get('/', [SupplyBundleController::class, 'index'])
+            ->middleware('can:inventory.view')
+            ->name('index');
+
+        Route::post('/', [SupplyBundleController::class, 'store'])
+            ->middleware('can:inventory.write')
+            ->name('store');
+
+        Route::put('/{id}', [SupplyBundleController::class, 'update'])
+            ->middleware('can:inventory.write')
+            ->name('update');
     });
 
     // Stock Issue Vouchers — dedicated daily view

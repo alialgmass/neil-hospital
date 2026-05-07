@@ -18,10 +18,17 @@ interface SupplyItem {
     unit_cost: number;
 }
 
+interface Bundle {
+    id: string;
+    name: string;
+    price: number;
+}
+
 const props = defineProps<{
     modelValue: boolean;
     surgeryId: string;
     inventoryItems: InventoryItem[];
+    bundles: Bundle[];
     dept: string;
 }>();
 
@@ -33,13 +40,32 @@ const emit = defineEmits<{
 const items = ref<SupplyItem[]>([{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]);
 const submitting = ref(false);
 
-const total = computed(() => items.value.reduce((sum, i) => sum + i.qty * i.unit_cost, 0));
+const newBundlePick = ref('');
+const selectedBundles = ref<{ bundle_id: string; name: string; price: number; qty: number }[]>([]);
+
+const itemsTotal = computed(() => items.value.reduce((sum, i) => sum + i.qty * i.unit_cost, 0));
+const bundlesTotal = computed(() => selectedBundles.value.reduce((sum, b) => sum + b.price * b.qty, 0));
+const total = computed(() => itemsTotal.value + bundlesTotal.value);
+
+function addBundleToSelected() {
+    if (!newBundlePick.value) return;
+    const bundle = props.bundles.find((b) => b.id === newBundlePick.value);
+    if (!bundle) return;
+    selectedBundles.value.push({ bundle_id: bundle.id, name: bundle.name, price: bundle.price, qty: 1 });
+    newBundlePick.value = '';
+}
+
+function removeBundleFromSelected(idx: number) {
+    selectedBundles.value.splice(idx, 1);
+}
 
 watch(
     () => props.modelValue,
     (open) => {
         if (open) {
             items.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+            selectedBundles.value = [];
+            newBundlePick.value = '';
         }
     },
 );
@@ -65,7 +91,11 @@ function submit() {
     submitting.value = true;
     router.post(
         `/${props.dept}/${props.surgeryId}/supplies`,
-        { surgery_id: props.surgeryId, items: items.value },
+        {
+            surgery_id: props.surgeryId,
+            items: items.value,
+            bundles: selectedBundles.value.map((b) => ({ bundle_id: b.bundle_id, qty: b.qty })),
+        },
         {
             onSuccess: () => {
                 emit('update:modelValue', false);
@@ -86,6 +116,39 @@ function close() {
 <template>
     <Modal :model-value="modelValue" title="تسجيل المستلزمات" size="lg" @update:model-value="close">
         <div class="space-y-3">
+
+            <!-- Bundle picker -->
+            <div v-if="bundles.length" class="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-700">📦 البنود الجاهزة</div>
+                <div class="flex gap-2">
+                    <select v-model="newBundlePick" class="field-input flex-1">
+                        <option value="">— اختر بنداً —</option>
+                        <option v-for="b in bundles" :key="b.id" :value="b.id">
+                            {{ b.name }} — {{ Number(b.price).toLocaleString('ar-EG') }} ج
+                        </option>
+                    </select>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-purple-700 px-3 py-1.5 text-sm text-white hover:bg-purple-800"
+                        @click="addBundleToSelected"
+                    >+ إضافة</button>
+                </div>
+                <div v-if="selectedBundles.length" class="mt-2 space-y-1.5">
+                    <div
+                        v-for="(b, idx) in selectedBundles"
+                        :key="idx"
+                        class="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm shadow-sm"
+                    >
+                        <span class="flex-1 font-medium text-purple-800">📦 {{ b.name }}</span>
+                        <input v-model.number="b.qty" type="number" min="1" class="field-input w-16 text-center" />
+                        <span class="w-24 text-left font-semibold text-purple-700">{{ (b.price * b.qty).toLocaleString('ar-EG') }} ج</span>
+                        <button type="button" class="text-red-400 hover:text-red-600" @click="removeBundleFromSelected(idx)">×</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Individual items -->
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">أصناف فردية</div>
             <div
                 v-for="(item, idx) in items"
                 :key="idx"

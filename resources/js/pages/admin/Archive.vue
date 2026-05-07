@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { FileText, Grid, List } from 'lucide-vue-next';
+import { Head, router, useForm } from '@inertiajs/vue3';
+import { FileText, FolderPlus, Grid, List } from 'lucide-vue-next';
 import { ref } from 'vue';
+import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 
 interface Booking {
@@ -17,9 +18,15 @@ interface Booking {
     doctor_name?: string;
 }
 
+interface Doctor {
+    id: string;
+    name: string;
+}
+
 const props = defineProps<{
     bookings: { data: Booking[]; current_page: number; last_page: number; total: number };
     filters: { search?: string; dept?: string; from?: string; to?: string };
+    doctors: Doctor[];
 }>();
 
 const deptLabels: Record<string, string> = {
@@ -56,6 +63,31 @@ const deptFilter = ref(props.filters.dept  ?? '');
 const fromFilter = ref(props.filters.from  ?? '');
 const toFilter   = ref(props.filters.to    ?? '');
 
+const showAddModal = ref(false);
+const form = useForm({
+    patient_name: '',
+    patient_phone: '',
+    patient_age: '' as number | '',
+    gender: '',
+    dept: '',
+    doctor_id: '',
+    visit_date: '',
+    service_name: '',
+    price: '' as number | '',
+    paid_amount: '' as number | '',
+    pay_method: 'cash',
+    visit_note: '',
+});
+
+function submitArchive() {
+    form.post('/archive', {
+        onSuccess: () => {
+            showAddModal.value = false;
+            form.reset();
+        },
+    });
+}
+
 function applyFilters() {
     router.get('/archive', {
         search: search.value   || undefined,
@@ -84,9 +116,18 @@ function goToPage(page: number) {
             <h2 class="text-lg font-bold text-hospital-text">الأرشيف الطبي</h2>
             <p class="text-xs text-hospital-muted">رفع وحفظ الصور والملفات الطبية لكل مريض</p>
         </div>
-        <span class="rounded-full bg-hospital-primary/10 px-3 py-1 text-sm font-medium text-hospital-primary">
-            {{ bookings.total }} سجل
-        </span>
+        <div class="flex items-center gap-3">
+            <span class="rounded-full bg-hospital-primary/10 px-3 py-1 text-sm font-medium text-hospital-primary">
+                {{ bookings.total }} سجل
+            </span>
+            <button
+                class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90"
+                @click="showAddModal = true"
+            >
+                <FolderPlus class="h-4 w-4" />
+                إضافة سجل
+            </button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -213,6 +254,110 @@ function goToPage(page: number) {
             </tbody>
         </table>
     </div>
+
+    <!-- Add Archive Modal -->
+    <Modal v-model="showAddModal" title="إضافة سجل إلى الأرشيف" size="lg">
+        <form class="space-y-4" @submit.prevent="submitArchive">
+            <!-- Row 1: Name + Phone -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">اسم المريض *</label>
+                    <input v-model="form.patient_name" type="text" class="input-field" placeholder="الاسم الكامل" />
+                    <p v-if="form.errors.patient_name" class="mt-1 text-xs text-red-600">{{ form.errors.patient_name }}</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">رقم الهاتف</label>
+                    <input v-model="form.patient_phone" type="text" class="input-field" placeholder="اختياري" />
+                </div>
+            </div>
+
+            <!-- Row 2: Age + Gender -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">العمر</label>
+                    <input v-model.number="form.patient_age" type="number" class="input-field" min="0" max="150" placeholder="سنة" />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">الجنس</label>
+                    <select v-model="form.gender" class="input-field">
+                        <option value="">— اختر —</option>
+                        <option value="male">ذكر</option>
+                        <option value="female">أنثى</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 3: Dept + Doctor -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">القسم *</label>
+                    <select v-model="form.dept" class="input-field">
+                        <option value="">— اختر القسم —</option>
+                        <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                    </select>
+                    <p v-if="form.errors.dept" class="mt-1 text-xs text-red-600">{{ form.errors.dept }}</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">الطبيب</label>
+                    <select v-model="form.doctor_id" class="input-field">
+                        <option value="">— اختر —</option>
+                        <option v-for="doc in doctors" :key="doc.id" :value="doc.id">{{ doc.name }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 4: Date + Service -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">تاريخ الزيارة *</label>
+                    <input v-model="form.visit_date" type="date" class="input-field" />
+                    <p v-if="form.errors.visit_date" class="mt-1 text-xs text-red-600">{{ form.errors.visit_date }}</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">الخدمة / الإجراء</label>
+                    <input v-model="form.service_name" type="text" class="input-field" placeholder="اختياري" />
+                </div>
+            </div>
+
+            <!-- Row 5: Price + Paid + Method -->
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">المبلغ (ج.م)</label>
+                    <input v-model.number="form.price" type="number" class="input-field" min="0" step="0.01" placeholder="0" />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">المدفوع</label>
+                    <input v-model.number="form.paid_amount" type="number" class="input-field" min="0" step="0.01" placeholder="0" />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700">طريقة الدفع</label>
+                    <select v-model="form.pay_method" class="input-field">
+                        <option value="cash">نقدي</option>
+                        <option value="card">بطاقة</option>
+                        <option value="transfer">تحويل</option>
+                        <option value="insurance">تأمين</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700">ملاحظات</label>
+                <textarea v-model="form.visit_note" class="input-field" rows="2" placeholder="اختياري" />
+            </div>
+
+            <div class="flex justify-end gap-3 border-t border-gray-100 pt-3">
+                <button type="button" class="btn-secondary" @click="showAddModal = false">إلغاء</button>
+                <button
+                    type="submit"
+                    class="rounded-lg bg-hospital-primary px-5 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
+                    :disabled="form.processing"
+                >
+                    {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ في الأرشيف' }}
+                </button>
+            </div>
+        </form>
+    </Modal>
 
     <!-- Pagination -->
     <div v-if="bookings.last_page > 1" class="mt-5 flex items-center justify-center gap-2">
