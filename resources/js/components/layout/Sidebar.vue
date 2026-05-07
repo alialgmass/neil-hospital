@@ -25,6 +25,7 @@ import {
     Scale,
     FileText,
     ClipboardList,
+    PieChart,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -83,6 +84,7 @@ const navGroups: NavGroup[] = [
             { title: 'ميزان المراجعة', href: '/ledger/trial-balance', icon: Scale, permission: 'reports.financial' },
             { title: 'قائمة الدخل', href: '/ledger/income-statement', icon: TrendingUp, permission: 'reports.financial' },
             { title: 'كشف الحساب', href: '/ledger/account-statement', icon: FileText, permission: 'reports.financial' },
+            { title: 'مراكز التكلفة', href: '/cost-centers', icon: PieChart, permission: 'journal.view' },
         ],
     },
     {

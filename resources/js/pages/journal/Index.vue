@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
+import { BookOpen, Printer, TrendingDown, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 
@@ -18,6 +19,7 @@ interface JournalEntry {
     amount: number;
     reference?: string;
     source: string;
+    cost_center?: string;
     creator?: { name: string };
 }
 
@@ -29,12 +31,60 @@ const props = defineProps<{
         total: number;
     };
     accounts: Account[];
-    filters: { from?: string; to?: string; source?: string };
+    filters: { from?: string; to?: string; source?: string; cost_center?: string };
 }>();
+
+const costCenterOptions = [
+    { value: 'CC-CLINIC', label: 'العيادة الخارجية' },
+    { value: 'CC-LAB',    label: 'الفحوصات والمختبر' },
+    { value: 'CC-SURG',   label: 'غرفة العمليات' },
+    { value: 'CC-LASIK',  label: 'وحدة الليزك' },
+    { value: 'CC-LASER',  label: 'الليزر التشخيصي' },
+    { value: 'CC-INS',    label: 'التأمين الصحي' },
+    { value: 'CC-DR',     label: 'الأطباء والمستحقات' },
+    { value: 'CC-INV',    label: 'إدارة المخزون' },
+    { value: 'CC-EQUIP',  label: 'الأجهزة والمعدات' },
+];
+
+const sourceOptions = [
+    { value: 'manual',            label: 'يدوي' },
+    { value: 'booking',           label: 'حجز' },
+    { value: 'auto_booking',      label: 'حجز تلقائي' },
+    { value: 'purchase',          label: 'مشتريات' },
+    { value: 'expense',           label: 'مصروفات' },
+    { value: 'salary',            label: 'رواتب' },
+    { value: 'settlement',        label: 'تسوية' },
+    { value: 'insurance_claim',   label: 'مطالبة تأمين' },
+    { value: 'insurance_collect', label: 'تحصيل تأمين' },
+    { value: 'supplies_used',     label: 'صرف مستلزمات' },
+    { value: 'doctor_shift',      label: 'شيفت طبيب' },
+    { value: 'doctor_payment',    label: 'صرف مستحقات طبيب' },
+    { value: 'supplier_payment',  label: 'سداد مورد' },
+    { value: 'reversal',          label: 'عكس قيد (إلغاء)' },
+];
+
+const sourceBadge: Record<string, { label: string; classes: string }> = {
+    manual:            { label: 'يدوي',                classes: 'bg-pp text-p' },
+    booking:           { label: 'حجز',                 classes: 'bg-sp text-s' },
+    auto_booking:      { label: 'حجز تلقائي',          classes: 'bg-sp text-s' },
+    purchase:          { label: 'مشتريات',             classes: 'bg-wp text-w' },
+    expense:           { label: 'مصروفات',             classes: 'bg-dp text-d' },
+    salary:            { label: 'رواتب',               classes: 'bg-dp text-d' },
+    settlement:        { label: 'تسوية',               classes: 'bg-ap text-a' },
+    insurance_claim:   { label: 'مطالبة تأمين',        classes: 'bg-pp text-pd' },
+    insurance_collect: { label: 'تحصيل تأمين',        classes: 'bg-sp text-s' },
+    supplies_used:     { label: 'صرف مستلزمات',       classes: 'bg-wp text-w' },
+    doctor_shift:      { label: 'شيفت طبيب',           classes: 'bg-pp text-p' },
+    doctor_payment:    { label: 'صرف مستحقات',        classes: 'bg-dp text-d' },
+    supplier_payment:  { label: 'سداد مورد',           classes: 'bg-wp text-w' },
+    reversal:          { label: 'عكس قيد',             classes: 'bg-sf2 text-t2' },
+};
 
 const columns = [
     { key: 'date',           label: 'التاريخ',  sortable: true },
     { key: 'reference',      label: 'رقم القيد' },
+    { key: 'source',         label: 'المصدر' },
+    { key: 'cost_center',   label: 'مركز التكلفة' },
     { key: 'description',    label: 'البيان' },
     { key: 'debit_account',  label: 'مدين' },
     { key: 'credit_account', label: 'دائن' },
@@ -42,22 +92,26 @@ const columns = [
     { key: 'creator',        label: 'المسؤول' },
 ];
 
-const fromFilter   = ref(props.filters.from   ?? '');
-const toFilter     = ref(props.filters.to     ?? '');
-const sourceFilter = ref(props.filters.source ?? '');
+const fromFilter       = ref(props.filters.from        ?? '');
+const toFilter         = ref(props.filters.to          ?? '');
+const sourceFilter     = ref(props.filters.source      ?? '');
+const costCenterFilter = ref(props.filters.cost_center ?? '');
 
 function applyFilters() {
     router.get('/journal', {
-        from:   fromFilter.value   || undefined,
-        to:     toFilter.value     || undefined,
-        source: sourceFilter.value || undefined,
+        from:        fromFilter.value       || undefined,
+        to:          toFilter.value         || undefined,
+        source:      sourceFilter.value     || undefined,
+        cost_center: costCenterFilter.value || undefined,
     }, { preserveState: true });
 }
+
 function goToPage(page: number) {
     router.get('/journal', {
-        from:   fromFilter.value   || undefined,
-        to:     toFilter.value     || undefined,
-        source: sourceFilter.value || undefined,
+        from:        fromFilter.value       || undefined,
+        to:          toFilter.value         || undefined,
+        source:      sourceFilter.value     || undefined,
+        cost_center: costCenterFilter.value || undefined,
         page,
     }, { preserveState: true });
 }
@@ -69,144 +123,219 @@ const form = useForm({
     credit_account_id: '',
     amount:            '' as string | number,
     reference:         '',
+    cost_center:       '',
 });
 
 function submit() {
-    form.post('/journal', { onSuccess: () => { form.reset(); form.date = new Date().toISOString().slice(0, 10); } });
+    form.post('/journal', {
+        onSuccess: () => {
+            form.reset();
+            form.date = new Date().toISOString().slice(0, 10);
+        },
+    });
 }
+
 function clearForm() {
     form.reset();
     form.date = new Date().toISOString().slice(0, 10);
 }
 
+function printPage() {
+    window.print();
+}
+
 const totalDebit  = computed(() => props.entries.data.reduce((s, e) => s + Number(e.amount), 0));
 const totalCredit = computed(() => totalDebit.value);
+
+function fmt(n: number) {
+    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+}
 </script>
 
 <template>
     <Head title="قيود اليومية" />
 
-    <!-- Inline Add Form -->
-    <div class="mb-5 overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-        <div class="border-b border-hospital-border px-4 py-3" style="background: linear-gradient(135deg, #072E63, #0A4FA6)">
-            <p class="text-sm font-bold text-white">+ إضافة قيد يومي جديد</p>
+    <!-- Stats Row -->
+    <div class="mb-5 grid grid-cols-3 gap-4">
+        <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p text-white">
+                <BookOpen class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي القيود</p>
+                <p class="text-xl font-bold text-t">{{ entries.total }}</p>
+            </div>
         </div>
-        <div class="bg-white p-4">
+        <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-s text-white">
+                <TrendingUp class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي المدين</p>
+                <p class="text-xl font-bold text-s">{{ fmt(totalDebit) }}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-d text-white">
+                <TrendingDown class="h-5 w-5" />
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي الدائن</p>
+                <p class="text-xl font-bold text-d">{{ fmt(totalCredit) }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Form Card -->
+    <div class="mb-5 overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
+        <div class="border-b border-br bg-pd px-4 py-3">
+            <p class="text-sm font-bold text-white">إضافة قيد يومي جديد</p>
+        </div>
+        <div class="p-4">
             <form @submit.prevent="submit">
-                <div class="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-hospital-muted">رقم القيد</label>
+                        <label class="form-label">رقم القيد</label>
                         <input
                             v-model="form.reference"
                             type="text"
                             placeholder="تلقائي"
-                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
+                            class="input-field"
                         />
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-hospital-muted">التاريخ <span class="text-hospital-danger">*</span></label>
+                        <label class="form-label">التاريخ <span class="text-d">*</span></label>
                         <input
                             v-model="form.date"
                             type="date"
-                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
+                            class="input-field"
+                            :class="{ 'border-d': form.errors.date }"
                         />
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-hospital-muted">الحساب المدين <span class="text-hospital-danger">*</span></label>
+                        <label class="form-label">الحساب المدين <span class="text-d">*</span></label>
                         <select
                             v-model="form.debit_account_id"
-                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                            :class="{ 'border-hospital-danger': form.errors.debit_account_id }"
+                            class="input-field"
+                            :class="{ 'border-d': form.errors.debit_account_id }"
                         >
                             <option value="">— اختر —</option>
                             <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
                         </select>
+                        <p v-if="form.errors.debit_account_id" class="form-error">{{ form.errors.debit_account_id }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-hospital-muted">الحساب الدائن <span class="text-hospital-danger">*</span></label>
+                        <label class="form-label">الحساب الدائن <span class="text-d">*</span></label>
                         <select
                             v-model="form.credit_account_id"
-                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                            :class="{ 'border-hospital-danger': form.errors.credit_account_id }"
+                            class="input-field"
+                            :class="{ 'border-d': form.errors.credit_account_id }"
                         >
                             <option value="">— اختر —</option>
                             <option v-for="a in accounts" :key="a.id" :value="a.id">{{ a.code }} — {{ a.name }}</option>
                         </select>
+                        <p v-if="form.errors.credit_account_id" class="form-error">{{ form.errors.credit_account_id }}</p>
                     </div>
                     <div class="col-span-2">
-                        <label class="mb-1 block text-xs font-bold text-hospital-muted">البيان <span class="text-hospital-danger">*</span></label>
+                        <label class="form-label">البيان <span class="text-d">*</span></label>
                         <input
                             v-model="form.description"
                             type="text"
                             placeholder="وصف القيد..."
-                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                            :class="{ 'border-hospital-danger': form.errors.description }"
+                            class="input-field"
+                            :class="{ 'border-d': form.errors.description }"
                         />
-                        <p v-if="form.errors.description" class="mt-1 text-xs text-hospital-danger">{{ form.errors.description }}</p>
+                        <p v-if="form.errors.description" class="form-error">{{ form.errors.description }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-blue-600">مبلغ المدين (ج) <span class="text-hospital-danger">*</span></label>
+                        <label class="form-label">المبلغ (ج.م) <span class="text-d">*</span></label>
                         <input
                             v-model.number="form.amount"
                             type="number"
                             min="0.01"
                             step="0.01"
                             placeholder="0.00"
-                            class="w-full rounded-lg border border-blue-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                            :class="{ 'border-hospital-danger': form.errors.amount }"
+                            class="input-field"
+                            :class="{ 'border-d': form.errors.amount }"
                         />
-                        <p v-if="form.errors.amount" class="mt-1 text-xs text-hospital-danger">{{ form.errors.amount }}</p>
+                        <p v-if="form.errors.amount" class="form-error">{{ form.errors.amount }}</p>
                     </div>
                     <div>
-                        <label class="mb-1 block text-xs font-bold text-hospital-danger">مبلغ الدائن (ج) <span class="text-hospital-danger">*</span></label>
-                        <input
-                            :value="form.amount"
-                            type="number"
-                            placeholder="0.00"
-                            readonly
-                            class="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-hospital-text-2"
-                        />
+                        <label class="form-label">مركز التكلفة</label>
+                        <select v-model="form.cost_center" class="input-field">
+                            <option value="">— اختياري —</option>
+                            <option v-for="cc in costCenterOptions" :key="cc.value" :value="cc.value">{{ cc.label }}</option>
+                        </select>
                     </div>
                 </div>
                 <div class="flex justify-end gap-2">
-                    <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="clearForm">مسح</button>
-                    <button type="submit" :disabled="form.processing" class="rounded-lg bg-hospital-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary/90 disabled:opacity-60">
-                        💾 حفظ القيد
+                    <button type="button" class="btn-secondary" @click="clearForm">مسح</button>
+                    <button type="submit" :disabled="form.processing" class="btn-primary">
+                        {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ القيد' }}
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Filters Row -->
+    <!-- Filters + Actions Row -->
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">التاريخ</label>
-            <input v-model="fromFilter" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters" />
+            <label class="form-label">من تاريخ</label>
+            <input
+                v-model="fromFilter"
+                type="date"
+                class="input-field w-auto"
+                @change="applyFilters"
+            />
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">إلى</label>
-            <input v-model="toFilter" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters" />
+            <label class="form-label">إلى تاريخ</label>
+            <input
+                v-model="toFilter"
+                type="date"
+                class="input-field w-auto"
+                @change="applyFilters"
+            />
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">فلتر</label>
-            <select v-model="sourceFilter" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters">
+            <label class="form-label">المصدر</label>
+            <select
+                v-model="sourceFilter"
+                class="input-field w-auto"
+                @change="applyFilters"
+            >
                 <option value="">كل المصادر</option>
-                <option value="manual">يدوية</option>
-                <option value="booking">حجوزات</option>
-                <option value="purchase">مشتريات</option>
+                <option v-for="s in sourceOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
         </div>
-        <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white" @click="applyFilters">🔍 عرض</button>
-        <button class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="() => window.print()">🖨️ طباعة</button>
+        <div class="flex flex-col gap-1">
+            <label class="form-label">مركز التكلفة</label>
+            <select
+                v-model="costCenterFilter"
+                class="input-field w-auto"
+                @change="applyFilters"
+            >
+                <option value="">كل المراكز</option>
+                <option v-for="cc in costCenterOptions" :key="cc.value" :value="cc.value">{{ cc.label }}</option>
+            </select>
+        </div>
+        <div class="flex gap-2 pb-0.5">
+            <button class="btn-primary" @click="applyFilters">عرض</button>
+            <button class="btn-secondary flex items-center gap-1.5" @click="printPage">
+                <Printer class="h-4 w-4" />
+                طباعة
+            </button>
+        </div>
     </div>
 
     <!-- Table Card -->
-    <div class="overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-        <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
-            <p class="text-sm font-bold text-hospital-text">قيود اليومية</p>
-            <p class="text-xs text-hospital-muted">{{ entries.total }} قيد</p>
+    <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
+        <div class="flex items-center justify-between border-b border-br bg-sf2 px-4 py-3">
+            <p class="text-sm font-bold text-t">قيود اليومية</p>
+            <p class="text-xs text-t2">{{ entries.total }} قيد</p>
         </div>
+
         <DataTable
             :columns="columns"
             :rows="entries.data"
@@ -217,24 +346,48 @@ const totalCredit = computed(() => totalDebit.value);
             class="[&>div]:border-none [&>div]:shadow-none [&>div]:rounded-none"
             @page="goToPage"
         >
+            <template #cell-source="{ row }">
+                <span
+                    class="inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="sourceBadge[(row as JournalEntry).source]?.classes ?? 'bg-sf2 text-t2'"
+                >
+                    {{ sourceBadge[(row as JournalEntry).source]?.label ?? (row as JournalEntry).source }}
+                </span>
+            </template>
             <template #cell-debit_account="{ row }">
-                <span class="text-sm">{{ (row as JournalEntry).debit_account?.code }} — {{ (row as JournalEntry).debit_account?.name }}</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="rounded bg-pp px-1.5 py-0.5 font-mono text-[10px] font-bold text-p">
+                        {{ (row as JournalEntry).debit_account?.code }}
+                    </span>
+                    <span class="text-sm text-t">{{ (row as JournalEntry).debit_account?.name }}</span>
+                </div>
             </template>
             <template #cell-credit_account="{ row }">
-                <span class="text-sm">{{ (row as JournalEntry).credit_account?.code }} — {{ (row as JournalEntry).credit_account?.name }}</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="rounded bg-dp px-1.5 py-0.5 font-mono text-[10px] font-bold text-d">
+                        {{ (row as JournalEntry).credit_account?.code }}
+                    </span>
+                    <span class="text-sm text-t">{{ (row as JournalEntry).credit_account?.name }}</span>
+                </div>
+            </template>
+            <template #cell-cost_center="{ row }">
+                <span v-if="(row as JournalEntry).cost_center" class="inline-block rounded-full bg-pp px-2 py-0.5 text-[10px] font-medium text-pd">
+                    {{ costCenterOptions.find(c => c.value === (row as JournalEntry).cost_center)?.label ?? (row as JournalEntry).cost_center }}
+                </span>
+                <span v-else class="text-t3">—</span>
             </template>
             <template #cell-amount="{ value }">
-                <span class="font-mono">{{ Number(value).toLocaleString('ar-EG') }} ج.م</span>
+                <span class="font-mono font-semibold text-t">{{ fmt(Number(value)) }} ج.م</span>
             </template>
             <template #cell-creator="{ row }">
-                {{ (row as JournalEntry).creator?.name ?? '—' }}
+                <span class="text-t2">{{ (row as JournalEntry).creator?.name ?? '—' }}</span>
             </template>
         </DataTable>
 
         <!-- Totals Bar -->
-        <div class="flex gap-6 rounded-b-xl px-4 py-3 text-sm font-bold text-white" style="background: linear-gradient(135deg, #072E63, #0A4FA6)">
-            <span>إجمالي المدين: {{ totalDebit.toLocaleString('ar-EG') }} ج.م</span>
-            <span>إجمالي الدائن: {{ totalCredit.toLocaleString('ar-EG') }} ج.م</span>
+        <div class="flex gap-6 border-t border-br bg-pd px-4 py-3 text-sm font-bold text-white">
+            <span>إجمالي المدين: {{ fmt(totalDebit) }} ج.م</span>
+            <span>إجمالي الدائن: {{ fmt(totalCredit) }} ج.م</span>
         </div>
     </div>
 </template>

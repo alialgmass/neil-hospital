@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Accounting\Controllers\ChartOfAccountsController;
+use Modules\Accounting\Controllers\CostCenterController;
 use Modules\Accounting\Controllers\JournalController;
 use Modules\Accounting\Controllers\LedgerController;
 use Modules\Accounting\Controllers\SalesInvoiceController;
@@ -58,6 +59,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:booking.edit')
             ->name('store');
     });
+
+    // Cost Centers
+    Route::get('/cost-centers', [CostCenterController::class, 'index'])
+        ->middleware('can:journal.view')
+        ->name('cost-centers.index');
 
     // Ledger
     Route::prefix('ledger')->name('ledger.')->group(function () {

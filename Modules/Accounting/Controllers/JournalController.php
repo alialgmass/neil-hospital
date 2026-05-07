@@ -19,7 +19,7 @@ class JournalController extends Controller
 
     public function index(): Response
     {
-        $filters = request()->only(['from', 'to', 'source']);
+        $filters = request()->only(['from', 'to', 'source', 'cost_center']);
 
         return Inertia::render('journal/Index', [
             'entries' => $this->journalService->list($filters, 30),

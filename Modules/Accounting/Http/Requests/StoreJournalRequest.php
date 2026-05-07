@@ -3,6 +3,8 @@
 namespace Modules\Accounting\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Enum;
+use Modules\Accounting\Enums\CostCenter;
 
 class StoreJournalRequest extends FormRequest
 {
@@ -20,6 +22,7 @@ class StoreJournalRequest extends FormRequest
             'credit_account_id' => ['required', 'exists:accounts,id', 'different:debit_account_id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'reference' => ['nullable', 'string', 'max:80'],
+            'cost_center' => ['nullable', new Enum(CostCenter::class)],
         ];
     }
 }

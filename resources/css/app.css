@@ -165,6 +165,27 @@
     --color-hospital-text-2: var(--t2);
     --color-hospital-text-3: var(--t3);
 
+    /* Shorthand aliases — enable bg-p, text-t, border-br, etc. */
+    --color-p: var(--p);
+    --color-pl: var(--pl);
+    --color-pp: var(--pp);
+    --color-pd: var(--pd);
+    --color-a: var(--a);
+    --color-ap: var(--ap);
+    --color-d: var(--d);
+    --color-dp: var(--dp);
+    --color-w: var(--w);
+    --color-wp: var(--wp);
+    --color-s: var(--s);
+    --color-sp: var(--sp);
+    --color-bg: var(--bg);
+    --color-sf: var(--sf);
+    --color-sf2: var(--sf2);
+    --color-br: var(--br);
+    --color-t: var(--t);
+    --color-t2: var(--t2);
+    --color-t3: var(--t3);
+
     /* Hospital font */
     --font-sans: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
 }
@@ -176,6 +197,36 @@
 
     body {
         @apply bg-background text-foreground;
+    }
+}
+
+@layer components {
+    .input-field {
+        @apply w-full rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text placeholder:text-hospital-text-3 focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/15 transition-colors;
+    }
+
+    .btn-primary {
+        @apply inline-flex items-center justify-center rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary-light disabled:opacity-60 transition-all;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center rounded-lg border border-hospital-border px-4 py-2 text-sm font-medium text-hospital-text-2 hover:bg-hospital-bg transition-colors;
+    }
+
+    .btn-danger {
+        @apply inline-flex items-center justify-center rounded-lg bg-hospital-danger px-4 py-2 text-sm font-medium text-white hover:bg-hospital-danger/90 disabled:opacity-60 transition-all;
+    }
+
+    .form-label {
+        @apply mb-1.5 block text-sm font-medium text-hospital-text;
+    }
+
+    .form-error {
+        @apply mt-1 text-xs text-hospital-danger;
+    }
+
+    .form-hint {
+        @apply mt-0.5 text-xs text-hospital-text-3;
     }
 }
 

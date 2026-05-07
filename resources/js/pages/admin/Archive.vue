@@ -261,12 +261,12 @@ function goToPage(page: number) {
             <!-- Row 1: Name + Phone -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">اسم المريض *</label>
+                    <label class="form-label">اسم المريض <span class="text-hospital-danger">*</span></label>
                     <input v-model="form.patient_name" type="text" class="input-field" placeholder="الاسم الكامل" />
-                    <p v-if="form.errors.patient_name" class="mt-1 text-xs text-red-600">{{ form.errors.patient_name }}</p>
+                    <p v-if="form.errors.patient_name" class="form-error">{{ form.errors.patient_name }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">رقم الهاتف</label>
+                    <label class="form-label">رقم الهاتف</label>
                     <input v-model="form.patient_phone" type="text" class="input-field" placeholder="اختياري" />
                 </div>
             </div>
@@ -274,11 +274,11 @@ function goToPage(page: number) {
             <!-- Row 2: Age + Gender -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">العمر</label>
-                    <input v-model.number="form.patient_age" type="number" class="input-field" min="0" max="150" placeholder="سنة" />
+                    <label class="form-label">العمر</label>
+                    <input v-model.number="form.patient_age" type="number" class="input-field" min="0" max="150" placeholder="بالسنوات" />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">الجنس</label>
+                    <label class="form-label">الجنس</label>
                     <select v-model="form.gender" class="input-field">
                         <option value="">— اختر —</option>
                         <option value="male">ذكر</option>
@@ -290,15 +290,15 @@ function goToPage(page: number) {
             <!-- Row 3: Dept + Doctor -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">القسم *</label>
+                    <label class="form-label">القسم <span class="text-hospital-danger">*</span></label>
                     <select v-model="form.dept" class="input-field">
                         <option value="">— اختر القسم —</option>
                         <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
                     </select>
-                    <p v-if="form.errors.dept" class="mt-1 text-xs text-red-600">{{ form.errors.dept }}</p>
+                    <p v-if="form.errors.dept" class="form-error">{{ form.errors.dept }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">الطبيب</label>
+                    <label class="form-label">الطبيب</label>
                     <select v-model="form.doctor_id" class="input-field">
                         <option value="">— اختر —</option>
                         <option v-for="doc in doctors" :key="doc.id" :value="doc.id">{{ doc.name }}</option>
@@ -309,12 +309,12 @@ function goToPage(page: number) {
             <!-- Row 4: Date + Service -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">تاريخ الزيارة *</label>
+                    <label class="form-label">تاريخ الزيارة <span class="text-hospital-danger">*</span></label>
                     <input v-model="form.visit_date" type="date" class="input-field" />
-                    <p v-if="form.errors.visit_date" class="mt-1 text-xs text-red-600">{{ form.errors.visit_date }}</p>
+                    <p v-if="form.errors.visit_date" class="form-error">{{ form.errors.visit_date }}</p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">الخدمة / الإجراء</label>
+                    <label class="form-label">الخدمة / الإجراء</label>
                     <input v-model="form.service_name" type="text" class="input-field" placeholder="اختياري" />
                 </div>
             </div>
@@ -322,15 +322,15 @@ function goToPage(page: number) {
             <!-- Row 5: Price + Paid + Method -->
             <div class="grid grid-cols-3 gap-3">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">المبلغ (ج.م)</label>
-                    <input v-model.number="form.price" type="number" class="input-field" min="0" step="0.01" placeholder="0" />
+                    <label class="form-label">المبلغ (ج.م)</label>
+                    <input v-model.number="form.price" type="number" class="input-field" min="0" step="0.01" placeholder="0.00" />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">المدفوع</label>
-                    <input v-model.number="form.paid_amount" type="number" class="input-field" min="0" step="0.01" placeholder="0" />
+                    <label class="form-label">المدفوع (ج.م)</label>
+                    <input v-model.number="form.paid_amount" type="number" class="input-field" min="0" step="0.01" placeholder="0.00" />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">طريقة الدفع</label>
+                    <label class="form-label">طريقة الدفع</label>
                     <select v-model="form.pay_method" class="input-field">
                         <option value="cash">نقدي</option>
                         <option value="card">بطاقة</option>
@@ -342,17 +342,13 @@ function goToPage(page: number) {
 
             <!-- Notes -->
             <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700">ملاحظات</label>
+                <label class="form-label">ملاحظات</label>
                 <textarea v-model="form.visit_note" class="input-field" rows="2" placeholder="اختياري" />
             </div>
 
-            <div class="flex justify-end gap-3 border-t border-gray-100 pt-3">
+            <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                 <button type="button" class="btn-secondary" @click="showAddModal = false">إلغاء</button>
-                <button
-                    type="submit"
-                    class="rounded-lg bg-hospital-primary px-5 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
-                    :disabled="form.processing"
-                >
+                <button type="submit" class="btn-primary" :disabled="form.processing">
                     {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ في الأرشيف' }}
                 </button>
             </div>

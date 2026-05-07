@@ -82,6 +82,15 @@ function formatMoney(val: number): string {
     return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+const deptOptions = [
+    { value: 'surgery', label: 'العمليات' },
+    { value: 'lasik', label: 'الليزك' },
+    { value: 'laser', label: 'الليزر' },
+    { value: 'clinic', label: 'العيادة' },
+    { value: 'labs', label: 'الفحوصات' },
+    { value: 'admin', label: 'الإدارة' },
+]
+
 // Issue form
 const form = useForm({
     department: '',
@@ -89,6 +98,10 @@ const form = useForm({
     notes: '',
     items: [] as { item_id: string; item_name: string; qty: number; unit_cost: number }[],
 })
+
+const formTotal = computed(() =>
+    form.items.reduce((sum, item) => sum + item.qty * item.unit_cost, 0),
+)
 
 function addRow() {
     form.items.push({ item_id: '', item_name: '', qty: 1, unit_cost: 0 })
@@ -303,87 +316,90 @@ function submitIssue() {
         </div>
 
         <!-- Issue Voucher Modal -->
-        <Modal v-model="showModal" title="إذن صرف مخزون" @close="showModal = false">
+        <Modal v-model="showModal" title="إذن صرف مخزون" size="lg">
             <form class="space-y-4" @submit.prevent="submitIssue">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-gray-700">القسم</label>
-                        <input
-                            v-model="form.department"
-                            class="input-field"
-                            type="text"
-                            placeholder="مثال: غرفة عمليات"
-                        />
+                        <label class="form-label">القسم</label>
+                        <select v-model="form.department" class="input-field">
+                            <option value="">— اختر القسم —</option>
+                            <option v-for="opt in deptOptions" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
                     </div>
                     <div>
-                        <label class="mb-1 block text-sm font-medium text-gray-700">السبب / الغرض</label>
+                        <label class="form-label">السبب / الغرض</label>
                         <input v-model="form.reason" class="input-field" type="text" placeholder="مثال: استهلاك تشغيلي" />
                     </div>
                 </div>
 
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700">ملاحظات</label>
-                    <textarea v-model="form.notes" class="input-field" rows="2" />
+                    <label class="form-label">ملاحظات</label>
+                    <textarea v-model="form.notes" class="input-field" rows="2" placeholder="اختياري" />
                 </div>
 
                 <!-- Items -->
                 <div>
                     <div class="mb-2 flex items-center justify-between">
-                        <label class="text-sm font-medium text-gray-700">الأصناف المصروفة</label>
-                        <button
-                            type="button"
-                            class="text-sm font-medium text-blue-600 hover:underline"
-                            @click="addRow"
-                        >
+                        <label class="text-sm font-semibold text-hospital-text">الأصناف المصروفة</label>
+                        <button type="button" class="text-sm font-medium text-hospital-primary hover:underline" @click="addRow">
                             + إضافة صنف
                         </button>
                     </div>
 
-                    <div class="space-y-2">
-                        <div
-                            v-for="(item, idx) in form.items"
-                            :key="idx"
-                            class="grid grid-cols-[1fr_100px_auto] items-center gap-2"
-                        >
-                            <select
-                                v-model="item.item_id"
-                                class="input-field"
-                                @change="onItemSelect(idx)"
-                            >
-                                <option value="">— اختر صنف —</option>
-                                <option
-                                    v-for="inv in selectableItems"
-                                    :key="inv.id"
-                                    :value="inv.id"
-                                >
-                                    {{ inv.name }} (متاح: {{ inv.quantity }} {{ inv.unit }})
-                                </option>
-                            </select>
-                            <input
-                                v-model.number="item.qty"
-                                class="input-field text-center"
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                placeholder="الكمية"
-                            />
-                            <button
-                                type="button"
-                                class="text-red-400 hover:text-red-600"
-                                @click="removeRow(idx)"
-                            >
-                                <Trash2 class="h-4 w-4" />
-                            </button>
-                        </div>
+                    <div class="overflow-hidden rounded-lg border border-hospital-border">
+                        <table class="w-full text-sm">
+                            <thead class="bg-hospital-bg text-xs text-hospital-text-2">
+                                <tr>
+                                    <th class="px-3 py-2 text-right font-medium">الصنف</th>
+                                    <th class="w-24 px-3 py-2 text-right font-medium">الكمية</th>
+                                    <th class="w-28 px-3 py-2 text-right font-medium">سعر الوحدة</th>
+                                    <th class="w-8"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(item, idx) in form.items" :key="idx" class="border-t border-hospital-border">
+                                    <td class="px-3 py-2">
+                                        <select v-model="item.item_id" class="input-field text-xs" @change="onItemSelect(idx)">
+                                            <option value="">— اختر صنف —</option>
+                                            <option v-for="inv in selectableItems" :key="inv.id" :value="inv.id">
+                                                {{ inv.name }} ({{ inv.quantity }} {{ inv.unit }})
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input v-model.number="item.qty" class="input-field text-center text-xs" type="number" min="0.01" step="0.01" placeholder="0" />
+                                    </td>
+                                    <td class="px-3 py-2 text-xs text-hospital-text-2">
+                                        {{ item.unit_cost > 0 ? formatMoney(item.unit_cost) : '—' }}
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        <button type="button" class="text-hospital-danger/60 hover:text-hospital-danger" @click="removeRow(idx)">
+                                            <Trash2 class="h-3.5 w-3.5" />
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="form.items.length === 0">
+                                    <td class="px-3 py-5 text-center text-xs text-hospital-text-3" colspan="4">
+                                        اضغط "+ إضافة صنف" لإضافة الأصناف المراد صرفها
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot v-if="form.items.length > 0" class="border-t-2 border-hospital-border bg-hospital-bg">
+                                <tr>
+                                    <td class="px-3 py-2 text-xs font-semibold text-hospital-text-2" colspan="2">الإجمالي</td>
+                                    <td class="px-3 py-2 text-sm font-bold text-hospital-danger" colspan="2">
+                                        {{ formatMoney(formTotal) }} ج.م
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
-
-                    <p v-if="form.items.length === 0" class="mt-2 text-xs text-gray-400">
-                        اضغط "+ إضافة صنف" لإضافة الأصناف المراد صرفها.
-                    </p>
-                    <p v-if="form.errors.items" class="mt-1 text-xs text-red-600">{{ form.errors.items }}</p>
+                    <p v-if="form.errors.items" class="form-error">{{ form.errors.items }}</p>
                 </div>
 
-                <div class="flex justify-end gap-3 pt-2">
+                <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
                     <button type="submit" class="btn-danger" :disabled="form.processing || form.items.length === 0">
                         {{ form.processing ? 'جارٍ الحفظ...' : 'إصدار الإذن' }}
