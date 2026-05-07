@@ -26,6 +26,9 @@ import {
     FileText,
     ClipboardList,
     PieChart,
+    Truck,
+    Receipt,
+    ClipboardCheck,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -92,8 +95,11 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'الخدمات والأسعار', href: '/services', icon: Tags, permission: 'services.view' },
             { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view' },
+            { title: 'الموردون', href: '/suppliers', icon: Truck, permission: 'inventory.view' },
+            { title: 'فواتير الشراء', href: '/purchases', icon: Receipt, permission: 'inventory.view' },
             { title: 'أذون الصرف', href: '/stock-issue', icon: ClipboardList, permission: 'inventory.view' },
             { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view' },
+            { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'inventory.view' },
             { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view' },
         ],
     },
