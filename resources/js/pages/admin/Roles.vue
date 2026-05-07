@@ -23,12 +23,50 @@ const props = defineProps<{
 }>();
 
 const roleLabels: Record<string, string> = {
-    admin:      'مدير النظام',
-    doctor:     'طبيب',
-    receptionist: 'استقبال',
-    accountant: 'محاسب',
-    nurse:      'ممرض / مساعد',
-    storekeeper: 'مخزن',
+    admin:        'مدير النظام',
+    doctor:       'طبيب',
+    reception:    'استقبال',
+    accountant:   'محاسب',
+    nurse:        'ممرض / مساعد',
+    store_keeper: 'أمين المخزن',
+};
+
+const permissionLabels: Record<string, string> = {
+    'dashboard':           'لوحة التحكم',
+    'booking.view':        'عرض الحجوزات',
+    'booking.create':      'إنشاء حجوزات',
+    'booking.edit':        'تعديل الحجوزات',
+    'booking.delete':      'حذف الحجوزات',
+    'booking.pay':         'تسجيل المدفوعات',
+    'clinic.view':         'عرض العيادة',
+    'clinic.write':        'تسجيل الفحص السريري',
+    'labs.view':           'عرض الفحوصات',
+    'labs.write':          'تسجيل نتائج الفحوصات',
+    'surgery.view':        'عرض العمليات',
+    'surgery.write':       'تسجيل العمليات',
+    'lasik.view':          'عرض وحدة الليزك',
+    'lasik.write':         'تسجيل جلسات الليزك',
+    'laser.view':          'عرض الليزر',
+    'laser.write':         'تسجيل جلسات الليزر',
+    'treasury.view':       'عرض الخزنة',
+    'treasury.write':      'قيود الخزنة',
+    'journal.view':        'عرض القيود اليومية',
+    'journal.write':       'إضافة قيود يومية',
+    'reports.financial':   'التقارير المالية',
+    'reports.clinical':    'التقارير السريرية',
+    'doctors.view':        'عرض الأطباء',
+    'doctors.write':       'إدارة الأطباء',
+    'drpayments.view':     'عرض مستحقات الأطباء',
+    'drpayments.write':    'صرف مستحقات الأطباء',
+    'services.view':       'عرض الخدمات',
+    'services.write':      'إدارة الخدمات',
+    'inventory.view':      'عرض المخزن',
+    'inventory.write':     'إدارة المخزن',
+    'insurance.view':      'عرض التأمين',
+    'insurance.write':     'إدارة التأمين',
+    'users.manage':        'إدارة المستخدمين',
+    'settings.manage':     'إدارة الإعدادات',
+    'hide_amounts':        'إخفاء المبالغ',
 };
 
 // Group permissions by prefix
@@ -129,7 +167,7 @@ function submitEdit() {
                         :key="perm.name"
                         class="rounded-full bg-hospital-primary/10 px-2 py-0.5 text-xs text-hospital-primary"
                     >
-                        {{ perm.name }}
+                        {{ permissionLabels[perm.name] ?? perm.name }}
                     </span>
                     <span v-if="role.permissions.length === 0" class="text-xs text-hospital-muted">لا توجد صلاحيات</span>
                 </div>
@@ -147,42 +185,54 @@ function submitEdit() {
 
     <!-- Edit Permissions Modal -->
     <Modal v-if="editingRole" :model-value="!!editingRole" title="تعديل صلاحيات الدور" size="lg" @update:model-value="editingRole = null">
-        <form class="space-y-5" @submit.prevent="submitEdit">
-            <p class="text-sm font-medium text-hospital-text">
-                دور: <span class="text-hospital-primary">{{ roleLabels[editingRole.name] ?? editingRole.name }}</span>
-            </p>
+        <form class="space-y-4" @submit.prevent="submitEdit">
+            <div class="flex items-center gap-2 rounded-lg border border-br bg-pp px-3 py-2">
+                <Shield class="h-4 w-4 text-p" />
+                <span class="text-sm font-medium text-pd">{{ roleLabels[editingRole.name] ?? editingRole.name }}</span>
+                <span class="mr-auto text-xs text-t3">{{ editForm.permissions.length }} صلاحية محددة</span>
+            </div>
 
             <div
                 v-for="(perms, group) in permissionGroups"
                 :key="group"
-                class="rounded-lg border border-hospital-border p-3"
+                class="overflow-hidden rounded-lg border border-br"
             >
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wider text-hospital-muted">
-                    {{ groupLabels[group] ?? group }}
-                </p>
-                <div class="flex flex-wrap gap-2">
+                <div class="border-b border-br bg-sf2 px-3 py-2">
+                    <p class="text-xs font-bold text-t">{{ groupLabels[group] ?? group }}</p>
+                </div>
+                <div class="flex flex-wrap gap-2 p-3">
                     <label
                         v-for="perm in perms"
                         :key="perm"
-                        class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-colors"
+                        class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all select-none"
                         :class="editForm.permissions.includes(perm)
-                            ? 'border-hospital-primary bg-hospital-primary/10 text-hospital-primary'
-                            : 'border-hospital-border text-hospital-muted hover:border-hospital-primary/30'"
+                            ? 'border-p bg-pp text-pd shadow-sm'
+                            : 'border-br text-t2 hover:border-p/40 hover:bg-pp/50'"
                     >
+                        <span
+                            class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors"
+                            :class="editForm.permissions.includes(perm) ? 'border-p bg-p' : 'border-t3'"
+                        >
+                            <svg v-if="editForm.permissions.includes(perm)" class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10">
+                                <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
                         <input
                             type="checkbox"
                             :checked="editForm.permissions.includes(perm)"
                             class="sr-only"
                             @change="togglePermission(perm)"
                         />
-                        {{ perm.split('.')[1] ?? perm }}
+                        {{ permissionLabels[perm] ?? perm }}
                     </label>
                 </div>
             </div>
 
-            <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="editingRole = null">إلغاء</button>
-                <button type="submit" :disabled="editForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">حفظ</button>
+            <div class="flex justify-end gap-2 border-t border-br pt-4">
+                <button type="button" class="btn-secondary" @click="editingRole = null">إلغاء</button>
+                <button type="submit" :disabled="editForm.processing" class="btn-primary">
+                    {{ editForm.processing ? 'جارٍ الحفظ...' : 'حفظ الصلاحيات' }}
+                </button>
             </div>
         </form>
     </Modal>

@@ -42,8 +42,8 @@ interface PaymentRecord {
 
 interface Claims {
     doctor: { id: string; name: string; fee_type: string };
-    period_from: string;
-    period_to: string;
+    period_from: string | null;
+    period_to: string | null;
     total_claims: number;
     paid_amount: number;
     net_due: number;
@@ -625,117 +625,159 @@ function printInvoice() {
     <!-- ════════════════ Print invoice ════════════════ -->
     <Teleport v-if="mounted && claims" to="body">
         <div id="dr-claims-print" dir="rtl">
-            <div class="print-header">
-                <div>
-                    <div class="print-title">كشف مستحقات الطبيب</div>
-                    <div class="print-subtitle">{{ claims.doctor.name }}</div>
+
+            <!-- Hospital Header -->
+            <div class="ph-header">
+                <div class="ph-logo">👁</div>
+                <div class="ph-hospital">
+                    <div class="ph-hospital-name">مستشفى النور لطب وجراحة العيون</div>
+                    <div class="ph-hospital-sub">Al-Nour Eye Hospital</div>
                 </div>
-                <div class="print-period">
-                    <div>الفترة</div>
-                    <div>{{ claims.period_from }} — {{ claims.period_to }}</div>
+                <div class="ph-doc-info">
+                    <div class="ph-doc-label">كشف مستحقات الطبيب</div>
+                    <div class="ph-doc-name">{{ claims.doctor.name }}</div>
+                    <div class="ph-doc-period">
+                        الفترة:
+                        <span v-if="claims.period_from && claims.period_to">{{ claims.period_from }} — {{ claims.period_to }}</span>
+                        <span v-else>كل الفترات</span>
+                    </div>
+                    <div class="ph-doc-date">تاريخ الطباعة: {{ new Date().toLocaleDateString('ar-EG') }}</div>
                 </div>
             </div>
 
-            <div class="print-summary">
-                <div class="print-summary-cell">
-                    <div class="print-summary-label">إجمالي المستحقات</div>
-                    <div class="print-summary-value primary">{{ fmt(claims.total_claims) }}</div>
+            <!-- Summary Strip -->
+            <div class="ph-summary">
+                <div class="ph-sum-card ph-sum-primary">
+                    <div class="ph-sum-label">إجمالي المستحقات</div>
+                    <div class="ph-sum-value">{{ fmt(claims.total_claims) }}</div>
                 </div>
-                <div class="print-summary-cell">
-                    <div class="print-summary-label">إجمالي المدفوع</div>
-                    <div class="print-summary-value success">{{ fmt(claims.paid_amount) }}</div>
+                <div class="ph-sum-card ph-sum-success">
+                    <div class="ph-sum-label">إجمالي المدفوع</div>
+                    <div class="ph-sum-value">{{ fmt(claims.paid_amount) }}</div>
                 </div>
-                <div class="print-summary-cell">
-                    <div class="print-summary-label">الصافي المتبقي</div>
-                    <div class="print-summary-value" :class="claims.net_due > 0 ? 'danger' : 'success'">{{ fmt(claims.net_due) }}</div>
+                <div class="ph-sum-card" :class="claims.net_due > 0 ? 'ph-sum-danger' : 'ph-sum-success'">
+                    <div class="ph-sum-label">الصافي المتبقي</div>
+                    <div class="ph-sum-value">{{ fmt(claims.net_due) }}</div>
                 </div>
             </div>
 
+            <!-- Payments Table -->
             <template v-if="claims.payments.length">
-                <div class="print-section-title">الدفعات المسددة للطبيب</div>
-                <table class="print-table">
+                <div class="ph-section-title">الدفعات المسددة للطبيب</div>
+                <table class="ph-table">
                     <thead>
                         <tr>
+                            <th>#</th>
                             <th>تاريخ الدفع</th>
                             <th>الطريقة</th>
                             <th>ملاحظات</th>
-                            <th class="ltr">المبلغ</th>
+                            <th class="num">المبلغ (ج.م)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="p in claims.payments" :key="p.id">
+                        <tr v-for="(p, i) in claims.payments" :key="p.id">
+                            <td class="center muted">{{ i + 1 }}</td>
                             <td>{{ p.paid_at }}</td>
-                            <td>{{ p.method === 'cash' ? 'نقدي' : 'تحويل بنكي' }}</td>
-                            <td>{{ p.notes ?? '—' }}</td>
-                            <td class="ltr amount">{{ fmt(p.amount) }}</td>
+                            <td><span class="ph-badge" :class="p.method === 'cash' ? 'ph-badge-green' : 'ph-badge-blue'">{{ p.method === 'cash' ? 'نقدي' : 'تحويل بنكي' }}</span></td>
+                            <td class="muted">{{ p.notes ?? '—' }}</td>
+                            <td class="num green bold">{{ fmt(p.amount) }}</td>
+                        </tr>
+                        <tr class="ph-tfoot-sub">
+                            <td colspan="4" class="bold">إجمالي الدفعات</td>
+                            <td class="num green bold">{{ fmt(claims.paid_amount) }}</td>
                         </tr>
                     </tbody>
                 </table>
             </template>
 
-            <div class="print-section-title">تفاصيل الحالات المسددة</div>
-            <table class="print-table">
+            <!-- Claims Detail Table -->
+            <div class="ph-section-title">تفاصيل الحالات</div>
+            <table class="ph-table">
                 <thead>
                     <tr>
+                        <th>#</th>
                         <th>التاريخ</th>
                         <th>رقم الملف</th>
                         <th>المريض</th>
                         <th>القسم</th>
                         <th>الخدمة</th>
-                        <th class="ltr">المدفوع</th>
-                        <th class="ltr">مستلزمات</th>
-                        <th class="ltr">مستحق الطبيب</th>
+                        <th class="num">المدفوع</th>
+                        <th class="num">مستلزمات</th>
+                        <th class="num">مستحق الطبيب</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template v-for="row in claims.rows" :key="row.booking_id">
+                    <template v-for="(row, idx) in claims.rows" :key="row.booking_id">
                         <tr>
-                            <td>{{ row.date }}</td>
-                            <td class="mono">{{ row.file_no }}</td>
-                            <td>{{ row.patient_name }}</td>
-                            <td>{{ deptLabels[row.dept] ?? row.dept }}</td>
-                            <td>{{ row.service }}</td>
-                            <td class="ltr amount">{{ fmt(row.paid) }}</td>
-                            <td class="ltr amount" :style="(row.supply_total ?? 0) > 0 ? 'color:#b45309;font-weight:700' : 'color:#9ca3af'">
+                            <td class="center muted">{{ idx + 1 }}</td>
+                            <td class="mono">{{ row.date }}</td>
+                            <td class="mono muted">{{ row.file_no }}</td>
+                            <td class="bold">{{ row.patient_name }}</td>
+                            <td><span class="ph-dept">{{ deptLabels[row.dept] ?? row.dept }}</span></td>
+                            <td class="muted">{{ row.service }}</td>
+                            <td class="num">{{ fmt(row.paid) }}</td>
+                            <td class="num" :class="(row.supply_total ?? 0) > 0 ? 'orange bold' : 'muted'">
                                 {{ (row.supply_total ?? 0) > 0 ? fmt(row.supply_total!) : '—' }}
                             </td>
-                            <td class="ltr amount bold">{{ fmt(row.dr_share) }}</td>
+                            <td class="num primary bold">{{ fmt(row.dr_share) }}</td>
                         </tr>
-                        <!-- Supply items sub-rows in print -->
-                        <template v-if="row.supplies && row.supplies.length > 0">
-                            <tr v-for="(item, i) in row.supplies" :key="`${row.booking_id}-supply-${i}`" class="supply-row">
-                                <td colspan="4" class="supply-indent">↳ {{ item.name }}</td>
-                                <td>الكمية: {{ item.qty }}</td>
-                                <td class="ltr amount" style="color:#9ca3af">{{ fmt(item.unit_cost) }} / وحدة</td>
-                                <td class="ltr amount" style="color:#b45309">{{ fmt(item.total ?? item.qty * item.unit_cost) }}</td>
-                                <td />
-                            </tr>
-                        </template>
+                        <!-- Supply sub-rows -->
+                        <tr v-if="row.supplies && row.supplies.length > 0" class="ph-supply-row">
+                            <td colspan="9" class="ph-supply-cell">
+                                <span class="ph-supply-title">مستلزمات جراحية: </span>
+                                <span v-for="(item, i) in row.supplies" :key="i" class="ph-supply-item">
+                                    {{ item.name }} × {{ item.qty }}
+                                    <span class="ph-supply-cost">{{ fmt(item.total ?? item.qty * item.unit_cost) }}</span>
+                                    <span v-if="i < (row.supplies?.length ?? 0) - 1"> — </span>
+                                </span>
+                            </td>
+                        </tr>
                     </template>
+                    <tr v-if="claims.rows.length === 0">
+                        <td colspan="9" class="center muted" style="padding:16px">لا توجد حالات في هذه الفترة</td>
+                    </tr>
                 </tbody>
                 <tfoot>
-                    <tr v-if="surgicalRows.length > 0" class="tfoot-sub">
-                        <td colspan="7">إجمالي تكاليف المستلزمات الجراحية</td>
-                        <td class="ltr amount" style="color:#b45309">{{ fmt(surgicalRows.reduce((s, r) => s + (r.supply_total ?? 0), 0)) }}</td>
+                    <tr v-if="surgicalRows.length > 0" class="ph-tfoot-sub">
+                        <td colspan="8">إجمالي تكاليف المستلزمات الجراحية</td>
+                        <td class="num orange bold">{{ fmt(surgicalRows.reduce((s, r) => s + (r.supply_total ?? 0), 0)) }}</td>
                     </tr>
-                    <tr class="tfoot-sub">
-                        <td colspan="7">إجمالي المستحقات</td>
-                        <td class="ltr amount">{{ fmt(claims.total_claims) }}</td>
+                    <tr class="ph-tfoot-sub">
+                        <td colspan="8">إجمالي مستحقات الطبيب</td>
+                        <td class="num primary bold">{{ fmt(claims.total_claims) }}</td>
                     </tr>
-                    <tr class="tfoot-sub">
-                        <td colspan="7">إجمالي المدفوع للطبيب</td>
-                        <td class="ltr amount deduct">− {{ fmt(claims.paid_amount) }}</td>
+                    <tr class="ph-tfoot-sub">
+                        <td colspan="8">إجمالي الدفعات المسددة</td>
+                        <td class="num green bold">− {{ fmt(claims.paid_amount) }}</td>
                     </tr>
-                    <tr class="tfoot-net">
-                        <td colspan="7" class="bold">الصافي المتبقي</td>
-                        <td class="ltr amount bold">{{ fmt(claims.net_due) }}</td>
+                    <tr class="ph-tfoot-net">
+                        <td colspan="8" class="bold">الصافي المستحق للطبيب</td>
+                        <td class="num bold">{{ fmt(claims.net_due) }}</td>
                     </tr>
                 </tfoot>
             </table>
 
-            <div class="print-footer">
-                طُبع بتاريخ {{ new Date().toLocaleDateString('ar-EG') }}
+            <!-- Signatures -->
+            <div class="ph-sigs">
+                <div class="ph-sig">
+                    <div class="ph-sig-line" />
+                    <div class="ph-sig-label">توقيع الطبيب</div>
+                    <div class="ph-sig-name">{{ claims.doctor.name }}</div>
+                </div>
+                <div class="ph-sig">
+                    <div class="ph-sig-line" />
+                    <div class="ph-sig-label">توقيع المحاسب</div>
+                </div>
+                <div class="ph-sig">
+                    <div class="ph-sig-line" />
+                    <div class="ph-sig-label">توقيع المدير</div>
+                </div>
             </div>
+
+            <div class="ph-footer">
+                مستشفى النور لطب وجراحة العيون &nbsp;|&nbsp; طُبع بتاريخ {{ new Date().toLocaleDateString('ar-EG') }}
+            </div>
+
         </div>
     </Teleport>
 </template>
@@ -751,93 +793,164 @@ function printInvoice() {
 .claims-slide-enter-from,
 .claims-slide-leave-to { transform: translateX(-100%); }
 
-/* ── Print ── */
+/* ── Print: hidden on screen ── */
 #dr-claims-print { display: none; }
 
 @media print {
+    @page { size: A4 portrait; margin: 14mm 16mm; }
+
     body > *:not(#dr-claims-print) { display: none !important; }
+
     #dr-claims-print {
         display: block;
-        font-family: 'Cairo', 'Segoe UI', sans-serif;
-        font-size: 12px;
-        color: #111;
+        font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+        font-size: 11.5px;
+        color: #0D1F3C;
         direction: rtl;
-        padding: 24px;
+        background: #fff;
     }
 
-    .print-header {
+    /* ── Hospital header ── */
+    .ph-header {
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        border-bottom: 2px solid #1e3a5f;
+        align-items: center;
+        gap: 14px;
         padding-bottom: 12px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
+        border-bottom: 3px solid #0A4FA6;
     }
-    .print-title  { font-size: 18px; font-weight: 700; color: #1e3a5f; }
-    .print-subtitle { font-size: 14px; font-weight: 600; margin-top: 4px; }
-    .print-period { text-align: left; font-size: 11px; color: #555; }
-    .print-period div:last-child { font-weight: 700; font-size: 13px; color: #111; margin-top: 2px; }
+    .ph-logo {
+        width: 48px; height: 48px;
+        background: #0A4FA6;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 24px;
+        flex-shrink: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .ph-hospital { flex: 1; }
+    .ph-hospital-name { font-size: 15px; font-weight: 800; color: #072E63; }
+    .ph-hospital-sub  { font-size: 10px; color: #4A5878; margin-top: 2px; }
+    .ph-doc-info { text-align: left; }
+    .ph-doc-label { font-size: 10px; color: #8A96AE; text-transform: uppercase; letter-spacing: .5px; }
+    .ph-doc-name  { font-size: 15px; font-weight: 700; color: #0A4FA6; margin-top: 2px; }
+    .ph-doc-period { font-size: 11px; color: #0D1F3C; margin-top: 3px; }
+    .ph-doc-date  { font-size: 10px; color: #8A96AE; margin-top: 2px; }
 
-    .print-summary {
+    /* ── Summary strip ── */
+    .ph-summary {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        margin-bottom: 20px;
+        gap: 10px;
+        margin-bottom: 16px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-    .print-summary-cell { border: 1px solid #ddd; border-radius: 6px; padding: 10px 14px; text-align: center; }
-    .print-summary-label { font-size: 10px; color: #666; margin-bottom: 4px; }
-    .print-summary-value { font-size: 15px; font-weight: 800; font-family: monospace; }
-    .print-summary-value.primary { color: #1e3a5f; }
-    .print-summary-value.success { color: #16a34a; }
-    .print-summary-value.danger  { color: #dc2626; }
+    .ph-sum-card {
+        border-radius: 8px;
+        padding: 10px 14px;
+        text-align: center;
+        border-right: 4px solid transparent;
+    }
+    .ph-sum-primary { background: #E8F1FB; border-right-color: #0A4FA6; }
+    .ph-sum-success { background: #E2F5EC; border-right-color: #1A8C5B; }
+    .ph-sum-danger  { background: #FDEAEA; border-right-color: #D63B3B; }
+    .ph-sum-label { font-size: 9.5px; color: #4A5878; margin-bottom: 4px; }
+    .ph-sum-value { font-size: 14px; font-weight: 800; font-family: monospace; }
+    .ph-sum-primary .ph-sum-value { color: #0A4FA6; }
+    .ph-sum-success .ph-sum-value { color: #1A8C5B; }
+    .ph-sum-danger  .ph-sum-value { color: #D63B3B; }
 
-    .print-section-title {
-        background: #1e3a5f;
+    /* ── Section title ── */
+    .ph-section-title {
+        background: #072E63;
         color: #fff;
         padding: 5px 12px;
         font-size: 11px;
         font-weight: 700;
-        margin: 16px 0 6px;
+        margin: 14px 0 5px;
         border-radius: 4px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
-    .print-table {
+    /* ── Tables ── */
+    .ph-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 11px;
-        margin-bottom: 8px;
+        font-size: 10.5px;
+        margin-bottom: 6px;
     }
-    .print-table th {
-        background: #e8f0fe;
-        color: #1e3a5f;
-        padding: 7px 10px;
+    .ph-table th {
+        background: #E8F1FB;
+        color: #072E63;
+        padding: 6px 8px;
         text-align: right;
         font-weight: 700;
-        border: 1px solid #c8d8f0;
+        border: 1px solid #C8D8F0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
-    .print-table td {
-        padding: 6px 10px;
-        border: 1px solid #e5e7eb;
-        vertical-align: top;
+    .ph-table td {
+        padding: 5px 8px;
+        border: 1px solid #DDE4EF;
+        vertical-align: middle;
     }
-    .print-table tbody tr:nth-child(even) td { background: #f9fafb; }
-    .print-table .supply-row td { background: #fffbeb; font-size: 10px; color: #92400e; }
-    .print-table .supply-indent { padding-right: 20px; color: #b45309; font-style: italic; }
-    .print-table tfoot .tfoot-sub td { background: #f1f5f9; color: #374151; font-size: 11px; border-color: #e2e8f0; }
-    .print-table tfoot .tfoot-sub .deduct { color: #16a34a; font-weight: 700; }
-    .print-table tfoot .tfoot-net td { background: #1e3a5f; color: #fff; font-weight: 700; font-size: 13px; border-color: #1e3a5f; }
-    .print-table .ltr { text-align: left; direction: ltr; }
-    .print-table .mono { font-family: monospace; font-size: 10px; }
-    .print-table .amount { font-family: monospace; }
-    .print-table .bold { font-weight: 700; }
+    .ph-table tbody tr:nth-child(even) td { background: #F8FAFD; }
+    .ph-table tbody tr { page-break-inside: avoid; }
 
-    .print-footer {
-        margin-top: 24px;
+    /* supply sub-row */
+    .ph-supply-row td { background: #FFFBEB !important; }
+    .ph-supply-cell { padding: 4px 12px !important; font-size: 10px; }
+    .ph-supply-title { font-weight: 700; color: #B45309; }
+    .ph-supply-item { color: #78350F; }
+    .ph-supply-cost { font-weight: 700; margin-right: 3px; }
+
+    /* tfoot */
+    .ph-tfoot-sub td { background: #F1F5F9; color: #374151; font-size: 10.5px; border-color: #E2E8F0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ph-tfoot-net td { background: #0A4FA6; color: #fff; font-weight: 700; font-size: 12px; border-color: #0A4FA6; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* utilities */
+    .ph-table .num   { text-align: left; direction: ltr; font-family: monospace; }
+    .ph-table .mono  { font-family: monospace; font-size: 10px; }
+    .ph-table .bold  { font-weight: 700; }
+    .ph-table .muted { color: #6B7280; }
+    .ph-table .center { text-align: center; }
+    .ph-table .primary { color: #0A4FA6; }
+    .ph-table .green   { color: #1A8C5B; }
+    .ph-table .orange  { color: #B45309; }
+
+    /* dept badge */
+    .ph-dept { background: #E8F1FB; color: #072E63; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    /* payment method badge */
+    .ph-badge { border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .ph-badge-green { background: #E2F5EC; color: #1A8C5B; }
+    .ph-badge-blue  { background: #E8F1FB; color: #0A4FA6; }
+
+    /* ── Signatures ── */
+    .ph-sigs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px dashed #DDE4EF;
+    }
+    .ph-sig { text-align: center; }
+    .ph-sig-line { height: 1px; background: #4A5878; margin-bottom: 6px; }
+    .ph-sig-label { font-size: 10px; font-weight: 700; color: #4A5878; }
+    .ph-sig-name  { font-size: 10px; color: #0A4FA6; margin-top: 2px; }
+
+    /* ── Footer ── */
+    .ph-footer {
+        margin-top: 16px;
         text-align: center;
-        font-size: 10px;
-        color: #888;
-        border-top: 1px solid #eee;
-        padding-top: 10px;
+        font-size: 9.5px;
+        color: #8A96AE;
+        border-top: 1px solid #EEF0F4;
+        padding-top: 8px;
     }
 }
 </style>

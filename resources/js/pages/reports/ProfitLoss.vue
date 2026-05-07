@@ -21,7 +21,7 @@ const props = defineProps<{
 }>();
 
 const from = ref(props.filters.from);
-const to   = ref(props.filters.to);
+const to = ref(props.filters.to);
 
 function search() {
     router.get('/reports/profit-loss', { from: from.value, to: to.value }, { preserveState: true });
@@ -39,88 +39,113 @@ function fmt(n: number) {
 <template>
     <Head title="الأرباح والخسائر" />
 
+    <!-- Page Header -->
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-t">قائمة الدخل والخسارة</h1>
+        <p class="mt-0.5 text-sm text-t3">الربح والخسارة والنتيجة المالية للفترة</p>
+    </div>
+
     <!-- Filter row -->
     <div class="mb-5 flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">من</label>
-            <input v-model="from" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+            <label class="form-label">من</label>
+            <input v-model="from" type="date" class="input-field" />
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">إلى</label>
-            <input v-model="to" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+            <label class="form-label">إلى</label>
+            <input v-model="to" type="date" class="input-field" />
         </div>
-        <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white" @click="search">🔍 حساب</button>
-        <button class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="exportExcel">📊 Excel</button>
-        <button class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="() => window.print()">🖨️ طباعة</button>
+        <button class="btn-primary self-end" @click="search">حساب</button>
+        <button class="btn-secondary self-end" @click="exportExcel">Excel</button>
+        <button class="btn-secondary self-end" @click="() => window.print()">طباعة</button>
     </div>
 
     <!-- Stats row -->
     <div class="mb-5 grid grid-cols-3 gap-4">
-        <div class="rounded-xl border border-green-100 bg-green-50 p-4 text-center">
-            <p class="text-xs font-medium text-green-600">إجمالي الإيرادات</p>
-            <p class="mt-1 text-2xl font-bold text-green-700">{{ fmt(data.totalRevenue) }}</p>
-            <p class="text-xs text-green-500">جنيه</p>
+        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sp">
+                <div class="text-lg font-bold text-s">↑</div>
+            </div>
+            <div>
+                <p class="text-xs text-t3">إجمالي الإيرادات</p>
+                <p class="text-xl font-bold text-s">{{ fmt(data.totalRevenue) }}</p>
+                <p class="text-xs text-t3">ج.م</p>
+            </div>
         </div>
-        <div class="rounded-xl border border-red-100 bg-red-50 p-4 text-center">
-            <p class="text-xs font-medium text-red-600">إجمالي المصروفات</p>
-            <p class="mt-1 text-2xl font-bold text-red-700">{{ fmt(data.totalExpense) }}</p>
-            <p class="text-xs text-red-500">جنيه</p>
+        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dp">
+                <div class="text-lg font-bold text-d">↓</div>
+            </div>
+            <div>
+                <p class="text-xs text-t3">إجمالي المصروفات</p>
+                <p class="text-xl font-bold text-d">{{ fmt(data.totalExpense) }}</p>
+                <p class="text-xs text-t3">ج.م</p>
+            </div>
         </div>
         <div
-            class="rounded-xl border p-4 text-center"
-            :class="data.netIncome >= 0 ? 'border-blue-100 bg-blue-50' : 'border-red-100 bg-red-50'"
+            class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]"
         >
-            <p class="text-xs font-medium" :class="data.netIncome >= 0 ? 'text-blue-600' : 'text-red-600'">صافي الدخل</p>
-            <p class="mt-1 text-2xl font-bold" :class="data.netIncome >= 0 ? 'text-blue-700' : 'text-red-700'">{{ fmt(data.netIncome) }}</p>
-            <p class="text-xs" :class="data.netIncome >= 0 ? 'text-blue-500' : 'text-red-500'">{{ data.netIncome >= 0 ? 'ربح' : 'خسارة' }}</p>
+            <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                :class="data.netIncome >= 0 ? 'bg-pp' : 'bg-dp'"
+            >
+                <div class="text-lg font-bold" :class="data.netIncome >= 0 ? 'text-p' : 'text-d'">
+                    {{ data.netIncome >= 0 ? '=' : '!' }}
+                </div>
+            </div>
+            <div>
+                <p class="text-xs text-t3">صافي الدخل</p>
+                <p class="text-xl font-bold" :class="data.netIncome >= 0 ? 'text-p' : 'text-d'">{{ fmt(data.netIncome) }}</p>
+                <p class="text-xs" :class="data.netIncome >= 0 ? 'text-s' : 'text-d'">{{ data.netIncome >= 0 ? 'ربح' : 'خسارة' }}</p>
+            </div>
         </div>
     </div>
 
     <!-- Revenues & Expenses 2-col -->
     <div class="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <!-- Revenues -->
-        <div class="overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-            <div class="border-b border-hospital-border bg-green-50 px-4 py-3">
-                <p class="font-semibold text-green-800">📈 الإيرادات</p>
+        <div class="overflow-hidden rounded-[var(--rl)] border border-br shadow-[var(--sh)]">
+            <div class="border-b border-br bg-sp/50 px-4 py-3">
+                <p class="font-semibold text-s">الإيرادات</p>
             </div>
             <table class="w-full text-sm">
-                <tbody class="divide-y divide-hospital-border/50">
-                    <tr v-for="(row, idx) in data.revenues" :key="idx" class="hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
-                        <td class="px-4 py-2.5 text-left font-mono font-medium text-green-700">{{ fmt(row.amount) }} ج.م</td>
+                <tbody class="divide-y divide-br/50">
+                    <tr v-for="(row, idx) in data.revenues" :key="idx" class="hover:bg-sf2">
+                        <td class="px-4 py-2.5 text-t">{{ row.name }}</td>
+                        <td class="px-4 py-2.5 text-left font-mono font-medium text-s">{{ fmt(row.amount) }} ج.م</td>
                     </tr>
                     <tr v-if="data.revenues.length === 0">
-                        <td colspan="2" class="px-4 py-4 text-center text-hospital-muted">لا توجد إيرادات</td>
+                        <td colspan="2" class="px-4 py-4 text-center text-t3">لا توجد إيرادات</td>
                     </tr>
                 </tbody>
                 <tfoot>
-                    <tr class="border-t-2 border-green-200 bg-green-50 font-bold">
-                        <td class="px-4 py-3 text-green-800">إجمالي الإيرادات</td>
-                        <td class="px-4 py-3 text-left font-mono text-green-800">{{ fmt(data.totalRevenue) }} ج.م</td>
+                    <tr class="border-t-2 border-s/30 bg-sp/30 font-bold">
+                        <td class="px-4 py-3 text-s">إجمالي الإيرادات</td>
+                        <td class="px-4 py-3 text-left font-mono text-s">{{ fmt(data.totalRevenue) }} ج.م</td>
                     </tr>
                 </tfoot>
             </table>
         </div>
 
         <!-- Expenses -->
-        <div class="overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-            <div class="border-b border-hospital-border bg-red-50 px-4 py-3">
-                <p class="font-semibold text-red-800">📉 المصروفات</p>
+        <div class="overflow-hidden rounded-[var(--rl)] border border-br shadow-[var(--sh)]">
+            <div class="border-b border-br bg-dp/50 px-4 py-3">
+                <p class="font-semibold text-d">المصروفات</p>
             </div>
             <table class="w-full text-sm">
-                <tbody class="divide-y divide-hospital-border/50">
-                    <tr v-for="(row, idx) in data.expenses" :key="idx" class="hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
-                        <td class="px-4 py-2.5 text-left font-mono font-medium text-red-700">{{ fmt(row.amount) }} ج.م</td>
+                <tbody class="divide-y divide-br/50">
+                    <tr v-for="(row, idx) in data.expenses" :key="idx" class="hover:bg-sf2">
+                        <td class="px-4 py-2.5 text-t">{{ row.name }}</td>
+                        <td class="px-4 py-2.5 text-left font-mono font-medium text-d">{{ fmt(row.amount) }} ج.م</td>
                     </tr>
                     <tr v-if="data.expenses.length === 0">
-                        <td colspan="2" class="px-4 py-4 text-center text-hospital-muted">لا توجد مصروفات</td>
+                        <td colspan="2" class="px-4 py-4 text-center text-t3">لا توجد مصروفات</td>
                     </tr>
                 </tbody>
                 <tfoot>
-                    <tr class="border-t-2 border-red-200 bg-red-50 font-bold">
-                        <td class="px-4 py-3 text-red-800">إجمالي المصروفات</td>
-                        <td class="px-4 py-3 text-left font-mono text-red-800">{{ fmt(data.totalExpense) }} ج.م</td>
+                    <tr class="border-t-2 border-d/30 bg-dp/30 font-bold">
+                        <td class="px-4 py-3 text-d">إجمالي المصروفات</td>
+                        <td class="px-4 py-3 text-left font-mono text-d">{{ fmt(data.totalExpense) }} ج.م</td>
                     </tr>
                 </tfoot>
             </table>
@@ -128,24 +153,24 @@ function fmt(n: number) {
     </div>
 
     <!-- Net Result Card -->
-    <div class="overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-        <div class="px-4 py-3" style="background: linear-gradient(135deg, #072E63, #0A4FA6)">
+    <div class="overflow-hidden rounded-[var(--rl)] border border-br shadow-[var(--sh)]">
+        <div class="bg-pd px-4 py-3">
             <p class="text-sm font-bold text-white">نتيجة الفترة المالية</p>
         </div>
-        <div class="p-6 text-center">
-            <p class="text-sm text-hospital-text-2">الفترة من {{ data.from }} إلى {{ data.to }}</p>
+        <div class="bg-sf p-6 text-center">
+            <p class="text-sm text-t2">الفترة من {{ data.from }} إلى {{ data.to }}</p>
             <p
                 class="mt-3 text-4xl font-bold"
-                :class="data.netIncome >= 0 ? 'text-hospital-success' : 'text-hospital-danger'"
+                :class="data.netIncome >= 0 ? 'text-s' : 'text-d'"
             >
                 {{ fmt(data.netIncome) }} ج.م
             </p>
-            <p
-                class="mt-2 rounded-full px-4 py-1 text-sm font-semibold inline-block"
-                :class="data.netIncome >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+            <span
+                class="mt-2 inline-block rounded-full px-4 py-1 text-sm font-semibold"
+                :class="data.netIncome >= 0 ? 'bg-sp text-s' : 'bg-dp text-d'"
             >
-                {{ data.netIncome >= 0 ? '✅ ربح' : '❌ خسارة' }}
-            </p>
+                {{ data.netIncome >= 0 ? 'ربح' : 'خسارة' }}
+            </span>
         </div>
     </div>
 </template>

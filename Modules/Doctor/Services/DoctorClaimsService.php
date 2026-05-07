@@ -13,7 +13,7 @@ class DoctorClaimsService
      * Calculate doctor's total entitlement for a period.
      * Implements all 5 fee strategies from the hospital specification.
      */
-    public function calculateClaims(string $doctorId, string $from, string $to): array
+    public function calculateClaims(string $doctorId, ?string $from, ?string $to): array
     {
         $doctor = Doctor::findOrFail($doctorId);
 
@@ -25,8 +25,8 @@ class DoctorClaimsService
         $bookings = DB::table('bookings')
             ->where('doctor_id', $doctorId)
             ->whereNotIn('status', ['cancelled'])
-            ->whereDate('visit_date', '>=', $from)
-            ->whereDate('visit_date', '<=', $to)
+            ->when($from, fn ($q) => $q->whereDate('visit_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->get();
 
         $rows = [];
@@ -147,11 +147,11 @@ class DoctorClaimsService
         return (float) $doctor->fee_value;
     }
 
-    private function buildClaimsResult(Doctor $doctor, string $from, string $to, float $total, array $rows): array
+    private function buildClaimsResult(Doctor $doctor, ?string $from, ?string $to, float $total, array $rows): array
     {
         $paymentRecords = DoctorPayment::where('doctor_id', $doctor->id)
-            ->whereDate('paid_at', '>=', $from)
-            ->whereDate('paid_at', '<=', $to)
+            ->when($from, fn ($q) => $q->whereDate('paid_at', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('paid_at', '<=', $to))
             ->orderBy('paid_at')
             ->get(['id', 'amount', 'paid_at', 'method', 'notes']);
 
@@ -183,7 +183,7 @@ class DoctorClaimsService
         ]);
     }
 
-    public function summarizeAll(string $from, string $to): array
+    public function summarizeAll(?string $from, ?string $to): array
     {
         return Doctor::where('is_active', true)
             ->orderBy('name')
