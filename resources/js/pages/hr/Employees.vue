@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { Briefcase, PlusCircle, UserCheck, UserMinus, Users } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import Modal from '@/components/shared/Modal.vue'
 
 interface Employee {
@@ -24,12 +24,13 @@ interface Employee {
 const props = defineProps<{
     employees: { data: Employee[]; current_page: number; last_page: number; total: number }
     depts: string[]
+    dept_options: string[]
     filters: { search?: string; dept?: string; status?: string }
     stats: { total: number; active: number; on_leave: number; inactive: number }
     next_employee_no: string
 }>()
 
-const deptOptions = ['الطب', 'التمريض', 'الإدارة', 'المالية', 'المخزن', 'المختبر', 'الصيانة', 'الأمن', 'الخدمات']
+const deptOptions = computed(() => props.dept_options)
 const contractOptions = [
     { value: 'full_time', label: 'دوام كامل' },
     { value: 'part_time', label: 'دوام جزئي' },
@@ -172,7 +173,7 @@ function submitEdit() {
             <input v-model="search" type="search" placeholder="بحث بالاسم أو الرقم..." class="input-field w-52" @keyup.enter="applyFilters" />
             <select v-model="deptFilter" class="input-field w-36" @change="applyFilters">
                 <option value="">كل الأقسام</option>
-                <option v-for="d in deptOptions" :key="d" :value="d">{{ d }}</option>
+                <option v-for="d in depts" :key="d" :value="d">{{ d }}</option>
             </select>
             <select v-model="statusFilter" class="input-field w-32" @change="applyFilters">
                 <option value="">كل الحالات</option>
@@ -247,6 +248,7 @@ function submitEdit() {
                 <div>
                     <label class="form-label">رقم الموظف</label>
                     <input v-model="addForm.employee_no" type="text" class="input-field" />
+                    <p v-if="addForm.errors.employee_no" class="form-error">{{ addForm.errors.employee_no }}</p>
                 </div>
                 <div>
                     <label class="form-label">الاسم <span class="text-d">*</span></label>
@@ -269,14 +271,17 @@ function submitEdit() {
                 <div>
                     <label class="form-label">الهاتف</label>
                     <input v-model="addForm.phone" type="text" class="input-field" />
+                    <p v-if="addForm.errors.phone" class="form-error">{{ addForm.errors.phone }}</p>
                 </div>
                 <div>
                     <label class="form-label">الرقم القومي</label>
                     <input v-model="addForm.national_id" type="text" class="input-field" />
+                    <p v-if="addForm.errors.national_id" class="form-error">{{ addForm.errors.national_id }}</p>
                 </div>
                 <div>
                     <label class="form-label">البريد الإلكتروني</label>
                     <input v-model="addForm.email" type="email" class="input-field" />
+                    <p v-if="addForm.errors.email" class="form-error">{{ addForm.errors.email }}</p>
                 </div>
                 <div>
                     <label class="form-label">تاريخ التعيين <span class="text-d">*</span></label>
@@ -286,10 +291,12 @@ function submitEdit() {
                 <div>
                     <label class="form-label">الراتب الأساسي (ج.م)</label>
                     <input v-model="addForm.base_salary" type="number" min="0" step="0.01" class="input-field" />
+                    <p v-if="addForm.errors.base_salary" class="form-error">{{ addForm.errors.base_salary }}</p>
                 </div>
                 <div>
                     <label class="form-label">البدلات (ج.م)</label>
                     <input v-model="addForm.allowances" type="number" min="0" step="0.01" class="input-field" />
+                    <p v-if="addForm.errors.allowances" class="form-error">{{ addForm.errors.allowances }}</p>
                 </div>
                 <div>
                     <label class="form-label">نوع العقد</label>
@@ -302,6 +309,7 @@ function submitEdit() {
                     <select v-model="addForm.status" class="input-field">
                         <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
+                    <p v-if="addForm.errors.status" class="form-error">{{ addForm.errors.status }}</p>
                 </div>
                 <div class="col-span-2">
                     <label class="form-label">ملاحظات</label>
@@ -332,46 +340,56 @@ function submitEdit() {
                         <option value="">— اختر —</option>
                         <option v-for="d in deptOptions" :key="d" :value="d">{{ d }}</option>
                     </select>
+                    <p v-if="editForm.errors.dept" class="form-error">{{ editForm.errors.dept }}</p>
                 </div>
                 <div>
                     <label class="form-label">المسمى الوظيفي <span class="text-d">*</span></label>
                     <input v-model="editForm.position" type="text" class="input-field" />
+                    <p v-if="editForm.errors.position" class="form-error">{{ editForm.errors.position }}</p>
                 </div>
                 <div>
                     <label class="form-label">الهاتف</label>
                     <input v-model="editForm.phone" type="text" class="input-field" />
+                    <p v-if="editForm.errors.phone" class="form-error">{{ editForm.errors.phone }}</p>
                 </div>
                 <div>
                     <label class="form-label">الرقم القومي</label>
                     <input v-model="editForm.national_id" type="text" class="input-field" />
+                    <p v-if="editForm.errors.national_id" class="form-error">{{ editForm.errors.national_id }}</p>
                 </div>
                 <div>
                     <label class="form-label">البريد الإلكتروني</label>
                     <input v-model="editForm.email" type="email" class="input-field" />
+                    <p v-if="editForm.errors.email" class="form-error">{{ editForm.errors.email }}</p>
                 </div>
                 <div>
                     <label class="form-label">تاريخ التعيين</label>
                     <input v-model="editForm.hire_date" type="date" class="input-field" />
+                    <p v-if="editForm.errors.hire_date" class="form-error">{{ editForm.errors.hire_date }}</p>
                 </div>
                 <div>
                     <label class="form-label">الراتب الأساسي (ج.م)</label>
                     <input v-model="editForm.base_salary" type="number" min="0" step="0.01" class="input-field" />
+                    <p v-if="editForm.errors.base_salary" class="form-error">{{ editForm.errors.base_salary }}</p>
                 </div>
                 <div>
                     <label class="form-label">البدلات (ج.م)</label>
                     <input v-model="editForm.allowances" type="number" min="0" step="0.01" class="input-field" />
+                    <p v-if="editForm.errors.allowances" class="form-error">{{ editForm.errors.allowances }}</p>
                 </div>
                 <div>
                     <label class="form-label">نوع العقد</label>
                     <select v-model="editForm.contract_type" class="input-field">
                         <option v-for="c in contractOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
                     </select>
+                    <p v-if="editForm.errors.contract_type" class="form-error">{{ editForm.errors.contract_type }}</p>
                 </div>
                 <div>
                     <label class="form-label">الحالة</label>
                     <select v-model="editForm.status" class="input-field">
                         <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
+                    <p v-if="editForm.errors.status" class="form-error">{{ editForm.errors.status }}</p>
                 </div>
                 <div class="col-span-2">
                     <label class="form-label">ملاحظات</label>

@@ -165,17 +165,11 @@ function groupHasActive(group: NavGroup): boolean {
     return group.items.some((item) => isActive(item.href));
 }
 
-// Collapsible state — open groups by label
+// Collapsible state — open all groups by default
 const openGroups = ref<Set<string>>(new Set(
-    navGroups
-        .filter((g) => g.items.some((item) => isActive(item.href)) || g.label === 'الرئيسية')
-        .map((g) => g.label)
+    navGroups.map((g) => g.label)
 ));
 
-// If nothing active yet (fresh load), open first two groups
-if (openGroups.value.size <= 1) {
-    openGroups.value.add(navGroups[1]?.label ?? '');
-}
 
 function toggleGroup(label: string) {
     if (openGroups.value.has(label)) {
@@ -191,55 +185,58 @@ function isOpen(label: string): boolean {
 </script>
 
 <template>
-    <nav class="nav flex flex-col py-2 overflow-y-auto h-full" dir="rtl">
+    <nav class="nav flex flex-col py-3 overflow-y-auto flex-1 select-none" dir="rtl">
         <template v-for="group in visibleGroups" :key="group.label">
             <!-- Group Header -->
             <button
-                class="group-header flex w-full items-center gap-2 px-3 py-2 mt-1 text-right transition-colors hover:text-white/80"
-                :class="groupHasActive(group) ? 'text-white/70' : 'text-white/35'"
+                class="group-header flex w-full items-center gap-2.5 px-4 py-2.5 mt-2 text-right transition-all duration-200 hover:text-white"
+                :class="groupHasActive(group) ? 'text-white/80' : 'text-white/40'"
                 @click="toggleGroup(group.label)"
             >
-                <component :is="group.icon" class="h-3 w-3 shrink-0" />
-                <span class="flex-1 text-[9.5px] font-bold uppercase tracking-[0.9px]">{{ group.label }}</span>
+                <component :is="group.icon" class="h-4 w-4 shrink-0 transition-colors" />
+                <span class="flex-1 text-[11px] font-bold uppercase tracking-[1px]">{{ group.label }}</span>
                 <ChevronDown
-                    class="h-3 w-3 shrink-0 transition-transform duration-200"
-                    :class="isOpen(group.label) ? 'rotate-0' : 'rotate-90'"
+                    class="h-3.5 w-3.5 shrink-0 transition-transform duration-300"
+                    :class="isOpen(group.label) ? 'rotate-0' : 'rotate-180 opacity-40'"
                 />
             </button>
 
             <!-- Items -->
             <div
-                class="overflow-hidden transition-all duration-200 ease-in-out"
-                :class="isOpen(group.label) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'"
+                v-if="isOpen(group.label)"
+                class="flex flex-col gap-0.5 mt-1"
             >
                 <Link
                     v-for="item in group.items"
                     :key="item.href"
                     :href="item.href"
-                    class="nav-item relative mx-2 mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-[7px] text-[12.5px] transition-all duration-150"
+                    class="nav-item relative mx-2 mb-0.5 flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] transition-all duration-200"
                     :class="isActive(item.href)
-                        ? 'bg-white/14 font-semibold text-white shadow-sm'
-                        : 'text-white/55 hover:bg-white/8 hover:text-white/90'"
+                        ? 'bg-white/15 font-bold text-white shadow-sm'
+                        : 'text-white/60 hover:bg-white/10 hover:text-white'"
                 >
                     <!-- Active accent bar -->
                     <div
                         v-if="isActive(item.href)"
-                        class="absolute inset-y-1.5 right-0 w-[3px] rounded-l-full bg-hospital-accent"
+                        class="absolute inset-y-2 right-0 w-[3px] rounded-l-full bg-hospital-accent shadow-[0_0_8px_rgba(0,181,164,0.3)]"
                     />
 
                     <component
                         :is="item.icon"
-                        class="h-[15px] w-[15px] shrink-0 transition-colors"
-                        :class="isActive(item.href) ? 'text-hospital-accent' : 'opacity-60'"
+                        class="h-[17px] w-[17px] shrink-0 transition-colors"
+                        :class="isActive(item.href) ? 'text-hospital-accent' : 'opacity-50'"
                     />
                     <span class="truncate">{{ item.title }}</span>
                 </Link>
             </div>
+
+
         </template>
 
         <!-- Bottom padding -->
-        <div class="h-2" />
+        <div class="h-6 shrink-0" />
     </nav>
+
 </template>
 
 <style scoped>
@@ -248,17 +245,17 @@ function isOpen(label: string): boolean {
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 .nav::-webkit-scrollbar {
-    width: 3px;
+    width: 5px;
 }
 .nav::-webkit-scrollbar-track {
     background: transparent;
 }
 .nav::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
 }
 .nav::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.3);
 }
 .group-header {
     cursor: pointer;

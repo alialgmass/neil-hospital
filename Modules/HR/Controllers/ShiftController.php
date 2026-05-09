@@ -4,10 +4,10 @@ namespace Modules\HR\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\HR\Models\ShiftHandover;
+use Modules\HR\Requests\StoreShiftRequest;
 use Modules\HR\Services\HRService;
 
 class ShiftController extends Controller
@@ -27,30 +27,16 @@ class ShiftController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreShiftRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:50'],
-            'start_time' => ['required', 'string'],
-            'end_time' => ['required', 'string'],
-            'is_active' => ['boolean'],
-        ]);
-
-        $this->hr->createShift($data);
+        $this->hr->createShift($request->validated());
 
         return back()->with('success', 'تم إضافة الوردية بنجاح.');
     }
 
-    public function update(Request $request, string $id): RedirectResponse
+    public function update(StoreShiftRequest $request, string $id): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:50'],
-            'start_time' => ['required', 'string'],
-            'end_time' => ['required', 'string'],
-            'is_active' => ['boolean'],
-        ]);
-
-        $this->hr->updateShift($id, $data);
+        $this->hr->updateShift($id, $request->validated());
 
         return back()->with('success', 'تم تعديل الوردية بنجاح.');
     }

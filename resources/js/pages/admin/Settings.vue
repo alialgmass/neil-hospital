@@ -146,6 +146,41 @@ function val(key: string): string {
             </div>
         </div>
 
+        <!-- ── HR Payroll Settings ── -->
+        <div class="settings-section">
+            <div class="settings-title">👥 إعدادات الموارد البشرية</div>
+            <div class="settings-grid">
+                <div class="fg">
+                    <label>أيام العمل في الشهر</label>
+                    <input v-model="form['hr_working_days']" type="number" min="20" max="31" class="s-input" placeholder="26" />
+                    <span class="s-hint">المعيار وفق قانون العمل المصري: 26 يوم</span>
+                </div>
+                <div class="fg">
+                    <label>ساعات العمل في اليوم</label>
+                    <input v-model="form['hr_hours_per_day']" type="number" min="4" max="12" class="s-input" placeholder="8" />
+                </div>
+                <div class="fg">
+                    <label>معامل الوقت الإضافي</label>
+                    <input v-model="form['hr_overtime_multiplier']" type="number" min="1" max="3" step="0.1" class="s-input" placeholder="1.5" />
+                    <span class="s-hint">1.5 = وقت ونصف</span>
+                </div>
+                <div class="fg">
+                    <label>نسبة خصم التأخير % من اليوم</label>
+                    <input v-model="form['hr_late_deduction_pct']" type="number" min="0" max="100" class="s-input" placeholder="25" />
+                    <span class="s-hint">25 = خصم ربع يوم عند التأخير</span>
+                </div>
+                <div class="fg col-span-2">
+                    <label>نسبة خصم نصف اليوم % من اليوم</label>
+                    <input v-model="form['hr_half_day_deduction_pct']" type="number" min="0" max="100" class="s-input" placeholder="50" />
+                </div>
+                <div class="fg col-span-2">
+                    <label>أقسام الموارد البشرية</label>
+                    <input v-model="form['hr_departments']" type="text" class="s-input" placeholder="العيادة,التمريض,الإدارة,..." />
+                    <span class="s-hint">أدخل الأقسام مفصولةً بفاصلة — تُستخدم في قوائم اختيار الموظفين</span>
+                </div>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -196,6 +231,11 @@ function val(key: string): string {
     outline: none;
     border-color: var(--color-hospital-primary, #0A4FA6);
     box-shadow: 0 0 0 3px rgba(10, 79, 166, 0.08);
+}
+.s-hint {
+    font-size: 10px;
+    color: var(--color-hospital-text-3, #8A96AE);
+    margin-top: 2px;
 }
 .info-box {
     display: flex;

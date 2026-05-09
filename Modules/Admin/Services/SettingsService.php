@@ -16,6 +16,13 @@ class SettingsService
             ->keyBy('key');
     }
 
+    public function get(string $key, mixed $default = null): mixed
+    {
+        $row = DB::table('settings')->where('key', $key)->value('value');
+
+        return $row ?? $default;
+    }
+
     public function updateBulk(array $settings): void
     {
         foreach ($settings as $setting) {

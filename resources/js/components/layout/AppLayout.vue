@@ -9,15 +9,37 @@
 import HospitalSidebar from '@/components/layout/Sidebar.vue';
 import HospitalTopbar from '@/components/layout/Topbar.vue';
 import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'vue-sonner';
 import { usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import type { Auth } from '@/types';
 
-const page = usePage<{ auth: Auth }>();
+interface PageProps {
+    auth: Auth;
+    flash: {
+        success: string | null;
+        error: string | null;
+        warning: string | null;
+        info: string | null;
+    };
+}
+
+const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user);
 const userName = computed(() => user.value?.name ?? 'المستخدم');
 const userRole = computed(() => user.value?.role ?? 'مسؤول');
 const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
+
+watch(
+    () => page.props.flash,
+    (flash) => {
+        if (flash.success) toast.success(flash.success);
+        if (flash.error) toast.error(flash.error);
+        if (flash.warning) toast.warning(flash.warning);
+        if (flash.info) toast.info(flash.info);
+    },
+    { deep: true, immediate: true }
+);
 </script>
 
 <template>
@@ -43,7 +65,7 @@ const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
             </div>
 
             <!-- Navigation -->
-            <div class="flex-1 overflow-y-auto z-10">
+            <div class="flex-1 z-10 flex flex-col min-h-0 overflow-hidden">
                 <HospitalSidebar />
             </div>
 

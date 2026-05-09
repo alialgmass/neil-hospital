@@ -5,6 +5,7 @@ namespace Modules\HR\Services;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
 use Modules\HR\Enums\EmployeeStatus;
 use Modules\HR\Enums\HandoverStatus;
@@ -19,6 +20,7 @@ use Modules\HR\Models\ShiftHandover;
 
 class HRService
 {
+    public function __construct(private readonly SettingsService $settings) {}
     // ── Employees ──────────────────────────────────────────────────────────
 
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
@@ -241,21 +243,32 @@ class HRService
         ];
     }
 
+    public function getDepartments(): array
+    {
+        $raw = $this->settings->get('hr_departments', 'العيادة,التمريض,الإدارة,المالية,المخزن,المختبر,الاستقبال,الصيانة,الأمن,الخدمات');
+
+        return array_filter(array_map('trim', explode(',', $raw)));
+    }
+
     private function computeFromAttendance(float $base, array $summary): array
     {
-        // Egyptian labour law standard: 26 working days/month
-        $workingDays = 26;
+        $workingDays = (int) $this->settings->get('hr_working_days', 26);
+        $hoursPerDay = (int) $this->settings->get('hr_hours_per_day', 8);
+        $overtimeMult = (float) $this->settings->get('hr_overtime_multiplier', 1.5);
+        $latePct = (float) $this->settings->get('hr_late_deduction_pct', 25) / 100;
+        $halfDayPct = (float) $this->settings->get('hr_half_day_deduction_pct', 50) / 100;
+
         $dailyRate = $workingDays > 0 ? $base / $workingDays : 0;
-        $hourlyRate = $dailyRate / 8;
+        $hourlyRate = $hoursPerDay > 0 ? $dailyRate / $hoursPerDay : 0;
 
         $deductions = round(
             ($summary['absent'] * $dailyRate) +
-            ($summary['half_day'] * $dailyRate * 0.5) +
-            ($summary['late'] * $dailyRate * 0.25),
+            ($summary['half_day'] * $dailyRate * $halfDayPct) +
+            ($summary['late'] * $dailyRate * $latePct),
             2
         );
 
-        $overtimePay = round($summary['overtime_hours'] * $hourlyRate * 1.5, 2);
+        $overtimePay = round($summary['overtime_hours'] * $hourlyRate * $overtimeMult, 2);
 
         return ['overtime_pay' => $overtimePay, 'deductions' => $deductions];
     }

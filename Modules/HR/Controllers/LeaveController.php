@@ -4,10 +4,11 @@ namespace Modules\HR\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\HR\Enums\LeaveStatus;
 use Modules\HR\Models\Leave;
+use Modules\HR\Requests\StoreLeaveRequest;
 use Modules\HR\Services\HRService;
 
 class LeaveController extends Controller
@@ -19,10 +20,10 @@ class LeaveController extends Controller
         $filters = request()->only(['employee_id', 'type', 'status']);
 
         $stats = [
-            'pending' => Leave::where('status', 'pending')->count(),
-            'approved' => Leave::where('status', 'approved')->count(),
-            'rejected' => Leave::where('status', 'rejected')->count(),
-            'total_days' => (int) Leave::where('status', 'approved')->sum('days'),
+            'pending' => Leave::where('status', LeaveStatus::Pending)->count(),
+            'approved' => Leave::where('status', LeaveStatus::Approved)->count(),
+            'rejected' => Leave::where('status', LeaveStatus::Rejected)->count(),
+            'total_days' => (int) Leave::where('status', LeaveStatus::Approved)->sum('days'),
         ];
 
         return Inertia::render('hr/Leaves', [
@@ -33,18 +34,9 @@ class LeaveController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreLeaveRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'employee_id' => ['required', 'exists:employees,id'],
-            'type' => ['required', 'string'],
-            'from_date' => ['required', 'date'],
-            'to_date' => ['required', 'date', 'gte:from_date'],
-            'reason' => ['nullable', 'string'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        $this->hr->createLeave($data);
+        $this->hr->createLeave($request->validated());
 
         return back()->with('success', 'تم تسجيل الإجازة بنجاح.');
     }

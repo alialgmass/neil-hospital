@@ -1,0 +1,74 @@
+<?php
+
+namespace Tests\Feature\HR;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\HR\Models\Employee;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
+class EmployeeStoreTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Permission::firstOrCreate(['name' => 'hr.manage']);
+        $role = Role::firstOrCreate(['name' => 'admin']);
+        $role->givePermissionTo('hr.manage');
+
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('admin');
+    }
+
+    public function test_admin_can_store_employee(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'name'          => 'أحمد محمد',
+            'dept'          => 'التمريض',
+            'position'      => 'ممرض',
+            'hire_date'     => '2026-01-01',
+            'contract_type' => 'full_time',
+            'status'        => 'active',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('employees', ['name' => 'أحمد محمد']);
+    }
+
+    public function test_store_defaults_salary_to_zero_when_empty(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'name'          => 'فاطمة علي',
+            'dept'          => 'الإدارة',
+            'position'      => 'سكرتيرة',
+            'hire_date'     => '2026-01-01',
+            'base_salary'   => '',
+            'allowances'    => '',
+            'contract_type' => 'full_time',
+            'status'        => 'active',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('employees', ['name' => 'فاطمة علي', 'base_salary' => 0]);
+    }
+
+    public function test_store_requires_name(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'dept'          => 'التمريض',
+            'position'      => 'ممرض',
+            'hire_date'     => '2026-01-01',
+            'contract_type' => 'full_time',
+            'status'        => 'active',
+        ]);
+
+        $response->assertSessionHasErrors('name');
+    }
+}

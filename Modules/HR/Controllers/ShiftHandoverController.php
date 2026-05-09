@@ -4,10 +4,11 @@ namespace Modules\HR\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\HR\Enums\HandoverStatus;
 use Modules\HR\Models\ShiftHandover;
+use Modules\HR\Requests\StoreHandoverRequest;
 use Modules\HR\Services\HRService;
 
 class ShiftHandoverController extends Controller
@@ -20,8 +21,8 @@ class ShiftHandoverController extends Controller
 
         $stats = [
             'today' => ShiftHandover::whereDate('handover_date', today())->count(),
-            'pending' => ShiftHandover::where('status', 'pending')->count(),
-            'accepted' => ShiftHandover::where('status', 'accepted')->count(),
+            'pending' => ShiftHandover::where('status', HandoverStatus::Pending)->count(),
+            'accepted' => ShiftHandover::where('status', HandoverStatus::Accepted)->count(),
         ];
 
         return Inertia::render('hr/ShiftHandover', [
@@ -33,19 +34,9 @@ class ShiftHandoverController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreHandoverRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'shift_id' => ['required', 'exists:shifts,id'],
-            'from_employee_id' => ['required', 'exists:employees,id'],
-            'to_employee_id' => ['required', 'exists:employees,id', 'different:from_employee_id'],
-            'handover_date' => ['required', 'date'],
-            'handover_time' => ['nullable', 'string'],
-            'cash_amount' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
-        ]);
-
-        $this->hr->createHandover($data);
+        $this->hr->createHandover($request->validated());
 
         return back()->with('success', 'تم تسجيل تسليم الوردية بنجاح.');
     }
