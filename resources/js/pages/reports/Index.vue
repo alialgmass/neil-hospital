@@ -3,16 +3,19 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     BarChart3,
+    Banknote,
     BookOpen,
     Building2,
     Calculator,
     Calendar,
+    CalendarCheck,
     Download,
     FileText,
     Package,
     Scissors,
     TrendingDown,
     TrendingUp,
+    UmbrellaOff,
     Users,
     Wallet,
 } from 'lucide-vue-next';
@@ -58,6 +61,16 @@ const categories = [
             { title: 'حركة المخزون',              desc: 'الوارد والصادر من المواد والمستلزمات',    href: '/reports/inventory-movement',  icon: Package },
             { title: 'أسعار الشراء',              desc: 'متوسطات ونطاق أسعار المشتريات',          href: '/reports/purchase-prices',     icon: Download },
             { title: 'تقرير انتهاء الصلاحية',    desc: 'أصناف منتهية أو قاربت على الانتهاء',     href: '/reports/expiry',              icon: AlertTriangle },
+        ],
+    },
+    {
+        label: 'الموارد البشرية',
+        textColor: 'text-hospital-primary',
+        iconBg: 'bg-pp',
+        reports: [
+            { title: 'تقرير الحضور والانصراف',   desc: 'سجل حضور وانصراف الموظفين للفترة المحددة',   href: '/reports/hr-attendance', icon: CalendarCheck },
+            { title: 'تقرير الإجازات',            desc: 'سجل إجازات الموظفين وحالة كل طلب',           href: '/reports/hr-leaves',     icon: UmbrellaOff },
+            { title: 'كشف الرواتب',               desc: 'ملخص رواتب الموظفين وخصوماتهم للشهر',        href: '/reports/hr-payroll',    icon: Banknote },
         ],
     },
 ];

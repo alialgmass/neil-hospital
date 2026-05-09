@@ -118,9 +118,6 @@ const navGroups: NavGroup[] = [
             { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view' },
             { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view' },
             { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage' },
-            { title: 'تقرير الحضور', href: '/reports/hr-attendance', icon: CalendarCheck, permission: 'hr.view' },
-            { title: 'تقرير الإجازات', href: '/reports/hr-leaves', icon: UmbrellaOff, permission: 'hr.view' },
-            { title: 'تقرير الرواتب', href: '/reports/hr-payroll', icon: Banknote, permission: 'hr.manage' },
         ],
     },
     {
