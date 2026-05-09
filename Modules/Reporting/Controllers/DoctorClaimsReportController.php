@@ -18,7 +18,7 @@ class DoctorClaimsReportController extends Controller
 
     public function __invoke(Request $request): Response
     {
-        $from = $request->input('from', today()->startOfMonth()->toDateString());
+        $from = $request->input('from', today()->subDays(30)->toDateString());
         $to = $request->input('to', today()->toDateString());
         $doctorId = $request->input('doctor_id');
 
@@ -30,7 +30,7 @@ class DoctorClaimsReportController extends Controller
 
     public function export(Request $request)
     {
-        $from = $request->input('from', today()->startOfMonth()->toDateString());
+        $from = $request->input('from', today()->subDays(30)->toDateString());
         $to = $request->input('to', today()->toDateString());
         $doctorId = $request->input('doctor_id');
 

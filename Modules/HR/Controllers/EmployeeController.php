@@ -34,7 +34,7 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request)
     {
         $data = $request->validate([
             'employee_no' => ['nullable', 'string', 'max:20', 'unique:employees,employee_no'],
@@ -58,7 +58,7 @@ class EmployeeController extends Controller
 
         $this->hr->createEmployee($data);
 
-        return back()->with('success', 'تم إضافة الموظف بنجاح.');
+        return response()->json([]);
     }
 
     public function update(Request $request, string $id): RedirectResponse

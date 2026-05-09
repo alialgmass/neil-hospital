@@ -8,18 +8,18 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Reporting\Services\ReportingService;
 
-class ExpenseAnalysisController extends Controller
+class HRPayrollReportController extends Controller
 {
     public function __construct(private readonly ReportingService $reportingService) {}
 
     public function __invoke(Request $request): Response
     {
-        $from = $request->input('from', today()->subDays(30)->toDateString());
-        $to = $request->input('to', today()->toDateString());
+        $month = (int) $request->input('month', today()->month);
+        $year = (int) $request->input('year', today()->year);
 
-        return Inertia::render('reports/ExpenseAnalysis', [
-            'data' => $this->reportingService->expenseAnalysis($from, $to),
-            'filters' => compact('from', 'to'),
+        return Inertia::render('reports/HRPayroll', [
+            'data' => $this->reportingService->hrPayroll($month, $year),
+            'filters' => compact('month', 'year'),
         ]);
     }
 }

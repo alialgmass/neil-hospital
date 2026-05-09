@@ -27,7 +27,7 @@ class ReportController extends Controller
 
     public function income(): Response
     {
-        $from = request('from', today()->startOfMonth()->toDateString());
+        $from = request('from', today()->subDays(30)->toDateString());
         $to = request('to', today()->toDateString());
 
         return Inertia::render('reports/Income', [

@@ -252,7 +252,116 @@ class ReportingService
         return compact('rows', 'total', 'from', 'to');
     }
 
-    // 10. System Log Report
+    // 10. HR Attendance Report
+    public function hrAttendance(string $from, string $to, ?string $employeeId = null): array
+    {
+        $rows = DB::table('attendances')
+            ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+            ->leftJoin('shifts', 'attendances.shift_id', '=', 'shifts.id')
+            ->select(
+                'employees.name as employee_name',
+                'employees.employee_no',
+                'employees.dept',
+                'attendances.date',
+                'attendances.status',
+                'attendances.check_in',
+                'attendances.check_out',
+                'attendances.overtime_hours',
+                'shifts.name as shift_name',
+            )
+            ->when($employeeId, fn ($q, $v) => $q->where('attendances.employee_id', $v))
+            ->whereBetween('attendances.date', [$from, $to])
+            ->orderByDesc('attendances.date')
+            ->orderBy('employees.name')
+            ->get()
+            ->toArray();
+
+        $summary = [
+            'present' => collect($rows)->where('status', 'present')->count(),
+            'absent' => collect($rows)->where('status', 'absent')->count(),
+            'late' => collect($rows)->where('status', 'late')->count(),
+            'half_day' => collect($rows)->where('status', 'half_day')->count(),
+            'on_leave' => collect($rows)->where('status', 'on_leave')->count(),
+            'overtime_hours' => (float) collect($rows)->sum('overtime_hours'),
+        ];
+
+        return compact('rows', 'summary', 'from', 'to');
+    }
+
+    // 11. HR Payroll Report
+    public function hrPayroll(int $month, int $year): array
+    {
+        $rows = DB::table('payrolls')
+            ->join('employees', 'payrolls.employee_id', '=', 'employees.id')
+            ->select(
+                'employees.name as employee_name',
+                'employees.employee_no',
+                'employees.dept',
+                'employees.position',
+                'payrolls.month',
+                'payrolls.year',
+                'payrolls.base_salary',
+                'payrolls.allowances',
+                'payrolls.overtime_pay',
+                'payrolls.deductions',
+                'payrolls.net_salary',
+                'payrolls.status',
+                'payrolls.paid_at',
+            )
+            ->where('payrolls.month', $month)
+            ->where('payrolls.year', $year)
+            ->orderBy('employees.dept')
+            ->orderBy('employees.name')
+            ->get()
+            ->toArray();
+
+        $totals = [
+            'base_salary' => array_sum(array_column($rows, 'base_salary')),
+            'allowances' => array_sum(array_column($rows, 'allowances')),
+            'overtime_pay' => array_sum(array_column($rows, 'overtime_pay')),
+            'deductions' => array_sum(array_column($rows, 'deductions')),
+            'net_salary' => array_sum(array_column($rows, 'net_salary')),
+            'paid_count' => collect($rows)->where('status', 'paid')->count(),
+            'draft_count' => collect($rows)->where('status', 'draft')->count(),
+        ];
+
+        return compact('rows', 'totals', 'month', 'year');
+    }
+
+    // 12. HR Leaves Report
+    public function hrLeaves(string $from, string $to, ?string $employeeId = null, ?string $type = null): array
+    {
+        $rows = DB::table('hr_leaves')
+            ->join('employees', 'hr_leaves.employee_id', '=', 'employees.id')
+            ->select(
+                'employees.name as employee_name',
+                'employees.employee_no',
+                'employees.dept',
+                'hr_leaves.type',
+                'hr_leaves.from_date',
+                'hr_leaves.to_date',
+                'hr_leaves.days',
+                'hr_leaves.status',
+                'hr_leaves.reason',
+            )
+            ->when($employeeId, fn ($q, $v) => $q->where('hr_leaves.employee_id', $v))
+            ->when($type, fn ($q, $v) => $q->where('hr_leaves.type', $v))
+            ->whereBetween('hr_leaves.from_date', [$from, $to])
+            ->orderByDesc('hr_leaves.from_date')
+            ->get()
+            ->toArray();
+
+        $summary = [
+            'total_days' => (int) collect($rows)->sum('days'),
+            'approved' => collect($rows)->where('status', 'approved')->count(),
+            'pending' => collect($rows)->where('status', 'pending')->count(),
+            'rejected' => collect($rows)->where('status', 'rejected')->count(),
+        ];
+
+        return compact('rows', 'summary', 'from', 'to');
+    }
+
+    // 13. System Log Report
     public function systemLog(string $from, string $to, ?string $module = null): array
     {
         $rows = DB::table('activity_logs')

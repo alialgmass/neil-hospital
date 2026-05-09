@@ -14,7 +14,7 @@ class PurchasePriceReportController extends Controller
 
     public function __invoke(Request $request): Response
     {
-        $from = $request->input('from', today()->startOfMonth()->toDateString());
+        $from = $request->input('from', today()->subDays(30)->toDateString());
         $to = $request->input('to', today()->toDateString());
 
         return Inertia::render('reports/PurchasePrices', [
