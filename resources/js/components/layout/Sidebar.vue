@@ -35,13 +35,12 @@ import {
     ArrowLeftRight,
     UmbrellaOff,
     Banknote,
+    ChevronDown,
+    HeartPulse,
+    BadgeDollarSign,
+    Package,
 } from 'lucide-vue-next';
-import { computed } from 'vue';
-
-interface NavGroup {
-    label: string;
-    items: NavEntry[];
-}
+import { computed, ref } from 'vue';
 
 interface NavEntry {
     title: string;
@@ -50,23 +49,30 @@ interface NavEntry {
     permission?: string;
 }
 
+interface NavGroup {
+    label: string;
+    icon: unknown;
+    items: NavEntry[];
+}
+
 const page = usePage<{ permissions?: string[] }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 
 function can(permission: string): boolean {
-    // admin has all permissions
     return permissions.value.includes('*') || permissions.value.includes(permission);
 }
 
 const navGroups: NavGroup[] = [
     {
         label: 'الرئيسية',
+        icon: LayoutDashboard,
         items: [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard, permission: 'dashboard' },
         ],
     },
     {
         label: 'الأقسام الطبية',
+        icon: HeartPulse,
         items: [
             { title: 'الحجز', href: '/booking', icon: CalendarPlus, permission: 'booking.view' },
             { title: 'العيادة', href: '/clinic', icon: Stethoscope, permission: 'clinic.view' },
@@ -78,6 +84,7 @@ const navGroups: NavGroup[] = [
     },
     {
         label: 'الأطباء',
+        icon: UserCog,
         items: [
             { title: 'إدارة الأطباء', href: '/doctors', icon: UserCog, permission: 'doctors.view' },
             { title: 'مستحقات الأطباء', href: '/dr-claims', icon: Calculator, permission: 'drpayments.view' },
@@ -86,6 +93,7 @@ const navGroups: NavGroup[] = [
     },
     {
         label: 'المالية',
+        icon: BadgeDollarSign,
         items: [
             { title: 'الخزنة', href: '/treasury', icon: Wallet, permission: 'treasury.view' },
             { title: 'قيود اليومية', href: '/journal', icon: BookOpen, permission: 'journal.view' },
@@ -98,6 +106,7 @@ const navGroups: NavGroup[] = [
     },
     {
         label: 'المخزن والخدمات',
+        icon: Package,
         items: [
             { title: 'الخدمات والأسعار', href: '/services', icon: Tags, permission: 'services.view' },
             { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view' },
@@ -111,6 +120,7 @@ const navGroups: NavGroup[] = [
     },
     {
         label: 'الموارد البشرية',
+        icon: Users,
         items: [
             { title: 'الموظفون', href: '/employees', icon: UserSquare2, permission: 'hr.view' },
             { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck, permission: 'hr.view' },
@@ -122,6 +132,7 @@ const navGroups: NavGroup[] = [
     },
     {
         label: 'الإدارة',
+        icon: Settings,
         items: [
             { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial' },
             { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical' },
@@ -145,49 +156,113 @@ const currentPath = computed(() => page.url);
 
 function isActive(href: string): boolean {
     if (href === '/dashboard') {
-return currentPath.value === '/dashboard';
+        return currentPath.value === '/dashboard';
+    }
+    return currentPath.value.startsWith(href);
 }
 
-    return currentPath.value.startsWith(href);
+function groupHasActive(group: NavGroup): boolean {
+    return group.items.some((item) => isActive(item.href));
+}
+
+// Collapsible state — open groups by label
+const openGroups = ref<Set<string>>(new Set(
+    navGroups
+        .filter((g) => g.items.some((item) => isActive(item.href)) || g.label === 'الرئيسية')
+        .map((g) => g.label)
+));
+
+// If nothing active yet (fresh load), open first two groups
+if (openGroups.value.size <= 1) {
+    openGroups.value.add(navGroups[1]?.label ?? '');
+}
+
+function toggleGroup(label: string) {
+    if (openGroups.value.has(label)) {
+        openGroups.value.delete(label);
+    } else {
+        openGroups.value.add(label);
+    }
+}
+
+function isOpen(label: string): boolean {
+    return openGroups.value.has(label);
 }
 </script>
 
 <template>
-    <nav class="flex flex-col gap-0.5 px-0 py-2 overflow-y-auto h-full nav">
+    <nav class="nav flex flex-col py-2 overflow-y-auto h-full" dir="rtl">
         <template v-for="group in visibleGroups" :key="group.label">
-            <p class="px-4 pt-4 pb-1 text-[9px] font-bold uppercase tracking-[0.8px] text-white/30 nav-lbl">
-                {{ group.label }}
-            </p>
-            <Link
-                v-for="item in group.items"
-                :key="item.href"
-                :href="item.href"
-                :class="[
-                    'nav-item group relative flex items-center gap-2.5 px-4 py-2 text-[12.5px] transition-all duration-150',
-                    isActive(item.href)
-                        ? 'active bg-white/12 font-semibold text-white'
-                        : 'text-white/60 hover:bg-white/7 hover:text-white',
-                ]"
+            <!-- Group Header -->
+            <button
+                class="group-header flex w-full items-center gap-2 px-3 py-2 mt-1 text-right transition-colors hover:text-white/80"
+                :class="groupHasActive(group) ? 'text-white/70' : 'text-white/35'"
+                @click="toggleGroup(group.label)"
             >
-                <!-- Active Indicator -->
-                <div 
-                    v-if="isActive(item.href)" 
-                    class="absolute inset-y-1.5 right-0 w-[3px] rounded-l-sm bg-hospital-accent"
-                ></div>
+                <component :is="group.icon" class="h-3 w-3 shrink-0" />
+                <span class="flex-1 text-[9.5px] font-bold uppercase tracking-[0.9px]">{{ group.label }}</span>
+                <ChevronDown
+                    class="h-3 w-3 shrink-0 transition-transform duration-200"
+                    :class="isOpen(group.label) ? 'rotate-0' : 'rotate-90'"
+                />
+            </button>
 
-                <component :is="item.icon" class="nav-icon h-4 w-4 shrink-0 opacity-80" />
-                <span>{{ item.title }}</span>
-            </Link>
+            <!-- Items -->
+            <div
+                class="overflow-hidden transition-all duration-200 ease-in-out"
+                :class="isOpen(group.label) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'"
+            >
+                <Link
+                    v-for="item in group.items"
+                    :key="item.href"
+                    :href="item.href"
+                    class="nav-item relative mx-2 mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-[7px] text-[12.5px] transition-all duration-150"
+                    :class="isActive(item.href)
+                        ? 'bg-white/14 font-semibold text-white shadow-sm'
+                        : 'text-white/55 hover:bg-white/8 hover:text-white/90'"
+                >
+                    <!-- Active accent bar -->
+                    <div
+                        v-if="isActive(item.href)"
+                        class="absolute inset-y-1.5 right-0 w-[3px] rounded-l-full bg-hospital-accent"
+                    />
+
+                    <component
+                        :is="item.icon"
+                        class="h-[15px] w-[15px] shrink-0 transition-colors"
+                        :class="isActive(item.href) ? 'text-hospital-accent' : 'opacity-60'"
+                    />
+                    <span class="truncate">{{ item.title }}</span>
+                </Link>
+            </div>
         </template>
+
+        <!-- Bottom padding -->
+        <div class="h-2" />
     </nav>
 </template>
 
 <style scoped>
+.nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
 .nav::-webkit-scrollbar {
-    width: 2px;
+    width: 3px;
+}
+.nav::-webkit-scrollbar-track {
+    background: transparent;
 }
 .nav::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.12);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+.nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+.group-header {
+    cursor: pointer;
+    border: none;
+    background: none;
 }
 </style>
