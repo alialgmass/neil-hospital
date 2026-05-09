@@ -8,6 +8,7 @@ use Modules\Admin\Providers\AdminServiceProvider;
 use Modules\Booking\Providers\BookingServiceProvider;
 use Modules\Clinic\Providers\ClinicServiceProvider;
 use Modules\Doctor\Providers\DoctorServiceProvider;
+use Modules\HR\Providers\HRServiceProvider;
 use Modules\Insurance\Providers\InsuranceServiceProvider;
 use Modules\Inventory\Providers\InventoryServiceProvider;
 use Modules\Labs\Providers\LabsServiceProvider;
@@ -30,4 +31,5 @@ return [
     ReportingServiceProvider::class,
     LabsServiceProvider::class,
     InsuranceServiceProvider::class,
+    HRServiceProvider::class,
 ];

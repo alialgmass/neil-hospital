@@ -29,6 +29,12 @@ import {
     Truck,
     Receipt,
     ClipboardCheck,
+    UserSquare2,
+    CalendarCheck,
+    Clock,
+    ArrowLeftRight,
+    UmbrellaOff,
+    Banknote,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -101,6 +107,17 @@ const navGroups: NavGroup[] = [
             { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view' },
             { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'inventory.view' },
             { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view' },
+        ],
+    },
+    {
+        label: 'الموارد البشرية',
+        items: [
+            { title: 'الموظفون', href: '/employees', icon: UserSquare2, permission: 'hr.view' },
+            { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck, permission: 'hr.view' },
+            { title: 'الورديات', href: '/shifts', icon: Clock, permission: 'hr.view' },
+            { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view' },
+            { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view' },
+            { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage' },
         ],
     },
     {

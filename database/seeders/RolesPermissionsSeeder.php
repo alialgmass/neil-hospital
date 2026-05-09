@@ -43,6 +43,8 @@ class RolesPermissionsSeeder extends Seeder
         'inventory.write',
         'insurance.view',
         'insurance.write',
+        'hr.view',
+        'hr.manage',
         'users.manage',
         'settings.manage',
         'hide_amounts',
