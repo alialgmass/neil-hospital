@@ -2,6 +2,7 @@
 
 namespace Modules\Insurance\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Modules\Booking\Models\Booking;
@@ -11,7 +12,7 @@ use Spatie\ModelStates\HasStates;
 
 class InsuranceClaim extends Model
 {
-    use HasStates;
+    use HasStates, HasUlids;
 
     protected $table = 'insurance_claims';
 

@@ -13,6 +13,8 @@ class CreateServiceAction
 
     public function execute(array $data): Service
     {
+        $data['center_val'] = $data['center_val'] ?? 0;
+
         $service = Service::create($data);
         $this->computeShares($service);
         $service->refresh();
