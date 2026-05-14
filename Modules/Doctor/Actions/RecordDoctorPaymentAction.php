@@ -18,7 +18,7 @@ class RecordDoctorPaymentAction
     {
         $payment = DoctorPayment::create([
             ...$data,
-            'paid_by' => auth()->id(),
+            'created_by' => auth()->id(),
         ]);
 
         $doctor = Doctor::findOrFail($data['doctor_id']);

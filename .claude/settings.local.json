@@ -89,7 +89,8 @@
       "mcp__laravel-boost__read-log-entries",
       "PowerShell(cd \"D:\\\\Projects\\\\neil hospital\\\\v3\"; php artisan tinker --execute \"use App\\\\Models\\\\User; \\\\$u = User::first\\(\\); \\\\$perm = 'hr.manage'; echo \\\\$u->can\\(\\\\$perm\\) ? 'CAN' : 'CANNOT';\" 2>&1)",
       "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\neil hospital\\\\v3\\\\app\\\\Models\" -Filter \"*.php\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\neil hospital\\\\v3\" -Recurse -Filter \"*doctor*payment*\" -ErrorAction SilentlyContinue)"
     ]
   },
   "enableAllProjectMcpServers": true,

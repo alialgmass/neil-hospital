@@ -5,6 +5,7 @@ import {
     Edit3,
     Trash2,
     Printer,
+    Search,
     X,
     CreditCard,
 } from 'lucide-vue-next';

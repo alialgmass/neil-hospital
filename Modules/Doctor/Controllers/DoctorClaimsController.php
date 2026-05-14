@@ -3,18 +3,18 @@
 namespace Modules\Doctor\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Services\ActivityLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Doctor\Actions\RecordDoctorPaymentAction;
 use Modules\Doctor\Services\DoctorClaimsService;
 
 class DoctorClaimsController extends Controller
 {
     public function __construct(
         private readonly DoctorClaimsService $claimsService,
-        private readonly ActivityLogService $activityLog,
+        private readonly RecordDoctorPaymentAction $recordPayment,
     ) {}
 
     public function index(): Response
@@ -49,21 +49,14 @@ class DoctorClaimsController extends Controller
         $data = $request->validate([
             'doctor_id' => ['required', 'exists:doctors,id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'period_from' => ['required', 'date'],
-            'period_to' => ['required', 'date'],
+            'period_from' => ['nullable', 'date'],
+            'period_to' => ['nullable', 'date'],
             'paid_at' => ['required', 'date'],
             'method' => ['required', 'in:cash,transfer'],
             'notes' => ['nullable', 'string'],
         ]);
 
-        $payment = $this->claimsService->recordPayment($data);
-
-        $this->activityLog->log(
-            action: 'dr_payment',
-            module: 'doctors',
-            recordId: $payment->id,
-            description: "دفعة للدكتور: {$payment->amount} ج.م",
-        );
+        $this->recordPayment->execute($data);
 
         return back()->with('success', 'تم تسجيل الدفعة بنجاح.');
     }
