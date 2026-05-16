@@ -23,6 +23,9 @@ class RecordSuppliesRequest extends FormRequest
             'bundles' => ['nullable', 'array'],
             'bundles.*.bundle_id' => ['required', 'string', 'exists:supply_bundles,id'],
             'bundles.*.qty' => ['nullable', 'integer', 'min:1'],
+            'bundles.*.selected_items' => ['nullable', 'array'],
+            'bundles.*.selected_items.*.inventory_item_id' => ['required', 'string'],
+            'bundles.*.selected_items.*.qty' => ['required', 'numeric', 'min:0.01'],
         ];
     }
 }

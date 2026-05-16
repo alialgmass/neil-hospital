@@ -57,10 +57,26 @@ interface OrRoom {
     beds: OrBed[];
 }
 
+interface BundleItem {
+    inventory_item_id: string | null;
+    item_name: string;
+    qty: number;
+    unit_cost: number;
+}
+
+interface Bundle {
+    id: string;
+    name: string;
+    price: number;
+    dept: string | null;
+    items: BundleItem[];
+}
+
 const props = defineProps<{
     surgeries: Paginator;
     orRooms: OrRoom[];
     inventoryItems: { id: string; name: string; code: string; sell_price: number; quantity: number }[];
+    bundles: Bundle[];
     doctors: { id: string; name: string }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
@@ -347,6 +363,7 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
         v-model="showSupplies"
         :surgery-id="suppliesSurgeryId"
         :inventory-items="inventoryItems"
+        :bundles="bundles"
         :dept="dept"
         @success="toast.success('تم حفظ المستلزمات بنجاح')"
     />

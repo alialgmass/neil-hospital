@@ -21,8 +21,12 @@ class ProcessBundleSupplyAction
     /**
      * Deduct each sub-item from inventory, post accounting entries, and return
      * the bundle as a single supply-line entry ready to be stored in supplies_used.
+     *
+     * @param  array<array{inventory_item_id: string, qty: float}>  $selectedItems
+     *                                                                              When provided, only those items are deducted with their given quantities.
+     *                                                                              When empty, all bundle items are deducted using bundle defaults × $qty.
      */
-    public function process(string $bundleId, int $qty, string $dept = 'surgery'): array
+    public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = []): array
     {
         $bundle = SupplyBundle::with('items.inventoryItem')->findOrFail($bundleId);
 
@@ -33,12 +37,29 @@ class ProcessBundleSupplyAction
             default => CostCenter::Surgery,
         };
 
+        // Build a lookup of user-selected items: inventory_item_id → custom qty
+        $selectedMap = [];
+        foreach ($selectedItems as $si) {
+            if (! empty($si['inventory_item_id'])) {
+                $selectedMap[$si['inventory_item_id']] = max(0.01, (float) ($si['qty'] ?? 0));
+            }
+        }
+        $hasSelection = ! empty($selectedMap);
+
         foreach ($bundle->items as $item) {
             if (! $item->inventory_item_id) {
                 continue;
             }
 
-            $deductQty = (float) $item->qty * $qty;
+            // Skip items the user did not select when a selection was made
+            if ($hasSelection && ! isset($selectedMap[$item->inventory_item_id])) {
+                continue;
+            }
+
+            $deductQty = $hasSelection
+                ? $selectedMap[$item->inventory_item_id]
+                : (float) $item->qty * $qty;
+
             $this->inventoryService->adjustQuantity($item->inventory_item_id, -abs($deductQty));
 
             $cost = round($deductQty * (float) $item->unit_cost, 2);
@@ -69,7 +90,7 @@ class ProcessBundleSupplyAction
 
         $this->postBundleChargeEntry($bundle, $qty, $costCenter);
 
-        $this->createStockPermit($bundle, $qty, $dept);
+        $this->createStockPermit($bundle, $qty, $dept, $selectedMap);
 
         return [
             'bundle_id' => $bundle->id,
@@ -112,7 +133,7 @@ class ProcessBundleSupplyAction
         ]);
     }
 
-    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept): void
+    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): void
     {
         $permit = StockPermit::create([
             'permit_no' => $this->generatePermitNo(),
@@ -122,15 +143,25 @@ class ProcessBundleSupplyAction
             'created_by' => auth()->id(),
         ]);
 
+        $hasSelection = ! empty($selectedMap);
+
         foreach ($bundle->items as $item) {
             if (! $item->inventory_item_id) {
                 continue;
             }
 
+            if ($hasSelection && ! isset($selectedMap[$item->inventory_item_id])) {
+                continue;
+            }
+
+            $permitQty = $hasSelection
+                ? $selectedMap[$item->inventory_item_id]
+                : (float) $item->qty * $qty;
+
             $permit->items()->create([
                 'item_id' => $item->inventory_item_id,
                 'item_name' => $item->item_name,
-                'qty' => (float) $item->qty * $qty,
+                'qty' => $permitQty,
                 'unit_cost' => (float) $item->unit_cost,
             ]);
         }

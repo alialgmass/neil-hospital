@@ -724,12 +724,31 @@ function printInvoice() {
                         <!-- Supply sub-rows -->
                         <tr v-if="row.supplies && row.supplies.length > 0" class="ph-supply-row">
                             <td colspan="9" class="ph-supply-cell">
-                                <span class="ph-supply-title">مستلزمات جراحية: </span>
-                                <span v-for="(item, i) in row.supplies" :key="i" class="ph-supply-item">
-                                    {{ item.name }} × {{ item.qty }}
-                                    <span class="ph-supply-cost">{{ fmt(item.total ?? item.qty * item.unit_cost) }}</span>
-                                    <span v-if="i < (row.supplies?.length ?? 0) - 1"> — </span>
-                                </span>
+                                <div class="ph-supply-label">مستلزمات جراحية</div>
+                                <table class="ph-supply-table">
+                                    <thead>
+                                        <tr>
+                                            <th>البيان</th>
+                                            <th class="center">العدد</th>
+                                            <th class="num">سعر الوحدة</th>
+                                            <th class="num">الإجمالي</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(item, i) in row.supplies" :key="i">
+                                            <td>{{ item.name }}</td>
+                                            <td class="center">{{ item.qty }}</td>
+                                            <td class="num">{{ fmt(item.unit_cost) }}</td>
+                                            <td class="num bold">{{ fmt(item.total ?? item.qty * item.unit_cost) }}</td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="3" class="bold">إجمالي المستلزمات</td>
+                                            <td class="num bold">{{ fmt(row.supply_total ?? 0) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </td>
                         </tr>
                     </template>
@@ -902,10 +921,45 @@ function printInvoice() {
 
     /* supply sub-row */
     .ph-supply-row td { background: #FFFBEB !important; }
-    .ph-supply-cell { padding: 4px 12px !important; font-size: 10px; }
-    .ph-supply-title { font-weight: 700; color: #B45309; }
-    .ph-supply-item { color: #78350F; }
-    .ph-supply-cost { font-weight: 700; margin-right: 3px; }
+    .ph-supply-cell { padding: 6px 14px 8px !important; font-size: 10px; }
+    .ph-supply-label { font-weight: 800; color: #B45309; font-size: 10px; margin-bottom: 5px; }
+
+    /* supply mini-table */
+    .ph-supply-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 10px;
+    }
+    .ph-supply-table th {
+        background: #FEF3C7;
+        color: #92400E;
+        padding: 4px 8px;
+        text-align: right;
+        font-weight: 700;
+        border: 1px solid #F59E0B;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .ph-supply-table th.num { text-align: left; direction: ltr; }
+    .ph-supply-table th.center { text-align: center; }
+    .ph-supply-table td {
+        padding: 4px 8px;
+        border: 1px solid #FDE68A;
+        color: #78350F;
+        vertical-align: middle;
+    }
+    .ph-supply-table td.num { text-align: left; direction: ltr; font-family: monospace; }
+    .ph-supply-table td.center { text-align: center; }
+    .ph-supply-table td.bold { font-weight: 700; }
+    .ph-supply-table tbody tr:nth-child(even) td { background: #FFFDF0; }
+    .ph-supply-table tfoot td {
+        background: #FDE68A;
+        color: #92400E;
+        font-weight: 700;
+        border: 1px solid #F59E0B;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
 
     /* tfoot */
     .ph-tfoot-sub td { background: #F1F5F9; color: #374151; font-size: 10.5px; border-color: #E2E8F0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
