@@ -269,6 +269,7 @@ function submit() {
                     :services="filteredServices"
                     :doctors="doctors"
                     :is-edit-mode="!isCreating"
+                    :errors="form.errors"
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"
                 />
 
@@ -287,6 +288,7 @@ function submit() {
                         :price-lists="priceLists"
                         :is-insurance="isInsurance"
                         :net-amount="netAmount"
+                        :errors="form.errors"
                         @update:model-value="(v) => Object.assign(form, v)"
                     />
                     <InvoicePreview
@@ -345,6 +347,7 @@ function submit() {
                                 v-model="form.bed_id"
                                 :or-rooms="orRooms"
                                 :dept="form.dept"
+                                :error="form.errors.bed_id"
                             />
                         </div>
                         <template v-if="showAnalysis">

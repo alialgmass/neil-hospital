@@ -50,8 +50,12 @@ function update(field: keyof Props['modelValue'], value: string) {
                     type="text"
                     placeholder="14 رقم"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.national_id }"
                     @input="update('national_id', ($event.target as HTMLInputElement).value)"
                 />
+                <p v-if="errors.national_id" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.national_id }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">رقم الهاتف</label>
@@ -60,8 +64,12 @@ function update(field: keyof Props['modelValue'], value: string) {
                     type="tel"
                     placeholder="01xxxxxxxxx"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.patient_phone }"
                     @input="update('patient_phone', ($event.target as HTMLInputElement).value)"
                 />
+                <p v-if="errors.patient_phone" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.patient_phone }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">السن</label>
@@ -72,20 +80,28 @@ function update(field: keyof Props['modelValue'], value: string) {
                     max="150"
                     placeholder="سنة"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.patient_age }"
                     @input="update('patient_age', ($event.target as HTMLInputElement).value)"
                 />
+                <p v-if="errors.patient_age" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.patient_age }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">الجنس</label>
                 <select
                     :value="modelValue.gender"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.gender }"
                     @change="update('gender', ($event.target as HTMLSelectElement).value)"
                 >
                     <option value="">— اختر —</option>
                     <option value="male">ذكر</option>
                     <option value="female">أنثى</option>
                 </select>
+                <p v-if="errors.gender" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.gender }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">التاريخ *</label>
@@ -96,6 +112,9 @@ function update(field: keyof Props['modelValue'], value: string) {
                     :class="{ 'border-hospital-danger': errors.visit_date }"
                     @input="update('visit_date', ($event.target as HTMLInputElement).value)"
                 />
+                <p v-if="errors.visit_date" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.visit_date }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">الوقت</label>
@@ -103,8 +122,12 @@ function update(field: keyof Props['modelValue'], value: string) {
                     :value="modelValue.visit_time"
                     type="time"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.visit_time }"
                     @input="update('visit_time', ($event.target as HTMLInputElement).value)"
                 />
+                <p v-if="errors.visit_time" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.visit_time }}
+                </p>
             </div>
         </div>
     </div>

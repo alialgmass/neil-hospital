@@ -18,9 +18,12 @@ interface Props {
     modelValue: string;
     orRooms: OrRoom[];
     dept: string;
+    error?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    error: '',
+});
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void;
@@ -111,8 +114,12 @@ function selectBed(bed: FlatBed) {
             max="9999"
             placeholder="مثال: 5"
             class="bk-input"
+            :class="{ 'border-hospital-danger': error }"
             @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         />
+        <p v-if="error" class="mt-1 text-xs text-hospital-danger">
+            {{ error }}
+        </p>
     </div>
 </template>
 

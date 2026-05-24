@@ -17,12 +17,15 @@ use Modules\Clinic\Models\ClinicSheet;
 use Modules\Doctor\Models\Doctor;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Surgery\Models\Surgery;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\ModelStates\HasStates;
 
-class Booking extends Model
+class Booking extends Model implements HasMedia
 {
     use HasStates;
     use HasUlids;
+    use InteractsWithMedia;
 
     protected $fillable = [
         'file_no',
@@ -101,6 +104,11 @@ class Booking extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('archive-files');
     }
 
     public function getNetAmountAttribute(): float

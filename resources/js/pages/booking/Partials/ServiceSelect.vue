@@ -17,10 +17,12 @@ interface Props {
     services: Service[];
     doctors: Doctor[];
     isEditMode?: boolean;
+    errors?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     isEditMode: false,
+    errors: () => ({}),
 });
 
 const emit = defineEmits<{
@@ -41,6 +43,7 @@ function update(field: keyof Props['modelValue'], value: string) {
                 <select
                     :value="modelValue.service_id"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.service_id }"
                     @change="update('service_id', ($event.target as HTMLSelectElement).value)"
                 >
                     <option value="">— اختر الخدمة —</option>
@@ -48,12 +51,16 @@ function update(field: keyof Props['modelValue'], value: string) {
                         {{ svc.name }}
                     </option>
                 </select>
+                <p v-if="errors.service_id" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.service_id }}
+                </p>
             </div>
             <div>
                 <label class="bk-label">الطبيب</label>
                 <select
                     :value="modelValue.doctor_id"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.doctor_id }"
                     @change="update('doctor_id', ($event.target as HTMLSelectElement).value)"
                 >
                     <option value="">— اختر الطبيب —</option>
@@ -61,6 +68,9 @@ function update(field: keyof Props['modelValue'], value: string) {
                         {{ dr.name }}
                     </option>
                 </select>
+                <p v-if="errors.doctor_id" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.doctor_id }}
+                </p>
             </div>
         </div>
     </div>

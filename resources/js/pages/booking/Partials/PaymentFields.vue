@@ -19,9 +19,12 @@ interface Props {
     insuranceCompanies: InsuranceCompany[];
     isInsurance: boolean;
     netAmount: number;
+    errors?: Record<string, string>;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    errors: () => ({}),
+});
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: Props['modelValue']): void;
@@ -57,6 +60,7 @@ function handleInsCompanyChange(value: string) {
             <select
                 :value="modelValue.pay_method"
                 class="bk-input"
+                :class="{ 'border-hospital-danger': errors.pay_method }"
                 @change="
                     update(
                         'pay_method',
@@ -72,6 +76,9 @@ function handleInsCompanyChange(value: string) {
                     {{ opt.label }}
                 </option>
             </select>
+            <p v-if="errors.pay_method" class="mt-1 text-xs text-hospital-danger">
+                {{ errors.pay_method }}
+            </p>
         </div>
 
         <div>
@@ -82,6 +89,7 @@ function handleInsCompanyChange(value: string) {
                 step="0.01"
                 min="0"
                 class="bk-input"
+                :class="{ 'border-hospital-danger': errors.paid_amount }"
                 @input="
                     update(
                         'paid_amount',
@@ -89,6 +97,9 @@ function handleInsCompanyChange(value: string) {
                     )
                 "
             />
+            <p v-if="errors.paid_amount" class="mt-1 text-xs text-hospital-danger">
+                {{ errors.paid_amount }}
+            </p>
         </div>
 
         <template v-if="isInsurance">
@@ -97,6 +108,7 @@ function handleInsCompanyChange(value: string) {
                 <select
                     :value="modelValue.ins_company_id"
                     class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.ins_company_id }"
                     @change="
                         handleInsCompanyChange(
                             ($event.target as HTMLSelectElement).value,
@@ -112,6 +124,9 @@ function handleInsCompanyChange(value: string) {
                         {{ ins.name }}
                     </option>
                 </select>
+                <p v-if="errors.ins_company_id" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.ins_company_id }}
+                </p>
             </div>
         </template>
 
@@ -123,10 +138,14 @@ function handleInsCompanyChange(value: string) {
                 step="0.01"
                 min="0"
                 class="bk-input"
+                :class="{ 'border-hospital-danger': errors.price }"
                 @input="
                     update('price', ($event.target as HTMLInputElement).value)
                 "
             />
+            <p v-if="errors.price" class="mt-1 text-xs text-hospital-danger">
+                {{ errors.price }}
+            </p>
         </div>
 
         <div>
@@ -137,6 +156,7 @@ function handleInsCompanyChange(value: string) {
                 step="0.01"
                 min="0"
                 class="bk-input"
+                :class="{ 'border-hospital-danger': errors.discount }"
                 @input="
                     update(
                         'discount',
@@ -144,6 +164,9 @@ function handleInsCompanyChange(value: string) {
                     )
                 "
             />
+            <p v-if="errors.discount" class="mt-1 text-xs text-hospital-danger">
+                {{ errors.discount }}
+            </p>
         </div>
 
         <div v-if="isInsurance">
@@ -174,6 +197,7 @@ function handleInsCompanyChange(value: string) {
             <select
                 :value="modelValue.pay_status"
                 class="bk-input"
+                :class="{ 'border-hospital-danger': errors.pay_status }"
                 @change="
                     update(
                         'pay_status',
@@ -189,6 +213,9 @@ function handleInsCompanyChange(value: string) {
                     {{ opt.label }}
                 </option>
             </select>
+            <p v-if="errors.pay_status" class="mt-1 text-xs text-hospital-danger">
+                {{ errors.pay_status }}
+            </p>
         </div>
     </div>
 </template>

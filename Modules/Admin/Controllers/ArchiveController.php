@@ -9,8 +9,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayStatus;
+use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
 use Modules\Doctor\Models\Doctor;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ArchiveController extends Controller
 {
@@ -22,8 +24,22 @@ class ArchiveController extends Controller
     {
         $filters = request()->only(['search', 'dept', 'from', 'to']);
 
+        $bookings = $this->bookingService->getArchive($filters, 30);
+
+        $bookings->getCollection()->transform(function (Booking $booking) {
+            $booking->media_files = $booking->getMedia('archive-files')->map(fn (Media $m) => [
+                'id' => $m->id,
+                'name' => $m->file_name,
+                'url' => $m->getUrl(),
+                'mime' => $m->mime_type,
+                'size' => $m->human_readable_size,
+            ]);
+
+            return $booking;
+        });
+
         return Inertia::render('admin/Archive', [
-            'bookings' => $this->bookingService->getArchive($filters, 30),
+            'bookings' => $bookings,
             'filters' => $filters,
             'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
         ]);
@@ -44,6 +60,8 @@ class ArchiveController extends Controller
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
             'visit_note' => ['nullable', 'string'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
         ]);
 
         $price = (float) ($data['price'] ?? 0);
@@ -61,8 +79,30 @@ class ArchiveController extends Controller
             'status' => 'completed',
         ]);
 
-        $this->bookingService->create($bookingData, auth()->id());
+        $booking = $this->bookingService->create($bookingData, auth()->id());
+
+        foreach ($request->file('files', []) as $file) {
+            $booking->addMedia($file)->toMediaCollection('archive-files');
+        }
 
         return redirect()->route('archive')->with('success', 'تم إضافة السجل إلى الأرشيف بنجاح.');
+    }
+
+    public function upload(Request $request, Booking $booking): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
+        ]);
+
+        $booking->addMediaFromRequest('file')->toMediaCollection('archive-files');
+
+        return back()->with('success', 'تم رفع الملف بنجاح.');
+    }
+
+    public function destroyMedia(Media $media): RedirectResponse
+    {
+        $media->delete();
+
+        return back()->with('success', 'تم حذف الملف.');
     }
 }
