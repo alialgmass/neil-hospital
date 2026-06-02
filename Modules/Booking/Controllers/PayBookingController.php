@@ -30,7 +30,6 @@ class PayBookingController extends Controller
         $payStatus = $newPaidTotal >= $netDue ? 'paid' : 'partial';
 
         $booking->update([
-            'price' => $paymentAmount,
             'paid_amount' => $newPaidTotal,
             'pay_method' => $data['pay_method'],
             'pay_status' => $payStatus,

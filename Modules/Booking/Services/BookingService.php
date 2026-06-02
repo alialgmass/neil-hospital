@@ -154,6 +154,7 @@ class BookingService
             : ($totalPaid > 0 ? PayStatus::Partial : PayStatus::Unpaid);
 
         $booking->update([
+            'paid_amount' => $totalPaid,
             'pay_status' => $payStatus,
             'pay_method' => $data['pay_method'],
             'ins_amount' => $data['ins_amount'] ?? 0,

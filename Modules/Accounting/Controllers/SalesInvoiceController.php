@@ -37,6 +37,6 @@ class SalesInvoiceController extends Controller
 
         $booking = $this->bookingService->recordPayment($data['booking_id'], $data);
 
-        return redirect("/booking/{$booking->id}/receipt")->with('success', 'تم إصدار الفاتورة بنجاح.');
+        return redirect()->route('booking.receipt', $booking->id)->with('success', 'تم إصدار الفاتورة بنجاح.');
     }
 }

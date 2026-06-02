@@ -3,6 +3,7 @@
 namespace Modules\Accounting\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountGroup;
 use Modules\Accounting\Models\Account;
 
 class IncomeStatementService
@@ -23,7 +24,7 @@ class IncomeStatementService
     public function get(?string $from = null, ?string $to = null): array
     {
         $accounts = Account::where('is_active', true)
-            ->whereIn('group', ['revenues', 'expenses'])
+            ->whereIn('group', [AccountGroup::Revenues->value, AccountGroup::Expenses->value])
             ->orderBy('code')
             ->get();
 
@@ -50,7 +51,7 @@ class IncomeStatementService
                 ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
                 ->sum('amount');
 
-            $balance = $account->group === 'revenues'
+            $balance = $account->group === AccountGroup::Revenues
                 ? $credits - $debits
                 : $debits - $credits;
 
@@ -61,7 +62,7 @@ class IncomeStatementService
 
             $row = ['code' => $account->code, 'name' => $account->name, 'balance' => $balance];
 
-            if ($account->group === 'revenues') {
+            if ($account->group === AccountGroup::Revenues) {
                 $revenues[] = $row;
                 $totalRevenue += $balance;
             } elseif (in_array($account->code, self::COST_OF_SERVICES)) {

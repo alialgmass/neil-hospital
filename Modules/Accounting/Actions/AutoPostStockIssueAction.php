@@ -63,10 +63,10 @@ class AutoPostStockIssueAction
     private function expenseAccountCode(?string $category): string
     {
         return match ($category) {
-            'office' => '5210',
-            'cleaning' => '5220',
-            'maintenance' => '5230',
-            default => '5010',
+            'office' => '5250', // مصروفات إدارية وتسويقية
+            'cleaning' => '5240', // مصروفات الصيانة
+            'maintenance' => '5240', // مصروفات الصيانة
+            default => '5010', // تكلفة مستلزمات طبية
         };
     }
 

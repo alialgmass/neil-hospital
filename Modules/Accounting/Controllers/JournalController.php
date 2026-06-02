@@ -24,6 +24,7 @@ class JournalController extends Controller
         return Inertia::render('journal/Index', [
             'entries' => $this->journalService->list($filters, 30),
             'accounts' => $this->journalService->accounts(),
+            'totalAmount' => $this->journalService->totalAmount($filters),
             'filters' => $filters,
         ]);
     }

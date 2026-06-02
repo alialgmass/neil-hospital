@@ -55,18 +55,18 @@ class LedgerService
             ->where('debit_account_id', $accountId)
             ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
-            ->select('date', 'description', 'amount as debit', DB::raw('0 as credit'), 'reference')
+            ->select('date', 'description', 'amount as debit', DB::raw('0 as credit'), 'reference', 'created_at')
             ->get();
 
         $creditRows = DB::table('journal_entries')
             ->where('credit_account_id', $accountId)
             ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
-            ->select('date', 'description', DB::raw('0 as debit'), 'amount as credit', 'reference')
+            ->select('date', 'description', DB::raw('0 as debit'), 'amount as credit', 'reference', 'created_at')
             ->get();
 
         $rows = $debitRows->concat($creditRows)
-            ->sortBy('date')
+            ->sortBy(['date', 'created_at'])
             ->values();
 
         $runningBalance = 0.0;

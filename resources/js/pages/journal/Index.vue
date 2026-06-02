@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { BookOpen, Printer, TrendingDown, TrendingUp } from 'lucide-vue-next';
+import { BookOpen, Printer, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 
@@ -31,6 +31,7 @@ const props = defineProps<{
         total: number;
     };
     accounts: Account[];
+    totalAmount: number;
     filters: { from?: string; to?: string; source?: string; cost_center?: string };
 }>();
 
@@ -144,8 +145,7 @@ function printPage() {
     window.print();
 }
 
-const totalDebit  = computed(() => props.entries.data.reduce((s, e) => s + Number(e.amount), 0));
-const totalCredit = computed(() => totalDebit.value);
+const pageTotal = computed(() => props.entries.data.reduce((s, e) => s + Number(e.amount), 0));
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
@@ -156,7 +156,7 @@ function fmt(n: number) {
     <Head title="قيود اليومية" />
 
     <!-- Stats Row -->
-    <div class="mb-5 grid grid-cols-3 gap-4">
+    <div class="mb-5 grid grid-cols-2 gap-4">
         <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-p text-white">
                 <BookOpen class="h-5 w-5" />
@@ -171,17 +171,8 @@ function fmt(n: number) {
                 <TrendingUp class="h-5 w-5" />
             </div>
             <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي المدين</p>
-                <p class="text-xl font-bold text-s">{{ fmt(totalDebit) }}</p>
-            </div>
-        </div>
-        <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-d text-white">
-                <TrendingDown class="h-5 w-5" />
-            </div>
-            <div>
-                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي الدائن</p>
-                <p class="text-xl font-bold text-d">{{ fmt(totalCredit) }}</p>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-t2">إجمالي المبالغ</p>
+                <p class="text-xl font-bold text-s">{{ fmt(totalAmount) }}</p>
             </div>
         </div>
     </div>
@@ -201,7 +192,9 @@ function fmt(n: number) {
                             type="text"
                             placeholder="تلقائي"
                             class="input-field"
+                            :class="{ 'border-d': form.errors.reference }"
                         />
+                        <p v-if="form.errors.reference" class="form-error">{{ form.errors.reference }}</p>
                     </div>
                     <div>
                         <label class="form-label">التاريخ <span class="text-d">*</span></label>
@@ -211,6 +204,7 @@ function fmt(n: number) {
                             class="input-field"
                             :class="{ 'border-d': form.errors.date }"
                         />
+                        <p v-if="form.errors.date" class="form-error">{{ form.errors.date }}</p>
                     </div>
                     <div>
                         <label class="form-label">الحساب المدين <span class="text-d">*</span></label>
@@ -385,9 +379,9 @@ function fmt(n: number) {
         </DataTable>
 
         <!-- Totals Bar -->
-        <div class="flex gap-6 border-t border-br bg-pd px-4 py-3 text-sm font-bold text-white">
-            <span>إجمالي المدين: {{ fmt(totalDebit) }} ج.م</span>
-            <span>إجمالي الدائن: {{ fmt(totalCredit) }} ج.م</span>
+        <div class="flex items-center justify-between border-t border-br bg-pd px-4 py-3 text-sm font-bold text-white">
+            <span>إجمالي المبالغ ({{ entries.total }} قيد): {{ fmt(totalAmount) }} ج.م</span>
+            <span class="font-normal opacity-80">هذه الصفحة: {{ fmt(pageTotal) }} ج.م</span>
         </div>
     </div>
 </template>

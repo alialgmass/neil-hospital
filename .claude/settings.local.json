@@ -94,7 +94,9 @@
       "Bash(Get-ChildItem -Path \"D:\\\\Projects\\\\neil hospital\\\\v3\" -Recurse -Filter \"*archive*\" -ErrorAction SilentlyContinue)",
       "Skill(medialibrary-development)",
       "Skill(inertia-vue-development)",
-      "Bash(vendor/bin/pint --dirty --format agent Modules/Booking/Http/Requests/StoreBookingRequest.php Modules/Booking/Http/Requests/UpdateBookingRequest.php)"
+      "Bash(vendor/bin/pint --dirty --format agent Modules/Booking/Http/Requests/StoreBookingRequest.php Modules/Booking/Http/Requests/UpdateBookingRequest.php)",
+      "Bash(Get-ChildItem -Path . -Directory)",
+      "Bash(Select-Object Name)"
     ]
   },
   "enableAllProjectMcpServers": true,
