@@ -4,7 +4,6 @@ namespace Modules\Booking\Actions;
 
 use App\Enums\Department;
 use App\Services\ActivityLogService;
-use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayStatus;
@@ -25,13 +24,6 @@ class UpdateBookingAction
     public function execute(string $id, BookingData $data): Booking
     {
         $old = $this->bookingService->findOrFail($id);
-
-        // Paid bookings cannot be edited (financial integrity)
-        if ($old->pay_status === PayStatus::Paid) {
-            throw ValidationException::withMessages([
-                'pay_status' => 'لا يمكن تعديل حجز مسدد بالكامل.',
-            ]);
-        }
 
         $booking = $this->bookingService->update($id, $data);
 

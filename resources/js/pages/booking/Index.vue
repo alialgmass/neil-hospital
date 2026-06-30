@@ -25,13 +25,29 @@ interface Booking {
     file_no: string;
     patient_name: string;
     patient_phone?: string;
+    patient_age?: number;
+    national_id?: string;
+    gender?: string;
     dept: string;
+    service_id?: string;
+    service_name?: string;
+    doctor_id?: string;
+    ins_company_id?: string;
     visit_date: string;
+    visit_time?: string;
     price: number;
+    discount?: number;
+    ins_amount?: number;
     paid_amount: number;
+    pay_method?: string;
     pay_status: 'unpaid' | 'partial' | 'paid';
     status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-    doctor?: { name: string };
+    visit_note?: string;
+    eye_side?: string;
+    analysis_type?: string;
+    analysis_notes?: string;
+    doctor?: { id: string; name: string };
+    insuranceCompany?: { id: string; name: string };
 }
 
 interface Props {
@@ -73,8 +89,7 @@ const canPay = computed(() => can('booking.pay'));
 // ── State ──
 const showCreateModal = ref(false);
 const editBooking = ref<Booking | null>(null);
-const cancelTarget = ref<Booking | null>(null);
-const cancelReason = ref('');
+const deleteTarget = ref<Booking | null>(null);
 
 // ── Pay modal ──
 const payTarget = ref<Booking | null>(null);
@@ -213,9 +228,8 @@ function goToPage(page: number) {
     router.get('/booking', { ...props.filters, page }, { preserveState: true });
 }
 
-function confirmCancel(booking: Booking) {
-    cancelTarget.value = booking;
-    cancelReason.value = '';
+function confirmDelete(booking: Booking) {
+    deleteTarget.value = booking;
 }
 
 function updateBookingStatus(id: string, status: string) {
@@ -242,16 +256,15 @@ const bookingStatusLabel: Record<string, string> = {
     cancelled: 'ملغي',
 };
 
-function doCancel() {
-    if (!cancelTarget.value) {
+function doDelete() {
+    if (!deleteTarget.value) {
         return;
     }
 
-    router.delete(`/booking/${cancelTarget.value.id}`, {
-        data: { cancel_reason: cancelReason.value },
+    router.delete(`/booking/${deleteTarget.value.id}`, {
         onSuccess: () => {
-            cancelTarget.value = null;
-            toast.success('تم إلغاء الحجز بنجاح');
+            deleteTarget.value = null;
+            toast.success('تم حذف الحجز بنجاح');
         },
     });
 }
@@ -267,11 +280,11 @@ const isEditModalOpen = computed({
         }
     },
 });
-const isCloseModalOpen = computed({
-    get: () => !!cancelTarget.value,
+const isDeleteModalOpen = computed({
+    get: () => !!deleteTarget.value,
     set: (val) => {
         if (!val) {
-            cancelTarget.value = null;
+            deleteTarget.value = null;
         }
     },
 });
@@ -457,9 +470,9 @@ const isCloseModalOpen = computed({
                     </button>
                     <button
                         type="button"
-                        title="إلغاء"
+                        title="حذف"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                        @click="confirmCancel(row as Booking)"
+                        @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />
                     </button>
@@ -600,44 +613,35 @@ const isCloseModalOpen = computed({
         </template>
     </Modal>
 
-    <!-- Cancel Confirm Modal -->
+    <!-- Delete Confirm Modal -->
     <Modal
-        v-model="isCloseModalOpen"
-        title="تأكيد الإلغاء"
+        v-model="isDeleteModalOpen"
+        title="تأكيد الحذف"
         size="sm"
-        @close="cancelTarget = null"
+        @close="deleteTarget = null"
     >
         <p class="text-sm text-hospital-text">
-            هل تريد إلغاء حجز
-            <strong>{{ cancelTarget?.patient_name }}</strong> —
-            {{ cancelTarget?.file_no }}؟
+            هل أنت متأكد من حذف حجز
+            <strong>{{ deleteTarget?.patient_name }}</strong> —
+            {{ deleteTarget?.file_no }}؟
         </p>
-        <div class="mt-4">
-            <label class="mb-1 block text-xs font-medium text-hospital-text-2"
-                >سبب الإلغاء *</label
-            >
-            <textarea
-                v-model="cancelReason"
-                rows="2"
-                class="w-full resize-none rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                placeholder="اذكر سبب الإلغاء..."
-            />
-        </div>
+        <p class="mt-2 text-xs text-hospital-danger">
+            سيتم حذف الحجز وجميع بياناته المرتبطة به نهائياً ولا يمكن التراجع.
+        </p>
         <template #footer>
             <button
                 type="button"
                 class="rounded-lg border border-hospital-border px-4 py-2 text-sm font-medium text-hospital-text-2 hover:bg-hospital-bg"
-                @click="cancelTarget = null"
+                @click="deleteTarget = null"
             >
                 تراجع
             </button>
             <button
                 type="button"
-                :disabled="!cancelReason.trim()"
-                class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                @click="doCancel"
+                class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+                @click="doDelete"
             >
-                تأكيد الإلغاء
+                حذف نهائياً
             </button>
         </template>
     </Modal>

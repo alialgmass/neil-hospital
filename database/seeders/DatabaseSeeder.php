@@ -14,7 +14,7 @@ class DatabaseSeeder extends Seeder
             SettingsSeeder::class,
             AdminUserSeeder::class,
             OrRoomsAndBedsSeeder::class,
-            DoctorSeeder::class,
+            //  DoctorSeeder::class,
         ]);
     }
 }

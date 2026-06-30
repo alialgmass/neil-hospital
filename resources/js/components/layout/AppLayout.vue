@@ -11,7 +11,7 @@ import HospitalTopbar from '@/components/layout/Topbar.vue';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'vue-sonner';
 import { usePage } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import type { Auth } from '@/types';
 
 interface PageProps {
@@ -30,16 +30,16 @@ const userName = computed(() => user.value?.name ?? 'المستخدم');
 const userRole = computed(() => user.value?.role ?? 'مسؤول');
 const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
 
-watch(
-    () => page.props.flash,
-    (flash) => {
-        if (flash.success) toast.success(flash.success);
-        if (flash.error) toast.error(flash.error);
-        if (flash.warning) toast.warning(flash.warning);
-        if (flash.info) toast.info(flash.info);
-    },
-    { deep: true, immediate: true }
-);
+function showFlash(flash: PageProps['flash']) {
+    if (flash.success) toast.success(flash.success);
+    if (flash.error) toast.error(flash.error);
+    if (flash.warning) toast.warning(flash.warning);
+    if (flash.info) toast.info(flash.info);
+}
+
+onMounted(() => showFlash(page.props.flash));
+
+watch(() => page.props.flash, showFlash, { deep: true });
 </script>
 
 <template>

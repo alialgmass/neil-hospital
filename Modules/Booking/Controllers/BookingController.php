@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Booking\Actions\CancelBookingAction;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
 use Modules\Booking\DTOs\BookingData;
@@ -24,7 +23,6 @@ class BookingController extends Controller
         private readonly SurgeryService $surgeryService,
         private readonly CreateBookingAction $createAction,
         private readonly UpdateBookingAction $updateAction,
-        private readonly CancelBookingAction $cancelAction,
         private readonly BookingRepositoryInterface $bookingRepository,
     ) {}
 
@@ -66,13 +64,9 @@ class BookingController extends Controller
 
     public function destroy(string $id): RedirectResponse
     {
-        $this->cancelAction->execute(
-            id: $id,
-            cancelReason: request('cancel_reason', 'حذف من قبل المستخدم'),
-            adminOverride: request()->user()->hasRole('admin'),
-        );
+        $this->bookingRepository->delete($id);
 
-        return back()->with('success', 'تم إلغاء الحجز.');
+        return back()->with('success', 'تم حذف الحجز بنجاح.');
     }
 
     public function receipt(string $id): Response
