@@ -26,9 +26,17 @@ class SettingsService
     public function updateBulk(array $settings): void
     {
         foreach ($settings as $setting) {
-            DB::table('settings')
+            $updated = DB::table('settings')
                 ->where('key', $setting['key'])
                 ->update(['value' => $setting['value'] ?? '']);
+
+            if (! $updated) {
+                DB::table('settings')->insertOrIgnore([
+                    'key' => $setting['key'],
+                    'value' => $setting['value'] ?? '',
+                    'group' => $setting['group'] ?? 'general',
+                ]);
+            }
         }
     }
 }

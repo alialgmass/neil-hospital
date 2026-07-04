@@ -4,6 +4,7 @@ namespace Modules\Reporting\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Admin\Enums\SystemModule;
 
 class DashboardService
 {
@@ -30,6 +31,7 @@ class DashboardService
             ->select('dept', DB::raw('COUNT(*) as cases'), DB::raw('SUM(price) as revenue'))
             ->where('pay_status', '!=', 'unpaid')
             ->whereBetween('visit_date', [$from, $to])
+            ->whereIn('dept', SystemModule::enabledDeptValues())
             ->groupBy('dept')
             ->orderByDesc('revenue')
             ->get()
@@ -87,6 +89,7 @@ class DashboardService
             )
             ->whereDate('bookings.visit_date', today())
             ->whereIn('bookings.status', ['confirmed', 'waiting', 'in_progress'])
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->orderBy('bookings.visit_time')
             ->limit(20)
             ->get();

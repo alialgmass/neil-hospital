@@ -9,13 +9,28 @@ interface Setting {
     group: string;
 }
 
+interface SystemModuleOption {
+    value: string;
+    label: string;
+    enabled: boolean;
+}
+
 const props = defineProps<{
     settings: Record<string, Setting>;
+    systemModules: SystemModuleOption[];
 }>();
 
 const form = ref<Record<string, string>>({});
 Object.values(props.settings).forEach((s) => {
     form.value[s.key] = s.value ?? '';
+});
+
+function moduleKey(module: string): string {
+    return `module_enabled_${module}`;
+}
+
+props.systemModules.forEach((m) => {
+    form.value[moduleKey(m.value)] = form.value[moduleKey(m.value)] ?? (m.enabled ? 'true' : 'false');
 });
 
 function submit() {
@@ -25,6 +40,14 @@ function submit() {
 
 function val(key: string): string {
     return form.value[key] ?? '';
+}
+
+function isModuleEnabled(module: string): boolean {
+    return form.value[moduleKey(module)] !== 'false';
+}
+
+function toggleModule(module: string): void {
+    form.value[moduleKey(module)] = isModuleEnabled(module) ? 'false' : 'true';
 }
 </script>
 
@@ -181,6 +204,31 @@ function val(key: string): string {
             </div>
         </div>
 
+        <!-- ── System Modules ── -->
+        <div class="settings-section lg:col-span-2">
+            <div class="settings-title">🧩 أقسام النظام</div>
+            <p class="mb-3 text-xs text-hospital-text-3">
+                يمكنك إخفاء أي قسم بالكامل عن كل المستخدمين مؤقتاً، ثم إعادة إظهاره لاحقاً في أي وقت.
+            </p>
+            <div class="module-toggle-list">
+                <div v-for="m in systemModules" :key="m.value" class="module-toggle-row">
+                    <span class="module-toggle-label">{{ m.label }}</span>
+                    <button
+                        type="button"
+                        class="module-toggle-switch"
+                        :class="{ 'module-toggle-switch--on': isModuleEnabled(m.value) }"
+                        :aria-pressed="isModuleEnabled(m.value)"
+                        @click="toggleModule(m.value)"
+                    >
+                        <span class="module-toggle-knob" />
+                    </button>
+                    <span class="module-toggle-state" :class="{ 'module-toggle-state--off': !isModuleEnabled(m.value) }">
+                        {{ isModuleEnabled(m.value) ? 'مفعّل' : 'مخفي' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
     </div>
 </template>
 
@@ -247,5 +295,61 @@ function val(key: string): string {
     font-size: 11px;
     color: var(--color-hospital-text-2, #4A5878);
     line-height: 1.5;
+}
+.module-toggle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.module-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--color-hospital-border, #DDE4EF);
+    border-radius: 8px;
+}
+.module-toggle-label {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-hospital-text, #0D1F3C);
+}
+.module-toggle-switch {
+    position: relative;
+    width: 38px;
+    height: 21px;
+    border-radius: 999px;
+    border: none;
+    background: #C9D2E3;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    flex-shrink: 0;
+}
+.module-toggle-switch--on {
+    background: var(--color-hospital-primary, #0A4FA6);
+}
+.module-toggle-knob {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s;
+}
+.module-toggle-switch--on .module-toggle-knob {
+    transform: translateX(-17px);
+}
+.module-toggle-state {
+    width: 40px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-hospital-primary, #0A4FA6);
+}
+.module-toggle-state--off {
+    color: var(--color-hospital-text-3, #8A96AE);
 }
 </style>

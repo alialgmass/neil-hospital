@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Activity, Package, Scissors } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 
 interface Row {
@@ -34,6 +34,11 @@ const props = defineProps<{
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
 const dept = ref(props.filters.dept ?? '');
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
+const surgeryEnabled = computed(() => moduleStatus.value.surgery !== false);
+const lasikEnabled = computed(() => moduleStatus.value.lasik !== false);
 
 const statusLabels: Record<string, string> = {
     scheduled: 'مجدولة',
@@ -124,8 +129,8 @@ function search() {
             <label class="form-label">القسم</label>
             <select v-model="dept" class="input-field">
                 <option value="">الكل (عمليات + ليزك)</option>
-                <option value="surgery">عمليات جراحية</option>
-                <option value="lasik">ليزك</option>
+                <option v-if="surgeryEnabled" value="surgery">عمليات جراحية</option>
+                <option v-if="lasikEnabled" value="lasik">ليزك</option>
             </select>
         </div>
         <button class="btn-primary self-end" @click="search">بحث</button>

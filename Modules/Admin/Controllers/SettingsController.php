@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Admin\Enums\SystemModule;
 use Modules\Admin\Services\SettingsService;
 
 class SettingsController extends Controller
@@ -19,6 +20,11 @@ class SettingsController extends Controller
     {
         return Inertia::render('admin/Settings', [
             'settings' => $this->service->all(),
+            'systemModules' => collect(SystemModule::cases())->map(fn (SystemModule $module) => [
+                'value' => $module->value,
+                'label' => $module->label(),
+                'enabled' => $module->isEnabled(),
+            ])->all(),
         ]);
     }
 

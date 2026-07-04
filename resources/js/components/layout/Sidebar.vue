@@ -47,6 +47,7 @@ interface NavEntry {
     href: string;
     icon: unknown;
     permission?: string;
+    module?: string;
 }
 
 interface NavGroup {
@@ -55,11 +56,16 @@ interface NavGroup {
     items: NavEntry[];
 }
 
-const page = usePage<{ permissions?: string[] }>();
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+const moduleStatus = computed<Record<string, boolean>>(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
 
 function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
+}
+
+function moduleEnabled(module: string): boolean {
+    return moduleStatus.value[module] !== false;
 }
 
 const navGroups: NavGroup[] = [
@@ -74,68 +80,68 @@ const navGroups: NavGroup[] = [
         label: 'الأقسام الطبية',
         icon: HeartPulse,
         items: [
-            { title: 'الحجز', href: '/booking', icon: CalendarPlus, permission: 'booking.view' },
-            { title: 'العيادة', href: '/clinic', icon: Stethoscope, permission: 'clinic.view' },
-            { title: 'الفحوصات', href: '/labs', icon: FlaskConical, permission: 'labs.view' },
-            { title: 'العمليات', href: '/surgery', icon: Scissors, permission: 'surgery.view' },
-            { title: 'الليزك', href: '/lasik', icon: Zap, permission: 'lasik.view' },
-            { title: 'الليزر', href: '/laser', icon: Dot, permission: 'laser.view' },
+            { title: 'الحجز', href: '/booking', icon: CalendarPlus, permission: 'booking.view', module: 'booking' },
+            { title: 'العيادة', href: '/clinic', icon: Stethoscope, permission: 'clinic.view', module: 'clinic' },
+            { title: 'الفحوصات', href: '/labs', icon: FlaskConical, permission: 'labs.view', module: 'labs' },
+            { title: 'العمليات', href: '/surgery', icon: Scissors, permission: 'surgery.view', module: 'surgery' },
+            { title: 'الليزك', href: '/lasik', icon: Zap, permission: 'lasik.view', module: 'lasik' },
+            { title: 'الليزر', href: '/laser', icon: Dot, permission: 'laser.view', module: 'laser' },
         ],
     },
     {
         label: 'الأطباء',
         icon: UserCog,
         items: [
-            { title: 'إدارة الأطباء', href: '/doctors', icon: UserCog, permission: 'doctors.view' },
-            { title: 'مستحقات الأطباء', href: '/dr-claims', icon: Calculator, permission: 'drpayments.view' },
-            { title: 'مدفوعات الأطباء', href: '/dr-payments', icon: Wallet, permission: 'drpayments.view' },
+            { title: 'إدارة الأطباء', href: '/doctors', icon: UserCog, permission: 'doctors.view', module: 'doctors' },
+            { title: 'مستحقات الأطباء', href: '/dr-claims', icon: Calculator, permission: 'drpayments.view', module: 'doctors' },
+            { title: 'مدفوعات الأطباء', href: '/dr-payments', icon: Wallet, permission: 'drpayments.view', module: 'doctors' },
         ],
     },
     {
         label: 'المالية',
         icon: BadgeDollarSign,
         items: [
-            { title: 'الخزنة', href: '/treasury', icon: Wallet, permission: 'treasury.view' },
-            { title: 'قيود اليومية', href: '/journal', icon: BookOpen, permission: 'journal.view' },
-            { title: 'الدليل المحاسبي', href: '/accounts', icon: Library, permission: 'journal.view' },
-            { title: 'ميزان المراجعة', href: '/ledger/trial-balance', icon: Scale, permission: 'reports.financial' },
-            { title: 'قائمة الدخل', href: '/ledger/income-statement', icon: TrendingUp, permission: 'reports.financial' },
-            { title: 'كشف الحساب', href: '/ledger/account-statement', icon: FileText, permission: 'reports.financial' },
-            { title: 'مراكز التكلفة', href: '/cost-centers', icon: PieChart, permission: 'journal.view' },
+            { title: 'الخزنة', href: '/treasury', icon: Wallet, permission: 'treasury.view', module: 'accounting' },
+            { title: 'قيود اليومية', href: '/journal', icon: BookOpen, permission: 'journal.view', module: 'accounting' },
+            { title: 'الدليل المحاسبي', href: '/accounts', icon: Library, permission: 'journal.view', module: 'accounting' },
+            { title: 'ميزان المراجعة', href: '/ledger/trial-balance', icon: Scale, permission: 'reports.financial', module: 'accounting' },
+            { title: 'قائمة الدخل', href: '/ledger/income-statement', icon: TrendingUp, permission: 'reports.financial', module: 'accounting' },
+            { title: 'كشف الحساب', href: '/ledger/account-statement', icon: FileText, permission: 'reports.financial', module: 'accounting' },
+            { title: 'مراكز التكلفة', href: '/cost-centers', icon: PieChart, permission: 'journal.view', module: 'accounting' },
         ],
     },
     {
         label: 'المخزن والخدمات',
         icon: Package,
         items: [
-            { title: 'الخدمات والأسعار', href: '/services', icon: Tags, permission: 'services.view' },
-            { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view' },
-            { title: 'الموردون', href: '/suppliers', icon: Truck, permission: 'inventory.view' },
-            { title: 'فواتير الشراء', href: '/purchases', icon: Receipt, permission: 'inventory.view' },
-            { title: 'أذون الصرف', href: '/stock-issue', icon: ClipboardList, permission: 'inventory.view' },
-            { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view' },
-            { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'inventory.view' },
-            { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view' },
+            { title: 'الخدمات والأسعار', href: '/services', icon: Tags, permission: 'services.view', module: 'inventory' },
+            { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view', module: 'inventory' },
+            { title: 'الموردون', href: '/suppliers', icon: Truck, permission: 'inventory.view', module: 'inventory' },
+            { title: 'فواتير الشراء', href: '/purchases', icon: Receipt, permission: 'inventory.view', module: 'inventory' },
+            { title: 'أذون الصرف', href: '/stock-issue', icon: ClipboardList, permission: 'inventory.view', module: 'inventory' },
+            { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view', module: 'inventory' },
+            { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'inventory.view', module: 'inventory' },
+            { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view', module: 'inventory' },
         ],
     },
     {
         label: 'الموارد البشرية',
         icon: Users,
         items: [
-            { title: 'الموظفون', href: '/employees', icon: UserSquare2, permission: 'hr.view' },
-            { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck, permission: 'hr.view' },
-            { title: 'الورديات', href: '/shifts', icon: Clock, permission: 'hr.view' },
-            { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view' },
-            { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view' },
-            { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage' },
+            { title: 'الموظفون', href: '/employees', icon: UserSquare2, permission: 'hr.view', module: 'hr' },
+            { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck, permission: 'hr.view', module: 'hr' },
+            { title: 'الورديات', href: '/shifts', icon: Clock, permission: 'hr.view', module: 'hr' },
+            { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view', module: 'hr' },
+            { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view', module: 'hr' },
+            { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage', module: 'hr' },
         ],
     },
     {
         label: 'الإدارة',
         icon: Settings,
         items: [
-            { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial' },
-            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical' },
+            { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial', module: 'reports' },
+            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical', module: 'reports' },
             { title: 'المستخدمون', href: '/users', icon: Users, permission: 'users.manage' },
             { title: 'الأدوار والصلاحيات', href: '/roles', icon: Shield, permission: 'users.manage' },
             { title: 'الإعدادات', href: '/settings', icon: Settings, permission: 'settings.manage' },
@@ -147,7 +153,9 @@ const visibleGroups = computed(() =>
     navGroups
         .map((group) => ({
             ...group,
-            items: group.items.filter((item) => !item.permission || can(item.permission)),
+            items: group.items.filter((item) =>
+                (!item.permission || can(item.permission)) && (!item.module || moduleEnabled(item.module)),
+            ),
         }))
         .filter((group) => group.items.length > 0),
 );

@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Modules\Admin\Enums\SystemModule;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -57,6 +58,8 @@ class HandleInertiaRequests extends Middleware
             // Alerts for notification bell
             'alerts' => $user ? (new AlertService)->getAlerts() : [],
             'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
+            // Global on/off switches for whole system modules, managed from Settings.
+            'moduleStatus' => SystemModule::statuses(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => $request->session()->get('success'),

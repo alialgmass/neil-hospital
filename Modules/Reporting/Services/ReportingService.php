@@ -3,6 +3,7 @@
 namespace Modules\Reporting\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Admin\Enums\SystemModule;
 
 class ReportingService
 {
@@ -21,6 +22,7 @@ class ReportingService
             )
             ->where('bookings.pay_status', '!=', 'unpaid')
             ->whereBetween('bookings.visit_date', [$from, $to])
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->groupBy('bookings.dept', 'doctors.id', 'doctors.name')
             ->orderBy('bookings.dept')
             ->orderByDesc('revenue')

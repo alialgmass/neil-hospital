@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Clock, FileText, Users, Wallet } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
@@ -32,6 +32,15 @@ const deptLabels: Record<string, string> = {
     lasik: 'الليزك',
     laser: 'الليزر',
 };
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const visibleDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(
+        Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false),
+    );
+});
 
 const totalRevenue = computed(() => props.data.rows.reduce((s, r) => s + Number(r.price), 0));
 const paidCount = computed(() => props.data.rows.filter((r) => r.pay_status === 'paid').length);
@@ -110,7 +119,7 @@ function search() {
             <label class="form-label">القسم</label>
             <select v-model="dept" class="input-field">
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
         </div>
         <button class="btn-primary self-end" @click="search">بحث</button>
