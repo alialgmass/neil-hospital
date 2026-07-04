@@ -82,12 +82,12 @@ class DashboardService
                 'bookings.dept',
                 'bookings.status',
                 'bookings.pay_status',
-                // 'bookings.time',
+                'bookings.visit_time as time',
                 'doctors.name as doctor_name',
             )
-           // ->whereDate('bookings.date', today())
+            ->whereDate('bookings.visit_date', today())
             ->whereIn('bookings.status', ['confirmed', 'waiting', 'in_progress'])
-          //  ->orderBy('bookings.time')
+            ->orderBy('bookings.visit_time')
             ->limit(20)
             ->get();
     }

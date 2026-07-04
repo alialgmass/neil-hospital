@@ -5,6 +5,10 @@ namespace Tests\Feature\Booking;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Booking\Models\Booking;
+use Modules\Surgery\Models\OrBed;
+use Modules\Surgery\Models\OrRoom;
+use Modules\Surgery\Models\Surgery;
+use Modules\Surgery\States\ScheduledState;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -128,6 +132,42 @@ class UpdateBookingTest extends TestCase
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
             'pay_status' => 'partial',
+        ]);
+    }
+
+    public function test_update_allows_resubmitting_bed_already_assigned_to_the_booking(): void
+    {
+        $room = OrRoom::create(['name' => 'Room 1']);
+        $bed = OrBed::create(['room_id' => $room->id, 'bed_number' => 1]);
+        $booking = $this->createBooking(['dept' => 'surgery']);
+
+        Surgery::create([
+            'booking_id' => $booking->id,
+            'or_bed_id' => $bed->id,
+            'dept' => 'surgery',
+            'status' => ScheduledState::$name,
+        ]);
+
+        $this->actingAs($this->user)
+            ->put("/booking/{$booking->id}", $this->basePayload([
+                'dept' => 'surgery',
+                'bed_id' => (string) $bed->id,
+            ]))
+            ->assertSessionDoesntHaveErrors('bed_id')
+            ->assertRedirect();
+    }
+
+    public function test_update_is_blocked_when_booking_is_completed(): void
+    {
+        $booking = $this->createBooking(['status' => 'completed']);
+
+        $this->actingAs($this->user)
+            ->put("/booking/{$booking->id}", $this->basePayload(['patient_name' => 'اسم آخر']))
+            ->assertSessionHasErrors('status');
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'patient_name' => 'محمد علي',
         ]);
     }
 }

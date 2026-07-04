@@ -18,7 +18,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
     public function filterAndPaginate(BookingFilterData $filter): LengthAwarePaginator
     {
         $query = Booking::query()
-            ->with(['doctor:id,name', 'insuranceCompany:id,name'])
+            ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
             ->latest('visit_date');
 
         if ($filter->date) {

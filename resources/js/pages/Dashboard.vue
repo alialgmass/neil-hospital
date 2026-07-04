@@ -68,7 +68,7 @@
                                         <Badge :variant="entry.status" />
                                     </td>
                                     <td class="px-3 py-2.5">
-                                        <Link :href="`/booking/${entry.id}`" class="btn btn-xs border-hospital-border">معاينة</Link>
+                                        <Link :href="`/booking/patient/${entry.file_no}`" class="btn btn-xs border-hospital-border">معاينة</Link>
                                     </td>
                                 </tr>
                                 <tr v-if="todayQueue.length === 0">

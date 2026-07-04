@@ -18,10 +18,12 @@ interface Props {
     modelValue: string;
     orRooms: OrRoom[];
     dept: string;
+    currentSurgeryId?: string;
     error?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    currentSurgeryId: undefined,
     error: '',
 });
 
@@ -59,7 +61,15 @@ const selectedDisplayNumber = computed(() => {
 });
 
 function isBedOccupied(bed: FlatBed): boolean {
-    return !!bed.surgery && bed.surgery !== null;
+    if (!bed.surgery) {
+        return false;
+    }
+
+    if (props.currentSurgeryId && String(bed.surgery.id) === String(props.currentSurgeryId)) {
+        return false;
+    }
+
+    return true;
 }
 
 function selectBed(bed: FlatBed) {

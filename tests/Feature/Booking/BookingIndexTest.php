@@ -4,9 +4,14 @@ namespace Tests\Feature\Booking;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Models\Doctor;
+use Modules\Surgery\Models\OrBed;
+use Modules\Surgery\Models\OrRoom;
+use Modules\Surgery\Models\Surgery;
+use Modules\Surgery\States\ScheduledState;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -89,5 +94,40 @@ class BookingIndexTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page->has('orRooms'));
+    }
+
+    public function test_booking_index_exposes_assigned_bed_via_surgery_relation(): void
+    {
+        $room = OrRoom::create(['name' => 'Room 1']);
+        $bed = OrBed::create(['room_id' => $room->id, 'bed_number' => 1]);
+
+        $booking = Booking::create([
+            'file_no' => 'MRN-001',
+            'patient_name' => 'محمد علي',
+            'dept' => 'surgery',
+            'visit_date' => '2026-04-20',
+            'price' => 150.00,
+            'discount' => 0.00,
+            'ins_amount' => 0.00,
+            'paid_amount' => 0.00,
+            'pay_method' => 'cash',
+            'pay_status' => 'unpaid',
+            'status' => 'waiting',
+            'created_by' => $this->user->id,
+        ]);
+
+        Surgery::create([
+            'booking_id' => $booking->id,
+            'or_bed_id' => $bed->id,
+            'dept' => 'surgery',
+            'status' => ScheduledState::$name,
+        ]);
+
+        $response = $this->actingAs($this->user)->get('/booking');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('bookings.data.0.surgery.or_bed_id', $bed->id)
+        );
     }
 }

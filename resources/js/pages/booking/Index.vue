@@ -48,6 +48,7 @@ interface Booking {
     analysis_notes?: string;
     doctor?: { id: string; name: string };
     insuranceCompany?: { id: string; name: string };
+    surgery?: { id: string; or_bed_id?: number | string | null } | null;
 }
 
 interface Props {
@@ -135,6 +136,8 @@ payForm.patch(`/booking/${payTarget.value.id}/pay`, {
 const search = ref(props.filters.search ?? '');
 const selectedDept = ref(props.filters.dept ?? '');
 const selectedStatus = ref(props.filters.status ?? '');
+const dateFrom = ref(props.filters.date_from ?? '');
+const dateTo = ref(props.filters.date_to ?? '');
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 watch([search, selectedDept, selectedStatus], () => {
@@ -199,23 +202,23 @@ const currentDeptLabel = computed(() =>
 );
 
 function applyFilter(from: string, to: string) {
-    router.get(
-        '/booking',
-        {
-            date_from: from,
-            date_to: to,
-            dept: selectedDept.value,
-            status: selectedStatus.value,
-            search: search.value,
-        },
-        { preserveState: true, replace: true },
-    );
+    dateFrom.value = from;
+    dateTo.value = to;
+    applySearch();
+}
+
+function clearDateFilter() {
+    dateFrom.value = '';
+    dateTo.value = '';
+    applySearch();
 }
 
 function applySearch() {
     router.get(
         '/booking',
         {
+            date_from: dateFrom.value,
+            date_to: dateTo.value,
             dept: selectedDept.value,
             status: selectedStatus.value,
             search: search.value,
@@ -271,6 +274,15 @@ function doDelete() {
 
 function printReceipt(id: string) {
     window.open(`/booking/${id}/receipt`, '_blank');
+}
+
+function openEditBooking(row: Booking) {
+    const bedId = row.surgery?.or_bed_id;
+    editBooking.value = {
+        ...row,
+        bed_id: bedId != null ? String(bedId) : '',
+        surgery_id: row.surgery?.id,
+    } as Booking & { bed_id: string; surgery_id?: string };
 }
 const isEditModalOpen = computed({
     get: () => !!editBooking.value,
@@ -355,8 +367,10 @@ const isDeleteModalOpen = computed({
             </div>
 
             <DateFilter
+                :from="dateFrom"
+                :to="dateTo"
                 @apply="applyFilter"
-                @clear="() => router.get('/booking')"
+                @clear="clearDateFilter"
             />
 
             <!-- Search Bar -->
@@ -463,15 +477,17 @@ const isDeleteModalOpen = computed({
                     <button
                         type="button"
                         title="تعديل"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning"
-                        @click="editBooking = row as Booking"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="(row as Booking).status === 'completed'"
+                        @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />
                     </button>
                     <button
                         type="button"
                         title="حذف"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="(row as Booking).status === 'completed'"
                         @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />

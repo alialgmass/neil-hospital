@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
 import BookingSummary from './BookingSummary.vue';
@@ -233,6 +234,7 @@ function submit() {
         preserveState: true,
         preserveScroll: true,
         onSuccess: () => emit('success'),
+        onError: () => toast.error('يوجد أخطاء في النموذج، يرجى مراجعتها.'),
     });
 }
 </script>
@@ -264,61 +266,32 @@ function submit() {
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"
                 />
 
-                <template v-if="!isCreating">
-                    <PaymentFields
-                        :model-value="{
-                            pay_method: form.pay_method,
-                            paid_amount: form.paid_amount,
-                            ins_company_id: form.ins_company_id,
-                            price: form.price,
-                            discount: form.discount,
-                            ins_amount: form.ins_amount,
-                            pay_status: form.pay_status,
-                        }"
-                        :insurance-companies="insuranceCompanies"
-                        :price-lists="priceLists"
-                        :is-insurance="isInsurance"
-                        :net-amount="netAmount"
-                        :errors="form.errors"
-                        @update:model-value="(v) => Object.assign(form, v)"
-                    />
-                    <InvoicePreview
-                        v-if="showInvoicePreview"
-                        :selected-service-name="selectedServiceName"
-                        :price="form.price"
-                        :discount="form.discount"
-                        :ins-amount="form.ins_amount"
-                        :is-insurance="isInsurance"
-                        :net-amount="netAmount"
-                    />
-                </template>
-
-                <div v-else class="bk-section">
-                    <span class="bk-title bk-title-teal">الدفع</span>
-                    <div class="bk-grid-2 mt-3">
-                        <div class="col-span-2">
-                            <label class="bk-label">طريقة الدفع</label>
-                            <select v-model="form.pay_method" class="bk-input">
-                                <option value="cash">كاش</option>
-                                <option value="card">شبكة</option>
-                                <option value="transfer">تحويل</option>
-                                <option value="insurance">تأمين</option>
-                            </select>
-                        </div>
-                        <div class="col-span-2">
-                            <label class="bk-label">شركة التأمين</label>
-                            <select v-model="form.ins_company_id" class="bk-input">
-                                <option value="">— غير تابع لتأمين —</option>
-                                <option v-for="ins in insuranceCompanies" :key="ins.id" :value="ins.id">
-                                    {{ ins.name }}
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <p class="mt-3 rounded-lg border border-hospital-warning-pale bg-hospital-warning-pale/40 px-3 py-2 text-xs text-hospital-warning">
-                        💡 يمكن إكمال بيانات الدفع لاحقاً من خلال زر "دفع" في قائمة الحجوزات
-                    </p>
-                </div>
+                <PaymentFields
+                    :model-value="{
+                        pay_method: form.pay_method,
+                        paid_amount: form.paid_amount,
+                        ins_company_id: form.ins_company_id,
+                        price: form.price,
+                        discount: form.discount,
+                        ins_amount: form.ins_amount,
+                        pay_status: form.pay_status,
+                    }"
+                    :insurance-companies="insuranceCompanies"
+                    :price-lists="priceLists"
+                    :is-insurance="isInsurance"
+                    :net-amount="netAmount"
+                    :errors="form.errors"
+                    @update:model-value="(v) => Object.assign(form, v)"
+                />
+                <InvoicePreview
+                    v-if="showInvoicePreview"
+                    :selected-service-name="selectedServiceName"
+                    :price="form.price"
+                    :discount="form.discount"
+                    :ins-amount="form.ins_amount"
+                    :is-insurance="isInsurance"
+                    :net-amount="netAmount"
+                />
             </div>
 
             <div>
@@ -338,6 +311,7 @@ function submit() {
                                 v-model="form.bed_id"
                                 :or-rooms="orRooms"
                                 :dept="form.dept"
+                                :current-surgery-id="(props.booking?.surgery_id as string) ?? undefined"
                                 :error="form.errors.bed_id"
                             />
                         </div>
@@ -378,7 +352,6 @@ function submit() {
             :processing="form.processing"
             :is-edit-mode="!isCreating"
             @cancel="emit('cancel')"
-            @submit="submit"
         />
     </form>
 </template>

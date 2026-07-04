@@ -8,7 +8,6 @@ defineProps<Props>();
 
 const emit = defineEmits<{
     (e: 'cancel'): void;
-    (e: 'submit'): void;
 }>();
 </script>
 
@@ -32,7 +31,6 @@ const emit = defineEmits<{
                 type="submit"
                 :disabled="processing"
                 class="rounded-lg bg-hospital-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60"
-                @click="emit('submit')"
             >
                 {{ processing ? 'جارٍ الحفظ…' : '💾 حفظ الحجز' }}
             </button>

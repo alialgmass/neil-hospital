@@ -14,6 +14,7 @@ use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
+use Modules\Booking\States\CompletedState;
 use Modules\Surgery\Services\SurgeryService;
 
 class BookingController extends Controller
@@ -56,6 +57,12 @@ class BookingController extends Controller
 
     public function update(UpdateBookingRequest $request, string $id): RedirectResponse
     {
+        $booking = $this->bookingRepository->findOrFail($id);
+
+        if ($booking->status instanceof CompletedState) {
+            return back()->withErrors(['status' => 'لا يمكن تعديل حجز مكتمل.']);
+        }
+
         $data = BookingData::fromArray($request->validated());
         $this->updateAction->execute($id, $data);
 
@@ -64,6 +71,12 @@ class BookingController extends Controller
 
     public function destroy(string $id): RedirectResponse
     {
+        $booking = $this->bookingRepository->findOrFail($id);
+
+        if ($booking->status instanceof CompletedState) {
+            return back()->withErrors(['status' => 'لا يمكن حذف حجز مكتمل.']);
+        }
+
         $this->bookingRepository->delete($id);
 
         return back()->with('success', 'تم حذف الحجز بنجاح.');
