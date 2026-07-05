@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
 interface Props {
     modelValue: string;
     error?: string;
@@ -12,13 +15,20 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void;
 }>();
 
-const deptOptions = [
+const allDeptOptions = [
     { value: 'clinic', label: 'العيادة', icon: '🏥', cap: 'فحص عام' },
     { value: 'labs', label: 'الفحوصات', icon: '🔬', cap: 'تحاليل وأشعة' },
     { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
     { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
     { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
 ];
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const deptOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return allDeptOptions.filter((dept) => moduleStatus[dept.value] !== false);
+});
 
 function selectDept(value: string) {
     emit('update:modelValue', value);

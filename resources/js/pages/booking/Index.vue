@@ -80,7 +80,7 @@ interface Props {
 const props = defineProps<Props>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
@@ -94,14 +94,14 @@ const deleteTarget = ref<Booking | null>(null);
 
 // ── Pay modal ──
 const payTarget = ref<Booking | null>(null);
-const payForm = useForm({ paid_amount: '', pay_method: 'cash' });
+const payForm = useForm({ price: '', paid_amount: '', pay_method: 'cash' });
 
 const isPayModalOpen = computed({
     get: () => !!payTarget.value,
     set: (val) => {
  if (!val) {
- payTarget.value = null; payForm.reset(); 
-} 
+ payTarget.value = null; payForm.reset();
+}
 },
 });
 
@@ -110,13 +110,14 @@ const payRemaining = computed(() => {
 return 0;
 }
 
-    const net = Math.max(0, Number(payTarget.value.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
+    const net = Math.max(0, Number(payForm.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
 
     return Math.max(0, net - Number(payTarget.value.paid_amount));
 });
 
 function openPay(booking: Booking) {
     payTarget.value = booking;
+    payForm.price = String(booking.price ?? '0');
     payForm.paid_amount = String(payRemaining.value || '');
 }
 
@@ -158,6 +159,11 @@ const deptLabels: Record<string, string> = {
     laser: 'الليزر',
 };
 
+const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
+const visibleDeptLabels = computed<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus.value[key] !== false)),
+);
+
 const columns = [
     { key: 'file_no', label: 'رقم الملف', sortable: true },
     { key: 'patient_name', label: 'المريض', sortable: true },
@@ -169,33 +175,39 @@ const columns = [
     { key: 'status', label: 'الحالة' },
 ];
 
-const statCards = computed(() => [
+const allStatCards = [
     {
+        key: 'clinic',
         label: 'العيادة',
-        value: props.todayStats.clinic ?? 0,
         color: 'primary' as const,
     },
     {
+        key: 'labs',
         label: 'الفحوصات',
-        value: props.todayStats.labs ?? 0,
         color: 'accent' as const,
     },
     {
+        key: 'surgery',
         label: 'العمليات',
-        value: props.todayStats.surgery ?? 0,
         color: 'warning' as const,
     },
     {
+        key: 'lasik',
         label: 'الليزك',
-        value: props.todayStats.lasik ?? 0,
         color: 'success' as const,
     },
     {
+        key: 'laser',
         label: 'الليزر',
-        value: props.todayStats.laser ?? 0,
         color: 'danger' as const,
     },
-]);
+];
+
+const statCards = computed(() =>
+    allStatCards
+        .filter((stat) => moduleStatus.value[stat.key] !== false)
+        .map((stat) => ({ ...stat, value: props.todayStats[stat.key] ?? 0 })),
+);
 
 const currentDeptLabel = computed(() =>
     selectedDept.value ? (deptLabels[selectedDept.value] ?? selectedDept.value) : 'كل الحجوزات',
@@ -334,7 +346,7 @@ const isDeleteModalOpen = computed({
             كل الحجوزات
         </button>
         <button
-            v-for="(label, key) in deptLabels"
+            v-for="(label, key) in visibleDeptLabels"
             :key="key"
             class="tab px-4 py-2 text-[12px] font-bold transition-all duration-150 mb-[-2px] border-b-[2px]"
             :class="selectedDept === key
@@ -579,6 +591,7 @@ const isDeleteModalOpen = computed({
                     <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('ar-EG') }} ج</span>
                 </div>
             </div>
+
 
             <!-- Amount -->
             <div>

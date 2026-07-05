@@ -3,6 +3,8 @@
 namespace Modules\Doctor\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Booking\Enums\PayMethod;
+use Modules\Booking\Models\Booking;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorPayment;
@@ -63,6 +65,76 @@ class DoctorClaimsService
         }
 
         return $this->buildClaimsResult($doctor, $from, $to, $totalDrShare, $rows);
+    }
+
+    /**
+     * Doctor's share of a single payment increment on a booking, using the same
+     * 5 fee strategies as calculateClaims(). Fixed/insurance fees (flat "per case"
+     * amounts) are attributed to the first payment only; percentage-based and
+     * surgery/lasik supply-deduction fees are prorated across each payment.
+     */
+    public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
+    {
+        if ($doctor->fee_type === FeeType::Insurance) {
+            return 0.0;
+        }
+
+        $dept = $booking->dept->value;
+        $deptFee = $doctor->dept_fees[$dept] ?? null;
+
+        if ($deptFee && ! in_array($dept, ['surgery', 'lasik'], true)) {
+            return $this->computeFeeEntryShareForPayment($deptFee, $paymentAmount, $isFirstPayment);
+        }
+
+        if (in_array($dept, ['surgery', 'lasik'], true)) {
+            if ($booking->pay_method === PayMethod::Insurance) {
+                return $isFirstPayment ? $this->insuranceSurgeryFixedFee($booking) : 0.0;
+            }
+
+            return $this->surgeryShareForPayment($booking, $paymentAmount, $isFirstPayment);
+        }
+
+        return match ($doctor->fee_type) {
+            FeeType::Percentage => round($paymentAmount * ((float) $doctor->fee_value / 100), 2),
+            FeeType::Fixed => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
+            default => 0.0,
+        };
+    }
+
+    private function computeFeeEntryShareForPayment(array $deptFee, float $paymentAmount, bool $isFirstPayment): float
+    {
+        $feeValue = (float) ($deptFee['fee_value'] ?? 0);
+
+        return match ($deptFee['fee_type'] ?? '') {
+            'percentage' => round($paymentAmount * ($feeValue / 100), 2),
+            'fixed' => $isFirstPayment ? $feeValue : 0.0,
+            default => 0.0,
+        };
+    }
+
+    /**
+     * Surgery/Lasik strategy: supply cost is deducted from the first payment only;
+     * subsequent installments go to the doctor in full.
+     */
+    private function surgeryShareForPayment(Booking $booking, float $paymentAmount, bool $isFirstPayment): float
+    {
+        if (! $isFirstPayment) {
+            return max(0, $paymentAmount);
+        }
+
+        $supplyTotal = (float) DB::table('surgeries')
+            ->where('booking_id', $booking->id)
+            ->value('supply_total') ?? 0.0;
+
+        return max(0, $paymentAmount - $supplyTotal);
+    }
+
+    private function insuranceSurgeryFixedFee(Booking $booking): float
+    {
+        return (float) DB::table('services')
+            ->where('name', $booking->service_name)
+            ->where('dept', $booking->dept->value)
+            ->value('dr_share') ?? 0.0;
     }
 
     private function computeDrShare(Doctor $doctor, object $booking): float

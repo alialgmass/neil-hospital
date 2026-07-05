@@ -105,6 +105,72 @@ class SystemModuleDeptFilteringTest extends TestCase
         );
     }
 
+    public function test_new_booking_cannot_be_created_for_a_disabled_department(): void
+    {
+        Permission::firstOrCreate(['name' => 'booking.create']);
+        $this->user->givePermissionTo('booking.create');
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->post('/booking', [
+            'patient_name' => 'مريض جديد',
+            'dept' => 'lasik',
+            'visit_date' => today()->toDateString(),
+        ]);
+
+        $response->assertSessionHasErrors('dept');
+        $this->assertDatabaseMissing('bookings', ['dept' => 'lasik', 'patient_name' => 'مريض جديد']);
+    }
+
+    public function test_new_booking_can_still_be_created_for_an_enabled_department_while_a_sibling_is_disabled(): void
+    {
+        Permission::firstOrCreate(['name' => 'booking.create']);
+        $this->user->givePermissionTo('booking.create');
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->post('/booking', [
+            'patient_name' => 'مريض جديد',
+            'dept' => 'clinic',
+            'visit_date' => today()->toDateString(),
+            'pay_method' => 'cash',
+            'pay_status' => 'unpaid',
+        ]);
+
+        $response->assertSessionDoesntHaveErrors('dept');
+        $this->assertDatabaseHas('bookings', ['dept' => 'clinic', 'patient_name' => 'مريض جديد']);
+    }
+
+    public function test_disabled_department_disappears_from_the_booking_list(): void
+    {
+        Permission::firstOrCreate(['name' => 'booking.view']);
+        $this->user->givePermissionTo('booking.view');
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->get('/booking');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('bookings.data', fn ($rows) => ! collect($rows)->pluck('dept')->contains('lasik')
+                && collect($rows)->pluck('dept')->contains('clinic')
+                && collect($rows)->pluck('dept')->contains('laser'))
+        );
+    }
+
+    public function test_disabled_department_booking_list_returns_nothing_even_when_filtered_explicitly(): void
+    {
+        Permission::firstOrCreate(['name' => 'booking.view']);
+        $this->user->givePermissionTo('booking.view');
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->get('/booking?dept=lasik');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->where('bookings.data', fn ($rows) => count($rows) === 0));
+    }
+
     public function test_disabled_department_revenue_account_disappears_from_chart_of_accounts(): void
     {
         Account::create(['code' => '4040', 'name' => 'إيرادات وحدة الليزك', 'group' => 'revenues', 'nature' => 'credit']);

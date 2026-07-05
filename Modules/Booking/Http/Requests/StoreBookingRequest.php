@@ -3,6 +3,8 @@
 namespace Modules\Booking\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\Admin\Enums\SystemModule;
 use Modules\Surgery\Services\SurgeryService;
 
 class StoreBookingRequest extends FormRequest
@@ -20,7 +22,7 @@ class StoreBookingRequest extends FormRequest
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],
-            'dept' => ['required', 'in:clinic,labs,surgery,lasik,laser'],
+            'dept' => ['required', Rule::in(SystemModule::enabledDeptValues())],
             'service_id' => ['nullable', 'exists:services,id'],
             'service_name' => ['nullable', 'string', 'max:200'],
             'doctor_id' => ['nullable', 'exists:doctors,id'],
