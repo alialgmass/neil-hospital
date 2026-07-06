@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 import archive from '@/routes/archive';
+import booking from '@/routes/booking';
 
 interface MediaFile {
     id: number;
@@ -248,40 +249,40 @@ function goToPage(page: number) {
     <!-- Grid View -->
     <div v-else-if="viewMode === 'grid'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         <div
-            v-for="booking in bookings.data"
-            :key="booking.id"
+            v-for="record in bookings.data"
+            :key="record.id"
             class="group flex flex-col overflow-hidden rounded-xl border border-hospital-border bg-white shadow-sm transition-shadow hover:shadow-md"
         >
             <!-- Card Icon Area -->
-            <a :href="`/booking/${booking.id}/patient-file`" class="flex h-28 items-center justify-center bg-gradient-to-br from-hospital-primary/10 to-hospital-primary/5">
+            <a :href="booking.patientFile(record.file_no).url" class="flex h-28 items-center justify-center bg-gradient-to-br from-hospital-primary/10 to-hospital-primary/5">
                 <FileText class="h-10 w-10 text-hospital-primary/60 transition-transform group-hover:scale-110" />
             </a>
             <!-- Card Info -->
             <div class="flex flex-1 flex-col p-3">
-                <p class="truncate font-semibold text-hospital-text text-sm">{{ booking.patient_name }}</p>
-                <p class="mt-0.5 text-xs text-hospital-muted">{{ booking.file_no }}</p>
+                <p class="truncate font-semibold text-hospital-text text-sm">{{ record.patient_name }}</p>
+                <p class="mt-0.5 text-xs text-hospital-muted">{{ record.file_no }}</p>
                 <div class="mt-2 flex flex-wrap gap-1">
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="deptColors[booking.dept] ?? 'bg-gray-100 text-gray-600'"
+                        :class="deptColors[record.dept] ?? 'bg-gray-100 text-gray-600'"
                     >
-                        {{ deptLabels[booking.dept] ?? booking.dept }}
+                        {{ deptLabels[record.dept] ?? record.dept }}
                     </span>
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="payStatusColors[booking.pay_status] ?? 'bg-gray-100 text-gray-600'"
+                        :class="payStatusColors[record.pay_status] ?? 'bg-gray-100 text-gray-600'"
                     >
-                        {{ payStatusLabels[booking.pay_status] ?? booking.pay_status }}
+                        {{ payStatusLabels[record.pay_status] ?? record.pay_status }}
                     </span>
                 </div>
-                <p class="mt-2 text-xs text-hospital-muted">{{ booking.visit_date }}</p>
+                <p class="mt-2 text-xs text-hospital-muted">{{ record.visit_date }}</p>
                 <!-- Files button -->
                 <button
                     class="mt-2 flex items-center gap-1.5 rounded-lg border border-hospital-border px-2 py-1 text-xs text-hospital-text-2 transition-colors hover:border-hospital-primary hover:text-hospital-primary"
-                    @click="openFilesModal(booking)"
+                    @click="openFilesModal(record)"
                 >
                     <Paperclip class="h-3 w-3" />
-                    {{ booking.media_files.length > 0 ? `${booking.media_files.length} ملف` : 'رفع ملفات' }}
+                    {{ record.media_files.length > 0 ? `${record.media_files.length} ملف` : 'رفع ملفات' }}
                 </button>
             </div>
         </div>
@@ -303,33 +304,33 @@ function goToPage(page: number) {
                 </tr>
             </thead>
             <tbody class="divide-y divide-hospital-border">
-                <tr v-for="booking in bookings.data" :key="booking.id" class="hover:bg-hospital-bg/50">
+                <tr v-for="record in bookings.data" :key="record.id" class="hover:bg-hospital-bg/50">
                     <td class="px-4 py-3">
-                        <a :href="`/booking/${booking.id}/patient-file`" class="font-medium text-hospital-primary hover:underline">
-                            {{ booking.file_no }}
+                        <a :href="booking.patientFile(record.file_no).url" class="font-medium text-hospital-primary hover:underline">
+                            {{ record.file_no }}
                         </a>
                     </td>
-                    <td class="px-4 py-3 font-medium text-hospital-text">{{ booking.patient_name }}</td>
+                    <td class="px-4 py-3 font-medium text-hospital-text">{{ record.patient_name }}</td>
                     <td class="px-4 py-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="deptColors[booking.dept] ?? 'bg-gray-100 text-gray-600'">
-                            {{ deptLabels[booking.dept] ?? booking.dept }}
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="deptColors[record.dept] ?? 'bg-gray-100 text-gray-600'">
+                            {{ deptLabels[record.dept] ?? record.dept }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-hospital-text-2">{{ booking.doctor_name ?? '—' }}</td>
-                    <td class="px-4 py-3 text-hospital-text-2">{{ booking.visit_date }}</td>
-                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(booking.price).toLocaleString('ar-EG') }} ج</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor_name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.visit_date }}</td>
+                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('ar-EG') }} ج</td>
                     <td class="px-4 py-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="payStatusColors[booking.pay_status] ?? 'bg-gray-100 text-gray-600'">
-                            {{ payStatusLabels[booking.pay_status] ?? booking.pay_status }}
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="payStatusColors[record.pay_status] ?? 'bg-gray-100 text-gray-600'">
+                            {{ payStatusLabels[record.pay_status] ?? record.pay_status }}
                         </span>
                     </td>
                     <td class="px-4 py-3">
                         <button
                             class="flex items-center gap-1 text-xs text-hospital-text-2 hover:text-hospital-primary"
-                            @click="openFilesModal(booking)"
+                            @click="openFilesModal(record)"
                         >
                             <Paperclip class="h-3.5 w-3.5" />
-                            {{ booking.media_files.length > 0 ? booking.media_files.length : '—' }}
+                            {{ record.media_files.length > 0 ? record.media_files.length : '—' }}
                         </button>
                     </td>
                 </tr>
