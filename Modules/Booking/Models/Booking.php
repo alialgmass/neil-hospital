@@ -15,6 +15,7 @@ use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
 use Modules\Clinic\Models\ClinicSheet;
 use Modules\Doctor\Models\Doctor;
+use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Surgery\Models\Surgery;
 use Spatie\MediaLibrary\HasMedia;
@@ -84,6 +85,11 @@ class Booking extends Model implements HasMedia
     public function insuranceCompany(): BelongsTo
     {
         return $this->belongsTo(InsuranceCompany::class, 'ins_company_id');
+    }
+
+    public function insuranceClaim(): HasOne
+    {
+        return $this->hasOne(InsuranceClaim::class, 'booking_id');
     }
 
     public function clinicSheet(): HasOne

@@ -6,6 +6,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
@@ -14,7 +15,9 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
+use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\PriceList;
+use Modules\Insurance\States\DraftState;
 
 class BookingService
 {
@@ -146,8 +149,12 @@ class BookingService
     {
         $booking = Booking::findOrFail($id);
 
+        $isInsurance = $data['pay_method'] === PayMethod::Insurance->value;
+        $insAmount = $isInsurance ? (float) ($data['ins_amount'] ?? 0) : 0;
+        $discount = (float) ($data['discount'] ?? 0);
+
         $totalPaid = (float) $data['amount_paid'];
-        $netDue = $booking->price - ((float) ($data['discount'] ?? 0));
+        $netDue = max(0.0, $booking->price - $discount - $insAmount);
 
         $payStatus = $totalPaid >= $netDue
             ? PayStatus::Paid
@@ -157,10 +164,43 @@ class BookingService
             'paid_amount' => $totalPaid,
             'pay_status' => $payStatus,
             'pay_method' => $data['pay_method'],
-            'ins_amount' => $data['ins_amount'] ?? 0,
-            'discount' => $data['discount'] ?? 0,
+            'ins_company_id' => $isInsurance ? ($data['ins_company_id'] ?? null) : null,
+            'ins_amount' => $insAmount,
+            'discount' => $discount,
         ]);
 
+        if ($isInsurance && ! empty($data['ins_company_id'])) {
+            $this->upsertInsuranceClaim($booking, $data, $insAmount, $discount);
+        }
+
         return $booking;
+    }
+
+    private function upsertInsuranceClaim(Booking $booking, array $data, float $insAmount, float $discount): void
+    {
+        $patientShare = max(0, $booking->price - $discount - $insAmount);
+
+        $claim = InsuranceClaim::firstOrNew(['booking_id' => $booking->id]);
+
+        $claim->fill([
+            'insurance_company_id' => $data['ins_company_id'],
+            'service_id' => $booking->service_id,
+            'patient_name' => $booking->patient_name,
+            'file_no' => $booking->file_no,
+            'service_name' => $booking->service_name ?? '',
+            'invoice_amount' => $booking->price,
+            'discount' => $discount,
+            'insurance_share' => $insAmount,
+            'patient_share' => $patientShare,
+            'service_date' => $booking->visit_date,
+        ]);
+
+        if (! $claim->exists) {
+            $claim->claim_date = today()->toDateString();
+            $claim->status = DraftState::class;
+            $claim->created_by = $data['created_by'] ?? null;
+        }
+
+        $claim->save();
     }
 }
