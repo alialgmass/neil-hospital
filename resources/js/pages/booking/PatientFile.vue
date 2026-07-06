@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { User, Phone, Calendar, Stethoscope, FlaskConical, Scissors, FileText } from 'lucide-vue-next';
+import { User, Phone, Calendar, Stethoscope, FlaskConical, Scissors, FileText, Paperclip } from 'lucide-vue-next';
+import { archive } from '@/routes';
 
 interface Patient {
     name: string;
@@ -36,6 +37,14 @@ interface Surgery {
     scheduled_at?: string;
 }
 
+interface MediaFile {
+    id: number;
+    name: string;
+    url: string;
+    mime: string;
+    size: string;
+}
+
 interface Booking {
     id: string;
     file_no: string;
@@ -51,6 +60,7 @@ interface Booking {
     clinic_sheet?: ClinicSheet;
     diagnostic_results?: DiagnosticResult[];
     surgery?: Surgery;
+    media_files: MediaFile[];
 }
 
 defineProps<{
@@ -90,6 +100,9 @@ function fmt(n: number) {
 function fmtDate(d: string) {
     return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 }
+function isImage(mime: string): boolean {
+    return mime.startsWith('image/');
+}
 </script>
 
 <template>
@@ -107,10 +120,10 @@ function fmtDate(d: string) {
             </div>
         </div>
         <Link
-            href="/booking"
+            :href="archive().url"
             class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text hover:bg-hospital-bg transition-colors"
         >
-            العودة للحجوزات
+            العودة للأرشيف
         </Link>
     </div>
 
@@ -233,6 +246,34 @@ function fmtDate(d: string) {
                     </div>
                     <div v-if="booking.surgery.op_report">
                         <span class="text-hospital-muted">تقرير العملية: </span>{{ booking.surgery.op_report }}
+                    </div>
+                </div>
+
+                <!-- Archived Files -->
+                <div v-if="booking.media_files.length > 0" class="space-y-1.5">
+                    <p class="flex items-center gap-1.5 text-sm font-medium text-hospital-primary">
+                        <Paperclip class="h-3.5 w-3.5" />
+                        الملفات المرفقة ({{ booking.media_files.length }})
+                    </p>
+                    <div class="divide-y divide-hospital-border rounded-lg border border-hospital-border">
+                        <div
+                            v-for="file in booking.media_files"
+                            :key="file.id"
+                            class="flex items-center gap-3 px-3 py-2"
+                        >
+                            <div class="h-10 w-10 shrink-0 overflow-hidden rounded">
+                                <img v-if="isImage(file.mime)" :src="file.url" :alt="file.name" class="h-full w-full object-cover" />
+                                <div v-else class="flex h-full w-full items-center justify-center bg-hospital-bg">
+                                    <FileText class="h-5 w-5 text-hospital-muted" />
+                                </div>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <a :href="file.url" target="_blank" class="block truncate text-sm font-medium text-hospital-primary hover:underline">
+                                    {{ file.name }}
+                                </a>
+                                <p class="text-xs text-hospital-muted">{{ file.size }}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

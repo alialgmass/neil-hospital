@@ -12,10 +12,12 @@ use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
+use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
 use Modules\Booking\States\CompletedState;
 use Modules\Surgery\Services\SurgeryService;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BookingController extends Controller
 {
@@ -95,6 +97,16 @@ class BookingController extends Controller
     {
         $bookings = $this->bookingService->getPatientFile($fileNo);
         $patient = $bookings->first();
+
+        $bookings->each(function (Booking $booking) {
+            $booking->media_files = $booking->getMedia('archive-files')->map(fn (Media $m) => [
+                'id' => $m->id,
+                'name' => $m->file_name,
+                'url' => $m->getUrl(),
+                'mime' => $m->mime_type,
+                'size' => $m->human_readable_size,
+            ]);
+        });
 
         return Inertia::render('booking/PatientFile', [
             'file_no' => $fileNo,
