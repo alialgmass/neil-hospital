@@ -2,9 +2,11 @@
 
 namespace Modules\HR\Services;
 
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Hash;
 use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
 use Modules\HR\Enums\EmployeeStatus;
@@ -17,6 +19,7 @@ use Modules\HR\Models\Leave;
 use Modules\HR\Models\Payroll;
 use Modules\HR\Models\Shift;
 use Modules\HR\Models\ShiftHandover;
+use Spatie\Permission\Models\Role;
 
 class HRService
 {
@@ -26,6 +29,7 @@ class HRService
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Employee::query()
+            ->with('user:id,name,email')
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%")->orWhere('employee_no', 'like', "%{$v}%"))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
@@ -46,6 +50,11 @@ class HRService
         return Employee::query()->whereNotNull('dept')->distinct()->orderBy('dept')->pluck('dept');
     }
 
+    public function getUserRoles(): Collection
+    {
+        return Role::orderBy('name')->get(['id', 'name']);
+    }
+
     public function nextEmployeeNo(): string
     {
         $last = Employee::max('employee_no');
@@ -58,6 +67,24 @@ class HRService
 
     public function createEmployee(array $data): Employee
     {
+        if (! empty($data['email']) && empty($data['user_id'])) {
+            $user = User::firstOrCreate(
+                ['email' => $data['email']],
+                [
+                    'name' => $data['name'],
+                    'password' => Hash::make($data['password'] ?? $data['employee_no']),
+                ],
+            );
+
+            if (! empty($data['role'])) {
+                $user->syncRoles([$data['role']]);
+            }
+
+            $data['user_id'] = $user->id;
+        }
+
+        unset($data['password'], $data['role']);
+
         return Employee::create($data);
     }
 
