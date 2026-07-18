@@ -29,13 +29,19 @@ class UpdateBookingStatusAction
     {
         $booking = $this->bookingRepository->findOrFail($id);
         $oldStatus = (string) $booking->status;
+        $newStatusStr = $newStatus instanceof BookingStatus ? (string) $newStatus : $newStatus;
+
+        if (! BookingStatus::isVisible($newStatusStr)) {
+            throw ValidationException::withMessages([
+                'status' => 'هذه الحالة مخفية من إعدادات النظام ولا يمكن الانتقال إليها.',
+            ]);
+        }
 
         try {
             $booking->status->transitionTo($newStatus);
         } catch (CouldNotPerformTransition $e) {
-            $statusStr = $newStatus instanceof BookingStatus ? (string) $newStatus : $newStatus;
             throw ValidationException::withMessages([
-                'status' => "لا يمكن الانتقال من حالة \"{$oldStatus}\" إلى \"{$statusStr}\".",
+                'status' => "لا يمكن الانتقال من حالة \"{$oldStatus}\" إلى \"{$newStatusStr}\".",
             ]);
         }
 

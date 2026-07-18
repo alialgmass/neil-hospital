@@ -80,7 +80,7 @@ interface Props {
 const props = defineProps<Props>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean>; bookingStatusVisibility?: Record<string, boolean> }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
@@ -255,7 +255,7 @@ function updateBookingStatus(id: string, status: string) {
 }
 
 // Mirrors BookingStatus::config() transition rules
-const bookingNextStates: Record<string, { value: string; label: string }[]> = {
+const bookingNextStatesAll: Record<string, { value: string; label: string }[]> = {
     waiting:     [{ value: 'confirmed', label: 'مؤكد' }, { value: 'cancelled', label: 'ملغي' }],
     confirmed:   [{ value: 'in_progress', label: 'جارٍ' }, { value: 'cancelled', label: 'ملغي' }],
     in_progress: [{ value: 'completed', label: 'مكتمل' }, { value: 'cancelled', label: 'ملغي' }],
@@ -270,6 +270,25 @@ const bookingStatusLabel: Record<string, string> = {
     completed: 'مكتمل',
     cancelled: 'ملغي',
 };
+
+const bookingStatusVisibility = computed(
+    () => (page.props.bookingStatusVisibility as Record<string, boolean>) ?? {},
+);
+const isStatusVisible = (status: string): boolean => bookingStatusVisibility.value[status] !== false;
+
+const visibleStatusOptions = computed(() =>
+    Object.entries(bookingStatusLabel)
+        .filter(([key]) => isStatusVisible(key))
+        .map(([value, label]) => ({ value, label })),
+);
+
+const bookingNextStates = computed<Record<string, { value: string; label: string }[]>>(() => {
+    const map: Record<string, { value: string; label: string }[]> = {};
+    for (const [current, nexts] of Object.entries(bookingNextStatesAll)) {
+        map[current] = nexts.filter((n) => isStatusVisible(n.value));
+    }
+    return map;
+});
 
 function doDelete() {
     if (!deleteTarget.value) {
@@ -370,11 +389,13 @@ const isDeleteModalOpen = computed({
                     @change="applySearch"
                 >
                     <option value="">كل الحالات</option>
-                    <option value="waiting">انتظار</option>
-                    <option value="confirmed">مؤكد</option>
-                    <option value="in_progress">جارٍ</option>
-                    <option value="completed">مكتمل</option>
-                    <option value="cancelled">ملغي</option>
+                    <option
+                        v-for="opt in visibleStatusOptions"
+                        :key="opt.value"
+                        :value="opt.value"
+                    >
+                        {{ opt.label }}
+                    </option>
                 </select>
             </div>
 
