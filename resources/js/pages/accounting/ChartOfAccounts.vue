@@ -107,81 +107,101 @@ function submitEdit() {
     <Head title="الدليل المحاسبي" />
 
     <!-- Header -->
-    <div class="mb-5 flex items-center justify-between">
-        <h2 class="text-lg font-bold text-hospital-text">الدليل المحاسبي</h2>
+    <div class="flex items-center justify-between mb-5">
+        <div>
+            <h2 class="text-[15px] font-bold text-hospital-text">دليل الحسابات</h2>
+            <p class="text-[10px] text-hospital-text-3">إدارة وتنظيم الهيكل المالي للمستشفى</p>
+        </div>
         <button
-            class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 transition-colors"
+            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7.5px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm"
             @click="showAdd = true"
         >
-            <PlusCircle class="h-4 w-4" /> حساب جديد
+            <PlusCircle class="h-3.5 w-3.5" />
+            <span>إضافة حساب</span>
         </button>
     </div>
 
     <!-- Accounts by Group -->
-    <div class="space-y-5">
+    <div class="space-y-6">
         <div
             v-for="group in groups"
             :key="group"
-            class="overflow-hidden rounded-xl border border-hospital-border bg-white shadow-sm"
+            class="card rounded-[var(--rl)] border border-hospital-border bg-white overflow-hidden [box-shadow:var(--sh)]"
         >
-            <div class="border-b border-hospital-border bg-hospital-bg px-4 py-3">
-                <h3 class="font-semibold text-hospital-text">{{ groupLabels[group] }}</h3>
+            <div class="card-hd flex items-center justify-between border-b border-hospital-border bg-hospital-surface-2 px-4 py-3">
+                <h3 class="font-bold text-[13px] text-hospital-text">{{ groupLabels[group] }}</h3>
+                <span class="text-[10px] font-bold text-hospital-primary bg-hospital-primary-pale px-2 py-0.5 rounded-full uppercase">
+                    {{ byGroup[group].length }} حساب
+                </span>
             </div>
-            <div v-if="byGroup[group].length === 0" class="px-4 py-4 text-sm text-hospital-muted">
-                لا توجد حسابات في هذا القسم
+
+            <div v-if="byGroup[group].length === 0" class="p-8 text-center text-[12px] text-hospital-text-3 italic">
+                لا توجد حسابات مسجلة في هذا القسم حالياً.
             </div>
-            <table v-else class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-hospital-border/50 text-right text-xs text-hospital-muted">
-                        <th class="px-4 py-2.5">الكود</th>
-                        <th class="px-4 py-2.5">اسم الحساب</th>
-                        <th class="px-4 py-2.5 text-center">الطبيعة</th>
-                        <th class="px-4 py-2.5 text-center">الحالة</th>
-                        <th class="px-4 py-2.5 text-left">الرصيد</th>
-                        <th class="px-4 py-2.5" />
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-hospital-border/40">
-                    <tr
-                        v-for="account in byGroup[group]"
-                        :key="account.id"
-                        class="hover:bg-hospital-bg/50"
-                        :class="{ 'opacity-50': !account.is_active }"
-                    >
-                        <td class="px-4 py-2.5 font-mono text-xs text-hospital-muted">{{ account.code }}</td>
-                        <td class="px-4 py-2.5 font-medium">{{ account.name }}</td>
-                        <td class="px-4 py-2.5 text-center">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :class="account.nature === 'debit' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'"
-                            >
-                                {{ natureLabels[account.nature] }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2.5 text-center">
-                            <span
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :class="account.is_active ? 'bg-hospital-success/10 text-hospital-success' : 'bg-hospital-muted/20 text-hospital-muted'"
-                            >
-                                {{ account.is_active ? 'نشط' : 'متوقف' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-2.5 text-left font-mono">
-                            <span :class="account.balance >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
-                                {{ fmt(account.balance) }} ج.م
-                            </span>
-                        </td>
-                        <td class="px-4 py-2.5 text-left">
-                            <button
-                                class="rounded p-1.5 text-hospital-muted hover:bg-hospital-bg hover:text-hospital-primary transition-colors"
-                                @click="openEdit(account)"
-                            >
-                                <Pencil class="h-3.5 w-3.5" />
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+
+            <div v-else class="tbl-wrap overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-hospital-surface-2">
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b">الكود</th>
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b">اسم الحساب</th>
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b text-center">الطبيعة</th>
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b text-center">الحالة</th>
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b text-left">الرصيد</th>
+                            <th class="px-4 py-2.5 text-[11px] font-bold text-hospital-text-3 border-b text-left w-20">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="account in byGroup[group]"
+                            :key="account.id"
+                            class="hover:bg-hospital-primary-pale transition-colors border-b border-hospital-border/50 last:border-0"
+                            :class="{ 'opacity-60 bg-gray-50/50': !account.is_active }"
+                        >
+                            <td class="px-4 py-3 text-[11px] font-mono font-bold text-hospital-text-2">{{ account.code }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-col">
+                                    <span class="text-[12px] font-bold text-hospital-text">{{ account.name }}</span>
+                                    <span v-if="account.parent_id" class="text-[9px] text-hospital-text-3">تابع لحساب: {{ accounts.find(a => a.id === account.parent_id)?.name }}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span
+                                    class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold"
+                                    :class="account.nature === 'debit' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'"
+                                >
+                                    {{ natureLabels[account.nature] }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <div class="flex items-center justify-center">
+                                    <span
+                                        class="h-2 w-2 rounded-full ml-1.5"
+                                        :class="account.is_active ? 'bg-hospital-success animate-pulse' : 'bg-hospital-danger'"
+                                    ></span>
+                                    <span class="text-[10px] font-bold" :class="account.is_active ? 'text-hospital-success' : 'text-hospital-danger'">
+                                        {{ account.is_active ? 'نشط' : 'متوقف' }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-left font-mono">
+                                <span class="text-[12px] font-bold" :class="account.balance >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
+                                    {{ fmt(account.balance) }} 
+                                    <span class="text-[9px] text-hospital-text-3 mr-0.5">ج.م</span>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-left">
+                                <button
+                                    class="rounded-[5px] border border-hospital-border p-1.5 text-hospital-text-3 hover:bg-hospital-primary-pale hover:text-hospital-primary hover:border-hospital-primary transition-all"
+                                    @click="openEdit(account)"
+                                >
+                                    <Pencil class="h-3.5 w-3.5" />
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

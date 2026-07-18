@@ -14,16 +14,16 @@ class DashboardController extends Controller
     public function index(): Response
     {
         $from = request('from');
-        $to   = request('to');
+        $to = request('to');
 
         return Inertia::render('Dashboard', [
-            'todayStats'     => $this->dashboardService->todayStats(),
-            'revenueByDept'  => $this->dashboardService->revenueByDept($from, $to),
-            'revenueByDoc'   => $this->dashboardService->revenueByDoctor($from, $to),
-            'treasury'       => $this->dashboardService->treasuryBalance(),
-            'lowStockCount'  => $this->dashboardService->lowStockCount(),
-            'todayQueue'     => $this->dashboardService->todayQueue(),
-            'filters'        => compact('from', 'to'),
+            'todayStats' => $this->dashboardService->todayStats(),
+            'revenueByDept' => $this->dashboardService->revenueByDept($from, $to),
+            'revenueByDoc' => $this->dashboardService->revenueByDoctor($from, $to),
+            'treasury' => $this->dashboardService->treasuryBalance(),
+            'lowStockCount' => $this->dashboardService->lowStockCount(),
+            'todayQueue' => $this->dashboardService->todayQueue(),
+            'filters' => compact('from', 'to'),
         ]);
     }
 }

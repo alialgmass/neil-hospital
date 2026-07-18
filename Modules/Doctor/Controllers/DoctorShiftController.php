@@ -7,7 +7,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Booking\Models\Booking;
 use Modules\Doctor\Services\DoctorService;
 
 class DoctorShiftController extends Controller
@@ -58,16 +57,11 @@ class DoctorShiftController extends Controller
     public function show(string $id): Response
     {
         $summary = $this->doctorService->shiftSummary($id);
-
-        $pendingBookings = Booking::query()
-            ->where('doctor_id', $summary['shift']->doctor_id)
-            ->whereDate('visit_date', $summary['shift']->shift_date)
-            ->whereIn('status', ['confirmed', 'waiting', 'in_progress'])
-            ->get(['id', 'patient_name', 'dept', 'status']);
+        $shift = $summary['shift'];
 
         return Inertia::render('doctors/ShiftHandover', [
-            'shift' => $summary['shift'],
-            'pending_bookings' => $pendingBookings,
+            'shift' => $shift,
+            'pending_bookings' => $this->doctorService->getPendingBookingsForShift($shift->doctor_id, $shift->shift_date),
         ] + $summary);
     }
 }

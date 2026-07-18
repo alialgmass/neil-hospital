@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
@@ -18,7 +20,12 @@ class DashboardTest extends TestCase
 
     public function test_authenticated_users_can_visit_the_dashboard()
     {
+        $permission = Permission::firstOrCreate(['name' => 'dashboard', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $role->givePermissionTo($permission);
+
         $user = User::factory()->create();
+        $user->assignRole($role);
         $this->actingAs($user);
 
         $response = $this->get(route('dashboard'));

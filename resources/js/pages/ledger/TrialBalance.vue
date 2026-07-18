@@ -36,7 +36,21 @@ function fmt(n: number) {
     return n.toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
 function printPage() {
- window.print(); 
+    window.print();
+}
+
+function balanceSideLabel(row: TrialRow): string {
+    const isNaturalPositive = row.balance >= 0;
+    const naturalSideIsDebit = row.nature === 'debit';
+    const isDebitBalance = isNaturalPositive ? naturalSideIsDebit : !naturalSideIsDebit;
+    return isDebitBalance ? 'مدين' : 'دائن';
+}
+
+function balanceSideClass(row: TrialRow): string {
+    const isNaturalPositive = row.balance >= 0;
+    const naturalSideIsDebit = row.nature === 'debit';
+    const isDebitBalance = isNaturalPositive ? naturalSideIsDebit : !naturalSideIsDebit;
+    return isDebitBalance ? 'text-hospital-primary' : 'text-hospital-success';
 }
 </script>
 
@@ -73,9 +87,9 @@ function printPage() {
                     <td class="px-4 py-3 text-hospital-text-2">{{ groupLabels[row.group] ?? row.group }}</td>
                     <td class="px-4 py-3 text-left font-mono">{{ fmt(row.debits) }}</td>
                     <td class="px-4 py-3 text-left font-mono">{{ fmt(row.credits) }}</td>
-                    <td class="px-4 py-3 text-left font-mono font-semibold" :class="row.balance < 0 ? 'text-hospital-danger' : 'text-hospital-text'">
+                    <td class="px-4 py-3 text-left font-mono font-semibold" :class="balanceSideClass(row)">
                         {{ fmt(Math.abs(row.balance)) }}
-                        <span class="text-xs text-hospital-text-2">{{ row.balance < 0 ? '(د)' : '(ه)' }}</span>
+                        <span class="text-xs opacity-70">({{ balanceSideLabel(row) }})</span>
                     </td>
                 </tr>
             </tbody>

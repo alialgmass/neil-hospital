@@ -2,7 +2,9 @@
 
 namespace Modules\Inventory\Http\Requests;
 
+use App\Enums\Department;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreStockPermitRequest extends FormRequest
 {
@@ -14,7 +16,7 @@ class StoreStockPermitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'department' => 'nullable|string|max:80',
+            'department' => ['nullable', Rule::enum(Department::class)],
             'reason' => 'nullable|string|max:300',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',

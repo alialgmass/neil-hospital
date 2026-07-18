@@ -5,6 +5,7 @@ namespace Modules\Insurance\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Insurance\Enums\CompanyStatus;
 
 class InsuranceCompany extends Model
 {
@@ -31,6 +32,7 @@ class InsuranceCompany extends Model
         return [
             'coverage_pct' => 'float',
             'disc_pct' => 'float',
+            'status' => CompanyStatus::class,
         ];
     }
 

@@ -4,7 +4,9 @@ namespace Modules\Inventory\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Actions\AutoPostStockIssueAction;
 use Modules\Admin\Services\ActivityLogService;
+use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Services\InventoryService;
@@ -14,12 +16,12 @@ class IssueStockPermitAction
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly ActivityLogService $activityLogService,
+        private readonly AutoPostStockIssueAction $autoPost,
     ) {}
 
     public function execute(array $data, array $items): StockPermit
     {
         return DB::transaction(function () use ($data, $items) {
-            // Validate sufficient quantity for each item
             foreach ($items as $item) {
                 if (empty($item['item_id'])) {
                     continue;
@@ -35,7 +37,7 @@ class IssueStockPermitAction
 
             $permit = StockPermit::create([
                 ...$data,
-                'type' => 'out',
+                'type' => PermitType::Out,
                 'permit_no' => $this->generatePermitNo(),
                 'created_by' => auth()->id(),
             ]);
@@ -48,6 +50,8 @@ class IssueStockPermitAction
                 }
             }
 
+            $this->autoPost->execute($permit->load('items'));
+
             $this->activityLogService->log(
                 action: 'issue',
                 module: 'inventory',
@@ -55,7 +59,7 @@ class IssueStockPermitAction
                 description: "إذن صرف رقم {$permit->permit_no}",
             );
 
-            return $permit->load('items');
+            return $permit;
         });
     }
 

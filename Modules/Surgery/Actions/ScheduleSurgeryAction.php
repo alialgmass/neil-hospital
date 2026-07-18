@@ -25,13 +25,19 @@ class ScheduleSurgeryAction
             }
         }
 
-        $surgery = $this->surgeryService->schedule($data);
+        $existing = $this->surgeryService->findByBooking($data->bookingId);
+
+        if ($existing) {
+            $surgery = $this->surgeryService->update($existing->id, $data);
+        } else {
+            $surgery = $this->surgeryService->schedule($data);
+        }
 
         $this->activityLog->log(
-            action:      'scheduled',
-            module:      $data->dept,
-            recordId:    $surgery->id,
-            description: "جدولة {$data->dept} للحجز: {$data->bookingId}",
+            action: 'scheduled',
+            module: $data->dept->value,
+            recordId: $surgery->id,
+            description: "جدولة {$data->dept->label()} للحجز: {$data->bookingId}",
         );
 
         return $surgery;

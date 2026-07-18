@@ -22,7 +22,7 @@ class ClinicController extends Controller
     {
         return Inertia::render('clinic/Index', [
             'queue' => $this->clinicService->getTodaysQueue(request('date')),
-            'date'  => request('date', today()->toDateString()),
+            'date' => request('date', today()->toDateString()),
         ]);
     }
 

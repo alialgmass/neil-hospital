@@ -8,11 +8,16 @@ use Modules\Reporting\Controllers\DeptRevenueReportController;
 use Modules\Reporting\Controllers\DoctorClaimsReportController;
 use Modules\Reporting\Controllers\DoctorPaymentsReportController;
 use Modules\Reporting\Controllers\ExpenseAnalysisController;
+use Modules\Reporting\Controllers\ExpiryReportController;
+use Modules\Reporting\Controllers\HRAttendanceReportController;
+use Modules\Reporting\Controllers\HRLeavesReportController;
+use Modules\Reporting\Controllers\HRPayrollReportController;
 use Modules\Reporting\Controllers\InsuranceReportController;
 use Modules\Reporting\Controllers\InventoryMovementController;
 use Modules\Reporting\Controllers\ProfitLossController;
 use Modules\Reporting\Controllers\PurchasePriceReportController;
 use Modules\Reporting\Controllers\ReportController;
+use Modules\Reporting\Controllers\SurgeriesReportController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard
@@ -84,5 +89,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/expense-analysis', ExpenseAnalysisController::class)
             ->middleware('can:reports.financial')
             ->name('expense-analysis');
+
+        Route::get('/surgeries', SurgeriesReportController::class)
+            ->middleware('can:reports.clinical')
+            ->name('surgeries');
+
+        Route::get('/expiry', ExpiryReportController::class)
+            ->middleware('can:inventory.view')
+            ->name('expiry');
+
+        // HR Reports
+        Route::get('/hr-attendance', HRAttendanceReportController::class)
+            ->middleware('can:hr.view')
+            ->name('hr-attendance');
+
+        Route::get('/hr-payroll', HRPayrollReportController::class)
+            ->middleware('can:hr.manage')
+            ->name('hr-payroll');
+
+        Route::get('/hr-leaves', HRLeavesReportController::class)
+            ->middleware('can:hr.view')
+            ->name('hr-leaves');
     });
 });

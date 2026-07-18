@@ -20,10 +20,12 @@ readonly class SuppliesUsedData
 
             return [
                 'inventory_item_id' => $item['inventory_item_id'] ?? '',
+                'bundle_id' => $item['bundle_id'] ?? null,
                 'name' => $item['name'] ?? '',
                 'qty' => $qty,
                 'unit_cost' => $unitCost,
-                'total' => $qty * $unitCost,
+                'total' => (float) ($item['total'] ?? ($qty * $unitCost)),
+                'is_bundle' => (bool) ($item['is_bundle'] ?? false),
             ];
         }, $data['items'] ?? []);
 

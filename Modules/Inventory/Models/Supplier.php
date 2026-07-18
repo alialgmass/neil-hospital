@@ -10,10 +10,10 @@ class Supplier extends Model
 {
     use HasUlids;
 
-    protected $fillable = ['name', 'phone', 'email', 'address', 'tax_no', 'balance', 'is_active', 'notes'];
+    protected $fillable = ['name', 'contact', 'type', 'phone', 'email', 'address', 'tax_no', 'terms', 'balance', 'is_active', 'notes'];
 
     protected $casts = [
-        'balance'   => 'decimal:2',
+        'balance' => 'decimal:2',
         'is_active' => 'boolean',
     ];
 

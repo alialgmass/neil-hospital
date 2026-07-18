@@ -9,26 +9,21 @@ use Inertia\Response;
 use Modules\Inventory\Actions\AddStockPermitAction;
 use Modules\Inventory\Actions\IssueStockPermitAction;
 use Modules\Inventory\Http\Requests\StoreStockPermitRequest;
-use Modules\Inventory\Models\InventoryItem;
-use Modules\Inventory\Models\StockPermit;
+use Modules\Inventory\Services\InventoryService;
 
 class StockPermitController extends Controller
 {
     public function __construct(
+        private readonly InventoryService $inventoryService,
         private readonly IssueStockPermitAction $issueAction,
         private readonly AddStockPermitAction $addAction,
     ) {}
 
     public function index(): Response
     {
-        $permits = StockPermit::query()
-            ->with(['items', 'creator'])
-            ->orderByDesc('created_at')
-            ->paginate(20);
-
         return Inertia::render('inventory/StockPermit', [
-            'permits' => $permits,
-            'items' => InventoryItem::orderBy('name')->get(['id', 'name', 'unit', 'quantity', 'unit_cost']),
+            'permits' => $this->inventoryService->getStockPermits(20),
+            'items' => $this->inventoryService->getSelectableItems(),
         ]);
     }
 

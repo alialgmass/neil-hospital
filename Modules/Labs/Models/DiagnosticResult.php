@@ -2,9 +2,11 @@
 
 namespace Modules\Labs\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Booking\Models\Booking;
 
 class DiagnosticResult extends Model
 {
@@ -19,16 +21,16 @@ class DiagnosticResult extends Model
 
     protected $casts = [
         'result_values' => 'array',
-        'recorded_at'   => 'datetime',
+        'recorded_at' => 'datetime',
     ];
 
     public function booking(): BelongsTo
     {
-        return $this->belongsTo(\Modules\Booking\Models\Booking::class);
+        return $this->belongsTo(Booking::class);
     }
 
     public function technician(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'technician_id');
+        return $this->belongsTo(User::class, 'technician_id');
     }
 }

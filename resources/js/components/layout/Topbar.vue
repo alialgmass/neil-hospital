@@ -4,9 +4,19 @@ import { Bell, Search, Plus, ChevronDown, LogOut, User, Settings } from 'lucide-
 import { computed, ref } from 'vue';
 import type { Auth } from '@/types';
 
-const page = usePage<{ auth: Auth; name?: string; low_stock_count?: number }>();
+const page = usePage<{ 
+    auth: Auth; 
+    name?: string; 
+    alert_count?: number;
+    alerts?: { inventory: any[]; finance: any[] };
+}>();
+
 const user = computed(() => page.props.auth?.user);
-const lowStockCount = computed(() => page.props.low_stock_count ?? 0);
+const userName = computed(() => user.value?.name ?? 'المستخدم');
+const userRole = computed(() => user.value?.role ?? 'مسؤول');
+const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
+const alertCount = computed(() => page.props.alert_count ?? 0);
+const alerts = computed(() => page.props.alerts);
 
 const searchQuery = ref('');
 const userMenuOpen = ref(false);
@@ -29,68 +39,72 @@ function closeUserMenu() {
 </script>
 
 <template>
-    <header class="flex items-center justify-between gap-4 border-b border-hospital-border bg-hospital-surface px-6 py-3 shadow-sm">
-        <!-- Search -->
-        <div class="relative flex-1 max-w-xs">
-            <Search class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-hospital-text-3 pointer-events-none" />
-            <input
-                v-model="searchQuery"
-                type="search"
-                placeholder="بحث..."
-                class="w-full rounded-lg border border-hospital-border bg-hospital-bg py-2 pr-9 pl-4 text-sm text-hospital-text placeholder-hospital-text-3 focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
-            />
+    <header class="topbar flex h-[58px] shrink-0 items-center justify-between border-b border-hospital-border bg-hospital-surface px-[22px] z-20">
+        <!-- Topbar Left: Page Title -->
+        <div class="topbar-left flex items-center gap-3 md:gap-[12px]">
+            <h1 class="page-title font-sans text-base font-bold text-hospital-text" id="pageTitle">
+                لوحة التحكم
+            </h1>
         </div>
 
-        <!-- Actions -->
-        <div class="flex items-center gap-3">
-            <!-- New Booking Button -->
+        <!-- Topbar Right: Search & Actions -->
+        <div class="topbar-right flex items-center gap-2 md:gap-[8px]">
+            <!-- Search Bar -->
+            <div class="search-bar hidden md:flex items-center gap-[7px] w-full max-w-[280px] rounded-[7px] border border-hospital-border bg-hospital-surface px-[11px]">
+                <Search class="h-[14px] w-[14px] text-hospital-text-3" />
+                <input
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="بحث سريع..."
+                    class="flex-1 bg-transparent py-[7px] px-1 text-[12px] text-hospital-text placeholder-hospital-text-3 focus:outline-none focus:ring-0"
+                />
+            </div>
+
+            <!-- Notification Icon -->
             <button
                 type="button"
-                class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary-light transition-colors"
+                class="notif-btn relative flex h-[34px] w-[34px] items-center justify-center rounded-[7px] border border-hospital-border bg-hospital-surface text-hospital-text-3 transition-colors hover:bg-hospital-bg hover:text-hospital-primary"
+                title="التنبيهات"
+            >
+                <Bell class="h-4 w-4" />
+                <div v-if="alertCount > 0" class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-hospital-danger text-[9px] font-bold text-white border-2 border-hospital-surface">
+                    {{ alertCount }}
+                </div>
+            </button>
+
+            <!-- Quick Action: New Booking -->
+            <button
+                type="button"
+                class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-medium text-white transition-all hover:bg-hospital-primary-light active:scale-95"
                 @click="newBooking"
             >
-                <Plus class="h-4 w-4" />
+                <Plus class="h-3.5 w-3.5" />
                 <span>حجز جديد</span>
             </button>
 
-            <!-- Notifications (low-stock badge) -->
-            <a
-                href="/inventory?low_stock=1"
-                class="relative rounded-lg p-2 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary transition-colors"
-                :title="lowStockCount > 0 ? `${lowStockCount} أصناف منخفضة في المخزن` : 'لا توجد تنبيهات'"
-            >
-                <Bell class="h-5 w-5" />
-                <span
-                    v-if="lowStockCount > 0"
-                    class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-hospital-danger text-[10px] font-bold text-white"
-                >
-                    {{ lowStockCount > 9 ? '9+' : lowStockCount }}
-                </span>
-            </a>
-
             <!-- User Menu -->
-            <div class="relative">
+            <div class="relative ml-2">
                 <button
                     type="button"
-                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-hospital-bg transition-colors"
+                    class="flex items-center gap-2 rounded-lg py-1 transition-colors hover:opacity-80"
                     @click="toggleUserMenu"
                 >
-                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-hospital-primary text-white text-xs font-bold select-none">
-                        {{ user?.name?.charAt(0) ?? 'A' }}
+                    <div class="usr-av flex h-8 w-8 items-center justify-center rounded-full bg-hospital-primary-light text-[12px] font-bold text-white uppercase select-none">
+                        {{ userInitial }}
                     </div>
-                    <span class="max-w-[120px] truncate font-medium text-hospital-text">{{ user?.name }}</span>
-                    <ChevronDown class="h-4 w-4 text-hospital-text-3" />
                 </button>
 
-                <!-- Dropdown -->
                 <div
                     v-if="userMenuOpen"
-                    class="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-xl border border-hospital-border bg-hospital-surface shadow-lg py-1"
-                    @blur.capture="closeUserMenu"
+                    class="absolute left-0 top-full z-[1001] mt-2 min-w-[180px] origin-top-left rounded-[var(--rl)] border border-hospital-border bg-white p-1.5 shadow-xl transition-all"
                 >
+                    <div class="px-3 py-2 border-b border-hospital-border mb-1">
+                        <p class="text-xs font-bold text-hospital-text">{{ userName }}</p>
+                        <p class="text-[10px] text-hospital-text-3">{{ userRole }}</p>
+                    </div>
                     <a
                         href="/settings/profile"
-                        class="flex items-center gap-2 px-4 py-2 text-sm text-hospital-text hover:bg-hospital-bg"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-hospital-text-2 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
                         @click="closeUserMenu"
                     >
                         <User class="h-4 w-4" />
@@ -98,29 +112,24 @@ function closeUserMenu() {
                     </a>
                     <a
                         href="/settings"
-                        class="flex items-center gap-2 px-4 py-2 text-sm text-hospital-text hover:bg-hospital-bg"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-hospital-text-2 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
                         @click="closeUserMenu"
                     >
                         <Settings class="h-4 w-4" />
                         الإعدادات
                     </a>
-                    <hr class="my-1 border-hospital-border" />
+                    <div class="my-1 border-t border-hospital-border"></div>
                     <button
                         type="button"
-                        class="flex w-full items-center gap-2 px-4 py-2 text-sm text-hospital-danger hover:bg-hospital-danger-pale"
+                        class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-hospital-danger transition-colors hover:bg-hospital-danger-pale"
                         @click="logout"
                     >
                         <LogOut class="h-4 w-4" />
                         تسجيل الخروج
                     </button>
                 </div>
-
-                <!-- Click-outside overlay -->
-                <div
-                    v-if="userMenuOpen"
-                    class="fixed inset-0 z-40"
-                    @click="closeUserMenu"
-                />
+                <!-- Overlay for click-outside -->
+                <div v-if="userMenuOpen" class="fixed inset-0 z-[1000]" @click="closeUserMenu"></div>
             </div>
         </div>
     </header>

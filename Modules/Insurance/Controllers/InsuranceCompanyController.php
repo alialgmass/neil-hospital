@@ -4,10 +4,12 @@ namespace Modules\Insurance\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Insurance\Actions\CreateInsuranceCompanyAction;
+use Modules\Insurance\Actions\UpdateInsuranceCompanyAction;
+use Modules\Insurance\Http\Requests\StoreInsuranceCompanyRequest;
+use Modules\Insurance\Http\Requests\UpdateInsuranceCompanyRequest;
 use Modules\Insurance\Services\InsuranceService;
 
 class InsuranceCompanyController extends Controller
@@ -15,58 +17,41 @@ class InsuranceCompanyController extends Controller
     public function __construct(
         private readonly InsuranceService $insuranceService,
         private readonly CreateInsuranceCompanyAction $createAction,
+        private readonly UpdateInsuranceCompanyAction $updateAction,
     ) {}
 
     public function index(): Response
     {
         $search = request('search');
-        $companies = $this->insuranceService->list($search, 20);
+        $companyFilter = request('company_id');
 
         return Inertia::render('insurance/Companies', [
-            'companies' => $companies,
-            'filters' => ['search' => $search],
+            'companies' => $this->insuranceService->list($search, 20),
+            'filters' => ['search' => $search, 'company_id' => $companyFilter],
+            'claims' => $this->insuranceService->getClaimsList($companyFilter, 30)->withQueryString(),
+            'stats' => $this->insuranceService->getMonthlyClaimsStats(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreInsuranceCompanyRequest $request): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:150',
-            'code' => 'nullable|string|max:20|unique:insurance_companies,code',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'contract_no' => 'nullable|string|max:50',
-            'coverage_pct' => 'nullable|numeric|min:0|max:100',
-            'disc_pct' => 'nullable|numeric|min:0|max:100',
-            'contact_person' => 'nullable|string|max:100',
-            'email' => 'nullable|email|max:100',
-            'status' => 'nullable|in:active,inactive',
-            'notes' => 'nullable|string',
-        ]);
-
-        $this->createAction->execute($data);
+        $this->createAction->execute($request->validated());
 
         return back()->with('success', 'تم إضافة شركة التأمين بنجاح.');
     }
 
-    public function update(Request $request, string $id): RedirectResponse
+    public function update(UpdateInsuranceCompanyRequest $request, string $id): RedirectResponse
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:150',
-            'code' => 'nullable|string|max:20|unique:insurance_companies,code,'.$id,
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'contract_no' => 'nullable|string|max:50',
-            'coverage_pct' => 'nullable|numeric|min:0|max:100',
-            'disc_pct' => 'nullable|numeric|min:0|max:100',
-            'contact_person' => 'nullable|string|max:100',
-            'email' => 'nullable|email|max:100',
-            'status' => 'nullable|in:active,inactive',
-            'notes' => 'nullable|string',
-        ]);
-
-        $this->insuranceService->update($id, $data);
+        $this->updateAction->execute($id, $request->validated());
 
         return back()->with('success', 'تم تعديل شركة التأمين بنجاح.');
+    }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $company = $this->insuranceService->findById($id);
+        $company->delete();
+
+        return back()->with('success', 'تم حذف شركة التأمين.');
     }
 }

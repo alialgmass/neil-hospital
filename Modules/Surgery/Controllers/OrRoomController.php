@@ -4,21 +4,20 @@ namespace Modules\Surgery\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
-use Modules\Surgery\Models\OrBed;
-use Modules\Surgery\Models\OrRoom;
+use Modules\Surgery\Services\SurgeryService;
 
 class OrRoomController extends Controller
 {
+    public function __construct(
+        private readonly SurgeryService $surgeryService
+    ) {}
+
     public function index(): JsonResponse
     {
         $dept = request('dept', 'surgery');
+        $date = request('date', today()->toDateString());
 
-        $rooms = OrRoom::with(['beds' => function ($q) use ($dept) {
-            $q->orderBy('bed_number')
-                ->with(['surgery' => function ($sq) use ($dept) {
-                    $sq->where('dept', $dept)->with(['booking:id,file_no,patient_name', 'surgeon:id,name']);
-                }]);
-        }])->orderBy('name')->get();
+        $rooms = $this->surgeryService->getOrRoomsWithBedStatus($dept, $date);
 
         return response()->json($rooms);
     }
@@ -26,24 +25,9 @@ class OrRoomController extends Controller
     public function availableBeds(): JsonResponse
     {
         $dept = request('dept', 'surgery');
+        $date = request('date', today()->toDateString());
 
-        $beds = OrBed::with(['room', 'surgery' => function ($q) use ($dept) {
-            $q->where('dept', $dept)->select('id', 'booking_id', 'dept', 'status');
-        }])
-            ->where('status', 'available')
-            ->orWhere(function ($q) use ($dept) {
-                $q->whereHas('surgery', function ($sq) use ($dept) {
-                    $sq->where('dept', $dept)->whereIn('status', ['completed', 'cancelled']);
-                });
-            })
-            ->get()
-            ->map(fn (OrBed $bed) => [
-                'id' => $bed->id,
-                'label' => "{$bed->room->name} — سرير {$bed->bed_number}",
-                'room' => $bed->room->name,
-                'number' => $bed->bed_number,
-                'status' => $bed->status,
-            ]);
+        $beds = $this->surgeryService->getAvailableBeds($dept, $date);
 
         return response()->json($beds);
     }

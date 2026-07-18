@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolesPermissionsSeeder extends Seeder
 {
@@ -30,6 +31,7 @@ class RolesPermissionsSeeder extends Seeder
         'treasury.write',
         'journal.view',
         'journal.write',
+        'accounting.write',
         'reports.financial',
         'reports.clinical',
         'doctors.view',
@@ -42,6 +44,8 @@ class RolesPermissionsSeeder extends Seeder
         'inventory.write',
         'insurance.view',
         'insurance.write',
+        'hr.view',
+        'hr.manage',
         'users.manage',
         'settings.manage',
         'hide_amounts',
@@ -84,6 +88,7 @@ class RolesPermissionsSeeder extends Seeder
             'treasury.write',
             'journal.view',
             'journal.write',
+            'accounting.write',
             'reports.financial',
             'drpayments.view',
             'drpayments.write',
@@ -110,7 +115,7 @@ class RolesPermissionsSeeder extends Seeder
     public function run(): void
     {
         // Reset cached roles & permissions
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         // Create all permissions
         foreach (self::PERMISSIONS as $permission) {

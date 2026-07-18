@@ -9,12 +9,12 @@ class SettingsSeeder extends Seeder
 {
     private const DEFAULTS = [
         // key                       => [value, group]
-        'hospital_name'              => ['مستشفى النور', 'general'],
-        'hospital_specialty'         => ['طب وجراحة العيون', 'general'],
-        'hospital_address'           => ['المنيا، مصر', 'general'],
-        'mrn_format'                 => ['MRN-{year}-{seq5}', 'booking'],
-        'low_stock_alerts_enabled'   => ['true', 'inventory'],
-        'default_currency'           => ['EGP', 'finance'],
+        'hospital_name' => ['مستشفى النور', 'general'],
+        'hospital_specialty' => ['طب وجراحة العيون', 'general'],
+        'hospital_address' => ['المنيا، مصر', 'general'],
+        'mrn_format' => ['MRN-{year}-{seq5}', 'booking'],
+        'low_stock_alerts_enabled' => ['true', 'inventory'],
+        'default_currency' => ['EGP', 'finance'],
     ];
 
     public function run(): void
@@ -23,9 +23,9 @@ class SettingsSeeder extends Seeder
             DB::table('settings')->updateOrInsert(
                 ['key' => $key],
                 [
-                    'key'        => $key,
-                    'value'      => $value,
-                    'group'      => $group,
+                    'key' => $key,
+                    'value' => $value,
+                    'group' => $group,
                     'updated_at' => now(),
                     'created_at' => now(),
                 ],

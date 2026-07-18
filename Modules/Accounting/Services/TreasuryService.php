@@ -3,6 +3,7 @@
 namespace Modules\Accounting\Services;
 
 use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Models\TreasuryEntry;
 use Modules\Accounting\Repositories\Contracts\TreasuryRepositoryInterface;
 
@@ -26,5 +27,13 @@ class TreasuryService
     public function balance(?string $upToDate = null): array
     {
         return $this->treasuryRepository->balance($upToDate);
+    }
+
+    public function todayNet(): float
+    {
+        $in = TreasuryEntry::where('type', TreasuryType::In)->whereDate('date', today())->sum('amount');
+        $out = TreasuryEntry::where('type', TreasuryType::Out)->whereDate('date', today())->sum('amount');
+
+        return (float) ($in - $out);
     }
 }

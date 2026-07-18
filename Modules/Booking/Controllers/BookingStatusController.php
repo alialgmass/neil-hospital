@@ -15,8 +15,8 @@ class BookingStatusController extends Controller
     public function update(string $id): RedirectResponse
     {
         $this->updateStatusAction->execute(
-            id:           $id,
-            newStatus:    request()->input('status'),
+            id: $id,
+            newStatus: request()->input('status'),
             cancelReason: request()->input('cancel_reason'),
         );
 

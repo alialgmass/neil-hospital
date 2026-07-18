@@ -2,9 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AlertService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Middleware;
+use Modules\Admin\Enums\SystemModule;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -51,31 +52,22 @@ class HandleInertiaRequests extends Middleware
                 : [],
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
-                'hospital_name'      => config('app.name', 'مستشفى النور'),
+                'hospital_name' => config('app.name', 'مستشفى النور'),
                 'hospital_specialty' => 'طب وجراحة العيون',
             ],
-            // Low-stock alert count for notification bell
-            'low_stock_count' => $user ? $this->getLowStockCount() : 0,
+            // Alerts for notification bell
+            'alerts' => $user ? (new AlertService)->getAlerts() : [],
+            'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
+            // Global on/off switches for whole system modules, managed from Settings.
+            'moduleStatus' => SystemModule::statuses(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'flash' => [
+                'success' => $request->session()->get('success'),
+                'error' => $request->session()->get('error'),
+                'warning' => $request->session()->get('warning'),
+                'info' => $request->session()->get('info'),
+            ],
         ];
-    }
-
-    /**
-     * Return the flat permission name list for the given user.
-     * Admins receive ['*'] so the frontend can skip per-permission checks.
-     *
-     * @param  \App\Models\User  $user
-     * @return array<string>
-     */
-    private function getLowStockCount(): int
-    {
-        try {
-            return (int) DB::table('inventory')
-                ->whereRaw('quantity <= min_quantity AND min_quantity > 0')
-                ->count();
-        } catch (\Throwable) {
-            return 0;
-        }
     }
 
     private function resolvePermissions($user): array

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 use Modules\Reporting\Controllers\DashboardController;
@@ -13,6 +14,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/settings.php';
+
 $directories = File::directories(base_path('Modules'));
 foreach ($directories as $directory) {
     if (file_exists($directory.'/Routes/web.php')) {

@@ -26,30 +26,42 @@ const colorMap: Record<string, { bar: string; icon: string; bg: string }> = {
 </script>
 
 <template>
-    <div class="relative flex items-stretch overflow-hidden rounded-xl border border-hospital-border bg-hospital-surface shadow-sm">
-        <!-- Color bar on the right (RTL) -->
-        <div :class="['w-1 shrink-0', colorMap[color].bar]" />
+    <div class="stat relative overflow-hidden rounded-[var(--rl)] border border-hospital-border bg-hospital-surface p-[14px] [box-shadow:var(--sh)]">
+        <!-- Color Indicator Bar (Right side in RTL) -->
+        <div 
+            :class="[
+                'absolute top-0 right-0 h-full w-[4px]',
+                colorMap[color].bar
+            ]" 
+        />
 
-        <div class="flex flex-1 items-center gap-4 px-5 py-4">
-            <!-- Icon -->
-            <div
-                v-if="icon"
-                :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', colorMap[color].bg]"
+        <div class="flex flex-col">
+            <!-- Label -->
+            <p class="stat-lbl mb-[5px] text-[10px] font-bold text-hospital-text-3">
+                {{ label }}
+            </p>
+
+            <!-- Value & Icon Row -->
+            <div class="flex items-end justify-between">
+                <div class="stat-val font-sans text-[24px] font-bold leading-none text-hospital-text">
+                    {{ value }}
+                </div>
+                
+                <div v-if="$slots.icon" class="text-hospital-primary opacity-20">
+                    <slot name="icon" />
+                </div>
+            </div>
+
+            <!-- Change Indicator -->
+            <p
+                v-if="change"
+                :class="[
+                    'stat-ch mt-1 text-[10px]',
+                    changePositive ? 'text-hospital-success' : 'text-hospital-danger'
+                ]"
             >
-                <component :is="icon" :class="['h-5 w-5', colorMap[color].icon]" />
-            </div>
-
-            <!-- Text -->
-            <div class="min-w-0 flex-1 text-right">
-                <p class="truncate text-xs text-hospital-text-3">{{ label }}</p>
-                <p class="mt-0.5 text-2xl font-bold tabular-nums text-hospital-text">{{ value }}</p>
-                <p
-                    v-if="change"
-                    :class="['mt-0.5 text-xs font-medium', changePositive ? 'text-hospital-success' : 'text-hospital-danger']"
-                >
-                    {{ change }}
-                </p>
-            </div>
+                {{ change }}
+            </p>
         </div>
     </div>
 </template>

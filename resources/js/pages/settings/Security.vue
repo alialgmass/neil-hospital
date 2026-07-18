@@ -7,9 +7,9 @@ import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.vue';
 import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.vue';
+import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import { edit } from '@/routes/security';
 import { disable, enable } from '@/routes/two-factor';
-import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 
 type Props = {
     canManageTwoFactor?: boolean;

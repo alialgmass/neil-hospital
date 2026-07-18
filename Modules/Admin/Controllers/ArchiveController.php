@@ -3,47 +3,106 @@
 namespace Modules\Admin\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Booking\DTOs\BookingData;
+use Modules\Booking\Enums\PayStatus;
+use Modules\Booking\Models\Booking;
+use Modules\Booking\Services\BookingService;
+use Modules\Doctor\Models\Doctor;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ArchiveController extends Controller
 {
+    public function __construct(
+        private readonly BookingService $bookingService,
+    ) {}
+
     public function index(): Response
     {
-        $search = request('search');
-        $dept = request('dept');
-        $from = request('from');
-        $to = request('to');
+        $filters = request()->only(['search', 'dept', 'from', 'to']);
 
-        $bookings = DB::table('bookings')
-            ->leftJoin('doctors', 'bookings.doctor_id', '=', 'doctors.id')
-            ->select(
-                'bookings.id',
-                'bookings.file_no',
-                'bookings.patient_name',
-                'bookings.patient_phone',
-                'bookings.dept',
-                'bookings.visit_date',
-                'bookings.status',
-                'bookings.pay_status',
-                'bookings.price',
-                'doctors.name as doctor_name',
-            )
-            ->whereIn('bookings.status', ['completed', 'cancelled'])
-            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
-                $q2->where('bookings.patient_name', 'like', "%{$search}%")
-                    ->orWhere('bookings.file_no', 'like', "%{$search}%");
-            }))
-            ->when($dept, fn ($q) => $q->where('bookings.dept', $dept))
-            ->when($from, fn ($q) => $q->whereDate('bookings.visit_date', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('bookings.visit_date', '<=', $to))
-            ->orderByDesc('bookings.visit_date')
-            ->paginate(30);
+        $bookings = $this->bookingService->getArchive($filters, 30);
+
+        $bookings->getCollection()->transform(function (Booking $booking) {
+            $booking->media_files = $booking->getMedia('archive-files')->map(fn (Media $m) => [
+                'id' => $m->id,
+                'name' => $m->file_name,
+                'url' => $m->getUrl(),
+                'mime' => $m->mime_type,
+                'size' => $m->human_readable_size,
+            ]);
+
+            return $booking;
+        });
 
         return Inertia::render('admin/Archive', [
             'bookings' => $bookings,
-            'filters' => compact('search', 'dept', 'from', 'to'),
+            'filters' => $filters,
+            'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
         ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'patient_name' => ['required', 'string', 'max:200'],
+            'patient_phone' => ['nullable', 'string', 'max:30'],
+            'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
+            'gender' => ['nullable', 'in:male,female'],
+            'dept' => ['required', 'in:clinic,labs,surgery,lasik,laser'],
+            'doctor_id' => ['nullable', 'exists:doctors,id'],
+            'visit_date' => ['required', 'date'],
+            'service_name' => ['nullable', 'string', 'max:200'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'paid_amount' => ['nullable', 'numeric', 'min:0'],
+            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
+            'visit_note' => ['nullable', 'string'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
+        ]);
+
+        $price = (float) ($data['price'] ?? 0);
+        $paid = (float) ($data['paid_amount'] ?? 0);
+        $payStatus = $paid >= $price && $price > 0
+            ? PayStatus::Paid
+            : ($paid > 0 ? PayStatus::Partial : PayStatus::Unpaid);
+
+        $bookingData = BookingData::fromArray([
+            ...$data,
+            'price' => $price,
+            'paid_amount' => $paid,
+            'pay_method' => $data['pay_method'] ?? 'cash',
+            'pay_status' => $payStatus->value,
+            'status' => 'completed',
+        ]);
+
+        $booking = $this->bookingService->create($bookingData, auth()->id());
+
+        foreach ($request->file('files', []) as $file) {
+            $booking->addMedia($file)->toMediaCollection('archive-files');
+        }
+
+        return redirect()->route('archive')->with('success', 'تم إضافة السجل إلى الأرشيف بنجاح.');
+    }
+
+    public function upload(Request $request, Booking $booking): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
+        ]);
+
+        $booking->addMediaFromRequest('file')->toMediaCollection('archive-files');
+
+        return back()->with('success', 'تم رفع الملف بنجاح.');
+    }
+
+    public function destroyMedia(Media $media): RedirectResponse
+    {
+        $media->delete();
+
+        return back()->with('success', 'تم حذف الملف.');
     }
 }

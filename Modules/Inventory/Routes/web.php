@@ -5,9 +5,11 @@ use Modules\Inventory\Controllers\InventoryController;
 use Modules\Inventory\Controllers\PurchaseInvoiceController;
 use Modules\Inventory\Controllers\PurchaseReturnController;
 use Modules\Inventory\Controllers\ServiceController;
+use Modules\Inventory\Controllers\StockIssueController;
 use Modules\Inventory\Controllers\StockPermitController;
 use Modules\Inventory\Controllers\StockTakeController;
 use Modules\Inventory\Controllers\SupplierController;
+use Modules\Inventory\Controllers\SupplyBundleController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Inventory items
@@ -47,6 +49,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
+            ->middleware('can:inventory.write')
+            ->name('store');
+    });
+
+    // Supply Bundles (بنود المستلزمات)
+    Route::prefix('supply-bundles')->name('supply-bundles.')->group(function () {
+        Route::get('/', [SupplyBundleController::class, 'index'])
+            ->middleware('can:inventory.view')
+            ->name('index');
+
+        Route::post('/', [SupplyBundleController::class, 'store'])
+            ->middleware('can:inventory.write')
+            ->name('store');
+
+        Route::put('/{id}', [SupplyBundleController::class, 'update'])
+            ->middleware('can:inventory.write')
+            ->name('update');
+    });
+
+    // Stock Issue Vouchers — dedicated daily view
+    Route::prefix('stock-issue')->name('stock-issue.')->group(function () {
+        Route::get('/', [StockIssueController::class, 'index'])
+            ->middleware('can:inventory.view')
+            ->name('index');
+
+        Route::post('/', [StockIssueController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
     });
@@ -105,6 +133,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/{id}', [ServiceController::class, 'destroy'])
             ->middleware('can:services.write')
             ->name('destroy');
+
+        Route::patch('/{id}/status', [ServiceController::class, 'toggleStatus'])
+            ->middleware('can:services.write')
+            ->name('toggleStatus');
 
         Route::post('/import', [ServiceController::class, 'import'])
             ->middleware('can:services.write')

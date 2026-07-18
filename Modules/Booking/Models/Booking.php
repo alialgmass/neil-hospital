@@ -2,20 +2,31 @@
 
 namespace Modules\Booking\Models;
 
+use App\Enums\Department;
+use App\Enums\EyeSide;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Modules\Booking\Enums\PayMethod;
+use Modules\Booking\Enums\PayStatus;
+use Modules\Booking\States\BookingStatus;
 use Modules\Clinic\Models\ClinicSheet;
 use Modules\Doctor\Models\Doctor;
+use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Surgery\Models\Surgery;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\ModelStates\HasStates;
 
-class Booking extends Model
+class Booking extends Model implements HasMedia
 {
+    use HasStates;
     use HasUlids;
+    use InteractsWithMedia;
 
     protected $fillable = [
         'file_no',
@@ -54,6 +65,11 @@ class Booking extends Model
         'ins_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2',
         'patient_age' => 'integer',
+        'dept' => Department::class,
+        'pay_method' => PayMethod::class,
+        'pay_status' => PayStatus::class,
+        'status' => BookingStatus::class,
+        'eye_side' => EyeSide::class,
     ];
 
     public function doctor(): BelongsTo
@@ -69,6 +85,11 @@ class Booking extends Model
     public function insuranceCompany(): BelongsTo
     {
         return $this->belongsTo(InsuranceCompany::class, 'ins_company_id');
+    }
+
+    public function insuranceClaim(): HasOne
+    {
+        return $this->hasOne(InsuranceClaim::class, 'booking_id');
     }
 
     public function clinicSheet(): HasOne
@@ -91,13 +112,16 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /** Net amount after discount. */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('archive-files');
+    }
+
     public function getNetAmountAttribute(): float
     {
         return max(0, (float) $this->price - (float) $this->discount);
     }
 
-    /** Amount still owed by patient. */
     public function getRemainingAmountAttribute(): float
     {
         return max(0, $this->getNetAmountAttribute() - (float) $this->paid_amount);

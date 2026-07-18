@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Booking\Actions\CancelBookingAction;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
 use Modules\Booking\DTOs\BookingData;
@@ -16,33 +15,36 @@ use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
-use Modules\Surgery\Models\OrRoom;
+use Modules\Booking\States\CompletedState;
+use Modules\Surgery\Services\SurgeryService;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class BookingController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
+        private readonly SurgeryService $surgeryService,
         private readonly CreateBookingAction $createAction,
         private readonly UpdateBookingAction $updateAction,
-        private readonly CancelBookingAction $cancelAction,
         private readonly BookingRepositoryInterface $bookingRepository,
     ) {}
 
     public function index(): Response
     {
         $filter = BookingFilterData::fromArray(request()->all());
-        $bookings = $this->bookingService->list($filter);
-
-        $dept = request('dept');
-        $orRooms = in_array($dept, ['surgery', 'lasik', 'laser'])
-            ? OrRoom::with(['beds' => fn ($q) => $q->orderBy('bed_number')])->orderBy('name')->get()
-            : null;
+        $filterDate = request('date') ?? today()->toDateString();
+        $formResources = $this->bookingService->getFormResources();
 
         return Inertia::render('booking/Index', [
-            'bookings' => $bookings,
-            'filters' => request()->only(['date', 'dept', 'status', 'pay_status', 'search']),
+            'bookings' => $this->bookingService->list($filter),
+            'filters' => request()->only(['date', 'date_from', 'date_to', 'dept', 'status', 'pay_status', 'search']),
             'todayStats' => $this->bookingRepository->countByDeptForDate(today()->toDateString()),
-            'orRooms' => $orRooms,
+            'services' => $formResources['services'],
+            'insuranceCompanies' => $formResources['insuranceCompanies'],
+            'priceLists' => $formResources['priceLists'],
+            'doctors' => $formResources['doctors'],
+            'orRooms' => $this->surgeryService->getOrRoomsForDate($filterDate),
+            'today' => today()->toDateString(),
         ]);
     }
 
@@ -57,6 +59,12 @@ class BookingController extends Controller
 
     public function update(UpdateBookingRequest $request, string $id): RedirectResponse
     {
+        $booking = $this->bookingRepository->findOrFail($id);
+
+        if ($booking->status instanceof CompletedState) {
+            return back()->withErrors(['status' => 'لا يمكن تعديل حجز مكتمل.']);
+        }
+
         $data = BookingData::fromArray($request->validated());
         $this->updateAction->execute($id, $data);
 
@@ -65,13 +73,15 @@ class BookingController extends Controller
 
     public function destroy(string $id): RedirectResponse
     {
-        $this->cancelAction->execute(
-            id: $id,
-            cancelReason: request('cancel_reason', 'حذف من قبل المستخدم'),
-            adminOverride: request()->user()->hasRole('admin'),
-        );
+        $booking = $this->bookingRepository->findOrFail($id);
 
-        return back()->with('success', 'تم إلغاء الحجز.');
+        if ($booking->status instanceof CompletedState) {
+            return back()->withErrors(['status' => 'لا يمكن حذف حجز مكتمل.']);
+        }
+
+        $this->bookingRepository->delete($id);
+
+        return back()->with('success', 'تم حذف الحجز بنجاح.');
     }
 
     public function receipt(string $id): Response
@@ -85,13 +95,18 @@ class BookingController extends Controller
 
     public function patientFile(string $fileNo): Response
     {
-        $bookings = Booking::query()
-            ->where('file_no', $fileNo)
-            ->with(['doctor:id,name', 'clinicSheet', 'diagnosticResults', 'surgery'])
-            ->orderByDesc('visit_date')
-            ->get();
-
+        $bookings = $this->bookingService->getPatientFile($fileNo);
         $patient = $bookings->first();
+
+        $bookings->each(function (Booking $booking) {
+            $booking->media_files = $booking->getMedia('archive-files')->map(fn (Media $m) => [
+                'id' => $m->id,
+                'name' => $m->file_name,
+                'url' => $m->getUrl(),
+                'mime' => $m->mime_type,
+                'size' => $m->human_readable_size,
+            ]);
+        });
 
         return Inertia::render('booking/PatientFile', [
             'file_no' => $fileNo,

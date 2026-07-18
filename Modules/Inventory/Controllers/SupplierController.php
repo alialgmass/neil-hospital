@@ -7,53 +7,68 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Inventory\Models\PurchaseInvoice;
 use Modules\Inventory\Models\Supplier;
+use Modules\Inventory\Services\InventoryService;
 
 class SupplierController extends Controller
 {
+    public function __construct(
+        private readonly InventoryService $inventoryService
+    ) {}
+
     public function index(): Response
     {
-        $search    = request('search');
-        $suppliers = Supplier::query()
-            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
-            ->orderBy('name')
-            ->paginate(30);
+        $search = request('search');
+
+        $stats = [
+            'total_suppliers' => Supplier::count(),
+            'total_purchases' => (float) PurchaseInvoice::sum('total'),
+            'total_due' => (float) Supplier::sum('balance'),
+        ];
 
         return Inertia::render('suppliers/Index', [
-            'suppliers' => $suppliers,
-            'filters'   => ['search' => $search],
+            'suppliers' => $this->inventoryService->getSuppliers($search),
+            'filters' => ['search' => $search],
+            'stats' => $stats,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'    => ['required', 'string', 'max:150'],
-            'phone'   => ['nullable', 'string', 'max:30'],
-            'email'   => ['nullable', 'email', 'max:100'],
+            'name' => ['required', 'string', 'max:150'],
+            'contact' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:100'],
             'address' => ['nullable', 'string'],
-            'tax_no'  => ['nullable', 'string', 'max:50'],
+            'tax_no' => ['nullable', 'string', 'max:50'],
+            'terms' => ['nullable', 'string', 'max:50'],
+            'notes' => ['nullable', 'string'],
         ]);
 
-        Supplier::create($data);
+        $this->inventoryService->createSupplier($data);
 
         return back()->with('success', 'تم إضافة المورد بنجاح.');
     }
 
     public function update(Request $request, string $id): RedirectResponse
     {
-        $supplier = Supplier::findOrFail($id);
-
         $data = $request->validate([
-            'name'      => ['required', 'string', 'max:150'],
-            'phone'     => ['nullable', 'string', 'max:30'],
-            'email'     => ['nullable', 'email', 'max:100'],
-            'address'   => ['nullable', 'string'],
-            'tax_no'    => ['nullable', 'string', 'max:50'],
+            'name' => ['required', 'string', 'max:150'],
+            'contact' => ['nullable', 'string', 'max:100'],
+            'type' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:100'],
+            'address' => ['nullable', 'string'],
+            'tax_no' => ['nullable', 'string', 'max:50'],
+            'terms' => ['nullable', 'string', 'max:50'],
+            'notes' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ]);
 
-        $supplier->update($data);
+        $this->inventoryService->updateSupplier($id, $data);
 
         return back()->with('success', 'تم تعديل المورد بنجاح.');
     }

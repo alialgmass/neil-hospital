@@ -19,7 +19,7 @@ class InsuranceCompany extends Model
 
     protected $casts = [
         'coverage_pct' => 'decimal:2',
-        'disc_pct'     => 'decimal:2',
+        'disc_pct' => 'decimal:2',
     ];
 
     public function bookings(): HasMany

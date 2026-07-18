@@ -7,19 +7,19 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use Modules\Admin\Services\UserManagementService;
 
 class RoleController extends Controller
 {
+    public function __construct(
+        private readonly UserManagementService $userService
+    ) {}
+
     public function index(): Response
     {
-        $roles = Role::with('permissions')->orderBy('name')->get();
-        $permissions = Permission::orderBy('name')->get();
-
         return Inertia::render('admin/Roles', [
-            'roles' => $roles,
-            'allPermissions' => $permissions,
+            'roles' => $this->userService->getRolesWithPermissions(),
+            'allPermissions' => $this->userService->getAllPermissions(),
         ]);
     }
 
@@ -30,9 +30,8 @@ class RoleController extends Controller
             'permissions.*' => ['string', 'exists:permissions,name'],
         ]);
 
-        $role = Role::findOrFail($roleId);
-        $role->syncPermissions($data['permissions'] ?? []);
+        $this->userService->syncRolePermissions($roleId, $data['permissions'] ?? []);
 
-        return back()->with('success', "تم تحديث صلاحيات دور {$role->name} بنجاح.");
+        return back()->with('success', 'تم تحديث صلاحيات الدور بنجاح.');
     }
 }

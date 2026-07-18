@@ -20,6 +20,7 @@
         "maatwebsite/excel": "^3.1",
         "nwidart/laravel-modules": "^13.0",
         "spatie/laravel-medialibrary": "^11.21",
+        "spatie/laravel-model-states": "^2.14",
         "spatie/laravel-permission": "^7.3",
         "spatie/laravel-query-builder": "^7.2"
     },

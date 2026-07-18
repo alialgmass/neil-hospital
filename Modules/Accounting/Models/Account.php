@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Accounting\Enums\AccountGroup;
+use Modules\Accounting\Enums\AccountNature;
 
 class Account extends Model
 {
@@ -14,8 +16,10 @@ class Account extends Model
     protected $fillable = ['code', 'name', 'group', 'nature', 'parent_id', 'balance', 'is_active'];
 
     protected $casts = [
-        'balance'   => 'decimal:2',
+        'balance' => 'decimal:2',
         'is_active' => 'boolean',
+        'group' => AccountGroup::class,
+        'nature' => AccountNature::class,
     ];
 
     public function parent(): BelongsTo

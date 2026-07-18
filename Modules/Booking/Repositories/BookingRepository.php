@@ -4,6 +4,7 @@ namespace Modules\Booking\Repositories;
 
 use App\Repositories\BaseRepository;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Modules\Admin\Enums\SystemModule;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
@@ -18,7 +19,8 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
     public function filterAndPaginate(BookingFilterData $filter): LengthAwarePaginator
     {
         $query = Booking::query()
-            ->with(['doctor:id,name', 'insuranceCompany:id,name'])
+            ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
+            ->whereIn('dept', SystemModule::enabledDeptValues())
             ->latest('visit_date');
 
         if ($filter->date) {
@@ -104,6 +106,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
     {
         return Booking::query()
             ->whereDate('visit_date', $date)
+            ->whereIn('dept', SystemModule::enabledDeptValues())
             ->selectRaw('dept, count(*) as total')
             ->groupBy('dept')
             ->pluck('total', 'dept')

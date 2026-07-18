@@ -8,27 +8,29 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Modules\Accounting\Models\Account;
 use Modules\Inventory\Imports\ServicesImport;
-use Modules\Inventory\Models\Service;
+use Modules\Inventory\Services\MedicalServiceService;
 
 class ServiceController extends Controller
 {
+    public function __construct(
+        private readonly MedicalServiceService $service
+    ) {}
+
     public function index(): Response
     {
         $filters = request()->only(['search', 'dept', 'status']);
 
-        $services = Service::query()
-            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%"))
-            ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
-            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            ->orderBy('dept')
-            ->orderBy('name')
-            ->paginate(30)
-            ->withQueryString();
+        $revenueAccounts = Account::where('group', 'revenues')
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name']);
 
         return Inertia::render('inventory/Services', [
-            'services' => $services,
+            'services' => $this->service->list($filters, 30),
             'filters' => $filters,
+            'revenueAccounts' => $revenueAccounts,
         ]);
     }
 
@@ -43,17 +45,16 @@ class ServiceController extends Controller
             'center_val' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
+            'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
         ]);
 
-        Service::create($data);
+        $this->service->create($data);
 
         return back()->with('success', 'تم إضافة الخدمة بنجاح.');
     }
 
     public function update(Request $request, string $id): RedirectResponse
     {
-        $service = Service::findOrFail($id);
-
         $data = $request->validate([
             'name' => 'required|string|max:200',
             'dept' => 'required|in:clinic,labs,surgery,lasik,laser',
@@ -63,18 +64,30 @@ class ServiceController extends Controller
             'center_val' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
+            'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
         ]);
 
-        $service->update($data);
+        $this->service->update($id, $data);
 
         return back()->with('success', 'تم تعديل الخدمة بنجاح.');
     }
 
     public function destroy(string $id): RedirectResponse
     {
-        Service::findOrFail($id)->delete();
+        $this->service->delete($id);
 
         return back()->with('success', 'تم حذف الخدمة.');
+    }
+
+    public function toggleStatus(Request $request, string $id): RedirectResponse
+    {
+        $data = $request->validate([
+            'status' => 'required|in:active,inactive',
+        ]);
+
+        $this->service->toggleStatus($id, $data['status']);
+
+        return back();
     }
 
     public function import(Request $request): RedirectResponse
@@ -84,6 +97,12 @@ class ServiceController extends Controller
         $import = new ServicesImport;
         Excel::import($import, $request->file('file'));
 
-        return back()->with('success', "تم الاستيراد: {$import->created} جديدة، {$import->updated} محدّثة، {$import->skipped} متجاهلة.");
+        Inertia::flash('importResult', [
+            'created' => $import->created,
+            'updated' => $import->updated,
+            'skipped' => $import->skipped,
+        ]);
+
+        return back();
     }
 }

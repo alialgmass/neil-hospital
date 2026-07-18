@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,10 +19,10 @@ class DoctorPayment extends Model
     ];
 
     protected $casts = [
-        'amount'      => 'decimal:2',
+        'amount' => 'decimal:2',
         'period_from' => 'date',
-        'period_to'   => 'date',
-        'paid_at'     => 'date',
+        'period_to' => 'date',
+        'paid_at' => 'date',
     ];
 
     public function doctor(): BelongsTo
@@ -31,6 +32,6 @@ class DoctorPayment extends Model
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

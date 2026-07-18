@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { CalendarPlus, ClipboardList } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -25,7 +26,7 @@ interface Paginator {
 
 const props = defineProps<{
     surgeries: Paginator;
-    availableBeds: never[];
+    bookings: { id: string; file_no: string; patient_name: string }[];
     doctors: { id: string; name: string }[];
     dept: string;
     filters: { status?: string };
@@ -42,6 +43,18 @@ const columns = [
 ];
 
 const statusFilter = ref(props.filters.status ?? '');
+
+let filterTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(statusFilter, () => {
+    if (filterTimeout) {
+clearTimeout(filterTimeout);
+}
+
+    filterTimeout = setTimeout(() => {
+        applyFilters();
+    }, 300);
+});
+
 function applyFilters() {
     router.get('/laser', { status: statusFilter.value || undefined }, { preserveState: true });
 }
@@ -68,7 +81,11 @@ const scheduleForm = useForm({
 });
 function submitSchedule() {
     scheduleForm.post('/laser', {
-        onSuccess: () => { showSchedule.value = false; scheduleForm.reset(); },
+        onSuccess: () => {
+            showSchedule.value = false;
+            scheduleForm.reset();
+            toast.success('تم جدولة جلسة الليزر بنجاح');
+        },
     });
 }
 
@@ -76,9 +93,18 @@ function submitSchedule() {
 const showReport   = ref(false);
 const reportTarget = ref('');
 const reportForm   = useForm({ op_report: '', post_op_notes: '', complications: '' });
-function openReport(id: string) { reportTarget.value = id; reportForm.reset(); showReport.value = true; }
+function openReport(id: string) {
+    reportTarget.value = id;
+    reportForm.reset();
+    showReport.value = true;
+}
 function submitReport() {
-    reportForm.post(`/laser/${reportTarget.value}/report`, { onSuccess: () => { showReport.value = false; } });
+    reportForm.post(`/laser/${reportTarget.value}/report`, {
+        onSuccess: () => {
+            showReport.value = false;
+            toast.success('تم حفظ التقرير بنجاح');
+        },
+    });
 }
 
 const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوكوما (SLT)', 'ليزر جلوكوما (ALT)', 'ليزر ملتحمة'];
@@ -171,7 +197,12 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">رقم الحجز</label>
-                    <input v-model="scheduleForm.booking_id" type="text" class="dept-input" />
+                    <select v-model="scheduleForm.booking_id" class="dept-input">
+                        <option value="">-- اختر الحجز --</option>
+                        <option v-for="b in props.bookings" :key="b.id" :value="b.id">
+                            {{ b.file_no }} — {{ b.patient_name }}
+                        </option>
+                    </select>
                     <p v-if="scheduleForm.errors.booking_id" class="mt-1 text-xs text-hospital-danger">{{ scheduleForm.errors.booking_id }}</p>
                 </div>
                 <div>

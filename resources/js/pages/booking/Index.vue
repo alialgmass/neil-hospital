@@ -5,10 +5,12 @@ import {
     Edit3,
     Trash2,
     Printer,
+    Search,
     X,
     CreditCard,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import DateFilter from '@/components/shared/DateFilter.vue';
@@ -23,13 +25,30 @@ interface Booking {
     file_no: string;
     patient_name: string;
     patient_phone?: string;
+    patient_age?: number;
+    national_id?: string;
+    gender?: string;
     dept: string;
+    service_id?: string;
+    service_name?: string;
+    doctor_id?: string;
+    ins_company_id?: string;
     visit_date: string;
+    visit_time?: string;
     price: number;
+    discount?: number;
+    ins_amount?: number;
     paid_amount: number;
+    pay_method?: string;
     pay_status: 'unpaid' | 'partial' | 'paid';
     status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-    doctor?: { name: string };
+    visit_note?: string;
+    eye_side?: string;
+    analysis_type?: string;
+    analysis_notes?: string;
+    doctor?: { id: string; name: string };
+    insuranceCompany?: { id: string; name: string };
+    surgery?: { id: string; or_bed_id?: number | string | null } | null;
 }
 
 interface Props {
@@ -42,21 +61,26 @@ interface Props {
     };
     filters: {
         date?: string;
+        date_from?: string;
+        date_to?: string;
         dept?: string;
         status?: string;
         pay_status?: string;
         search?: string;
     };
     todayStats: Record<string, number>;
-    services?: unknown[];
-    doctors?: unknown[];
-    insuranceCompanies?: unknown[];
+    services?: { id: string; name: string; dept: string; price: number; ins_price: number }[];
+    doctors?: { id: string; name: string; is_active: boolean }[];
+    priceLists?: { id: string; name: string; ins_company_id: string; ins_coverage: number; items: { service_id: string; price: number }[] }[];
+    insuranceCompanies?: { id: string; name: string }[];
+    orRooms?: { id: number; name: string; beds: { id: number; bed_number: number }[] }[];
+    today?: string;
 }
 
 const props = defineProps<Props>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
@@ -66,38 +90,66 @@ const canPay = computed(() => can('booking.pay'));
 // ── State ──
 const showCreateModal = ref(false);
 const editBooking = ref<Booking | null>(null);
-const cancelTarget = ref<Booking | null>(null);
-const cancelReason = ref('');
+const deleteTarget = ref<Booking | null>(null);
 
 // ── Pay modal ──
 const payTarget = ref<Booking | null>(null);
-const payForm = useForm({ paid_amount: '', pay_method: 'cash' });
+const payForm = useForm({ price: '', paid_amount: '', pay_method: 'cash' });
 
 const isPayModalOpen = computed({
     get: () => !!payTarget.value,
-    set: (val) => { if (!val) { payTarget.value = null; payForm.reset(); } },
+    set: (val) => {
+ if (!val) {
+ payTarget.value = null; payForm.reset();
+}
+},
 });
 
 const payRemaining = computed(() => {
-    if (!payTarget.value) return 0;
-    const net = Math.max(0, Number(payTarget.value.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
+    if (!payTarget.value) {
+return 0;
+}
+
+    const net = Math.max(0, Number(payForm.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
+
     return Math.max(0, net - Number(payTarget.value.paid_amount));
 });
 
 function openPay(booking: Booking) {
     payTarget.value = booking;
+    payForm.price = String(booking.price ?? '0');
     payForm.paid_amount = String(payRemaining.value || '');
 }
 
 function submitPay() {
-    if (!payTarget.value) return;
-    payForm.patch(`/booking/${payTarget.value.id}/pay`, {
-        onSuccess: () => { payTarget.value = null; payForm.reset(); },
+    if (!payTarget.value) {
+return;
+}
+
+payForm.patch(`/booking/${payTarget.value.id}/pay`, {
+        onSuccess: () => {
+            payTarget.value = null;
+            payForm.reset();
+            toast.success('تم تسجيل الدفع بنجاح');
+        },
     });
 }
 const search = ref(props.filters.search ?? '');
 const selectedDept = ref(props.filters.dept ?? '');
 const selectedStatus = ref(props.filters.status ?? '');
+const dateFrom = ref(props.filters.date_from ?? '');
+const dateTo = ref(props.filters.date_to ?? '');
+
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+watch([search, selectedDept, selectedStatus], () => {
+    if (searchTimeout) {
+clearTimeout(searchTimeout);
+}
+
+    searchTimeout = setTimeout(() => {
+        applySearch();
+    }, 300);
+});
 
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -106,6 +158,11 @@ const deptLabels: Record<string, string> = {
     lasik: 'الليزك',
     laser: 'الليزر',
 };
+
+const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
+const visibleDeptLabels = computed<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus.value[key] !== false)),
+);
 
 const columns = [
     { key: 'file_no', label: 'رقم الملف', sortable: true },
@@ -118,56 +175,62 @@ const columns = [
     { key: 'status', label: 'الحالة' },
 ];
 
-const statCards = computed(() => [
+const allStatCards = [
     {
+        key: 'clinic',
         label: 'العيادة',
-        value: props.todayStats.clinic ?? 0,
         color: 'primary' as const,
     },
     {
+        key: 'labs',
         label: 'الفحوصات',
-        value: props.todayStats.labs ?? 0,
         color: 'accent' as const,
     },
     {
+        key: 'surgery',
         label: 'العمليات',
-        value: props.todayStats.surgery ?? 0,
         color: 'warning' as const,
     },
     {
+        key: 'lasik',
         label: 'الليزك',
-        value: props.todayStats.lasik ?? 0,
         color: 'success' as const,
     },
     {
+        key: 'laser',
         label: 'الليزر',
-        value: props.todayStats.laser ?? 0,
         color: 'danger' as const,
     },
-]);
+];
+
+const statCards = computed(() =>
+    allStatCards
+        .filter((stat) => moduleStatus.value[stat.key] !== false)
+        .map((stat) => ({ ...stat, value: props.todayStats[stat.key] ?? 0 })),
+);
 
 const currentDeptLabel = computed(() =>
     selectedDept.value ? (deptLabels[selectedDept.value] ?? selectedDept.value) : 'كل الحجوزات',
 );
 
 function applyFilter(from: string, to: string) {
-    router.get(
-        '/booking',
-        {
-            date_from: from,
-            date_to: to,
-            dept: selectedDept.value,
-            status: selectedStatus.value,
-            search: search.value,
-        },
-        { preserveState: true, replace: true },
-    );
+    dateFrom.value = from;
+    dateTo.value = to;
+    applySearch();
+}
+
+function clearDateFilter() {
+    dateFrom.value = '';
+    dateTo.value = '';
+    applySearch();
 }
 
 function applySearch() {
     router.get(
         '/booking',
         {
+            date_from: dateFrom.value,
+            date_to: dateTo.value,
             dept: selectedDept.value,
             status: selectedStatus.value,
             search: search.value,
@@ -180,26 +243,58 @@ function goToPage(page: number) {
     router.get('/booking', { ...props.filters, page }, { preserveState: true });
 }
 
-function confirmCancel(booking: Booking) {
-    cancelTarget.value = booking;
-    cancelReason.value = '';
+function confirmDelete(booking: Booking) {
+    deleteTarget.value = booking;
 }
 
-function doCancel() {
-    if (!cancelTarget.value) {
-return;
+function updateBookingStatus(id: string, status: string) {
+    router.patch(`/booking/${id}/status`, { status }, {
+        preserveScroll: true,
+        onSuccess: () => toast.success('تم تحديث الحالة'),
+    });
 }
 
-    router.delete(`/booking/${cancelTarget.value.id}`, {
-        data: { cancel_reason: cancelReason.value },
+// Mirrors BookingStatus::config() transition rules
+const bookingNextStates: Record<string, { value: string; label: string }[]> = {
+    waiting:     [{ value: 'confirmed', label: 'مؤكد' }, { value: 'cancelled', label: 'ملغي' }],
+    confirmed:   [{ value: 'in_progress', label: 'جارٍ' }, { value: 'cancelled', label: 'ملغي' }],
+    in_progress: [{ value: 'completed', label: 'مكتمل' }, { value: 'cancelled', label: 'ملغي' }],
+    completed:   [],
+    cancelled:   [],
+};
+
+const bookingStatusLabel: Record<string, string> = {
+    waiting: 'انتظار',
+    confirmed: 'مؤكد',
+    in_progress: 'جارٍ',
+    completed: 'مكتمل',
+    cancelled: 'ملغي',
+};
+
+function doDelete() {
+    if (!deleteTarget.value) {
+        return;
+    }
+
+    router.delete(`/booking/${deleteTarget.value.id}`, {
         onSuccess: () => {
-            cancelTarget.value = null;
+            deleteTarget.value = null;
+            toast.success('تم حذف الحجز بنجاح');
         },
     });
 }
 
 function printReceipt(id: string) {
     window.open(`/booking/${id}/receipt`, '_blank');
+}
+
+function openEditBooking(row: Booking) {
+    const bedId = row.surgery?.or_bed_id;
+    editBooking.value = {
+        ...row,
+        bed_id: bedId != null ? String(bedId) : '',
+        surgery_id: row.surgery?.id,
+    } as Booking & { bed_id: string; surgery_id?: string };
 }
 const isEditModalOpen = computed({
     get: () => !!editBooking.value,
@@ -209,11 +304,11 @@ const isEditModalOpen = computed({
         }
     },
 });
-const isCloseModalOpen = computed({
-    get: () => !!cancelTarget.value,
+const isDeleteModalOpen = computed({
+    get: () => !!deleteTarget.value,
     set: (val) => {
         if (!val) {
-            cancelTarget.value = null;
+            deleteTarget.value = null;
         }
     },
 });
@@ -223,34 +318,40 @@ const isCloseModalOpen = computed({
     <Head title="الحجوزات" />
 
     <!-- Stats row -->
-    <div class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+    <div class="stats-row grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 mb-4">
         <StatCard
             v-for="stat in statCards"
             :key="stat.label"
             :label="stat.label"
             :value="stat.value"
             :color="stat.color"
-        />
+        >
+            <template #icon>
+                <div class="opacity-20">
+                    <component :is="stat.icon" class="h-4 w-4" />
+                </div>
+            </template>
+        </StatCard>
     </div>
 
-    <!-- Dept Tabs -->
-    <div class="mb-4 flex gap-1 border-b border-hospital-border">
+    <!-- Dept Tabs (Standardized to the reference HTML tabs look) -->
+    <div class="tabs flex gap-1 border-b-[2px] border-hospital-border mb-4">
         <button
-            class="px-4 py-2 text-sm font-medium transition-colors"
+            class="tab px-4 py-2 text-[12px] font-bold transition-all duration-150 mb-[-2px] border-b-[2px]"
             :class="selectedDept === ''
-                ? 'border-b-2 border-hospital-primary text-hospital-primary'
-                : 'text-hospital-muted hover:text-hospital-text'"
+                ? 'active border-hospital-primary text-hospital-primary'
+                : 'text-hospital-text-3 hover:text-hospital-primary border-transparent'"
             @click="selectedDept = ''; applySearch()"
         >
             كل الحجوزات
         </button>
         <button
-            v-for="(label, key) in deptLabels"
+            v-for="(label, key) in visibleDeptLabels"
             :key="key"
-            class="px-4 py-2 text-sm font-medium transition-colors"
+            class="tab px-4 py-2 text-[12px] font-bold transition-all duration-150 mb-[-2px] border-b-[2px]"
             :class="selectedDept === key
-                ? 'border-b-2 border-hospital-primary text-hospital-primary'
-                : 'text-hospital-muted hover:text-hospital-text'"
+                ? 'active border-hospital-primary text-hospital-primary'
+                : 'text-hospital-text-3 hover:text-hospital-primary border-transparent'"
             @click="selectedDept = key; applySearch()"
         >
             {{ label }}
@@ -258,51 +359,62 @@ const isCloseModalOpen = computed({
     </div>
 
     <!-- Toolbar: filters on left, action on right -->
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div class="flex flex-wrap items-center gap-2">
-            <select
-                v-model="selectedStatus"
-                class="rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
-                @change="applySearch"
-            >
-                <option value="">كل الحالات</option>
-                <option value="waiting">انتظار</option>
-                <option value="confirmed">مؤكد</option>
-                <option value="in_progress">جارٍ</option>
-                <option value="completed">مكتمل</option>
-                <option value="cancelled">ملغي</option>
-            </select>
+            <!-- Status Filter -->
+            <div class="flex items-center gap-2 rounded-[7px] border border-hospital-border bg-white px-2 py-1">
+                <span class="text-[10px] font-bold text-hospital-text-3 uppercase">الحالة:</span>
+                <select
+                    v-model="selectedStatus"
+                    class="bg-transparent text-[12px] font-bold text-hospital-text focus:outline-none"
+                    @change="applySearch"
+                >
+                    <option value="">كل الحالات</option>
+                    <option value="waiting">انتظار</option>
+                    <option value="confirmed">مؤكد</option>
+                    <option value="in_progress">جارٍ</option>
+                    <option value="completed">مكتمل</option>
+                    <option value="cancelled">ملغي</option>
+                </select>
+            </div>
 
             <DateFilter
+                :from="dateFrom"
+                :to="dateTo"
                 @apply="applyFilter"
-                @clear="() => router.get('/booking')"
+                @clear="clearDateFilter"
             />
 
-            <SearchBar
-                v-model="search"
-                placeholder="بحث باسم المريض أو رقم الملف..."
-                class="min-w-[200px]"
-                @keyup.enter="applySearch"
-            />
+            <!-- Search Bar -->
+            <div class="search-bar flex items-center gap-[7px] rounded-[7px] border border-hospital-border bg-white px-[11px] min-w-[240px]">
+                <Search class="h-[14px] w-[14px] text-hospital-text-3" />
+                <input
+                    v-model="search"
+                    type="text"
+                    placeholder="بحث باسم المريض أو رقم الملف..."
+                    class="flex-1 bg-transparent py-[7px] px-1 text-[12px] text-hospital-text placeholder-hospital-text-3 focus:outline-none"
+                    @keyup.enter="applySearch"
+                />
+            </div>
         </div>
 
         <button
             type="button"
-            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light"
+            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm"
             @click="showCreateModal = true"
         >
-            <CalendarPlus class="h-4 w-4" />
-            حجز جديد
+            <CalendarPlus class="h-3.5 w-3.5" />
+            <span>حجز جديد</span>
         </button>
     </div>
 
-    <!-- Table card -->
-    <div class="booking-table-card overflow-hidden rounded-xl border border-hospital-border shadow-sm">
-        <!-- Card header -->
-        <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
+    <!-- Table Card -->
+    <div class="card rounded-[var(--rl)] border border-hospital-border bg-white [box-shadow:var(--sh)] overflow-hidden">
+        <!-- Card Header -->
+        <div class="card-hd flex items-center justify-between border-b border-hospital-border bg-hospital-surface-2 px-4 py-3">
             <div>
-                <p class="text-sm font-bold text-hospital-text">{{ currentDeptLabel }}</p>
-                <p class="text-xs text-hospital-text-3">{{ bookings.total }} سجل</p>
+                <p class="card-title text-[13px] font-bold text-hospital-text">{{ currentDeptLabel }}</p>
+                <p class="card-sub text-[10px] text-hospital-text-3">إجمالي الحجوزات: {{ bookings.total }}</p>
             </div>
             <ExportBar @print="() => window.print()" />
         </div>
@@ -328,8 +440,31 @@ const isCloseModalOpen = computed({
             <template #cell-pay_status="{ value }">
                 <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
             </template>
-            <template #cell-status="{ value }">
-                <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
+            <template #cell-status="{ row }">
+                <select
+                    :value="(row as Booking).status"
+                    class="rounded border border-hospital-border bg-white px-2 py-1 text-[11px] font-bold focus:outline-none focus:ring-1 focus:ring-hospital-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    :class="{
+                        'text-hospital-text-3': (row as Booking).status === 'waiting',
+                        'text-hospital-primary': (row as Booking).status === 'confirmed',
+                        'text-hospital-warning': (row as Booking).status === 'in_progress',
+                        'text-hospital-success': (row as Booking).status === 'completed',
+                        'text-hospital-danger': (row as Booking).status === 'cancelled',
+                    }"
+                    :disabled="!bookingNextStates[(row as Booking).status]?.length"
+                    @change="updateBookingStatus((row as Booking).id, ($event.target as HTMLSelectElement).value)"
+                >
+                    <option :value="(row as Booking).status" disabled>
+                        {{ bookingStatusLabel[(row as Booking).status] }}
+                    </option>
+                    <option
+                        v-for="next in bookingNextStates[(row as Booking).status]"
+                        :key="next.value"
+                        :value="next.value"
+                    >
+                        {{ next.label }}
+                    </option>
+                </select>
             </template>
             <template #actions="{ row }">
                 <div class="flex items-center justify-end gap-2">
@@ -354,16 +489,18 @@ const isCloseModalOpen = computed({
                     <button
                         type="button"
                         title="تعديل"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning"
-                        @click="editBooking = row as Booking"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="(row as Booking).status === 'completed'"
+                        @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />
                     </button>
                     <button
                         type="button"
-                        title="إلغاء"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                        @click="confirmCancel(row as Booking)"
+                        title="حذف"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="(row as Booking).status === 'completed'"
+                        @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />
                     </button>
@@ -394,9 +531,12 @@ const isCloseModalOpen = computed({
             :services="(services as any) ?? []"
             :doctors="(doctors as any) ?? []"
             :insurance-companies="(insuranceCompanies as any) ?? []"
+            :price-lists="(priceLists as any) ?? []"
+            :or-rooms="(orRooms as any) ?? []"
+            :today="today"
             submit-url="/booking"
             submit-method="post"
-            @success="showCreateModal = false"
+            @success="showCreateModal = false; toast.success('تم إنشاء الحجز بنجاح')"
             @cancel="showCreateModal = false"
         />
     </Modal>
@@ -428,10 +568,13 @@ const isCloseModalOpen = computed({
             :services="(services as any) ?? []"
             :doctors="(doctors as any) ?? []"
             :insurance-companies="(insuranceCompanies as any) ?? []"
+            :price-lists="(priceLists as any) ?? []"
+            :or-rooms="(orRooms as any) ?? []"
             :booking="editBooking as Record<string, unknown>"
+            :today="today"
             :submit-url="`/booking/${editBooking.id}`"
             submit-method="put"
-            @success="editBooking = null"
+            @success="editBooking = null; toast.success('تم تحديث الحجز بنجاح')"
             @cancel="editBooking = null"
         />
     </Modal>
@@ -448,6 +591,7 @@ const isCloseModalOpen = computed({
                     <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('ar-EG') }} ج</span>
                 </div>
             </div>
+
 
             <!-- Amount -->
             <div>
@@ -498,44 +642,35 @@ const isCloseModalOpen = computed({
         </template>
     </Modal>
 
-    <!-- Cancel Confirm Modal -->
+    <!-- Delete Confirm Modal -->
     <Modal
-        v-model="isCloseModalOpen"
-        title="تأكيد الإلغاء"
+        v-model="isDeleteModalOpen"
+        title="تأكيد الحذف"
         size="sm"
-        @close="cancelTarget = null"
+        @close="deleteTarget = null"
     >
         <p class="text-sm text-hospital-text">
-            هل تريد إلغاء حجز
-            <strong>{{ cancelTarget?.patient_name }}</strong> —
-            {{ cancelTarget?.file_no }}؟
+            هل أنت متأكد من حذف حجز
+            <strong>{{ deleteTarget?.patient_name }}</strong> —
+            {{ deleteTarget?.file_no }}؟
         </p>
-        <div class="mt-4">
-            <label class="mb-1 block text-xs font-medium text-hospital-text-2"
-                >سبب الإلغاء *</label
-            >
-            <textarea
-                v-model="cancelReason"
-                rows="2"
-                class="w-full resize-none rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
-                placeholder="اذكر سبب الإلغاء..."
-            />
-        </div>
+        <p class="mt-2 text-xs text-hospital-danger">
+            سيتم حذف الحجز وجميع بياناته المرتبطة به نهائياً ولا يمكن التراجع.
+        </p>
         <template #footer>
             <button
                 type="button"
                 class="rounded-lg border border-hospital-border px-4 py-2 text-sm font-medium text-hospital-text-2 hover:bg-hospital-bg"
-                @click="cancelTarget = null"
+                @click="deleteTarget = null"
             >
                 تراجع
             </button>
             <button
                 type="button"
-                :disabled="!cancelReason.trim()"
-                class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                @click="doCancel"
+                class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+                @click="doDelete"
             >
-                تأكيد الإلغاء
+                حذف نهائياً
             </button>
         </template>
     </Modal>

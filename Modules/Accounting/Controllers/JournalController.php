@@ -19,12 +19,13 @@ class JournalController extends Controller
 
     public function index(): Response
     {
-        $filters = request()->only(['from', 'to']);
+        $filters = request()->only(['from', 'to', 'source', 'cost_center']);
 
         return Inertia::render('journal/Index', [
-            'entries'  => $this->journalService->list($filters, 30),
+            'entries' => $this->journalService->list($filters, 30),
             'accounts' => $this->journalService->accounts(),
-            'filters'  => $filters,
+            'totalAmount' => $this->journalService->totalAmount($filters),
+            'filters' => $filters,
         ]);
     }
 
@@ -33,9 +34,9 @@ class JournalController extends Controller
         $entry = $this->journalService->record($request->validated());
 
         $this->activityLog->log(
-            action:      'journal_entry',
-            module:      'accounting',
-            recordId:    $entry->id,
+            action: 'journal_entry',
+            module: 'accounting',
+            recordId: $entry->id,
             description: "قيد يومية: {$entry->description} — {$entry->amount} ج.م",
         );
 

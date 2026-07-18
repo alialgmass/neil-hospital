@@ -4,6 +4,7 @@ namespace Modules\Inventory\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Admin\Services\ActivityLogService;
+use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Services\InventoryService;
 
@@ -19,7 +20,7 @@ class AddStockPermitAction
         return DB::transaction(function () use ($data, $items) {
             $permit = StockPermit::create([
                 ...$data,
-                'type' => 'in',
+                'type' => PermitType::IN,
                 'permit_no' => $this->generatePermitNo(),
                 'created_by' => auth()->id(),
             ]);

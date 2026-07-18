@@ -31,6 +31,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/supplies', [SurgeryController::class, 'supplies'])
             ->middleware('can:surgery.write')
             ->name('supplies');
+
+        Route::patch('/{id}/status', [SurgeryController::class, 'updateStatus'])
+            ->middleware('can:surgery.write')
+            ->name('status');
     });
 
     // Lasik (same controller, dept filtered)
@@ -50,6 +54,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/supplies', [SurgeryController::class, 'supplies'])
             ->middleware('can:lasik.write')
             ->name('supplies');
+
+        Route::patch('/{id}/status', [SurgeryController::class, 'updateStatus'])
+            ->middleware('can:lasik.write')
+            ->name('status');
     });
 
     // Laser (same controller, dept filtered)
@@ -65,5 +73,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/report', [SurgeryController::class, 'report'])
             ->middleware('can:laser.write')
             ->name('report');
+
+        Route::patch('/{id}/status', [SurgeryController::class, 'updateStatus'])
+            ->middleware('can:laser.write')
+            ->name('status');
     });
 });
