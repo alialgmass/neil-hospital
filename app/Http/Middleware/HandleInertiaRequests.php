@@ -6,6 +6,7 @@ use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\States\BookingStatus;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -60,6 +61,9 @@ class HandleInertiaRequests extends Middleware
             'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
             // Global on/off switches for whole system modules, managed from Settings.
             'moduleStatus' => SystemModule::statuses(),
+            // Global on/off switches per booking status. Hidden statuses are
+            // removed from booking listings, filters, and status pickers.
+            'bookingStatusVisibility' => BookingStatus::visibilityMap(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => $request->session()->get('success'),

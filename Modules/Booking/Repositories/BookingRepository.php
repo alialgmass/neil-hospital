@@ -8,6 +8,7 @@ use Modules\Admin\Enums\SystemModule;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
+use Modules\Booking\States\BookingStatus;
 
 class BookingRepository extends BaseRepository implements BookingRepositoryInterface
 {
@@ -21,6 +22,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
         $query = Booking::query()
             ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
             ->whereIn('dept', SystemModule::enabledDeptValues())
+            ->whereIn('status', BookingStatus::visibleStatusNames())
             ->latest('visit_date');
 
         if ($filter->date) {

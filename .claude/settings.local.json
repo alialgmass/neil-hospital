@@ -96,7 +96,8 @@
       "Skill(inertia-vue-development)",
       "Bash(vendor/bin/pint --dirty --format agent Modules/Booking/Http/Requests/StoreBookingRequest.php Modules/Booking/Http/Requests/UpdateBookingRequest.php)",
       "Bash(Get-ChildItem -Path . -Directory)",
-      "Bash(Select-Object Name)"
+      "Bash(Select-Object Name)",
+      "mcp__Claude_Code_Remote__send_later"
     ]
   },
   "enableAllProjectMcpServers": true,
