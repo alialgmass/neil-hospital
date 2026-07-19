@@ -19,7 +19,7 @@ class TreasuryController extends Controller
 
     public function index(): Response
     {
-        $filters = request()->only(['type', 'from', 'to']);
+        $filters = request()->only(['type', 'source', 'from', 'to']);
 
         return Inertia::render('treasury/Index', [
             'entries' => $this->treasuryService->list($filters, 30),

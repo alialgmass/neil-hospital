@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\JournalService;
+use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
 
@@ -60,12 +61,11 @@ class AutoPostStockIssueAction
         }
     }
 
-    private function expenseAccountCode(?string $category): string
+    private function expenseAccountCode(?ItemCategory $category): string
     {
         return match ($category) {
-            'office' => '5250', // مصروفات إدارية وتسويقية
-            'cleaning' => '5240', // مصروفات الصيانة
-            'maintenance' => '5240', // مصروفات الصيانة
+            ItemCategory::Office => '5250', // مصروفات إدارية وتسويقية
+            ItemCategory::Cleaning, ItemCategory::Maintenance => '5240', // مصروفات الصيانة
             default => '5010', // تكلفة مستلزمات طبية
         };
     }

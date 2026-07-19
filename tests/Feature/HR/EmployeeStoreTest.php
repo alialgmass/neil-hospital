@@ -42,6 +42,31 @@ class EmployeeStoreTest extends TestCase
         $this->assertDatabaseHas('employees', ['name' => 'أحمد محمد']);
     }
 
+    public function test_store_creates_linked_user_with_role_when_email_is_provided(): void
+    {
+        $staffRole = Role::firstOrCreate(['name' => 'reception']);
+
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'employee_no'   => 'EMP-0099',
+            'name'          => 'سارة موظفة',
+            'email'         => 'sara@example.com',
+            'password'      => 'secret-password',
+            'role'          => $staffRole->name,
+            'dept'          => 'الاستقبال',
+            'position'      => 'موظفة استقبال',
+            'hire_date'     => '2026-01-01',
+            'contract_type' => 'full_time',
+            'status'        => 'active',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('users', ['email' => 'sara@example.com']);
+
+        $employee = Employee::where('email', 'sara@example.com')->firstOrFail();
+        $this->assertNotNull($employee->user_id);
+        $this->assertTrue($employee->user->hasRole('reception'));
+    }
+
     public function test_store_defaults_salary_to_zero_when_empty(): void
     {
         $response = $this->actingAs($this->admin)->post('/employees', [
