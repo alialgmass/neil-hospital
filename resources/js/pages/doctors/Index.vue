@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { PlusCircle, UserCheck, Percent, DollarSign, Pencil } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
@@ -40,13 +40,20 @@ const columns = [
     { key: '_actions',  label: '' },
 ];
 
-const depts: { key: string; label: string }[] = [
+const allDepts: { key: string; label: string }[] = [
     { key: 'clinic',   label: 'العيادة' },
     { key: 'surgery',  label: 'العمليات' },
     { key: 'lasik',    label: 'الليزك' },
     { key: 'laser',    label: 'الليزر' },
     { key: 'labs',     label: 'الفحوصات' },
 ];
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const depts = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return allDepts.filter(({ key }) => moduleStatus[key] !== false);
+});
 
 const activeCount = computed(() => props.doctors.data.filter((d) => d.is_active).length);
 const pctCount    = computed(() => props.doctors.data.filter((d) => d.fee_type === 'percentage').length);
@@ -89,7 +96,7 @@ function openAdd() {
     form.fee_type  = 'percentage';
     form.fee_value = 40;
     form.is_active = true;
-    depts.forEach(({ key }) => {
+    allDepts.forEach(({ key }) => {
         deptOverrides[key] = { enabled: false, fee_type: 'percentage', fee_value: 40 };
     });
     showModal.value = true;
@@ -104,7 +111,7 @@ function openEdit(doctor: Doctor) {
     form.fee_value = doctor.fee_value;
     form.is_active = doctor.is_active;
 
-    depts.forEach(({ key }) => {
+    allDepts.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
         deptOverrides[key] = existing
             ? { enabled: true, fee_type: existing.fee_type, fee_value: existing.fee_value }
@@ -115,7 +122,7 @@ function openEdit(doctor: Doctor) {
 
 function buildDeptFees(): Record<string, DeptFeeEntry> {
     const result: Record<string, DeptFeeEntry> = {};
-    for (const { key } of depts) {
+    for (const { key } of allDepts) {
         if (deptOverrides[key].enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
