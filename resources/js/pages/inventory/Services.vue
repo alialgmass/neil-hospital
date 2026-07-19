@@ -59,6 +59,15 @@ const deptLabels: Record<string, string> = {
     laser: 'الليزر',
 };
 
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const visibleDeptLabels = computed<Record<string, string>>(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(
+        Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false),
+    );
+});
+
 const deptBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'active'> = {
     clinic: 'info',
     labs: 'active',
@@ -259,7 +268,7 @@ function fmt(n: number) {
                 class="rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
             >
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
             <select
                 v-model="filters.status"
@@ -376,7 +385,7 @@ function fmt(n: number) {
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                                 :disabled="!!editingService"
                             >
-                                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
                             </select>
                         </div>
 

@@ -51,6 +51,7 @@ class ReportingService
                 'bookings.visit_date',
             )
             ->when($dept, fn ($q, $v) => $q->where('bookings.dept', $v))
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->whereBetween('bookings.visit_date', [$from, $to])
             ->orderByDesc('bookings.visit_date')
             ->get()
@@ -142,6 +143,7 @@ class ReportingService
                 DB::raw('SUM(bookings.price - bookings.ins_amount) as patient_amount'),
             )
             ->where('bookings.pay_method', 'insurance')
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->whereBetween('bookings.visit_date', [$from, $to])
             ->when($companyId, fn ($q, $v) => $q->where('bookings.ins_company_id', $v))
             ->groupBy('insurance_companies.id', 'insurance_companies.name')

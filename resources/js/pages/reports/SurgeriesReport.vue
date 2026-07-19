@@ -71,7 +71,11 @@ function search() {
     <!-- Page Header -->
     <div class="mb-6">
         <h1 class="text-xl font-bold text-t">تقرير العمليات والجراحات</h1>
-        <p class="mt-0.5 text-sm text-t3">تفاصيل العمليات والليزك خلال الفترة</p>
+        <p class="mt-0.5 text-sm text-t3">
+            {{ lasikEnabled && surgeryEnabled
+                ? 'تفاصيل العمليات والليزك خلال الفترة'
+                : (lasikEnabled ? 'تفاصيل الليزك خلال الفترة' : 'تفاصيل العمليات خلال الفترة') }}
+        </p>
     </div>
 
     <!-- Stats -->
@@ -85,7 +89,7 @@ function search() {
                 <p class="text-xl font-bold text-t">{{ data.total_count }}</p>
             </div>
         </div>
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
+        <div v-if="surgeryEnabled" class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sp">
                 <Activity class="h-5 w-5 text-s" />
             </div>
@@ -94,7 +98,7 @@ function search() {
                 <p class="text-xl font-bold text-t">{{ data.surgery_count }}</p>
             </div>
         </div>
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
+        <div v-if="lasikEnabled" class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ap">
                 <Scissors class="h-5 w-5 text-a" />
             </div>
