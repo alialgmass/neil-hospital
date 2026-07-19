@@ -50,6 +50,11 @@ watch(filters, () => {
     }, 300);
 }, { deep: true });
 
+const page = usePage<{
+    moduleStatus?: Record<string, boolean>;
+    flash?: { importResult?: { created: number; updated: number; skipped: number } };
+}>();
+
 // ── Dept helpers ──────────────────────────────────────────────────────────────
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -59,7 +64,6 @@ const deptLabels: Record<string, string> = {
     laser: 'الليزر',
 };
 
-const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
 const visibleDeptLabels = computed<Record<string, string>>(() => {
     const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
 
@@ -192,8 +196,6 @@ function onFileChange(e: Event) {
     importForm.file = file;
     importFileName.value = file?.name ?? '';
 }
-
-const page = usePage<{ flash?: { importResult?: { created: number; updated: number; skipped: number } } }>();
 
 function submitImport() {
     if (!importForm.file) {
