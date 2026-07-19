@@ -187,4 +187,21 @@ class SystemModuleDeptFilteringTest extends TestCase
                 && collect($accounts)->pluck('code')->contains('4050'))
         );
     }
+
+    public function test_disabled_department_expense_account_disappears_from_chart_of_accounts(): void
+    {
+        Account::create(['code' => '5020', 'name' => 'تكلفة مستلزمات وحدة الليزك', 'group' => 'expenses', 'nature' => 'debit']);
+        Account::create(['code' => '5010', 'name' => 'تكلفة مستلزمات العمليات الجراحية', 'group' => 'expenses', 'nature' => 'debit']);
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+        Permission::firstOrCreate(['name' => 'journal.view']);
+
+        $response = $this->actingAs($this->user)->get('/accounts');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('accounts', fn ($accounts) => ! collect($accounts)->pluck('code')->contains('5020')
+                && collect($accounts)->pluck('code')->contains('5010'))
+        );
+    }
 }

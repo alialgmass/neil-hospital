@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage } from '@inertiajs/vue3'
 import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Trash2, TrendingDown } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -82,7 +82,7 @@ function formatMoney(val: number): string {
     return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const deptOptions = [
+const allDeptOptions = [
     { value: 'surgery', label: 'العمليات' },
     { value: 'lasik', label: 'الليزك' },
     { value: 'laser', label: 'الليزر' },
@@ -90,6 +90,13 @@ const deptOptions = [
     { value: 'labs', label: 'الفحوصات' },
     { value: 'admin', label: 'الإدارة' },
 ]
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>()
+const deptOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {}
+
+    return allDeptOptions.filter((dept) => moduleStatus[dept.value] !== false)
+})
 
 // Issue form
 const form = useForm({
