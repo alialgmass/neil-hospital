@@ -10,8 +10,12 @@ import {
     Scissors,
     FileText,
     Paperclip,
+    Printer,
 } from 'lucide-vue-next';
 import { archive } from '@/routes';
+import { usePrint } from '@/composables/usePrint';
+
+const { print } = usePrint();
 
 interface Patient {
     name: string;
@@ -125,7 +129,7 @@ function isImage(mime: string): boolean {
     <Head :title="`ملف المريض — ${file_no}`" />
 
     <!-- Header -->
-    <div class="mb-5 flex items-center justify-between">
+    <div class="no-print mb-5 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <div
                 class="flex h-12 w-12 items-center justify-center rounded-full bg-hospital-primary/10 text-hospital-primary"
@@ -139,21 +143,33 @@ function isImage(mime: string): boolean {
                 <p class="text-sm text-hospital-muted">
                     رقم الملف: {{ file_no }}
                 </p>
-                <div class="mt-3">
-                    <FileNoBarcode :value="file_no" />
-                </div>
             </div>
         </div>
-        <Link
-            :href="archive().url"
-            class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text transition-colors hover:bg-hospital-bg"
-        >
-            العودة للأرشيف
-        </Link>
+        <div class="flex items-center gap-2">
+            <button
+                type="button"
+                class="flex items-center gap-2 rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text-2 transition-colors hover:bg-hospital-bg"
+                @click="print"
+            >
+                <Printer class="h-4 w-4" />
+                طباعة الباركود
+            </button>
+            <Link
+                :href="archive().url"
+                class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text transition-colors hover:bg-hospital-bg"
+            >
+                العودة للأرشيف
+            </Link>
+        </div>
+    </div>
+
+    <!-- Barcode (shown on screen and when printing) -->
+    <div class="mb-6">
+        <FileNoBarcode :value="file_no" />
     </div>
 
     <!-- Patient Info Card -->
-    <div v-if="patient" class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div v-if="patient" class="no-print mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
@@ -197,13 +213,13 @@ function isImage(mime: string): boolean {
     <!-- No bookings -->
     <div
         v-if="bookings.length === 0"
-        class="rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-muted"
+        class="no-print rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-muted"
     >
         لا توجد زيارات مسجلة لهذا الملف
     </div>
 
     <!-- Visit Timeline -->
-    <div class="space-y-4">
+    <div class="no-print space-y-4">
         <div
             v-for="booking in bookings"
             :key="booking.id"

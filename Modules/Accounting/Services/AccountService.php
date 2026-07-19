@@ -8,13 +8,14 @@ use Modules\Admin\Enums\SystemModule;
 
 class AccountService
 {
-    /** Revenue accounts tied to a disable-able clinical department. */
+    /** Revenue/expense accounts tied to a disable-able clinical department. */
     private const DEPT_ACCOUNTS = [
         '4010' => SystemModule::Clinic,
         '4020' => SystemModule::Labs,
         '4030' => SystemModule::Surgery,
         '4040' => SystemModule::Lasik,
         '4050' => SystemModule::Laser,
+        '5020' => SystemModule::Lasik,
     ];
 
     public function all(): Collection
