@@ -23,7 +23,8 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
             ->whereIn('dept', SystemModule::enabledDeptValues())
             ->whereIn('status', BookingStatus::visibleStatusNames())
-            ->latest('visit_date');
+            ->orderByDesc('visit_date')
+            ->orderByDesc('created_at');
 
         if ($filter->date) {
             $query->whereDate('visit_date', $filter->date);

@@ -97,11 +97,15 @@
       "Bash(vendor/bin/pint --dirty --format agent Modules/Booking/Http/Requests/StoreBookingRequest.php Modules/Booking/Http/Requests/UpdateBookingRequest.php)",
       "Bash(Get-ChildItem -Path . -Directory)",
       "Bash(Select-Object Name)",
-      "mcp__Claude_Code_Remote__send_later"
+      "mcp__Claude_Code_Remote__send_later",
+      "mcp__laravel-boost__get-absolute-url"
     ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "laravel-boost"
-  ]
+  ],
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  }
 }

@@ -11,10 +11,25 @@ interface Row {
     patient_amount: number;
 }
 
+interface StatusBreakdownRow {
+    status: string;
+    label: string;
+    count: number;
+    total: number;
+}
+
 const props = defineProps<{
-    data: { rows: Row[]; from: string; to: string };
+    data: { rows: Row[]; statusBreakdown: StatusBreakdownRow[]; from: string; to: string };
     filters: { from: string; to: string };
 }>();
+
+const statusClasses: Record<string, string> = {
+    draft: 'bg-sf2 text-t2',
+    submitted: 'bg-pp text-p',
+    approved: 'bg-sp/10 text-s',
+    rejected: 'bg-dp/10 text-d',
+    paid: 'bg-ap/10 text-a',
+};
 
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
@@ -79,6 +94,21 @@ function search() {
                 <p class="text-xs text-t3">تحمّل المرضى</p>
                 <p class="text-xl font-bold text-t">{{ fmt(totalPatient) }}</p>
                 <p class="text-xs text-t3">ج.م</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Claim Status Breakdown -->
+    <div class="mb-5 overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
+        <div class="border-b border-br px-5 py-3">
+            <h3 class="font-semibold text-t">حالة المطالبات</h3>
+            <p class="text-xs text-t3">عدد وقيمة المطالبات في نظام تتبع المطالبات، حسب الحالة</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-5">
+            <div v-for="s in data.statusBreakdown" :key="s.status" class="rounded-lg p-3" :class="statusClasses[s.status]">
+                <p class="text-xs font-medium opacity-80">{{ s.label }}</p>
+                <p class="mt-1 text-lg font-bold">{{ s.count }}</p>
+                <p class="font-mono text-xs opacity-80">{{ fmt(s.total) }} ج</p>
             </div>
         </div>
     </div>

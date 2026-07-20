@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Wallet } from 'lucide-vue-next';
+import { Download, Wallet } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Row {
+    doctor_id: string;
     doctor_name: string;
     amount: number;
+    method: string;
     period_from: string;
     period_to: string;
     paid_at: string;
@@ -21,12 +23,21 @@ const props = defineProps<{
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
 
+const methodLabels: Record<string, string> = {
+    cash: 'كاش',
+    transfer: 'تحويل بنكي',
+};
+
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
 
 function search() {
     router.get('/reports/doctor-payments', { from: from.value, to: to.value }, { preserveState: true });
+}
+
+function exportExcel() {
+    window.location.href = `/reports/doctor-payments/export?from=${from.value}&to=${to.value}`;
 }
 </script>
 
@@ -73,6 +84,11 @@ function search() {
             <input v-model="to" class="input-field" type="date" />
         </div>
         <button class="btn-primary self-end" @click="search">بحث</button>
+        <button class="btn-secondary self-end flex items-center gap-2" @click="exportExcel">
+            <Download class="h-4 w-4" />
+            Excel
+        </button>
+        <button class="btn-secondary self-end" @click="() => window.print()">طباعة</button>
     </div>
 
     <!-- Table -->
@@ -82,28 +98,32 @@ function search() {
                 <tr>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الطبيب</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المبلغ</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">طريقة الدفع</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">فترة الاستحقاق</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">تاريخ الدفع</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">بواسطة</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">ملاحظات</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
+                <tr v-for="(row, idx) in data.rows" :key="row.doctor_id + idx" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-medium text-t">{{ row.doctor_name }}</td>
                     <td class="px-4 py-3 font-mono font-medium text-s">{{ Number(row.amount).toFixed(2) }} ج</td>
+                    <td class="px-4 py-3 text-t2">{{ methodLabels[row.method] ?? row.method }}</td>
                     <td class="px-4 py-3 text-t2">{{ row.period_from }} — {{ row.period_to }}</td>
                     <td class="px-4 py-3 text-t2">{{ row.paid_at }}</td>
                     <td class="px-4 py-3 text-t3">{{ row.paid_by_name || '—' }}</td>
+                    <td class="px-4 py-3 text-t3">{{ row.notes || '—' }}</td>
                 </tr>
                 <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="5">لا توجد مدفوعات في هذه الفترة</td>
+                    <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد مدفوعات في هذه الفترة</td>
                 </tr>
             </tbody>
             <tfoot class="border-t-2 border-br bg-sf2">
                 <tr>
                     <td class="px-4 py-3 font-bold text-t">الإجمالي</td>
                     <td class="px-4 py-3 font-mono font-bold text-s">{{ fmt(data.total) }} ج</td>
-                    <td colspan="3" />
+                    <td colspan="5" />
                 </tr>
             </tfoot>
         </table>

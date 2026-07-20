@@ -21,6 +21,7 @@ class Doctor extends Model
         'fee_type',
         'fee_value',
         'dept_fees',
+        'departments',
         'user_id',
         'is_active',
         'notes',
@@ -31,7 +32,17 @@ class Doctor extends Model
         'is_active' => 'boolean',
         'fee_type' => FeeType::class,
         'dept_fees' => 'array',
+        'departments' => 'array',
     ];
+
+    /**
+     * Whether this doctor is scoped to the given department. An empty/null
+     * departments list means "no restriction" — visible for every department.
+     */
+    public function worksInDept(string $dept): bool
+    {
+        return empty($this->departments) || in_array($dept, $this->departments, true);
+    }
 
     public function user(): BelongsTo
     {

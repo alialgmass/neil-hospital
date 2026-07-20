@@ -4,6 +4,7 @@ import { Download, Users, Wallet } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Row {
+    doctor_id: string;
     doctor_name: string;
     fee_type: string;
     cases: number;
@@ -12,6 +13,7 @@ interface Row {
     net_billed: number;
     doctor_claim: number;
     center_share: number;
+    last_visit: string;
 }
 
 const props = defineProps<{
@@ -105,6 +107,7 @@ function exportExcel() {
             <thead class="bg-sf2">
                 <tr>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الطبيب</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">آخر حالة</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الحالات</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">إجمالي الفواتير</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">تأمين</th>
@@ -114,8 +117,9 @@ function exportExcel() {
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
+                <tr v-for="row in data.rows" :key="row.doctor_id" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-medium text-t">{{ row.doctor_name }}</td>
+                    <td class="px-4 py-3 text-t2">{{ row.last_visit }}</td>
                     <td class="px-4 py-3 text-t2">{{ row.cases }}</td>
                     <td class="px-4 py-3 font-mono text-t">{{ Number(row.total_billed).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono text-p">{{ Number(row.ins_amount).toFixed(2) }} ج</td>
@@ -124,7 +128,7 @@ function exportExcel() {
                     <td class="px-4 py-3 font-mono text-t2">{{ Number(row.center_share).toFixed(2) }} ج</td>
                 </tr>
                 <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد بيانات في هذه الفترة</td>
+                    <td class="px-4 py-10 text-center text-t3" colspan="8">لا توجد بيانات في هذه الفترة</td>
                 </tr>
             </tbody>
             <tfoot class="border-t-2 border-br bg-sf2">

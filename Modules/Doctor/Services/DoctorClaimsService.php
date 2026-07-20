@@ -137,7 +137,7 @@ class DoctorClaimsService
             ->value('dr_share') ?? 0.0;
     }
 
-    private function computeDrShare(Doctor $doctor, object $booking): float
+    public function computeDrShare(Doctor $doctor, object $booking): float
     {
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
@@ -151,11 +151,11 @@ class DoctorClaimsService
         }
 
         return match (true) {
-            // Surgery/Lasik: dr_share = paid − supply_total
-            in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $paid),
-
             // Insurance surgery: dr_share = fixed fee from service definition (stored as center_val)
             $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik']) => $this->computeInsuranceSurgeryShare($booking),
+
+            // Surgery/Lasik: dr_share = paid − supply_total
+            in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $paid),
 
             // Clinic, Labs, Laser: dr_share = paid − center_share (from service definition)
             default => $this->computeServiceShare($doctor, $paid, $insAmount),

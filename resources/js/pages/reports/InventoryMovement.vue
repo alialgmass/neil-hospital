@@ -8,12 +8,12 @@ interface Row {
     item_name?: string;
     unit?: string;
     type: 'in' | 'out';
-    permit_no: string;
-    department?: string;
+    reference_no: string;
+    party?: string;
     qty: number;
     unit_cost: number;
     total: number;
-    permit_date: string;
+    movement_date: string;
 }
 
 const props = defineProps<{
@@ -109,9 +109,9 @@ function search() {
             <thead class="bg-sf2">
                 <tr>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الصنف</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">رقم الإذن</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المرجع</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">النوع</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">القسم</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الجهة</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الكمية</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">القيمة</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">التاريخ</th>
@@ -120,16 +120,16 @@ function search() {
             <tbody class="divide-y divide-br/50">
                 <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-medium text-t">{{ row.item_name || '—' }}</td>
-                    <td class="px-4 py-3 font-mono text-xs text-t2">{{ row.permit_no }}</td>
+                    <td class="px-4 py-3 font-mono text-xs text-t2">{{ row.reference_no }}</td>
                     <td class="px-4 py-3">
                         <Badge :variant="row.type === 'in' ? 'active' : 'cancelled'">
                             {{ row.type === 'in' ? 'وارد' : 'صادر' }}
                         </Badge>
                     </td>
-                    <td class="px-4 py-3 text-t3">{{ row.department || '—' }}</td>
+                    <td class="px-4 py-3 text-t3">{{ row.party || '—' }}</td>
                     <td class="px-4 py-3 text-t2">{{ row.qty }} {{ row.unit || '' }}</td>
                     <td class="px-4 py-3 font-mono" :class="row.type === 'in' ? 'text-s' : 'text-d'">{{ Number(row.total).toFixed(2) }} ج</td>
-                    <td class="px-4 py-3 text-t3">{{ row.permit_date }}</td>
+                    <td class="px-4 py-3 text-t3">{{ row.movement_date }}</td>
                 </tr>
                 <tr v-if="data.rows.length === 0">
                     <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد حركات في هذه الفترة</td>

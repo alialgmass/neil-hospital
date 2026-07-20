@@ -31,13 +31,13 @@ class BookingService
     {
         return [
             'services' => Service::select('id', 'name', 'dept', 'price', 'ins_price')->active()->orderBy('name')->get(),
-            'insuranceCompanies' => InsuranceCompany::select('id', 'name')->orderBy('name')->get(),
+            'insuranceCompanies' => InsuranceCompany::select('id', 'name', 'coverage_pct')->orderBy('name')->get(),
             'priceLists' => PriceList::select('id', 'name', 'ins_company_id', 'ins_coverage')
                 ->where('is_active', true)
                 ->with('items:price_list_id,service_id,price')
                 ->orderBy('name')
                 ->get(),
-            'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
+            'doctors' => Doctor::select('id', 'name', 'departments')->where('is_active', true)->orderBy('name')->get(),
         ];
     }
 

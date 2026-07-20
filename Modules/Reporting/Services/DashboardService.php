@@ -48,16 +48,26 @@ class DashboardService
             ->select('doctors.name as doctor_name', DB::raw('COUNT(*) as cases'), DB::raw('SUM(bookings.price) as revenue'))
             ->where('bookings.pay_status', '!=', 'unpaid')
             ->whereBetween('bookings.visit_date', [$from, $to])
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->groupBy('doctors.id', 'doctors.name')
             ->orderByDesc('revenue')
             ->get()
             ->toArray();
     }
 
-    public function treasuryBalance(): array
+    public function treasuryBalance(?string $from = null, ?string $to = null): array
     {
-        $totalIn = DB::table('treasury_entries')->where('type', 'in')->sum('amount');
-        $totalOut = DB::table('treasury_entries')->where('type', 'out')->sum('amount');
+        $totalIn = DB::table('treasury_entries')
+            ->where('type', 'in')
+            ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
+            ->sum('amount');
+
+        $totalOut = DB::table('treasury_entries')
+            ->where('type', 'out')
+            ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
+            ->sum('amount');
 
         return [
             'total_in' => (float) $totalIn,

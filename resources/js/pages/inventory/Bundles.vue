@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage } from '@inertiajs/vue3'
 import { PackagePlus, Pencil, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -44,6 +44,13 @@ const deptLabels: Record<string, string> = {
     lasik: 'الليزك',
     laser: 'الليزر',
 }
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>()
+const availableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {}
+
+    return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false))
+})
 
 const showModal = ref(false)
 const editingBundle = ref<Bundle | null>(null)
@@ -223,9 +230,7 @@ function formatMoney(val: number) {
                         <label class="form-label">القسم</label>
                         <select v-model="form.dept" class="input-field">
                             <option value="">الكل (جميع الأقسام)</option>
-                            <option value="surgery">العمليات</option>
-                            <option value="lasik">الليزك</option>
-                            <option value="laser">الليزر</option>
+                            <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
                         </select>
                     </div>
                     <div>

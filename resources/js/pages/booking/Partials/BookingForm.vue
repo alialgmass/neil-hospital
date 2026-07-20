@@ -26,11 +26,13 @@ interface Doctor {
     id: string;
     name: string;
     is_active: boolean;
+    departments?: string[] | null;
 }
 
 interface InsuranceCompany {
     id: string;
     name: string;
+    coverage_pct: number;
 }
 
 interface PriceListItem {
@@ -155,6 +157,10 @@ const filteredServices = computed(() =>
     props.services.filter((s) => s.dept === form.dept),
 );
 
+const filteredDoctors = computed(() =>
+    props.doctors.filter((d) => !d.departments || d.departments.length === 0 || d.departments.includes(form.dept)),
+);
+
 const isInsurance = computed(() => form.pay_method === 'insurance');
 
 const activePriceList = computed(() =>
@@ -206,7 +212,11 @@ return;
             : '0';
     } else if (isInsurance.value) {
         form.price = String(service.ins_price ?? service.price);
-        form.ins_amount = '0';
+        // No dedicated price list for this company — fall back to its general coverage rate.
+        const company = props.insuranceCompanies.find((c) => c.id === form.ins_company_id);
+        form.ins_amount = company
+            ? String(Math.round((Number(form.price) * company.coverage_pct) / 100 * 100) / 100)
+            : '0';
     } else {
         form.price = String(service.price);
         form.ins_amount = '0';
@@ -260,7 +270,7 @@ function submit() {
                 <ServiceSelect
                     :model-value="{ service_id: form.service_id, doctor_id: form.doctor_id }"
                     :services="filteredServices"
-                    :doctors="doctors"
+                    :doctors="filteredDoctors"
                     :is-edit-mode="!isCreating"
                     :errors="form.errors"
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"

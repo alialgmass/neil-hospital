@@ -73,7 +73,7 @@ function fmt(n: number) {
         <StatCard label="إجمالي الوارد" :value="`${fmt(treasury.total_in)} ج.م`" color="success">
             <template #icon><Wallet class="h-5 w-5" /></template>
         </StatCard>
-        <StatCard label="رصيد الخزنة" :value="`${fmt(treasury.balance)} ج.م`" :color="treasury.balance >= 0 ? 'primary' : 'danger'">
+        <StatCard label="صافي حركة اليوم" :value="`${fmt(treasury.balance)} ج.م`" :color="treasury.balance >= 0 ? 'primary' : 'danger'">
             <template #icon><BarChart3 class="h-5 w-5" /></template>
         </StatCard>
     </div>
@@ -137,18 +137,18 @@ function fmt(n: number) {
 
     <!-- Treasury Summary -->
     <div class="mt-6 rounded-xl border border-hospital-border bg-white p-5 shadow-sm">
-        <h3 class="mb-4 font-semibold text-hospital-text">ملخص الخزنة</h3>
+        <h3 class="mb-4 font-semibold text-hospital-text">ملخص حركة الخزنة لهذا اليوم</h3>
         <div class="grid grid-cols-3 gap-4 text-center">
             <div class="rounded-lg bg-hospital-success/10 p-4">
-                <p class="text-xs text-hospital-muted">إجمالي الوارد</p>
+                <p class="text-xs text-hospital-muted">وارد اليوم</p>
                 <p class="mt-1 text-lg font-bold text-hospital-success">{{ fmt(treasury.total_in) }} ج.م</p>
             </div>
             <div class="rounded-lg bg-hospital-danger/10 p-4">
-                <p class="text-xs text-hospital-muted">إجمالي الصادر</p>
+                <p class="text-xs text-hospital-muted">صادر اليوم</p>
                 <p class="mt-1 text-lg font-bold text-hospital-danger">{{ fmt(treasury.total_out) }} ج.م</p>
             </div>
             <div class="rounded-lg bg-hospital-primary/10 p-4">
-                <p class="text-xs text-hospital-muted">الرصيد</p>
+                <p class="text-xs text-hospital-muted">صافي اليوم</p>
                 <p class="mt-1 text-lg font-bold" :class="treasury.balance >= 0 ? 'text-hospital-primary' : 'text-hospital-danger'">
                     {{ fmt(treasury.balance) }} ج.م
                 </p>

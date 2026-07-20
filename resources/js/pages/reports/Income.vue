@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { BarChart3, Clock, TrendingUp, Users } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface RevenueRow {
     dept?: string;
@@ -40,6 +40,13 @@ const deptLabels: Record<string, string> = {
     lasik: 'الليزك',
     laser: 'الليزر',
 };
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const availableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false));
+});
 
 const totalRevenue = props.revenueByDept.reduce((s, r) => s + Number(r.revenue), 0);
 const totalCases = props.revenueByDept.reduce((s, r) => s + Number(r.cases), 0);
@@ -128,7 +135,7 @@ const filteredDept = () => {
             <div class="flex flex-wrap items-end gap-2">
                 <select v-model="deptFilter" class="input-field w-auto">
                     <option value="">كل الأقسام</option>
-                    <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                    <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
                 </select>
                 <input v-model="fromFilter" type="date" class="input-field w-auto" />
                 <input v-model="toFilter" type="date" class="input-field w-auto" />

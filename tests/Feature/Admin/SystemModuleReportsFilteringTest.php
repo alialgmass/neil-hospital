@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Admin\Models\Setting;
 use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\States\ScheduledState;
 use Spatie\Permission\Models\Permission;
@@ -36,12 +37,13 @@ class SystemModuleReportsFilteringTest extends TestCase
         $this->makeBooking('surgery');
     }
 
-    private function makeBooking(string $dept): Booking
+    private function makeBooking(string $dept, ?string $doctorId = null): Booking
     {
         return Booking::create([
             'file_no' => 'MRN-'.strtoupper($dept).'-'.uniqid(),
             'patient_name' => 'مريض '.$dept,
             'dept' => $dept,
+            'doctor_id' => $doctorId,
             'visit_date' => today()->toDateString(),
             'price' => 100.00,
             'discount' => 0.00,
@@ -104,5 +106,49 @@ class SystemModuleReportsFilteringTest extends TestCase
             ->where('data.rows', fn ($rows) => ! collect($rows)->pluck('dept')->contains('lasik')
                 && collect($rows)->pluck('dept')->contains('surgery'))
         );
+    }
+
+    public function test_doctor_claims_report_excludes_disabled_module_bookings(): void
+    {
+        Permission::firstOrCreate(['name' => 'dashboard', 'guard_name' => 'web']);
+        $this->user->givePermissionTo('dashboard');
+
+        $doctor = Doctor::create([
+            'name' => 'د. تجريبي',
+            'fee_type' => 'percentage',
+            'fee_value' => 10,
+        ]);
+        $this->makeBooking('clinic', $doctor->id);
+        $this->makeBooking('lasik', $doctor->id);
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->get('/reports/doctor-claims?from='.today()->subDay()->toDateString().'&to='.today()->addDay()->toDateString());
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('data.rows.0.total_billed', 100));
+    }
+
+    public function test_dashboard_revenue_by_doctor_excludes_disabled_module_bookings(): void
+    {
+        Permission::firstOrCreate(['name' => 'dashboard', 'guard_name' => 'web']);
+        $this->user->givePermissionTo('dashboard');
+
+        $doctor = Doctor::create([
+            'name' => 'د. تجريبي',
+            'fee_type' => 'percentage',
+            'fee_value' => 10,
+        ]);
+        $this->makeBooking('clinic', $doctor->id);
+        $this->makeBooking('lasik', $doctor->id);
+
+        Setting::setValue(SystemModule::Lasik->settingKey(), 'false', 'modules');
+
+        $response = $this->actingAs($this->user)->get('/dashboard?from='.today()->subDay()->toDateString().'&to='.today()->addDay()->toDateString());
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('revenueByDoc.0.revenue', 100));
     }
 }

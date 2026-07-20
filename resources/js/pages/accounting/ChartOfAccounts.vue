@@ -50,6 +50,15 @@ const byGroup = computed(() => {
 // Parent accounts for selector
 const parentOptions = computed(() => props.accounts.filter(a => a.is_active));
 
+const groupTotal = computed(() => {
+    const totals: Record<string, number> = {};
+    groups.forEach(g => {
+        totals[g] = byGroup.value[g].reduce((sum, a) => sum + Number(a.balance), 0);
+    });
+
+    return totals;
+});
+
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
@@ -130,9 +139,14 @@ function submitEdit() {
         >
             <div class="card-hd flex items-center justify-between border-b border-hospital-border bg-hospital-surface-2 px-4 py-3">
                 <h3 class="font-bold text-[13px] text-hospital-text">{{ groupLabels[group] }}</h3>
-                <span class="text-[10px] font-bold text-hospital-primary bg-hospital-primary-pale px-2 py-0.5 rounded-full uppercase">
-                    {{ byGroup[group].length }} حساب
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-mono font-bold" :class="groupTotal[group] >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
+                        {{ fmt(groupTotal[group]) }} ج.م
+                    </span>
+                    <span class="text-[10px] font-bold text-hospital-primary bg-hospital-primary-pale px-2 py-0.5 rounded-full uppercase">
+                        {{ byGroup[group].length }} حساب
+                    </span>
+                </div>
             </div>
 
             <div v-if="byGroup[group].length === 0" class="p-8 text-center text-[12px] text-hospital-text-3 italic">

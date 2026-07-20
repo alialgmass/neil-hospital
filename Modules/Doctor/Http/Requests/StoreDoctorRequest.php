@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Http\Requests;
 
+use App\Enums\Department;
 use Illuminate\Foundation\Http\FormRequest;
 use Modules\Doctor\Enums\FeeType;
 
@@ -15,6 +16,7 @@ class StoreDoctorRequest extends FormRequest
     public function rules(): array
     {
         $feeTypes = implode(',', array_column(FeeType::cases(), 'value'));
+        $depts = implode(',', array_column(Department::cases(), 'value'));
 
         return [
             'name' => ['required', 'string', 'max:150'],
@@ -27,6 +29,8 @@ class StoreDoctorRequest extends FormRequest
             'dept_fees' => ['nullable', 'array'],
             'dept_fees.*.fee_type' => ['required_with:dept_fees', "in:{$feeTypes}"],
             'dept_fees.*.fee_value' => ['nullable', 'numeric', 'min:0'],
+            'departments' => ['nullable', 'array'],
+            'departments.*' => ['string', "in:{$depts}"],
         ];
     }
 }

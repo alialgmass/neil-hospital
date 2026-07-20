@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Printer, ChevronLeft } from 'lucide-vue-next';
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import { usePrint } from '@/composables/usePrint';
 
@@ -50,6 +50,16 @@ const props = defineProps<{
 }>();
 
 const { print } = usePrint();
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const referralOptions: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+};
+const availableReferralOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(referralOptions).filter(([key]) => moduleStatus[key] !== false));
+});
 
 const form = reactive<Record<string, string | number | null>>({
     booking_id:        props.booking.id,
@@ -204,10 +214,7 @@ const deptLabels: Record<string, string> = {
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">إحالة إلى</label>
                         <select v-model="form.referral_to" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
                             <option value="">— بدون إحالة —</option>
-                            <option value="labs">الفحوصات</option>
-                            <option value="surgery">العمليات</option>
-                            <option value="lasik">الليزك</option>
-                            <option value="laser">الليزر</option>
+                            <option v-for="(label, key) in availableReferralOptions" :key="key" :value="key">{{ label }}</option>
                         </select>
                     </div>
                     <div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { FileText, FolderPlus, Grid, List, Paperclip, Trash2, Upload, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -47,6 +47,13 @@ const deptLabels: Record<string, string> = {
     lasik:   'الليزك',
     laser:   'الليزر',
 };
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const availableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false));
+});
 
 const deptColors: Record<string, string> = {
     clinic:  'bg-blue-100 text-blue-700',
@@ -210,7 +217,7 @@ function goToPage(page: number) {
                 @change="applyFilters"
             >
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
         </div>
         <div>
@@ -457,7 +464,7 @@ function goToPage(page: number) {
                     <label class="form-label">القسم <span class="text-hospital-danger">*</span></label>
                     <select v-model="form.dept" class="input-field">
                         <option value="">— اختر القسم —</option>
-                        <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                        <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
                     </select>
                     <p v-if="form.errors.dept" class="form-error">{{ form.errors.dept }}</p>
                 </div>
