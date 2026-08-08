@@ -14,6 +14,7 @@ class LedgerService
     public function trialBalance(?string $from = null, ?string $to = null): array
     {
         $accounts = Account::where('is_active', true)
+            ->moduleEnabled()
             ->orderBy('code')
             ->get();
 

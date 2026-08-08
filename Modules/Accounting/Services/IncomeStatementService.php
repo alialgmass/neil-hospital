@@ -25,6 +25,7 @@ class IncomeStatementService
     {
         $accounts = Account::where('is_active', true)
             ->whereIn('group', [AccountGroup::Revenues->value, AccountGroup::Expenses->value])
+            ->moduleEnabled()
             ->orderBy('code')
             ->get();
 

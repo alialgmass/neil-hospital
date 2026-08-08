@@ -248,8 +248,7 @@
     /* Reset layout to single column */
     body,
     #app,
-    main,
-    [data-page] {
+    main {
         display: block !important;
         width: 100% !important;
         max-width: 100% !important;
