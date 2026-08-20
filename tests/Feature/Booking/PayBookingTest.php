@@ -40,6 +40,21 @@ class PayBookingTest extends TestCase
             'group' => AccountGroup::Liabilities, 'nature' => AccountNature::Credit,
             'balance' => 0, 'is_active' => true,
         ]);
+        Account::create([
+            'code' => '1010', 'name' => 'الخزنة الرئيسية',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        Account::create([
+            'code' => '1020', 'name' => 'البنك — الحساب الجاري',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        Account::create([
+            'code' => '4010', 'name' => 'إيرادات العيادة الخارجية (كشف)',
+            'group' => AccountGroup::Revenues, 'nature' => AccountNature::Credit,
+            'balance' => 0, 'is_active' => true,
+        ]);
     }
 
     private function createBooking(array $overrides = []): Booking

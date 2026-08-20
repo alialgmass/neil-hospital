@@ -75,10 +75,6 @@ class BookingController extends Controller
     {
         $booking = $this->bookingRepository->findOrFail($id);
 
-        if ($booking->status instanceof CompletedState) {
-            return back()->withErrors(['status' => 'لا يمكن حذف حجز مكتمل.']);
-        }
-
         $this->bookingRepository->delete($id);
 
         return back()->with('success', 'تم حذف الحجز بنجاح.');
@@ -90,6 +86,15 @@ class BookingController extends Controller
 
         return Inertia::render('booking/Receipt', [
             'booking' => $booking->load(['doctor:id,name', 'service:id,name']),
+        ]);
+    }
+
+    public function barcode(string $id): Response
+    {
+        $booking = $this->bookingService->findOrFail($id);
+
+        return Inertia::render('booking/Barcode', [
+            'booking' => $booking->load(['doctor:id,name']),
         ]);
     }
 

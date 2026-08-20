@@ -3,19 +3,13 @@
 namespace Modules\Accounting\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\AccountGroup;
 use Modules\Accounting\Models\Account;
 
 class IncomeStatementService
 {
     private const TAX_RATE = 0.15;
-
-    /**
-     * Expense codes by category, per the Al-Nour accounting guide.
-     */
-    private const COST_OF_SERVICES = ['5010', '5020', '5030'];
-
-    private const DOCTOR_FEES = ['5110', '5120', '5130'];
 
     /**
      * Build a detailed income statement grouped by the four sections from the guide:
@@ -66,10 +60,10 @@ class IncomeStatementService
             if ($account->group === AccountGroup::Revenues) {
                 $revenues[] = $row;
                 $totalRevenue += $balance;
-            } elseif (in_array($account->code, self::COST_OF_SERVICES)) {
+            } elseif (in_array($account->code, AccountCode::costOfServiceCodes())) {
                 $costOfServices[] = $row;
                 $totalCost += $balance;
-            } elseif (in_array($account->code, self::DOCTOR_FEES)) {
+            } elseif (in_array($account->code, AccountCode::doctorFeeCodes())) {
                 $doctorFees[] = $row;
                 $totalDoctorFees += $balance;
             } else {

@@ -34,6 +34,10 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
         ->middleware('can:booking.view')
         ->name('receipt');
 
+    Route::get('/{id}/barcode', [BookingController::class, 'barcode'])
+        ->middleware('can:booking.view')
+        ->name('barcode');
+
     Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
         ->middleware('can:booking.view')
         ->name('patient-file');

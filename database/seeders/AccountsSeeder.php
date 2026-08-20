@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Accounting\Enums\AccountCode;
 
 class AccountsSeeder extends Seeder
 {
@@ -52,9 +53,13 @@ class AccountsSeeder extends Seeder
         '4100' => ['إيرادات التأمين',                        'revenues',    'credit', null],
         '4110' => ['إيرادات التأمين الصحي — حصة المستشفى',   'revenues',    'credit', '4100'],
         '4120' => ['إيرادات التأمين المحصلة فعلياً',          'revenues',    'credit', '4100'],
+        '4060' => ['إيرادات الشبكية',                        'revenues',    'credit', '4000'],
+        '4070' => ['إيرادات التأمين الصحي (تخصيص خدمة)',    'revenues',    'credit', '4000'],
+        '4080' => ['إيرادات الأدوية والصيدلية',               'revenues',    'credit', '4000'],
         '4200' => ['إيرادات أخرى',                           'revenues',    'credit', null],
         '4210' => ['إيرادات بيع مستلزمات للمرضى',            'revenues',    'credit', '4200'],
         '4220' => ['إيرادات متنوعة',                         'revenues',    'credit', '4200'],
+        '4230' => ['استرداد تكلفة مستلزمات من الطبيب',        'revenues',    'credit', '4200'],
 
         // ── EXPENSES ───────────────────────────────────────────────
         '5000' => ['تكاليف الخدمات الطبية المباشرة',          'expenses',    'debit',  null],
@@ -73,16 +78,25 @@ class AccountsSeeder extends Seeder
         '5250' => ['مصروفات إدارية وتسويقية',                 'expenses',    'debit',  '5200'],
         '5260' => ['استهلاك الأصول الثابتة',                  'expenses',    'debit',  '5200'],
         '5270' => ['مصروفات المشتريات الآجلة',                'expenses',    'debit',  '5200'],
+        '5300' => ['مصروفات ديون معدومة',                     'expenses',    'debit',  null],
     ];
 
     public function run(): void
     {
         $codeToId = [];
+        $nonPostable = AccountCode::nonPostableCodes();
 
         foreach (self::ACCOUNTS as $code => [$name, $group, $nature, $parentCode]) {
+            // PHP silently casts all-digit string array keys (e.g. '1000') to
+            // integers — cast back before comparing against AccountCode's
+            // string values, or the strict in_array() below always misses.
+            $code = (string) $code;
+
             $parentId = $parentCode
                 ? ($codeToId[$parentCode] ?? DB::table('accounts')->where('code', $parentCode)->value('id'))
                 : null;
+
+            $isPostable = ! in_array($code, $nonPostable, true);
 
             $existing = DB::table('accounts')->where('code', $code)->first();
 
@@ -93,6 +107,7 @@ class AccountsSeeder extends Seeder
                     'nature' => $nature,
                     'parent_id' => $parentId,
                     'is_active' => true,
+                    'is_postable' => $isPostable,
                     'updated_at' => now(),
                 ]);
                 $codeToId[$code] = $existing->id;
@@ -107,6 +122,7 @@ class AccountsSeeder extends Seeder
                     'parent_id' => $parentId,
                     'balance' => 0,
                     'is_active' => true,
+                    'is_postable' => $isPostable,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

@@ -6,7 +6,9 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Modules\Accounting\Actions\AutoPostPayrollAction;
 use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
 use Modules\HR\Enums\EmployeeStatus;
@@ -23,7 +25,10 @@ use Spatie\Permission\Models\Role;
 
 class HRService
 {
-    public function __construct(private readonly SettingsService $settings) {}
+    public function __construct(
+        private readonly SettingsService $settings,
+        private readonly AutoPostPayrollAction $autoPostPayroll,
+    ) {}
     // ── Employees ──────────────────────────────────────────────────────────
 
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
@@ -371,17 +376,25 @@ class HRService
 
     public function approvePayroll(string $id): Payroll
     {
-        $payroll = Payroll::findOrFail($id);
-        $payroll->update(['status' => PayrollStatus::Approved]);
+        return DB::transaction(function () use ($id) {
+            $payroll = Payroll::findOrFail($id);
+            $payroll->update(['status' => PayrollStatus::Approved]);
 
-        return $payroll;
+            $this->autoPostPayroll->onApprove($payroll);
+
+            return $payroll;
+        });
     }
 
     public function markPayrollPaid(string $id): Payroll
     {
-        $payroll = Payroll::findOrFail($id);
-        $payroll->update(['status' => PayrollStatus::Paid, 'paid_at' => now()]);
+        return DB::transaction(function () use ($id) {
+            $payroll = Payroll::findOrFail($id);
+            $payroll->update(['status' => PayrollStatus::Paid, 'paid_at' => now()]);
 
-        return $payroll;
+            $this->autoPostPayroll->onPay($payroll->fresh());
+
+            return $payroll;
+        });
     }
 }

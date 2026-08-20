@@ -81,4 +81,26 @@ class AutoPostStockIssueActionTest extends TestCase
         $entry = JournalEntry::sole();
         $this->assertSame('5010', Account::find($entry->debit_account_id)->code);
     }
+
+    public function test_posts_to_maintenance_expense_account_for_maintenance_category_item(): void
+    {
+        $item = $this->makeItem(ItemCategory::Maintenance);
+        $permit = $this->makePermit($item);
+
+        app(AutoPostStockIssueAction::class)->execute($permit);
+
+        $entry = JournalEntry::sole();
+        $this->assertSame('5240', Account::find($entry->debit_account_id)->code);
+    }
+
+    public function test_posts_to_maintenance_expense_account_for_cleaning_category_item(): void
+    {
+        $item = $this->makeItem(ItemCategory::Cleaning);
+        $permit = $this->makePermit($item);
+
+        app(AutoPostStockIssueAction::class)->execute($permit);
+
+        $entry = JournalEntry::sole();
+        $this->assertSame('5240', Account::find($entry->debit_account_id)->code);
+    }
 }

@@ -13,6 +13,7 @@ enum CostCenter: string
     case Doctors = 'CC-DR';
     case Inventory = 'CC-INV';
     case Equipment = 'CC-EQUIP';
+    case Admin = 'CC-ADMIN';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum CostCenter: string
             self::Doctors => 'الأطباء والمستحقات',
             self::Inventory => 'إدارة المخزون',
             self::Equipment => 'الأجهزة والمعدات',
+            self::Admin => 'الإدارة والموارد البشرية',
         };
     }
 }

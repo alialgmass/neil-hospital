@@ -5,6 +5,7 @@ import {
     Edit3,
     Trash2,
     Printer,
+    Barcode,
     Search,
     X,
     CreditCard,
@@ -307,6 +308,10 @@ function printReceipt(id: string) {
     window.open(`/booking/${id}/receipt`, '_blank');
 }
 
+function printBarcode(id: string) {
+    window.open(`/booking/${id}/barcode`, '_blank');
+}
+
 function openEditBooking(row: Booking) {
     const bedId = row.surgery?.or_bed_id;
     editBooking.value = {
@@ -509,6 +514,14 @@ const isDeleteModalOpen = computed({
                     </button>
                     <button
                         type="button"
+                        title="طباعة باركود"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-accent-pale hover:text-hospital-accent"
+                        @click="printBarcode((row as Booking).id)"
+                    >
+                        <Barcode class="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
                         title="تعديل"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         :disabled="(row as Booking).status === 'completed'"
@@ -519,8 +532,7 @@ const isDeleteModalOpen = computed({
                     <button
                         type="button"
                         title="حذف"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
                         @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />

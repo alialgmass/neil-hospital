@@ -40,6 +40,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [SupplierController::class, 'update'])
             ->middleware('can:inventory.write')
             ->name('update');
+
+        Route::post('/{id}/pay', [SupplierController::class, 'pay'])
+            ->middleware('can:inventory.write')
+            ->name('pay');
     });
 
     // Purchase invoices

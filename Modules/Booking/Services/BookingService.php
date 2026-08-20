@@ -53,7 +53,7 @@ class BookingService
 
     public function create(BookingData $data, int $createdBy): Booking
     {
-        $fileNo = $this->mrnGenerator->generate();
+        $fileNo = $this->mrnGenerator->generate($data->nationalId);
 
         return $this->bookingRepository->create([
             'file_no' => $fileNo,

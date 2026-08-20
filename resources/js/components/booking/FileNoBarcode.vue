@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import JsBarcode from 'jsbarcode';
+import { onMounted, ref, watch } from 'vue';
 
 const props = withDefaults(
     defineProps<{
@@ -11,18 +12,27 @@ const props = withDefaults(
     },
 );
 
-const bars = computed(() => {
-    const bits = Array.from(`*${props.value}*`).flatMap((char) => {
-        const code = char.charCodeAt(0);
+const svgEl = ref<SVGElement | null>(null);
 
-        return Array.from(
-            { length: 7 },
-            (_, index) => ((code >> index) & 1) === 1,
-        );
+function draw() {
+    if (!svgEl.value || !props.value) {
+        return;
+    }
+    JsBarcode(svgEl.value, props.value, {
+        format: 'CODE39',
+        width: 2,
+        height: 56,
+        displayValue: true,
+        font: 'monospace',
+        fontSize: 13,
+        margin: 6,
+        background: '#ffffff',
+        lineColor: '#000000',
     });
+}
 
-    return bits.map((wide, index) => ({ index, wide }));
-});
+onMounted(draw);
+watch(() => props.value, draw);
 </script>
 
 <template>
@@ -34,22 +44,6 @@ const bars = computed(() => {
         >
             {{ label }}
         </p>
-        <div
-            class="flex h-14 items-stretch gap-px"
-            dir="ltr"
-            :aria-label="`Barcode ${value}`"
-        >
-            <span
-                v-for="bar in bars"
-                :key="bar.index"
-                class="block bg-hospital-text print:bg-black"
-                :style="{ width: bar.wide ? '3px' : '1px' }"
-            />
-        </div>
-        <p
-            class="font-mono text-sm font-bold tracking-[0.18em] text-hospital-text print:text-black"
-        >
-            {{ value }}
-        </p>
+        <svg ref="svgEl" />
     </div>
 </template>

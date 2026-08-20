@@ -3,16 +3,22 @@
 namespace Modules\Accounting\Services;
 
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\AccountNature;
+use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Exceptions\AccountingException;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Repositories\Contracts\JournalRepositoryInterface;
 
 class JournalService
 {
-    public function __construct(private readonly JournalRepositoryInterface $journalRepository) {}
+    public function __construct(
+        private readonly JournalRepositoryInterface $journalRepository,
+        private readonly AccountResolver $accountResolver,
+    ) {}
 
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
@@ -29,26 +35,113 @@ class JournalService
             ->sum('amount');
     }
 
+    /**
+     * Post a journal entry.
+     *
+     * Validates:
+     * - amount > 0
+     * - debit_account_id !== credit_account_id
+     * - both accounts exist, are active, and are postable (not parent/summary accounts)
+     *
+     * If `idempotency_key` is present and an entry with that key already
+     * exists, the existing entry is returned unchanged (no-op) instead of
+     * creating a duplicate.
+     *
+     * @throws AccountingException
+     */
     public function record(array $data): JournalEntry
     {
-        return DB::transaction(function () use ($data) {
-            $entry = $this->journalRepository->create([
-                ...$data,
-                'created_by' => auth()->id(),
+        if (! empty($data['idempotency_key'])) {
+            $existing = JournalEntry::where('idempotency_key', $data['idempotency_key'])->first();
+
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        $amount = (float) ($data['amount'] ?? 0);
+
+        if ($amount <= 0) {
+            throw new AccountingException('Journal entry amount must be greater than zero.');
+        }
+
+        if (($data['debit_account_id'] ?? null) === ($data['credit_account_id'] ?? null)) {
+            throw new AccountingException('Debit and credit accounts cannot be the same account.');
+        }
+
+        $this->accountResolver->mustBePostableAndActive($data['debit_account_id']);
+        $this->accountResolver->mustBePostableAndActive($data['credit_account_id']);
+
+        try {
+            return DB::transaction(function () use ($data) {
+                $entry = $this->journalRepository->create([
+                    ...$data,
+                    'created_by' => auth()->id(),
+                ]);
+
+                $this->adjustBalance($data['debit_account_id'], (float) $data['amount'], AccountNature::Debit);
+                $this->adjustBalance($data['credit_account_id'], (float) $data['amount'], AccountNature::Credit);
+
+                return $entry;
+            });
+        } catch (QueryException $e) {
+            // Unique idempotency_key race: another concurrent request won — return that entry.
+            if (! empty($data['idempotency_key']) && str_contains($e->getMessage(), 'idempotency_key')) {
+                return JournalEntry::where('idempotency_key', $data['idempotency_key'])->firstOrFail();
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Reverse a previously-posted journal entry using its ORIGINAL amount
+     * and accounts (never recalculated). No-ops if the entry has already
+     * been reversed (double-reversal guard).
+     */
+    public function reverse(
+        JournalEntry $entry,
+        JournalSource $reversalSource,
+        string $reference,
+        ?string $description = null,
+        ?string $date = null,
+    ): ?JournalEntry {
+        if ($entry->reversed_at !== null) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($entry, $reversalSource, $reference, $description, $date) {
+            // Re-lock/check inside the transaction to close the race window.
+            $fresh = JournalEntry::whereKey($entry->id)->lockForUpdate()->first();
+
+            if (! $fresh || $fresh->reversed_at !== null) {
+                return null;
+            }
+
+            $reversal = $this->record([
+                'date' => $date ?? today()->toDateString(),
+                'description' => $description ?? "عكس قيد: {$fresh->description}",
+                'debit_account_id' => $fresh->credit_account_id,
+                'credit_account_id' => $fresh->debit_account_id,
+                'amount' => (float) $fresh->amount,
+                'source' => $reversalSource,
+                'reference' => $reference,
+                'reversal_of_id' => $fresh->id,
+                'cost_center' => $fresh->cost_center,
             ]);
 
-            $this->adjustBalance($data['debit_account_id'], $data['amount'], AccountNature::Debit);
-            $this->adjustBalance($data['credit_account_id'], $data['amount'], AccountNature::Credit);
+            $fresh->update(['reversed_at' => now()]);
 
-            return $entry;
+            return $reversal;
         });
     }
 
     /** Returns only leaf (postable) accounts — no parent/summary accounts. */
     public function accounts(): Collection
     {
-        return Account::whereDoesntHave('children')
+        return Account::where('is_postable', true)
             ->where('is_active', true)
+            ->whereDoesntHave('children')
             ->orderBy('code')
             ->get();
     }

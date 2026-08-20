@@ -26,6 +26,11 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             ->orderByDesc('visit_date')
             ->orderByDesc('created_at');
 
+        // Hide completed & cancelled from the default listing; user can see them via the status filter
+        if (! $filter->status) {
+            $query->whereNotIn('status', ['completed', 'cancelled']);
+        }
+
         if ($filter->date) {
             $query->whereDate('visit_date', $filter->date);
         } elseif ($filter->dateFrom || $filter->dateTo) {
@@ -116,15 +121,25 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             ->all();
     }
 
-    public function maxMrnSequence(int $year): int
+    public function maxFileSequence(): int
     {
-        $prefix = "MRN-{$year}-";
+        // Supports new format P-{seq}-{last3} and legacy MRN-YYYY-{seq}
+        $max = Booking::whereRaw("file_no REGEXP '^P-[0-9]+-'")
+            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(SUBSTRING(file_no, 3), '-', 1) AS UNSIGNED)) as seq")
+            ->value('seq');
 
-        $max = Booking::where('file_no', 'like', "{$prefix}%")
+        if ($max) {
+            return (int) $max;
+        }
+
+        // Fall back to legacy MRN sequence so numbering continues from where it left off
+        $year = now()->year;
+        $prefix = "MRN-{$year}-";
+        $legacyMax = Booking::where('file_no', 'like', "{$prefix}%")
             ->selectRaw('MAX(CAST(SUBSTRING(file_no, ?) AS UNSIGNED)) as seq', [strlen($prefix) + 1])
             ->value('seq');
 
-        return (int) $max;
+        return (int) $legacyMax;
     }
 
     public function fileNoExists(string $fileNo): bool

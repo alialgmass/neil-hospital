@@ -2,9 +2,10 @@
 
 namespace Modules\Surgery\Actions;
 
-use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
@@ -16,6 +17,7 @@ class ProcessBundleSupplyAction
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly JournalService $journalService,
+        private readonly AccountResolver $accountResolver,
     ) {}
 
     /**
@@ -30,7 +32,7 @@ class ProcessBundleSupplyAction
     {
         $bundle = SupplyBundle::with('items.inventoryItem')->findOrFail($bundleId);
 
-        $inventoryAccountId = DB::table('accounts')->where('code', '1050')->value('id');
+        $inventoryAccountId = $this->accountResolver->id(AccountCode::INVENTORY);
         $costCenter = match ($dept) {
             'lasik' => CostCenter::Lasik,
             'laser' => CostCenter::Laser,
@@ -44,7 +46,11 @@ class ProcessBundleSupplyAction
                 $selectedMap[$si['inventory_item_id']] = max(0.01, (float) ($si['qty'] ?? 0));
             }
         }
-        $hasSelection = ! empty($selectedMap);
+
+        // Create the stock-permit shell first — its id anchors the
+        // idempotency keys for this specific bundle-consumption event, so a
+        // retried/duplicate request can't double-post the same journal lines.
+        $permit = $this->createStockPermit($bundle, $qty, $dept, $selectedMap);
 
         foreach ($bundle->items as $item) {
             if (! $item->inventory_item_id) {
@@ -52,45 +58,35 @@ class ProcessBundleSupplyAction
             }
 
             // Skip items the user did not select when a selection was made
-            if ($hasSelection && ! isset($selectedMap[$item->inventory_item_id])) {
+            if (! empty($selectedMap) && ! isset($selectedMap[$item->inventory_item_id])) {
                 continue;
             }
 
-            $deductQty = $hasSelection
-                ? $selectedMap[$item->inventory_item_id]
-                : (float) $item->qty * $qty;
+            $deductQty = $selectedMap[$item->inventory_item_id]
+                ?? (float) $item->qty * $qty;
 
             $this->inventoryService->adjustQuantity($item->inventory_item_id, -abs($deductQty));
 
             $cost = round($deductQty * (float) $item->unit_cost, 2);
-            if ($cost > 0 && $inventoryAccountId) {
-                $category = $item->inventoryItem?->category?->value ?? null;
-                $expenseCode = match ($category) {
-                    'office' => '5210',
-                    'cleaning' => '5220',
-                    'maintenance' => '5230',
-                    default => '5010',
-                };
-                $expenseId = DB::table('accounts')->where('code', $expenseCode)->value('id');
+            if ($cost > 0) {
+                $category = $item->inventoryItem?->category;
+                $expenseId = $this->accountResolver->id(AccountCode::expenseAccountForCategory($category));
 
-                if ($expenseId) {
-                    $this->journalService->record([
-                        'date' => now()->toDateString(),
-                        'description' => "بند: {$item->item_name} — {$bundle->name}",
-                        'debit_account_id' => $expenseId,
-                        'credit_account_id' => $inventoryAccountId,
-                        'amount' => $cost,
-                        'source' => JournalSource::SUPPLIES_USED,
-                        'reference' => $bundle->name,
-                        'cost_center' => $costCenter,
-                    ]);
-                }
+                $this->journalService->record([
+                    'date' => now()->toDateString(),
+                    'description' => "بند: {$item->item_name} — {$bundle->name}",
+                    'debit_account_id' => $expenseId,
+                    'credit_account_id' => $inventoryAccountId,
+                    'amount' => $cost,
+                    'source' => JournalSource::SUPPLIES_USED,
+                    'reference' => $bundle->name,
+                    'idempotency_key' => "bundle_supply_item:{$permit->id}:{$item->inventory_item_id}",
+                    'cost_center' => $costCenter,
+                ]);
             }
         }
 
-        $this->postBundleChargeEntry($bundle, $qty, $costCenter);
-
-        $this->createStockPermit($bundle, $qty, $dept, $selectedMap);
+        $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id);
 
         return [
             'bundle_id' => $bundle->id,
@@ -104,36 +100,35 @@ class ProcessBundleSupplyAction
     }
 
     /**
-     * Dr 2010 (مستحقات الأطباء) / Cr 4210 (إيرادات بيع مستلزمات)
-     * Records the bundle price charged against the doctor's dues.
+     * Dr 2010 (مستحقات الأطباء) / Cr 4230 (استرداد تكلفة مستلزمات من الطبيب)
+     * Records the bundle price deducted from the doctor's dues — this is a
+     * commission recovery, NOT a patient sale, so it must not share 4210
+     * (Supplies Sales Revenue) with genuine patient supply sales.
      */
-    private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter): void
+    private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId): void
     {
         $bundlePrice = round((float) $bundle->price * $qty, 2);
         if ($bundlePrice <= 0) {
             return;
         }
 
-        $doctorPayableId = DB::table('accounts')->where('code', '2010')->value('id');
-        $supplyRevenueId = DB::table('accounts')->where('code', '4210')->value('id');
-
-        if (! $doctorPayableId || ! $supplyRevenueId) {
-            return;
-        }
+        $doctorPayableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
+        $recoveryId = $this->accountResolver->id(AccountCode::DOCTOR_SUPPLY_COST_RECOVERY);
 
         $this->journalService->record([
             'date' => now()->toDateString(),
             'description' => "سعر بند مستلزمات: {$bundle->name} × {$qty}",
             'debit_account_id' => $doctorPayableId,
-            'credit_account_id' => $supplyRevenueId,
+            'credit_account_id' => $recoveryId,
             'amount' => $bundlePrice,
             'source' => JournalSource::SUPPLIES_USED,
             'reference' => $bundle->name,
+            'idempotency_key' => "bundle_supply_charge:{$permitId}",
             'cost_center' => $costCenter,
         ]);
     }
 
-    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): void
+    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit
     {
         $permit = StockPermit::create([
             'permit_no' => $this->generatePermitNo(),
@@ -165,6 +160,8 @@ class ProcessBundleSupplyAction
                 'unit_cost' => (float) $item->unit_cost,
             ]);
         }
+
+        return $permit;
     }
 
     private function generatePermitNo(): string

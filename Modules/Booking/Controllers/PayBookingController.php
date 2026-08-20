@@ -69,6 +69,7 @@ class PayBookingController extends Controller
                         doctorName: $doctor->name,
                         reference: $booking->file_no,
                         date: $booking->visit_date->toDateString(),
+                        idempotencyKey: "doctor_dues:{$booking->file_no}:{$newPaidTotal}",
                     );
                 }
             }
