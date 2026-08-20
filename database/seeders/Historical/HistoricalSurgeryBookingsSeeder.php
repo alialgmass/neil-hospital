@@ -4,6 +4,7 @@ namespace Database\Seeders\Historical;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
@@ -34,6 +35,7 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
 {
     public function run(): void
     {
+        $adminId = User::min('id');
         $doctors = $this->loadDoctors();
         $insCompany = InsuranceCompany::where('name', 'التأمين الصحى')->first();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
@@ -61,7 +63,7 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
             DB::transaction(function () use (
                 $row, $doctor, $insCompany, $isInsurance, $eyeSide,
                 $bookingAction, $doctorAction, $insuranceAction,
-                $surgeryServices, $fallbackServiceId
+                $surgeryServices, $fallbackServiceId, $adminId
             ) {
                 /** @var Booking $booking */
                 $booking = Booking::create([
@@ -86,7 +88,7 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                     'status' => CompletedState::$name,
                     'eye_side' => $eyeSide,
                     'visit_note' => $row['address'] ? 'العنوان: '.$row['address'] : null,
-                    'created_by' => 1,
+                    'created_by' => $adminId,
                 ]);
 
                 if ($isInsurance && $insCompany && $row['ins_amount'] > 0) {
@@ -115,7 +117,7 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                         'claim_date' => $row['visit_date'],
                         'payment_date' => $row['visit_date'],
                         'notes' => 'بيانات تاريخية مستوردة',
-                        'created_by' => 1,
+                        'created_by' => $adminId,
                     ]);
 
                     // Dr 1030 / Cr 4110  (claim submitted)

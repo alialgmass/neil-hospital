@@ -3,6 +3,7 @@
 namespace Database\Seeders\Historical;
 
 use App\Enums\Department;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\Enums\PayMethod;
@@ -22,6 +23,7 @@ class HistoricalClinicBookingsSeeder extends Seeder
 {
     public function run(): void
     {
+        $adminId = User::min('id');
         $doctors = $this->loadDoctors();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
 
@@ -58,7 +60,7 @@ class HistoricalClinicBookingsSeeder extends Seeder
                 'pay_status' => PayStatus::Paid,
                 'status' => CompletedState::$name,
                 'visit_note' => null,
-                'created_by' => 1,
+                'created_by' => $adminId,
             ]);
 
             // Dr 1010 (Cash) / Cr 4010 (Clinic Revenue)

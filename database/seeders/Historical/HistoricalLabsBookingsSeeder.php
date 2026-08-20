@@ -4,6 +4,7 @@ namespace Database\Seeders\Historical;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
@@ -28,6 +29,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
 {
     public function run(): void
     {
+        $adminId = User::min('id');
         $doctors = $this->loadDoctors();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
         $doctorAction = app(AutoPostDoctorDuesAction::class);
@@ -67,7 +69,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'status' => CompletedState::$name,
                 'analysis_type' => 'بنتاكام',
                 'visit_note' => isset($row['address']) ? 'العنوان: '.$row['address'] : null,
-                'created_by' => 1,
+                'created_by' => $adminId,
             ]);
 
             // Dr 1010 (Cash) / Cr 4020 (Labs Revenue)
@@ -116,7 +118,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'eye_side' => $eyeSide,
                 'analysis_type' => 'أشعة',
                 'visit_note' => isset($row['address']) ? 'العنوان: '.$row['address'] : null,
-                'created_by' => 1,
+                'created_by' => $adminId,
             ]);
 
             // Dr 1010 (Cash) / Cr 4020 (Labs Revenue)
