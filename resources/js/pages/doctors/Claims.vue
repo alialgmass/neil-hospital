@@ -108,6 +108,20 @@ function closePanel() {
 // ── Row invoice modal ──
 const selectedRow = ref<ClaimRow | null>(null);
 
+// ── Case rows search (within the selected doctor's detail panel) ──
+const rowSearch = ref('');
+watch(() => props.claims?.doctor.id, () => { rowSearch.value = ''; });
+
+const filteredRows = computed(() => {
+    const rows = props.claims?.rows ?? [];
+    const q = rowSearch.value.trim();
+    if (!q) {
+        return rows;
+    }
+
+    return rows.filter((r) => r.patient_name.includes(q) || r.file_no.includes(q));
+});
+
 // ── Pay modal ──
 const showPay = ref(false);
 const payForm = useForm({
@@ -397,6 +411,19 @@ function printInvoice() {
                     </div>
                 </div>
 
+                <!-- Case rows search -->
+                <div class="shrink-0 border-b border-hospital-border bg-white px-4 py-2.5">
+                    <div class="relative">
+                        <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-hospital-text-3" />
+                        <input
+                            v-model="rowSearch"
+                            type="text"
+                            placeholder="ابحث بالاسم أو رقم الملف داخل حالات هذا الطبيب..."
+                            class="h-8 w-full rounded-[7px] border border-hospital-border bg-white pr-9 pl-3 text-[12px] focus:border-hospital-primary focus:outline-none"
+                        />
+                    </div>
+                </div>
+
                 <!-- Rows table (scrollable) -->
                 <div class="flex-1 overflow-y-auto">
                     <table class="w-full text-sm">
@@ -412,7 +439,7 @@ function printInvoice() {
                             </tr>
                         </thead>
                         <tbody>
-                            <template v-for="row in claims.rows" :key="row.booking_id">
+                            <template v-for="row in filteredRows" :key="row.booking_id">
                                 <tr
                                     class="cursor-pointer border-b border-hospital-border/40 hover:bg-blue-50/50"
                                     @click="selectedRow = row"
@@ -453,9 +480,9 @@ function printInvoice() {
                                     </td>
                                 </tr>
                             </template>
-                            <tr v-if="claims.rows.length === 0">
+                            <tr v-if="filteredRows.length === 0">
                                 <td colspan="7" class="p-10 text-center text-sm text-hospital-text-2">
-                                    لا توجد حالات مسددة في هذه الفترة
+                                    {{ claims.rows.length === 0 ? 'لا توجد حالات مسددة في هذه الفترة' : 'لا توجد نتائج مطابقة للبحث' }}
                                 </td>
                             </tr>
                         </tbody>

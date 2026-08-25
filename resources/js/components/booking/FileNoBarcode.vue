@@ -6,9 +6,12 @@ const props = withDefaults(
     defineProps<{
         value: string;
         label?: string;
+        /** Drop the border/padding — for embedding inside a container that already has its own. */
+        flat?: boolean;
     }>(),
     {
         label: 'رقم الملف الطبي',
+        flat: false,
     },
 );
 
@@ -37,9 +40,11 @@ watch(() => props.value, draw);
 
 <template>
     <div
-        class="inline-flex flex-col items-center gap-1 rounded-lg border border-hospital-border bg-white px-4 py-3 print:border-black"
+        class="inline-flex flex-col items-center gap-1 bg-white"
+        :class="flat ? '' : 'rounded-lg border border-hospital-border px-4 py-3 print:border-black'"
     >
         <p
+            v-if="label"
             class="text-[10px] font-bold tracking-[0.2em] text-hospital-muted uppercase print:text-black"
         >
             {{ label }}

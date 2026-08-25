@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { BarChart3, Clock, TrendingUp, Users } from 'lucide-vue-next';
+import { BarChart3, Clock, EyeOff, Search, TrendingUp, Users, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface RevenueRow {
     dept?: string;
@@ -48,28 +49,31 @@ const availableDeptLabels = computed(() => {
     return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false));
 });
 
-const totalRevenue = props.revenueByDept.reduce((s, r) => s + Number(r.revenue), 0);
-const totalCases = props.revenueByDept.reduce((s, r) => s + Number(r.cases), 0);
-
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG');
 }
 
-function pct(revenue: number) {
-    if (totalRevenue === 0) {
-        return '0';
-    }
-
-    return ((revenue / totalRevenue) * 100).toFixed(1);
-}
-
-const filteredDept = () => {
+const deptFiltered = computed(() => {
     if (!deptFilter.value) {
         return props.revenueByDept;
     }
 
     return props.revenueByDept.filter((r) => r.dept === deptFilter.value);
-};
+});
+
+const deptRows = useReportRowFilter(() => deptFiltered.value, ['dept'], (r) => r.dept ?? '');
+const docRows = useReportRowFilter(() => props.revenueByDoc, ['doctor_name'], (r) => r.doctor_name ?? '');
+
+const totalRevenue = computed(() => deptRows.visibleRows.value.reduce((s, r) => s + Number(r.revenue), 0));
+const totalCases = computed(() => deptRows.visibleRows.value.reduce((s, r) => s + Number(r.cases), 0));
+
+function pct(revenue: number) {
+    if (totalRevenue.value === 0) {
+        return '0';
+    }
+
+    return ((revenue / totalRevenue.value) * 100).toFixed(1);
+}
 </script>
 
 <template>
@@ -142,9 +146,19 @@ const filteredDept = () => {
                 <button class="btn-primary" @click="applyFilters">عرض</button>
             </div>
         </div>
+        <div class="flex flex-wrap items-center gap-2 border-b border-br px-5 py-2.5 print:hidden">
+            <div class="relative">
+                <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+                <input v-model="deptRows.search.value" type="text" placeholder="ابحث بالقسم..." class="input-field h-8 w-56 pr-9 text-xs" />
+            </div>
+            <button v-if="deptRows.excludedCount.value > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:bg-sf2" @click="deptRows.restoreAll()">
+                <EyeOff class="h-3.5 w-3.5" />
+                {{ deptRows.excludedCount.value }} مستبعد — إظهار الكل
+            </button>
+        </div>
         <div class="p-5">
-            <div v-if="filteredDept().length === 0" class="py-10 text-center text-sm text-t3">
-                لا توجد إيرادات في هذه الفترة
+            <div v-if="deptRows.visibleRows.value.length === 0" class="py-10 text-center text-sm text-t3">
+                {{ revenueByDept.length === 0 ? 'لا توجد إيرادات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
             </div>
             <table v-else class="w-full text-sm">
                 <thead>
@@ -153,10 +167,11 @@ const filteredDept = () => {
                         <th class="pb-2 text-center font-semibold">الحالات</th>
                         <th class="pb-2 text-center font-semibold">النسبة</th>
                         <th class="pb-2 text-left font-semibold">الإيراد</th>
+                        <th class="w-6 pb-2 print:hidden" />
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-br/50">
-                    <tr v-for="row in filteredDept()" :key="row.dept" class="hover:bg-sf2">
+                    <tr v-for="row in deptRows.visibleRows.value" :key="row.dept" class="hover:bg-sf2">
                         <td class="py-2.5 font-medium text-t">{{ deptLabels[row.dept!] ?? row.dept }}</td>
                         <td class="py-2.5 text-center text-t3">{{ row.cases }}</td>
                         <td class="py-2.5 text-center">
@@ -168,6 +183,11 @@ const filteredDept = () => {
                             </div>
                         </td>
                         <td class="py-2.5 text-left font-mono font-semibold text-s">{{ fmt(row.revenue) }} ج.م</td>
+                        <td class="w-6 py-2.5 print:hidden">
+                            <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="deptRows.exclude(row)">
+                                <X class="h-3.5 w-3.5" />
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
                 <tfoot>
@@ -176,6 +196,7 @@ const filteredDept = () => {
                         <td class="pt-2 text-center text-t2">{{ totalCases }}</td>
                         <td class="pt-2 text-center text-t3">100%</td>
                         <td class="pt-2 text-left font-mono text-p">{{ fmt(totalRevenue) }} ج.م</td>
+                        <td class="print:hidden" />
                     </tr>
                 </tfoot>
             </table>
@@ -187,9 +208,19 @@ const filteredDept = () => {
         <div class="border-b border-br px-5 py-4">
             <h3 class="font-semibold text-t">الإيرادات حسب الطبيب</h3>
         </div>
+        <div class="flex flex-wrap items-center gap-2 border-b border-br px-5 py-2.5 print:hidden">
+            <div class="relative">
+                <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+                <input v-model="docRows.search.value" type="text" placeholder="ابحث باسم الطبيب..." class="input-field h-8 w-56 pr-9 text-xs" />
+            </div>
+            <button v-if="docRows.excludedCount.value > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:bg-sf2" @click="docRows.restoreAll()">
+                <EyeOff class="h-3.5 w-3.5" />
+                {{ docRows.excludedCount.value }} مستبعد — إظهار الكل
+            </button>
+        </div>
         <div class="p-5">
-            <div v-if="revenueByDoc.length === 0" class="py-8 text-center text-sm text-t3">
-                لا توجد إيرادات في هذه الفترة
+            <div v-if="docRows.visibleRows.value.length === 0" class="py-8 text-center text-sm text-t3">
+                {{ revenueByDoc.length === 0 ? 'لا توجد إيرادات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
             </div>
             <table v-else class="w-full text-sm">
                 <thead>
@@ -198,10 +229,11 @@ const filteredDept = () => {
                         <th class="pb-2 text-center font-semibold">الحالات</th>
                         <th class="pb-2 text-center font-semibold">النسبة</th>
                         <th class="pb-2 text-left font-semibold">الإيراد</th>
+                        <th class="w-6 pb-2 print:hidden" />
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-br/50">
-                    <tr v-for="row in revenueByDoc" :key="row.doctor_name" class="hover:bg-sf2">
+                    <tr v-for="row in docRows.visibleRows.value" :key="row.doctor_name" class="hover:bg-sf2">
                         <td class="py-2.5 font-medium text-t">{{ row.doctor_name }}</td>
                         <td class="py-2.5 text-center text-t3">{{ row.cases }}</td>
                         <td class="py-2.5 text-center">
@@ -213,6 +245,11 @@ const filteredDept = () => {
                             </div>
                         </td>
                         <td class="py-2.5 text-left font-mono font-semibold text-s">{{ fmt(row.revenue) }} ج.م</td>
+                        <td class="w-6 py-2.5 print:hidden">
+                            <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="docRows.exclude(row)">
+                                <X class="h-3.5 w-3.5" />
+                            </button>
+                        </td>
                     </tr>
                 </tbody>
             </table>

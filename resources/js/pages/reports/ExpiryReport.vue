@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { AlertTriangle, Package, XCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { AlertTriangle, EyeOff, Package, Search, X, XCircle } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface Row {
     id: string;
@@ -30,6 +31,15 @@ const props = defineProps<{
 const days = ref(props.filters.days);
 const category = ref(props.filters.category ?? '');
 const statusFilter = ref(props.filters.status_filter ?? '');
+
+const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = useReportRowFilter(
+    () => props.data.rows,
+    ['name', 'code'],
+    (r) => r.id,
+);
+
+const visibleExpiredCount = computed(() => visibleRows.value.filter((r) => r.status === 'expired').length);
+const visibleSoonCount = computed(() => visibleRows.value.filter((r) => r.status === 'expiring_soon').length);
 
 function search() {
     router.get(
@@ -67,7 +77,7 @@ const statusInfo: Record<string, { label: string; class: string }> = {
             </div>
             <div>
                 <p class="text-xs text-t3">منتهية الصلاحية</p>
-                <p class="text-xl font-bold text-d">{{ data.expired_count }}</p>
+                <p class="text-xl font-bold text-d">{{ visibleExpiredCount }}</p>
                 <p class="text-xs text-t3">صنف</p>
             </div>
         </div>
@@ -77,7 +87,7 @@ const statusInfo: Record<string, { label: string; class: string }> = {
             </div>
             <div>
                 <p class="text-xs text-t3">تنتهي خلال {{ days }} يوم</p>
-                <p class="text-xl font-bold text-w">{{ data.soon_count }}</p>
+                <p class="text-xl font-bold text-w">{{ visibleSoonCount }}</p>
                 <p class="text-xs text-t3">صنف</p>
             </div>
         </div>
@@ -87,7 +97,7 @@ const statusInfo: Record<string, { label: string; class: string }> = {
             </div>
             <div>
                 <p class="text-xs text-t3">أصناف بتاريخ انتهاء</p>
-                <p class="text-xl font-bold text-t">{{ data.total_with_expiry }}</p>
+                <p class="text-xl font-bold text-t">{{ visibleRows.length }}</p>
                 <p class="text-xs text-t3">صنف</p>
             </div>
         </div>
@@ -118,6 +128,18 @@ const statusInfo: Record<string, { label: string; class: string }> = {
         <button class="btn-primary self-end" @click="search">بحث</button>
     </div>
 
+    <!-- Row search + exclusion status -->
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+        <div class="relative">
+            <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+            <input v-model="rowSearch" type="text" placeholder="ابحث بالصنف أو الكود..." class="input-field h-9 w-64 pr-9" />
+        </div>
+        <button v-if="excludedCount > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-3 py-1.5 text-xs text-t2 hover:bg-sf2" @click="restoreAll">
+            <EyeOff class="h-3.5 w-3.5" />
+            {{ excludedCount }} صف مستبعد من العرض — إظهار الكل
+        </button>
+    </div>
+
     <!-- Table -->
     <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
         <table class="w-full text-sm">
@@ -131,12 +153,13 @@ const statusInfo: Record<string, { label: string; class: string }> = {
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">تاريخ الانتهاء</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الأيام المتبقية</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الحالة</th>
+                    <th class="w-8 px-2 py-3" />
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
                 <tr
-                    v-for="(row, idx) in data.rows"
-                    :key="idx"
+                    v-for="row in visibleRows"
+                    :key="row.id"
                     class="hover:bg-sf2"
                     :class="{ 'bg-dp/20': row.status === 'expired' }"
                 >
@@ -158,9 +181,16 @@ const statusInfo: Record<string, { label: string; class: string }> = {
                             {{ statusInfo[row.status]?.label ?? row.status }}
                         </span>
                     </td>
+                    <td class="px-2 py-3">
+                        <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
+                            <X class="h-3.5 w-3.5" />
+                        </button>
+                    </td>
                 </tr>
-                <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="8">لا توجد أصناف بتاريخ انتهاء</td>
+                <tr v-if="visibleRows.length === 0">
+                    <td class="px-4 py-10 text-center text-t3" colspan="9">
+                        {{ data.rows.length === 0 ? 'لا توجد أصناف بتاريخ انتهاء' : 'لا توجد نتائج مطابقة' }}
+                    </td>
                 </tr>
             </tbody>
         </table>

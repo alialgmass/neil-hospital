@@ -45,4 +45,17 @@ class DoctorController extends Controller
 
         return back()->with('success', 'تم تعديل بيانات الطبيب بنجاح.');
     }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $doctor = Doctor::findOrFail($id);
+
+        if ($doctor->payments()->exists() || $doctor->shifts()->exists()) {
+            return back()->with('error', 'لا يمكن حذف الطبيب لوجود مدفوعات أو شِفتات مرتبطة به.');
+        }
+
+        $doctor->delete();
+
+        return back()->with('success', 'تم حذف الطبيب بنجاح.');
+    }
 }

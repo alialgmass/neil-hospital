@@ -36,6 +36,7 @@ class RolesPermissionsSeeder extends Seeder
         'reports.clinical',
         'doctors.view',
         'doctors.write',
+        'doctors.delete',
         'drpayments.view',
         'drpayments.write',
         'services.view',

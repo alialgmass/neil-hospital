@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ArrowDownCircle, ArrowUpCircle, Package, TrendingDown } from 'lucide-vue-next';
+import { ArrowDownCircle, ArrowUpCircle, EyeOff, Package, Search, TrendingDown, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface Row {
     item_name?: string;
@@ -24,10 +25,16 @@ const props = defineProps<{
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
 
-const totalIn = computed(() => props.data.rows.filter((r) => r.type === 'in').reduce((s, r) => s + Number(r.total), 0));
-const totalOut = computed(() => props.data.rows.filter((r) => r.type === 'out').reduce((s, r) => s + Number(r.total), 0));
-const inCount = computed(() => props.data.rows.filter((r) => r.type === 'in').length);
-const outCount = computed(() => props.data.rows.filter((r) => r.type === 'out').length);
+const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = useReportRowFilter(
+    () => props.data.rows,
+    ['item_name', 'reference_no', 'party'],
+    (r) => `${r.reference_no}-${r.item_name}-${r.movement_date}`,
+);
+
+const totalIn = computed(() => visibleRows.value.filter((r) => r.type === 'in').reduce((s, r) => s + Number(r.total), 0));
+const totalOut = computed(() => visibleRows.value.filter((r) => r.type === 'out').reduce((s, r) => s + Number(r.total), 0));
+const inCount = computed(() => visibleRows.value.filter((r) => r.type === 'in').length);
+const outCount = computed(() => visibleRows.value.filter((r) => r.type === 'out').length);
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
@@ -75,7 +82,7 @@ function search() {
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي الحركات</p>
-                <p class="text-xl font-bold text-t">{{ data.rows.length }}</p>
+                <p class="text-xl font-bold text-t">{{ visibleRows.length }}</p>
             </div>
         </div>
         <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
@@ -103,6 +110,18 @@ function search() {
         <button class="btn-primary self-end" @click="search">بحث</button>
     </div>
 
+    <!-- Row search + exclusion status -->
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+        <div class="relative">
+            <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+            <input v-model="rowSearch" type="text" placeholder="ابحث بالصنف أو المرجع أو الجهة..." class="input-field h-9 w-64 pr-9" />
+        </div>
+        <button v-if="excludedCount > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-3 py-1.5 text-xs text-t2 hover:bg-sf2" @click="restoreAll">
+            <EyeOff class="h-3.5 w-3.5" />
+            {{ excludedCount }} صف مستبعد من العرض — إظهار الكل
+        </button>
+    </div>
+
     <!-- Table -->
     <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
         <table class="w-full text-sm">
@@ -115,10 +134,11 @@ function search() {
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الكمية</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">القيمة</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">التاريخ</th>
+                    <th class="w-8 px-2 py-3" />
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
+                <tr v-for="row in visibleRows" :key="`${row.reference_no}-${row.item_name}-${row.movement_date}`" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-medium text-t">{{ row.item_name || '—' }}</td>
                     <td class="px-4 py-3 font-mono text-xs text-t2">{{ row.reference_no }}</td>
                     <td class="px-4 py-3">
@@ -130,9 +150,16 @@ function search() {
                     <td class="px-4 py-3 text-t2">{{ row.qty }} {{ row.unit || '' }}</td>
                     <td class="px-4 py-3 font-mono" :class="row.type === 'in' ? 'text-s' : 'text-d'">{{ Number(row.total).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 text-t3">{{ row.movement_date }}</td>
+                    <td class="px-2 py-3">
+                        <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
+                            <X class="h-3.5 w-3.5" />
+                        </button>
+                    </td>
                 </tr>
-                <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد حركات في هذه الفترة</td>
+                <tr v-if="visibleRows.length === 0">
+                    <td class="px-4 py-10 text-center text-t3" colspan="8">
+                        {{ data.rows.length === 0 ? 'لا توجد حركات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
+                    </td>
                 </tr>
             </tbody>
         </table>

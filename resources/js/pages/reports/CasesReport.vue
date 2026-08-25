@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { Clock, FileText, Users, Wallet } from 'lucide-vue-next';
+import { Clock, EyeOff, FileText, Search, Users, Wallet, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface Row {
     file_no: string;
@@ -42,9 +43,15 @@ const visibleDeptLabels = computed(() => {
     );
 });
 
-const totalRevenue = computed(() => props.data.rows.reduce((s, r) => s + Number(r.price), 0));
-const paidCount = computed(() => props.data.rows.filter((r) => r.pay_status === 'paid').length);
-const pendingCount = computed(() => props.data.rows.filter((r) => r.pay_status !== 'paid').length);
+const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = useReportRowFilter(
+    () => props.data.rows,
+    ['patient_name', 'file_no'],
+    (r) => r.file_no,
+);
+
+const totalRevenue = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.price), 0));
+const paidCount = computed(() => visibleRows.value.filter((r) => r.pay_status === 'paid').length);
+const pendingCount = computed(() => visibleRows.value.filter((r) => r.pay_status !== 'paid').length);
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
@@ -72,7 +79,7 @@ function search() {
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي الحالات</p>
-                <p class="text-xl font-bold text-t">{{ data.rows.length }}</p>
+                <p class="text-xl font-bold text-t">{{ visibleRows.length }}</p>
             </div>
         </div>
         <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
@@ -125,6 +132,23 @@ function search() {
         <button class="btn-primary self-end" @click="search">بحث</button>
     </div>
 
+    <!-- Row search + exclusion status -->
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+        <div class="relative">
+            <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+            <input
+                v-model="rowSearch"
+                type="text"
+                placeholder="ابحث بالاسم أو رقم الملف..."
+                class="input-field h-9 w-64 pr-9"
+            />
+        </div>
+        <button v-if="excludedCount > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-3 py-1.5 text-xs text-t2 hover:bg-sf2" @click="restoreAll">
+            <EyeOff class="h-3.5 w-3.5" />
+            {{ excludedCount }} صف مستبعد من العرض — إظهار الكل
+        </button>
+    </div>
+
     <!-- Table -->
     <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
         <table class="w-full text-sm">
@@ -138,10 +162,11 @@ function search() {
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">السعر</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الدفع</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">التاريخ</th>
+                    <th class="w-8 px-2 py-3" />
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
+                <tr v-for="row in visibleRows" :key="row.file_no" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-mono text-xs text-t2">{{ row.file_no }}</td>
                     <td class="px-4 py-3 font-medium text-t">{{ row.patient_name }}</td>
                     <td class="px-4 py-3 text-t2">{{ deptLabels[row.dept] || row.dept }}</td>
@@ -154,9 +179,16 @@ function search() {
                         </Badge>
                     </td>
                     <td class="px-4 py-3 text-t3">{{ row.visit_date }}</td>
+                    <td class="px-2 py-3">
+                        <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
+                            <X class="h-3.5 w-3.5" />
+                        </button>
+                    </td>
                 </tr>
-                <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="8">لا توجد حالات في هذه الفترة</td>
+                <tr v-if="visibleRows.length === 0">
+                    <td class="px-4 py-10 text-center text-t3" colspan="9">
+                        {{ data.rows.length === 0 ? 'لا توجد حالات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
+                    </td>
                 </tr>
             </tbody>
         </table>
