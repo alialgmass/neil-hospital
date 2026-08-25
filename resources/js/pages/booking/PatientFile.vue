@@ -12,10 +12,9 @@ import {
     Paperclip,
     Printer,
 } from 'lucide-vue-next';
+import { computed } from 'vue';
 import { archive } from '@/routes';
-import { usePrint } from '@/composables/usePrint';
-
-const { print } = usePrint();
+import booking from '@/routes/booking';
 
 interface Patient {
     name: string;
@@ -77,11 +76,14 @@ interface Booking {
     media_files: MediaFile[];
 }
 
-defineProps<{
+const props = defineProps<{
     file_no: string;
     patient: Patient | null;
     bookings: Booking[];
 }>();
+
+// Most recent visit — used to print the barcode label, same page/design as the booking barcode.
+const latestBooking = computed(() => props.bookings[0] ?? null);
 
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -146,14 +148,15 @@ function isImage(mime: string): boolean {
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button
-                type="button"
+            <a
+                v-if="latestBooking"
+                :href="booking.barcode(latestBooking.id).url"
+                target="_blank"
                 class="flex items-center gap-2 rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text-2 transition-colors hover:bg-hospital-bg"
-                @click="print"
             >
                 <Printer class="h-4 w-4" />
                 طباعة الباركود
-            </button>
+            </a>
             <Link
                 :href="archive().url"
                 class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text transition-colors hover:bg-hospital-bg"
@@ -163,8 +166,8 @@ function isImage(mime: string): boolean {
         </div>
     </div>
 
-    <!-- Barcode (shown on screen and when printing) -->
-    <div class="mb-6">
+    <!-- Barcode (reference view — printing uses the same label page as booking barcodes) -->
+    <div class="no-print mb-6">
         <FileNoBarcode :value="file_no" />
     </div>
 
