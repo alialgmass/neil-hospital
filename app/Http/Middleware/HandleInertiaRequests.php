@@ -6,6 +6,7 @@ use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Admin\Models\Setting;
 use Modules\Booking\States\BookingStatus;
 
 class HandleInertiaRequests extends Middleware
@@ -53,7 +54,7 @@ class HandleInertiaRequests extends Middleware
                 : [],
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
-                'hospital_name' => config('app.name', 'مستشفى النور'),
+                'hospital_name' => Setting::getValue('hospital_name', config('app.name', 'مستشفى النور')),
                 'hospital_specialty' => 'طب وجراحة العيون',
             ],
             // Alerts for notification bell

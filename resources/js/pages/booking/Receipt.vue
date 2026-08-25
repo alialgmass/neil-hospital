@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 
 interface Booking {
@@ -42,6 +42,8 @@ const payMethodLabels: Record<string, string> = {
 
 const net = Number(props.booking.price) - Number(props.booking.discount);
 const remaining = net - Number(props.booking.paid_amount);
+
+const hospitalName = usePage().props.settings.hospital_name;
 </script>
 
 <template>
@@ -53,7 +55,7 @@ const remaining = net - Number(props.booking.paid_amount);
         <!-- Header -->
         <div class="mb-6 border-b-2 border-hospital-primary pb-4 text-center">
             <h1 class="text-2xl font-bold text-hospital-primary">
-                مستشفى النور
+                {{ hospitalName }}
             </h1>
             <p class="text-xs text-hospital-text-2">
                 طب وجراحة العيون — المنيا، مصر

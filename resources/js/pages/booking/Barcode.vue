@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 import { onMounted } from 'vue';
 
@@ -13,6 +13,8 @@ const props = defineProps<{
         doctor?: { name: string };
     };
 }>();
+
+const hospitalName = usePage().props.settings.hospital_name;
 
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -35,7 +37,7 @@ onMounted(() => {
         <div class="label-box w-full max-w-[76mm] rounded-lg border border-gray-300 bg-white px-2 py-2 text-center print:max-w-none print:rounded-none print:border-0">
             <!-- Hospital name -->
             <p class="text-[9px] font-bold uppercase leading-tight tracking-widest text-gray-400 print:text-black">
-                مستشفى النور
+                {{ hospitalName }}
             </p>
 
             <!-- Patient name -->
