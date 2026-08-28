@@ -15,9 +15,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:treasury.view')
             ->name('index');
 
+        Route::get('/statement', [TreasuryController::class, 'statement'])
+            ->middleware('can:treasury.view')
+            ->name('statement');
+
         Route::post('/', [TreasuryController::class, 'store'])
             ->middleware('can:treasury.write')
             ->name('store');
+
+        Route::put('/{id}', [TreasuryController::class, 'update'])
+            ->middleware('can:treasury.edit')
+            ->name('update');
+
+        Route::delete('/{id}', [TreasuryController::class, 'destroy'])
+            ->middleware('can:treasury.delete')
+            ->name('destroy');
     });
 
     // Journal

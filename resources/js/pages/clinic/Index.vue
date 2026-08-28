@@ -4,6 +4,7 @@ import { Eye, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface Booking {
     id: string;
@@ -33,6 +34,7 @@ const props = defineProps<{
 }>();
 
 const selectedDate = ref(props.date);
+const fallbackDoctor = computed(() => weekdayDoctorFallback(props.date));
 
 const totalToday    = computed(() => props.queue.total);
 const completedToday = computed(() => props.queue.data.filter((b) => b.status === 'completed').length);
@@ -43,7 +45,6 @@ const revenueToday  = computed(() =>
 );
 
 const columns = [
-    { key: 'visit_time',    label: 'الوقت' },
     { key: 'file_no',       label: 'رقم الملف',   sortable: true },
     { key: 'patient_name',  label: 'المريض',       sortable: true },
     { key: 'patient_phone', label: 'الهاتف' },
@@ -125,11 +126,8 @@ function goToPage(page: number) {
         empty-text="لا يوجد مرضى في قائمة اليوم"
         @page="goToPage"
     >
-        <template #cell-visit_time="{ value }">
-            {{ (value as string)?.slice(0, 5) ?? '—' }}
-        </template>
         <template #cell-doctor="{ row }">
-            {{ (row as Booking).doctor?.name ?? '—' }}
+            {{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}
         </template>
         <template #cell-status="{ value }">
             <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />

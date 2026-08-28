@@ -30,6 +30,8 @@ class RolesPermissionsSeeder extends Seeder
         'laser.write',
         'treasury.view',
         'treasury.write',
+        'treasury.edit',
+        'treasury.delete',
         'journal.view',
         'journal.write',
         'accounting.write',

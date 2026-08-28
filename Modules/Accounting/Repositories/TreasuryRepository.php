@@ -26,6 +26,11 @@ class TreasuryRepository implements TreasuryRepositoryInterface
         return TreasuryEntry::create($data);
     }
 
+    public function findOrFail(string $id): TreasuryEntry
+    {
+        return TreasuryEntry::findOrFail($id);
+    }
+
     public function balance(?string $upToDate = null): array
     {
         $query = TreasuryEntry::query()

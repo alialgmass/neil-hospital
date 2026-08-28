@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowDownCircle,
     ArrowUpCircle,
+    Edit3,
+    FileText,
     PlusCircle,
+    Trash2,
     Wallet,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -19,7 +22,10 @@ interface TreasuryEntry {
     reference_no?: string;
     beneficiary?: string;
     source: string;
+    reversed_at?: string | null;
+    reversal_of_id?: string | null;
     account?: { code: string; name: string };
+    account_id?: string;
     creator?: { name: string };
 }
 
@@ -51,6 +57,19 @@ const columns = [
     { key: 'reference_no', label: 'المرجع' },
     { key: 'creator', label: 'المسؤول' },
 ];
+
+// ── Permissions ──
+const page = usePage<{ permissions?: string[] }>();
+const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+function can(permission: string): boolean {
+    return permissions.value.includes('*') || permissions.value.includes(permission);
+}
+const canEdit = computed(() => can('treasury.edit'));
+const canDelete = computed(() => can('treasury.delete'));
+
+function isEditable(entry: TreasuryEntry): boolean {
+    return entry.source === 'manual' && !entry.reversed_at && !entry.reversal_of_id;
+}
 
 const typeFilter = ref(props.filters.type ?? '');
 const fromFilter = ref(props.filters.from ?? '');
@@ -84,6 +103,7 @@ function goToPage(page: number) {
 }
 
 const showAdd = ref(false);
+const editingId = ref<string | null>(null);
 const form = useForm({
     type: 'in' as 'in' | 'out',
     description: '',
@@ -93,11 +113,59 @@ const form = useForm({
     beneficiary: '',
     account_id: '',
 });
+
+function openAdd() {
+    editingId.value = null;
+    form.reset();
+    form.date = new Date().toISOString().slice(0, 10);
+    showAdd.value = true;
+}
+
+function openEdit(entry: TreasuryEntry) {
+    editingId.value = entry.id;
+    form.type = entry.type;
+    form.description = entry.description;
+    form.amount = entry.amount;
+    form.date = entry.date.slice(0, 10);
+    form.reference_no = entry.reference_no ?? '';
+    form.beneficiary = entry.beneficiary ?? '';
+    form.account_id = entry.account_id ?? '';
+    showAdd.value = true;
+}
+
 function submit() {
+    if (editingId.value) {
+        form.put(`/treasury/${editingId.value}`, {
+            onSuccess: () => {
+                showAdd.value = false;
+                editingId.value = null;
+                form.reset();
+            },
+        });
+        return;
+    }
+
     form.post('/treasury', {
         onSuccess: () => {
             showAdd.value = false;
             form.reset();
+        },
+    });
+}
+
+const confirmingDeleteId = ref<string | null>(null);
+
+function confirmDelete(entry: TreasuryEntry) {
+    confirmingDeleteId.value = entry.id;
+}
+
+function doDelete() {
+    if (!confirmingDeleteId.value) {
+        return;
+    }
+    router.delete(`/treasury/${confirmingDeleteId.value}`, {
+        onFinish: () => {
+            confirmingDeleteId.value = null;
         },
     });
 }
@@ -257,10 +325,16 @@ function printPage() {
         </button>
         <button
             class="flex items-center gap-1.5 rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
-            @click="showAdd = true"
+            @click="openAdd"
         >
             <PlusCircle class="h-4 w-4" /> قيد يدوي
         </button>
+        <Link
+            href="/treasury/statement"
+            class="flex items-center gap-1.5 rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
+        >
+            <FileText class="h-4 w-4" /> كشف حركة الخزنة
+        </Link>
         <button
             class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
             @click="printPage"
@@ -313,11 +387,40 @@ function printPage() {
                     {{ Number(value).toLocaleString('ar-EG') }} ج.م
                 </span>
             </template>
-            <template #cell-source="{ value }">
+            <template #cell-source="{ value, row }">
                 {{ sourceLabels[value as string] ?? value }}
+                <span v-if="(row as TreasuryEntry).reversed_at" class="ms-1 rounded-full bg-hospital-bg px-1.5 py-0.5 text-[10px] font-bold text-hospital-text-3">
+                    معكوسة ↩
+                </span>
             </template>
             <template #cell-creator="{ row }">
                 {{ (row as TreasuryEntry).creator?.name ?? '—' }}
+            </template>
+            <template #actions="{ row }">
+                <div class="flex items-center gap-1">
+                    <button
+                        v-if="canEdit"
+                        type="button"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+                        :class="isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-warning-pale hover:text-hospital-warning' : ''"
+                        :disabled="!isEditable(row as TreasuryEntry)"
+                        :title="isEditable(row as TreasuryEntry) ? 'تعديل' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
+                        @click="openEdit(row as TreasuryEntry)"
+                    >
+                        <Edit3 class="h-4 w-4" />
+                    </button>
+                    <button
+                        v-if="canDelete"
+                        type="button"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+                        :class="isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-danger-pale hover:text-hospital-danger' : ''"
+                        :disabled="!isEditable(row as TreasuryEntry)"
+                        :title="isEditable(row as TreasuryEntry) ? 'حذف' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
+                        @click="confirmDelete(row as TreasuryEntry)"
+                    >
+                        <Trash2 class="h-4 w-4" />
+                    </button>
+                </div>
             </template>
         </DataTable>
 
@@ -339,8 +442,8 @@ function printPage() {
         </div>
     </div>
 
-    <!-- Add Modal -->
-    <Modal v-model="showAdd" title="تسجيل حركة خزنة" size="md">
+    <!-- Add/Edit Modal -->
+    <Modal v-model="showAdd" :title="editingId ? 'تعديل حركة خزنة' : 'تسجيل حركة خزنة'" size="md">
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -429,9 +532,22 @@ function printPage() {
                     :disabled="form.processing"
                     class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
-                    تسجيل
+                    {{ editingId ? 'حفظ التعديلات' : 'تسجيل' }}
                 </button>
             </div>
         </form>
+    </Modal>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal :model-value="confirmingDeleteId !== null" title="تأكيد الحذف" size="sm" @update:model-value="confirmingDeleteId = null">
+        <div class="space-y-4">
+            <p class="text-sm text-hospital-text-2">
+                هل أنت متأكد من حذف هذه الحركة؟ سيتم تسجيل قيد عكسي بنفس المبلغ للحفاظ على أرشيف الحركات — لن يُحذف السجل الأصلي.
+            </p>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="confirmingDeleteId = null">إلغاء</button>
+                <button type="button" class="rounded-lg bg-hospital-danger px-4 py-2 text-sm font-medium text-white hover:opacity-90" @click="doDelete">تأكيد الحذف</button>
+            </div>
+        </div>
     </Modal>
 </template>
