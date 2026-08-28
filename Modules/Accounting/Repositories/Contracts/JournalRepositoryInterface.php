@@ -10,4 +10,6 @@ interface JournalRepositoryInterface
     public function paginate(array $filters = [], int $perPage = 30): LengthAwarePaginator;
 
     public function create(array $data): JournalEntry;
+
+    public function findOrFail(string $id): JournalEntry;
 }

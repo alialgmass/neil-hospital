@@ -41,6 +41,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [JournalController::class, 'store'])
             ->middleware('can:journal.write')
             ->name('store');
+
+        Route::delete('/{id}', [JournalController::class, 'destroy'])
+            ->middleware('can:journal.delete')
+            ->name('destroy');
     });
 
     // Daily journal alias

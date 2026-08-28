@@ -34,6 +34,7 @@ class RolesPermissionsSeeder extends Seeder
         'treasury.delete',
         'journal.view',
         'journal.write',
+        'journal.delete',
         'accounting.write',
         'reports.financial',
         'reports.clinical',

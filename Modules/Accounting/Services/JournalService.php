@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Enums\AccountNature;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Exceptions\AccountingException;
@@ -144,6 +145,38 @@ class JournalService
             ->whereDoesntHave('children')
             ->orderBy('code')
             ->get();
+    }
+
+    /**
+     * Delete a manual journal entry — via a reversing entry (offsetting
+     * debit/credit, archive preserved), not a hard delete. Entries posted by
+     * the system (booking/purchase/etc.) can't be deleted from here — they
+     * must be reversed from their originating screen so upstream records
+     * (bookings, invoices, ...) stay consistent.
+     *
+     * @throws ValidationException if the entry isn't an editable manual entry.
+     */
+    public function delete(string $id): void
+    {
+        $entry = $this->journalRepository->findOrFail($id);
+
+        if ($entry->source !== JournalSource::MANUAL || $entry->reversal_of_id !== null) {
+            throw ValidationException::withMessages([
+                'source' => 'هذا القيد مرتبط بمعاملة أخرى — يجب حذفه/عكسه من شاشتها الأصلية.',
+            ]);
+        }
+
+        if ($entry->reversed_at !== null) {
+            throw ValidationException::withMessages([
+                'source' => 'هذا القيد معكوس بالفعل.',
+            ]);
+        }
+
+        $this->reverse(
+            entry: $entry,
+            reversalSource: JournalSource::REVERSAL,
+            reference: $entry->reference ?? "REV-{$entry->id}",
+        );
     }
 
     private function adjustBalance(string $accountId, float $amount, AccountNature $side): void
