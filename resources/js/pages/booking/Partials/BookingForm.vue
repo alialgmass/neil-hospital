@@ -100,6 +100,7 @@ const form = useForm({
     patient_age: (props.booking?.patient_age as string) ?? '',
     national_id: (props.booking?.national_id as string) ?? '',
     gender: (props.booking?.gender as string) ?? '',
+    kinship_degree: (props.booking?.kinship_degree as string) ?? '',
     dept: (props.booking?.dept as string) ?? 'clinic',
     service_id: (props.booking?.service_id as string) ?? '',
     service_name: (props.booking?.service_name as string) ?? '',
@@ -251,6 +252,12 @@ function submit() {
 
 <template>
     <form @submit.prevent="submit">
+        <div
+            v-if="props.booking?.status === 'completed'"
+            class="mb-4 rounded-lg border border-hospital-warning bg-hospital-warning-pale px-3 py-2 text-xs font-bold text-hospital-warning"
+        >
+            تنبيه: أنت تعدّل حجزاً مكتملاً. هذا التعديل استثنائي ويتطلب صلاحية خاصة.
+        </div>
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
                 <PatientFields
@@ -260,6 +267,7 @@ function submit() {
                         patient_phone: form.patient_phone,
                         patient_age: form.patient_age,
                         gender: form.gender,
+                        kinship_degree: form.kinship_degree,
                         visit_date: form.visit_date,
                         visit_time: form.visit_time,
                     }"

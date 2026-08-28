@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type Variant = 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'paid' | 'partial' | 'unpaid' | 'active' | 'inactive' | 'info' | 'danger' | 'warning' | 'success' | 'scheduled' | 'prep';
+type Variant = 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'completed_electronic' | 'cancelled' | 'paid' | 'partial' | 'unpaid' | 'active' | 'inactive' | 'info' | 'danger' | 'warning' | 'success' | 'scheduled' | 'prep';
 
 interface Props {
     variant: Variant;
@@ -17,6 +17,7 @@ const variantConfig: Record<Variant, { classes: string; defaultLabel: string }> 
     confirmed:   { classes: 'bg-hospital-primary-pale text-hospital-primary',          defaultLabel: 'مؤكد' },
     in_progress: { classes: 'bg-hospital-accent-pale text-hospital-accent',            defaultLabel: 'جارٍ' },
     completed:   { classes: 'bg-hospital-success-pale text-hospital-success',          defaultLabel: 'مكتمل' },
+    completed_electronic: { classes: 'bg-hospital-accent-pale text-hospital-accent',   defaultLabel: 'مكتمل - إلكتروني' },
     cancelled:   { classes: 'bg-hospital-danger-pale text-hospital-danger',            defaultLabel: 'ملغي' },
     paid:        { classes: 'bg-hospital-success-pale text-hospital-success',          defaultLabel: 'مسدد' },
     partial:     { classes: 'bg-hospital-warning-pale text-hospital-warning',          defaultLabel: 'جزئي' },

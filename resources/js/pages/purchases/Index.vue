@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
-import { AlertCircle, FileText, PlusCircle, ShoppingCart } from 'lucide-vue-next';
+import { Head, router, usePage } from '@inertiajs/vue3';
+import { AlertCircle, Edit3, FileText, PlusCircle, ShoppingCart, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import ItemAutocomplete from '@/components/shared/ItemAutocomplete.vue';
 import Modal from '@/components/shared/Modal.vue';
 
 interface Supplier {
@@ -20,12 +21,15 @@ interface PurchaseInvoice {
     id: string;
     invoice_no: string;
     supplier?: Supplier;
+    supplier_id?: string;
     invoice_date: string;
-    total: number;
+    discount?: number;
     paid_amount: number;
+    total: number;
     remaining: number;
     status: string;
     notes?: string;
+    items?: InvoiceItem[];
 }
 
 const props = defineProps<{
@@ -35,6 +39,15 @@ const props = defineProps<{
     stats: { invoice_count: number; total_amount: number; unpaid_count: number; total_due: number };
     next_invoice_no: string;
 }>();
+
+// ── Permissions ──
+const page = usePage<{ permissions?: string[] }>();
+const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+function can(permission: string): boolean {
+    return permissions.value.includes('*') || permissions.value.includes(permission);
+}
+const canEdit = computed(() => can('purchases.edit'));
+const canDelete = computed(() => can('purchases.delete'));
 
 const fromFilter = ref(props.filters.from ?? '');
 const toFilter = ref(props.filters.to ?? '');
@@ -72,8 +85,9 @@ function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
 
-// New invoice form
+// Invoice form (shared by add & edit)
 const showAdd = ref(false);
+const editingId = ref<string | null>(null);
 const formData = ref({
     invoice_no: props.next_invoice_no,
     supplier_id: '',
@@ -99,6 +113,7 @@ function removeItem(idx: number) {
 }
 
 function openAdd() {
+    editingId.value = null;
     formData.value = {
         invoice_no: props.next_invoice_no,
         supplier_id: '',
@@ -111,10 +126,59 @@ function openAdd() {
     showAdd.value = true;
 }
 
+function openEdit(inv: PurchaseInvoice) {
+    editingId.value = inv.id;
+    formData.value = {
+        invoice_no: inv.invoice_no,
+        supplier_id: inv.supplier_id ?? inv.supplier?.id ?? '',
+        invoice_date: inv.invoice_date.slice(0, 10),
+        discount: Number(inv.discount ?? 0),
+        paid_amount: Number(inv.paid_amount ?? 0),
+        notes: inv.notes ?? '',
+    };
+    items.value = (inv.items ?? []).map((i) => ({
+        item_id: i.item_id ?? '',
+        item_name: i.item_name,
+        qty: Number(i.qty),
+        unit_cost: Number(i.unit_cost),
+    }));
+    if (items.value.length === 0) {
+        items.value = [{ item_id: '', item_name: '', qty: 1, unit_cost: 0 }];
+    }
+    showAdd.value = true;
+}
+
 function submit() {
+    if (editingId.value) {
+        router.put(`/purchases/${editingId.value}`, { ...formData.value, items: items.value }, {
+            onSuccess: () => {
+                showAdd.value = false;
+                editingId.value = null;
+            },
+        });
+        return;
+    }
+
     router.post('/purchases', { ...formData.value, items: items.value }, {
         onSuccess: () => {
             showAdd.value = false;
+        },
+    });
+}
+
+const confirmingDeleteId = ref<string | null>(null);
+
+function confirmDelete(inv: PurchaseInvoice) {
+    confirmingDeleteId.value = inv.id;
+}
+
+function doDelete() {
+    if (!confirmingDeleteId.value) {
+        return;
+    }
+    router.delete(`/purchases/${confirmingDeleteId.value}`, {
+        onFinish: () => {
+            confirmingDeleteId.value = null;
         },
     });
 }
@@ -224,6 +288,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المدفوع</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المتبقي</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الحالة</th>
+                    <th v-if="canEdit || canDelete" class="px-4 py-3 text-right text-xs font-semibold text-t2">إجراءات</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
@@ -244,9 +309,31 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                             {{ statusConfig[inv.status]?.label ?? inv.status }}
                         </span>
                     </td>
+                    <td v-if="canEdit || canDelete" class="px-4 py-3">
+                        <div class="flex items-center gap-1">
+                            <button
+                                v-if="canEdit"
+                                type="button"
+                                title="تعديل"
+                                class="rounded p-1.5 text-t3 transition-colors hover:bg-wp hover:text-w"
+                                @click="openEdit(inv)"
+                            >
+                                <Edit3 class="h-4 w-4" />
+                            </button>
+                            <button
+                                v-if="canDelete"
+                                type="button"
+                                title="حذف"
+                                class="rounded p-1.5 text-t3 transition-colors hover:bg-dp hover:text-d"
+                                @click="confirmDelete(inv)"
+                            >
+                                <Trash2 class="h-4 w-4" />
+                            </button>
+                        </div>
+                    </td>
                 </tr>
                 <tr v-if="invoices.data.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد فواتير</td>
+                    <td class="px-4 py-10 text-center text-t3" :colspan="canEdit || canDelete ? 8 : 7">لا توجد فواتير</td>
                 </tr>
             </tbody>
         </table>
@@ -268,8 +355,8 @@ const statusConfig: Record<string, { label: string; class: string }> = {
         </div>
     </div>
 
-    <!-- Add Invoice Modal -->
-    <Modal v-model="showAdd" title="فاتورة مشتريات جديدة" size="xl">
+    <!-- Add/Edit Invoice Modal -->
+    <Modal v-model="showAdd" :title="editingId ? 'تعديل فاتورة مشتريات' : 'فاتورة مشتريات جديدة'" size="xl">
         <div class="space-y-5">
             <!-- Header fields -->
             <div class="grid grid-cols-3 gap-4">
@@ -301,12 +388,17 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 </div>
                 <div class="space-y-2">
                     <div v-for="(item, idx) in items" :key="idx" class="grid grid-cols-12 items-center gap-2">
-                        <input
-                            v-model="item.item_name"
-                            type="text"
-                            placeholder="اسم الصنف"
-                            class="input-field col-span-5"
-                        />
+                        <div class="col-span-5">
+                            <ItemAutocomplete
+                                v-model="item.item_name"
+                                @select="
+                                    (matched) => {
+                                        item.item_id = matched.id;
+                                        item.unit_cost = matched.unit_cost;
+                                    }
+                                "
+                            />
+                        </div>
                         <input
                             v-model.number="item.qty"
                             type="number"
@@ -370,7 +462,20 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button class="btn-primary" @click="submit">تسجيل الفاتورة</button>
+                <button class="btn-primary" @click="submit">{{ editingId ? 'حفظ التعديلات' : 'تسجيل الفاتورة' }}</button>
+            </div>
+        </div>
+    </Modal>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal :model-value="confirmingDeleteId !== null" title="تأكيد الحذف" size="sm" @update:model-value="confirmingDeleteId = null">
+        <div class="space-y-4">
+            <p class="text-sm text-t2">
+                هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس تأثيرها على المخزون والحسابات. لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <div class="flex justify-end gap-2">
+                <button class="btn-secondary" @click="confirmingDeleteId = null">إلغاء</button>
+                <button class="btn-primary bg-d hover:bg-d/90" @click="doDelete">حذف نهائي</button>
             </div>
         </div>
     </Modal>

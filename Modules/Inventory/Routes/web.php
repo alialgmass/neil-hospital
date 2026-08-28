@@ -52,9 +52,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/items/search', [PurchaseInvoiceController::class, 'searchItems'])
+            ->middleware('can:inventory.view')
+            ->name('items.search');
+
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
+
+        Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])
+            ->middleware('can:purchases.edit')
+            ->name('update');
+
+        Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])
+            ->middleware('can:purchases.delete')
+            ->name('destroy');
     });
 
     // Supply Bundles (بنود المستلزمات)

@@ -56,7 +56,7 @@ class BookingStatusVisibilityTest extends TestCase
         }
 
         $this->assertEqualsCanonicalizing(
-            ['waiting', 'confirmed', 'in_progress', 'completed', 'cancelled'],
+            ['waiting', 'confirmed', 'in_progress', 'completed', 'completed_electronic', 'cancelled'],
             BookingStatus::visibleStatusNames(),
         );
     }
@@ -125,7 +125,7 @@ class BookingStatusVisibilityTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->has('bookingStatuses', 5)
+            ->has('bookingStatuses', 6)
             ->where('bookingStatuses.0.value', 'waiting')
             ->where('bookingStatuses.0.visible', true)
         );

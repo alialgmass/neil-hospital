@@ -9,4 +9,8 @@ Route::middleware(['auth', 'verified', 'can:clinic.view'])->prefix('clinic')->na
     Route::post('/{bookingId}/sheet', [ClinicController::class, 'storeSheet'])
         ->middleware('can:clinic.write')
         ->name('sheet.store');
+
+    Route::post('/{bookingId}/refer', [ClinicController::class, 'refer'])
+        ->middleware('can:clinic.write')
+        ->name('refer');
 });

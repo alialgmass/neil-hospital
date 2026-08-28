@@ -13,6 +13,7 @@ use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
@@ -62,6 +63,7 @@ class BookingService
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -97,6 +99,7 @@ class BookingService
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -122,7 +125,7 @@ class BookingService
     {
         return Booking::query()
             ->with('doctor:id,name')
-            ->whereIn('status', [CompletedState::$name, CancelledState::$name])
+            ->whereIn('status', [CompletedState::$name, CompletedElectronicState::$name, CancelledState::$name])
             ->when($filters['search'] ?? null, function ($q, $v) {
                 $q->where(function ($iq) use ($v) {
                     $iq->where('patient_name', 'like', "%{$v}%")

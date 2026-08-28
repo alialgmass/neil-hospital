@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
 use Modules\Booking\DTOs\BookingData;
@@ -15,6 +16,7 @@ use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
 use Modules\Surgery\Services\SurgeryService;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -27,6 +29,7 @@ class BookingController extends Controller
         private readonly CreateBookingAction $createAction,
         private readonly UpdateBookingAction $updateAction,
         private readonly BookingRepositoryInterface $bookingRepository,
+        private readonly ActivityLogService $activityLog,
     ) {}
 
     public function index(): Response
@@ -60,13 +63,23 @@ class BookingController extends Controller
     public function update(UpdateBookingRequest $request, string $id): RedirectResponse
     {
         $booking = $this->bookingRepository->findOrFail($id);
+        $wasCompleted = $booking->status instanceof CompletedState || $booking->status instanceof CompletedElectronicState;
 
-        if ($booking->status instanceof CompletedState) {
+        if ($wasCompleted && ! $request->user()->can('booking.edit_completed')) {
             return back()->withErrors(['status' => 'لا يمكن تعديل حجز مكتمل.']);
         }
 
         $data = BookingData::fromArray($request->validated());
         $this->updateAction->execute($id, $data);
+
+        if ($wasCompleted) {
+            $this->activityLog->log(
+                'edited_while_completed',
+                'booking',
+                $id,
+                "تعديل حجز مكتمل: {$booking->file_no}",
+            );
+        }
 
         return back()->with('success', 'تم تحديث الحجز بنجاح.');
     }

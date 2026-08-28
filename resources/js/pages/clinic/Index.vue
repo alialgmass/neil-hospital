@@ -15,8 +15,12 @@ interface Booking {
     pay_status: 'unpaid' | 'partial' | 'paid';
     price: number;
     doctor?: { name: string };
-    clinic_sheet?: { diagnosis?: string } | null;
+    clinic_sheet?: { diagnosis?: string; referral_to?: string | null } | null;
 }
+
+const referralLabels: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+};
 
 const props = defineProps<{
     queue: {
@@ -47,6 +51,7 @@ const columns = [
     { key: 'status',        label: 'الحالة' },
     { key: 'pay_status',    label: 'السداد' },
     { key: 'diagnosis',     label: 'التشخيص' },
+    { key: 'referral',      label: 'التوجيه' },
 ];
 
 function changeDate() {
@@ -136,6 +141,15 @@ function goToPage(page: number) {
             <span class="line-clamp-1 max-w-xs text-xs text-hospital-text-2">
                 {{ (row as Booking).clinic_sheet?.diagnosis ?? '—' }}
             </span>
+        </template>
+        <template #cell-referral="{ row }">
+            <span
+                v-if="(row as Booking).clinic_sheet?.referral_to"
+                class="rounded-full bg-hospital-accent-pale px-2 py-0.5 text-xs font-medium text-hospital-accent"
+            >
+                → {{ referralLabels[(row as Booking).clinic_sheet!.referral_to!] ?? (row as Booking).clinic_sheet!.referral_to }}
+            </span>
+            <span v-else class="text-xs text-hospital-text-3">—</span>
         </template>
         <template #actions="{ row }">
             <Link

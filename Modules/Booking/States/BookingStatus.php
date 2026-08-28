@@ -20,6 +20,7 @@ abstract class BookingStatus extends State
         ConfirmedState::class,
         InProgressState::class,
         CompletedState::class,
+        CompletedElectronicState::class,
         CancelledState::class,
     ];
 
@@ -34,6 +35,7 @@ abstract class BookingStatus extends State
         'confirmed' => 'مؤكد',
         'in_progress' => 'قيد التنفيذ',
         'completed' => 'مكتمل',
+        'completed_electronic' => 'مكتمل - إلكتروني',
         'cancelled' => 'ملغي',
     ];
 
@@ -49,6 +51,12 @@ abstract class BookingStatus extends State
             ->allowTransition(
                 [WaitingState::class, ConfirmedState::class, InProgressState::class],
                 CancelledState::class
+            )
+            // System-only transition: fired by UpdateSurgeryStatusAction when the
+            // linked Surgery is completed from the operations side.
+            ->allowTransition(
+                [WaitingState::class, ConfirmedState::class, InProgressState::class],
+                CompletedElectronicState::class
             );
     }
 

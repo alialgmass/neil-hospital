@@ -42,7 +42,7 @@ interface Booking {
     paid_amount: number;
     pay_method?: string;
     pay_status: 'unpaid' | 'partial' | 'paid';
-    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'completed_electronic' | 'cancelled';
     visit_note?: string;
     eye_side?: string;
     analysis_type?: string;
@@ -87,6 +87,7 @@ function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
 }
 const canPay = computed(() => can('booking.pay'));
+const canEditCompleted = computed(() => can('booking.edit_completed'));
 
 // ── State ──
 const showCreateModal = ref(false);
@@ -269,6 +270,7 @@ const bookingStatusLabel: Record<string, string> = {
     confirmed: 'مؤكد',
     in_progress: 'جارٍ',
     completed: 'مكتمل',
+    completed_electronic: 'مكتمل - إلكتروني',
     cancelled: 'ملغي',
 };
 
@@ -475,6 +477,7 @@ const isDeleteModalOpen = computed({
                         'text-hospital-primary': (row as Booking).status === 'confirmed',
                         'text-hospital-warning': (row as Booking).status === 'in_progress',
                         'text-hospital-success': (row as Booking).status === 'completed',
+                        'text-hospital-accent': (row as Booking).status === 'completed_electronic',
                         'text-hospital-danger': (row as Booking).status === 'cancelled',
                     }"
                     :disabled="!bookingNextStates[(row as Booking).status]?.length"
@@ -524,7 +527,7 @@ const isDeleteModalOpen = computed({
                         type="button"
                         title="تعديل"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
+                        :disabled="(row as Booking).status === 'completed' && !canEditCompleted"
                         @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />

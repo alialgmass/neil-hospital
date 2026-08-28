@@ -2,6 +2,7 @@
 
 namespace Modules\Inventory\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -49,5 +50,14 @@ class InventoryItem extends Model
     public function isLowStock(): bool
     {
         return $this->quantity <= $this->min_quantity && $this->min_quantity > 0;
+    }
+
+    /** Match by item name or code, for the purchase-invoice item autocomplete. */
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        return $query->where(function (Builder $q) use ($term) {
+            $q->where('name', 'like', "%{$term}%")
+                ->orWhere('code', 'like', "%{$term}%");
+        });
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
@@ -22,6 +23,7 @@ class StoreBookingRequest extends FormRequest
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],
+            'kinship_degree' => ['nullable', Rule::in(array_column(KinshipDegree::cases(), 'value'))],
             'dept' => ['required', Rule::in(SystemModule::enabledDeptValues())],
             'service_id' => ['nullable', 'required_with:ins_company_id', 'exists:services,id'],
             'service_name' => ['nullable', 'string', 'max:200'],
@@ -66,6 +68,7 @@ class StoreBookingRequest extends FormRequest
             'patient_age.max' => 'السن يجب ألا يتجاوز 150.',
             'national_id.max' => 'الرقم القومي يجب ألا يتجاوز 20 رقماً.',
             'gender.in' => 'الجنس غير صالح.',
+            'kinship_degree.in' => 'درجة القرابة غير صالحة.',
             'dept.required' => 'القسم مطلوب.',
             'dept.in' => 'القسم المحدد غير صالح.',
             'service_id.exists' => 'الخدمة المحددة غير موجودة.',

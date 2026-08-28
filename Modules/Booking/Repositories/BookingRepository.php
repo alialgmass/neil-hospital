@@ -28,7 +28,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
 
         // Hide completed & cancelled from the default listing; user can see them via the status filter
         if (! $filter->status) {
-            $query->whereNotIn('status', ['completed', 'cancelled']);
+            $query->whereNotIn('status', ['completed', 'completed_electronic', 'cancelled']);
         }
 
         if ($filter->date) {
@@ -123,23 +123,26 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
 
     public function maxFileSequence(): int
     {
-        // Supports new format P-{seq}-{last3} and legacy MRN-YYYY-{seq}
-        $max = Booking::whereRaw("file_no REGEXP '^P-[0-9]+-'")
-            ->selectRaw("MAX(CAST(SUBSTRING_INDEX(SUBSTRING(file_no, 3), '-', 1) AS UNSIGNED)) as seq")
-            ->value('seq');
+        // Supports new format P-{seq}-{last3} and legacy MRN-YYYY-{seq}.
+        // Parsed in PHP (rather than DB-specific SUBSTRING_INDEX/REGEXP SQL)
+        // so this works identically across MySQL and SQLite.
+        $max = Booking::where('file_no', 'like', 'P-%')
+            ->pluck('file_no')
+            ->map(fn (string $fileNo) => preg_match('/^P-(\d+)-/', $fileNo, $m) ? (int) $m[1] : 0)
+            ->max() ?? 0;
 
-        if ($max) {
-            return (int) $max;
+        if ($max > 0) {
+            return $max;
         }
 
         // Fall back to legacy MRN sequence so numbering continues from where it left off
         $year = now()->year;
         $prefix = "MRN-{$year}-";
-        $legacyMax = Booking::where('file_no', 'like', "{$prefix}%")
-            ->selectRaw('MAX(CAST(SUBSTRING(file_no, ?) AS UNSIGNED)) as seq', [strlen($prefix) + 1])
-            ->value('seq');
 
-        return (int) $legacyMax;
+        return (int) Booking::where('file_no', 'like', "{$prefix}%")
+            ->pluck('file_no')
+            ->map(fn (string $fileNo) => (int) substr($fileNo, strlen($prefix)))
+            ->max() ?? 0;
     }
 
     public function fileNoExists(string $fileNo): bool
