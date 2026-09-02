@@ -4,6 +4,7 @@ import { Building2, PlusCircle, TrendingDown, Users } from 'lucide-vue-next';
 import { ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 
 interface Supplier {
     id: string;
@@ -135,10 +136,17 @@ function submitEdit() {
             />
             <button class="btn-secondary" @click="applySearch">بحث</button>
         </div>
-        <button class="btn-primary flex items-center gap-1.5" @click="showAdd = true">
-            <PlusCircle class="h-4 w-4" />
-            مورد جديد
-        </button>
+        <div class="flex items-center gap-2">
+            <ModuleImportButton
+                label="الموردون"
+                templateUrl="/suppliers/import-template"
+                importUrl="/suppliers/import"
+            />
+            <button class="btn-primary flex items-center gap-1.5" @click="showAdd = true">
+                <PlusCircle class="h-4 w-4" />
+                مورد جديد
+            </button>
+        </div>
     </div>
 
     <!-- Table -->

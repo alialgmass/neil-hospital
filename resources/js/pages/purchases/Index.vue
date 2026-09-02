@@ -4,6 +4,7 @@ import { AlertCircle, Edit3, FileText, PlusCircle, ShoppingCart, Trash2 } from '
 import { computed, ref } from 'vue';
 import ItemAutocomplete from '@/components/shared/ItemAutocomplete.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 
 interface Supplier {
     id: string;
@@ -270,10 +271,17 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 <option value="paid">مدفوعة</option>
             </select>
         </div>
-        <button class="btn-primary self-end flex items-center gap-1.5" @click="openAdd">
-            <PlusCircle class="h-4 w-4" />
-            فاتورة جديدة
-        </button>
+        <div class="flex items-end gap-2 self-end">
+            <ModuleImportButton
+                label="المشتريات"
+                templateUrl="/purchases/import-template"
+                importUrl="/purchases/import"
+            />
+            <button class="btn-primary flex items-center gap-1.5" @click="openAdd">
+                <PlusCircle class="h-4 w-4" />
+                فاتورة جديدة
+            </button>
+        </div>
     </div>
 
     <!-- Table -->

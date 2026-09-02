@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 
 interface Supplier { id: string; name: string }
@@ -184,9 +185,16 @@ function exportExcel() {
                 منخفض فقط
             </label>
         </div>
-        <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="showAdd = true">
-            <PlusCircle class="h-4 w-4" /> صنف جديد
-        </button>
+        <div class="flex items-center gap-2">
+            <ModuleImportButton
+                label="المخزون"
+                templateUrl="/inventory/import-template"
+                importUrl="/inventory/import"
+            />
+            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="showAdd = true">
+                <PlusCircle class="h-4 w-4" /> صنف جديد
+            </button>
+        </div>
     </div>
 
     <!-- Table Card -->

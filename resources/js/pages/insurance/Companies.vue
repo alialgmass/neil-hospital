@@ -4,6 +4,7 @@ import { Building2, Edit2, FileText, Plus, Shield, Trash2, TrendingUp } from 'lu
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Badge from '@/components/shared/Badge.vue'
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue'
 import StatCard from '@/components/shared/StatCard.vue'
 import ClaimModal from './Partials/ClaimModal.vue'
 import ClaimStatusModal from './Partials/ClaimStatusModal.vue'
@@ -137,10 +138,17 @@ const tabs = [
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                    <button class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95" @click="openCreate">
-                        <Plus class="h-4 w-4" />
-                        شركة جديدة
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <ModuleImportButton
+                            label="شركات التأمين"
+                            templateUrl="/insurance/companies/import-template"
+                            importUrl="/insurance/companies/import"
+                        />
+                        <button class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95" @click="openCreate">
+                            <Plus class="h-4 w-4" />
+                            شركة جديدة
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-hidden rounded-xl border border-hospital-border">

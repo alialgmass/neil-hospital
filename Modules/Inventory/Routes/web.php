@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Admin\Controllers\ModuleImportActionController;
 use Modules\Inventory\Controllers\InventoryController;
 use Modules\Inventory\Controllers\PurchaseInvoiceController;
 use Modules\Inventory\Controllers\PurchaseReturnController;
@@ -22,6 +23,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('export');
 
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'inventory')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'inventory')
+            ->middleware('can:inventory.write')
+            ->name('import');
+
         Route::post('/', [InventoryController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
@@ -36,6 +47,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [SupplierController::class, 'index'])
             ->middleware('can:inventory.view')
             ->name('index');
+
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'suppliers')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'suppliers')
+            ->middleware('can:inventory.write')
+            ->name('import');
 
         Route::post('/', [SupplierController::class, 'store'])
             ->middleware('can:inventory.write')
@@ -55,6 +76,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [PurchaseInvoiceController::class, 'index'])
             ->middleware('can:inventory.view')
             ->name('index');
+
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'purchases')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'purchases')
+            ->middleware('can:inventory.write')
+            ->name('import');
 
         Route::get('/items/search', [PurchaseInvoiceController::class, 'searchItems'])
             ->middleware('can:inventory.view')

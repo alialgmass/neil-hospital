@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 
 interface Role {
     id: number;
@@ -280,13 +281,20 @@ function submitEdit() {
                 </option>
             </select>
         </div>
-        <button
-            class="btn-primary flex items-center gap-1.5"
-            @click="showAdd = true"
-        >
-            <PlusCircle class="h-4 w-4" />
-            موظف جديد
-        </button>
+        <div class="flex items-center gap-2">
+            <ModuleImportButton
+                label="الموظفون"
+                templateUrl="/employees/import-template"
+                importUrl="/employees/import"
+            />
+            <button
+                class="btn-primary flex items-center gap-1.5"
+                @click="showAdd = true"
+            >
+                <PlusCircle class="h-4 w-4" />
+                موظف جديد
+            </button>
+        </div>
     </div>
 
     <!-- Table -->

@@ -5,6 +5,7 @@ import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
@@ -210,6 +211,11 @@ const feeTypeLabels: Record<string, string> = {
         </div>
         <div class="flex items-center gap-2">
             <SearchBar v-model="search" placeholder="بحث بالاسم..." @update:model-value="applySearch" />
+            <ModuleImportButton
+                label="الأطباء"
+                templateUrl="/doctors/import-template"
+                importUrl="/doctors/import"
+            />
             <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openAdd">
                 <PlusCircle class="h-4 w-4" /> طبيب جديد
             </button>
