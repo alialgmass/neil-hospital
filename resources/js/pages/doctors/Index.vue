@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { PlusCircle, UserCheck, Percent, DollarSign, Pencil } from 'lucide-vue-next';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { PlusCircle, UserCheck, Percent, DollarSign, Pencil, Trash2 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
 type FeeType = 'percentage' | 'fixed' | 'insurance';
 
@@ -22,6 +23,7 @@ interface Doctor {
     fee_type: FeeType;
     fee_value: number;
     dept_fees: Record<string, DeptFeeEntry> | null;
+    departments: string[] | null;
     is_active: boolean;
 }
 
@@ -33,6 +35,7 @@ const props = defineProps<{
 const columns = [
     { key: 'name',      label: 'الاسم',      sortable: true },
     { key: 'specialty', label: 'التخصص' },
+    { key: 'departments', label: 'الأقسام' },
     { key: 'phone',     label: 'الهاتف' },
     { key: 'fee_type',  label: 'الحساب الافتراضي' },
     { key: 'fee_value', label: 'القيمة' },
@@ -40,13 +43,26 @@ const columns = [
     { key: '_actions',  label: '' },
 ];
 
-const depts: { key: string; label: string }[] = [
+const allDepts: { key: string; label: string }[] = [
     { key: 'clinic',   label: 'العيادة' },
     { key: 'surgery',  label: 'العمليات' },
     { key: 'lasik',    label: 'الليزك' },
     { key: 'laser',    label: 'الليزر' },
     { key: 'labs',     label: 'الفحوصات' },
 ];
+
+const page = usePage<{ moduleStatus?: Record<string, boolean>; permissions?: string[] }>();
+const depts = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return allDepts.filter(({ key }) => moduleStatus[key] !== false);
+});
+
+const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+function can(permission: string): boolean {
+    return permissions.value.includes('*') || permissions.value.includes(permission);
+}
+const canDelete = computed(() => can('doctors.delete'));
 
 const activeCount = computed(() => props.doctors.data.filter((d) => d.is_active).length);
 const pctCount    = computed(() => props.doctors.data.filter((d) => d.fee_type === 'percentage').length);
@@ -63,6 +79,14 @@ function goToPage(page: number) {
 /* ── Modal state ── */
 const showModal  = ref(false);
 const editingId  = ref<string | null>(null);
+
+/* ── Delete modal state ── */
+const showDeleteModal   = ref(false);
+const deletingDoctorId  = ref<string | null>(null);
+function confirmDelete(id: string) {
+    deletingDoctorId.value = id;
+    showDeleteModal.value = true;
+}
 
 type DeptOverride = { enabled: boolean; fee_type: FeeType; fee_value: number };
 const deptOverrides = reactive<Record<string, DeptOverride>>({
@@ -81,6 +105,7 @@ const form = useForm({
     fee_value: 40,
     is_active: true,
     dept_fees: {} as Record<string, DeptFeeEntry>,
+    departments: [] as string[],
 });
 
 function openAdd() {
@@ -89,7 +114,8 @@ function openAdd() {
     form.fee_type  = 'percentage';
     form.fee_value = 40;
     form.is_active = true;
-    depts.forEach(({ key }) => {
+    form.departments = [];
+    allDepts.forEach(({ key }) => {
         deptOverrides[key] = { enabled: false, fee_type: 'percentage', fee_value: 40 };
     });
     showModal.value = true;
@@ -103,8 +129,9 @@ function openEdit(doctor: Doctor) {
     form.fee_type  = doctor.fee_type;
     form.fee_value = doctor.fee_value;
     form.is_active = doctor.is_active;
+    form.departments = doctor.departments ?? [];
 
-    depts.forEach(({ key }) => {
+    allDepts.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
         deptOverrides[key] = existing
             ? { enabled: true, fee_type: existing.fee_type, fee_value: existing.fee_value }
@@ -115,7 +142,7 @@ function openEdit(doctor: Doctor) {
 
 function buildDeptFees(): Record<string, DeptFeeEntry> {
     const result: Record<string, DeptFeeEntry> = {};
-    for (const { key } of depts) {
+    for (const { key } of allDepts) {
         if (deptOverrides[key].enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
@@ -190,6 +217,14 @@ const feeTypeLabels: Record<string, string> = {
     </div>
 
     <DataTable :columns="columns" :rows="doctors.data" :current-page="doctors.current_page" :last-page="doctors.last_page" :total="doctors.total" empty-text="لا يوجد أطباء" @page="goToPage">
+        <template #cell-departments="{ row }">
+            <span v-if="!(row as Doctor).departments?.length" class="text-xs text-hospital-text-2">كل الأقسام</span>
+            <div v-else class="flex flex-wrap gap-1">
+                <span v-for="key in (row as Doctor).departments" :key="key" class="rounded-full bg-hospital-primary-pale px-2 py-0.5 text-xs text-hospital-primary">
+                    {{ allDepts.find((d) => d.key === key)?.label ?? key }}
+                </span>
+            </div>
+        </template>
         <template #cell-fee_type="{ value }">{{ feeTypeLabels[value as string] ?? value }}</template>
         <template #cell-fee_value="{ value, row }">
             <span v-if="(row as Doctor).fee_type === 'percentage'">{{ value }}%</span>
@@ -200,9 +235,14 @@ const feeTypeLabels: Record<string, string> = {
             <Badge :variant="value ? 'active' : 'inactive'" />
         </template>
         <template #cell-_actions="{ row }">
-            <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary" @click="openEdit(row as Doctor)">
-                <Pencil class="h-4 w-4" />
-            </button>
+            <div class="flex items-center gap-1">
+                <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary" @click="openEdit(row as Doctor)">
+                    <Pencil class="h-4 w-4" />
+                </button>
+                <button v-if="canDelete" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" title="حذف" @click="confirmDelete((row as Doctor).id)">
+                    <Trash2 class="h-4 w-4" />
+                </button>
+            </div>
         </template>
     </DataTable>
 
@@ -243,6 +283,18 @@ const feeTypeLabels: Record<string, string> = {
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
                         <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
                     </div>
+                </div>
+            </div>
+
+            <!-- Departments the doctor works in -->
+            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
+                <p class="mb-1 text-xs font-bold text-hospital-primary">🏥 الأقسام التي يعمل بها الطبيب</p>
+                <p class="mb-3 text-xs text-hospital-text-2">اترك الكل بدون تحديد ليظهر الطبيب في كل الأقسام، أو حدد الأقسام لحصر ظهوره فيها فقط عند إنشاء حجز.</p>
+                <div class="flex flex-wrap gap-3">
+                    <label v-for="dept in depts" :key="dept.key" class="flex cursor-pointer items-center gap-1.5 text-sm">
+                        <input v-model="form.departments" type="checkbox" :value="dept.key" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
+                        {{ dept.label }}
+                    </label>
                 </div>
             </div>
 
@@ -287,4 +339,6 @@ const feeTypeLabels: Record<string, string> = {
             </div>
         </form>
     </Modal>
+
+    <DeleteDoctorModal v-model="showDeleteModal" :doctor-id="deletingDoctorId" @success="deletingDoctorId = null" />
 </template>

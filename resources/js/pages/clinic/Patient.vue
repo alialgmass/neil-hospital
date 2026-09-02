@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Printer, ChevronLeft } from 'lucide-vue-next';
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import { usePrint } from '@/composables/usePrint';
 
@@ -51,6 +51,16 @@ const props = defineProps<{
 
 const { print } = usePrint();
 
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const referralOptions: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
+};
+const availableReferralOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(referralOptions).filter(([key]) => moduleStatus[key] !== false));
+});
+
 const form = reactive<Record<string, string | number | null>>({
     booking_id:        props.booking.id,
     doctor_id:         props.booking.doctor?.id ?? null,
@@ -73,13 +83,42 @@ function saveSheet() {
     saving.value = true;
     router.post(`/clinic/${props.booking.id}/sheet`, form as unknown as Record<string, string>, {
         onFinish: () => {
- saving.value = false; 
+ saving.value = false;
 },
     });
 }
 
+// ── Patient routing (triage) ──
+const routingTarget = ref('');
+const createFollowUp = ref(true);
+const routing = ref(false);
+
+const routingOptions = computed(() =>
+    Object.fromEntries(Object.entries(availableReferralOptions.value).filter(([key]) => key !== props.booking.dept)),
+);
+
+function routePatient() {
+    if (!routingTarget.value) {
+        return;
+    }
+    routing.value = true;
+    router.post(
+        `/clinic/${props.booking.id}/refer`,
+        { referral_to: routingTarget.value, create_follow_up: createFollowUp.value },
+        {
+            onSuccess: () => {
+                form.referral_to = routingTarget.value;
+                routingTarget.value = '';
+            },
+            onFinish: () => {
+                routing.value = false;
+            },
+        },
+    );
+}
+
 const deptLabels: Record<string, string> = {
-    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
 };
 </script>
 
@@ -204,10 +243,7 @@ const deptLabels: Record<string, string> = {
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">إحالة إلى</label>
                         <select v-model="form.referral_to" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
                             <option value="">— بدون إحالة —</option>
-                            <option value="labs">الفحوصات</option>
-                            <option value="surgery">العمليات</option>
-                            <option value="lasik">الليزك</option>
-                            <option value="laser">الليزر</option>
+                            <option v-for="(label, key) in availableReferralOptions" :key="key" :value="key">{{ label }}</option>
                         </select>
                     </div>
                     <div>
@@ -226,6 +262,38 @@ const deptLabels: Record<string, string> = {
                     </button>
                 </div>
             </form>
+
+            <!-- Patient Routing (Triage) -->
+            <div class="mt-6 rounded-lg border border-hospital-border bg-hospital-bg p-4">
+                <h4 class="mb-1 font-bold text-hospital-text">توجيه المريض</h4>
+                <p class="mb-3 text-xs text-hospital-text-3">
+                    وجّه المريض إلى الوجهة التالية بعد الكشف
+                    <span v-if="form.referral_to">
+                        — الوجهة الحالية: <strong>{{ availableReferralOptions[form.referral_to as string] ?? form.referral_to }}</strong>
+                    </span>
+                </p>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">الوجهة</label>
+                        <select v-model="routingTarget" class="rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
+                            <option value="">— اختر وجهة —</option>
+                            <option v-for="(label, key) in routingOptions" :key="key" :value="key">{{ label }}</option>
+                        </select>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs text-hospital-text-2">
+                        <input v-model="createFollowUp" type="checkbox" class="rounded border-hospital-border" />
+                        إنشاء حجز متابعة تلقائيًا لنفس اليوم
+                    </label>
+                    <button
+                        type="button"
+                        :disabled="!routingTarget || routing"
+                        class="rounded-lg bg-hospital-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        @click="routePatient"
+                    >
+                        {{ routing ? 'جارٍ التوجيه…' : 'توجيه' }}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </template>

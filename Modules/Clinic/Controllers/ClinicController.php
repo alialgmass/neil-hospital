@@ -7,7 +7,9 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Clinic\Actions\RecordClinicSheetAction;
+use Modules\Clinic\Actions\ReferPatientAction;
 use Modules\Clinic\DTOs\ClinicSheetData;
+use Modules\Clinic\Http\Requests\ReferPatientRequest;
 use Modules\Clinic\Http\Requests\StoreClinicSheetRequest;
 use Modules\Clinic\Services\ClinicService;
 
@@ -16,6 +18,7 @@ class ClinicController extends Controller
     public function __construct(
         private readonly ClinicService $clinicService,
         private readonly RecordClinicSheetAction $recordSheetAction,
+        private readonly ReferPatientAction $referAction,
     ) {}
 
     public function index(): Response
@@ -46,5 +49,17 @@ class ClinicController extends Controller
         $this->recordSheetAction->execute($data);
 
         return back()->with('success', 'تم تسجيل الكشف الطبي بنجاح.');
+    }
+
+    public function refer(ReferPatientRequest $request, string $bookingId): RedirectResponse
+    {
+        $this->referAction->execute(
+            bookingId: $bookingId,
+            referralTo: $request->validated('referral_to'),
+            referringUserId: $request->user()->id,
+            createFollowUp: $request->boolean('create_follow_up'),
+        );
+
+        return back()->with('success', 'تم توجيه المريض بنجاح.');
     }
 }

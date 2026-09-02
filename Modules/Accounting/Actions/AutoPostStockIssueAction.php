@@ -3,16 +3,20 @@
 namespace Modules\Accounting\Actions;
 
 use App\Enums\Department;
-use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
 
 class AutoPostStockIssueAction
 {
-    public function __construct(private readonly JournalService $journalService) {}
+    public function __construct(
+        private readonly JournalService $journalService,
+        private readonly AccountResolver $accountResolver,
+    ) {}
 
     /**
      * Post journal entries for each item in a stock issue voucher.
@@ -20,12 +24,7 @@ class AutoPostStockIssueAction
      */
     public function execute(StockPermit $permit): void
     {
-        $inventoryAccountId = DB::table('accounts')->where('code', '1050')->value('id');
-
-        if (! $inventoryAccountId) {
-            return;
-        }
-
+        $inventoryAccountId = $this->accountResolver->id(AccountCode::INVENTORY);
         $costCenter = $this->resolveCostCenter($permit->department);
         $date = $permit->created_at->toDateString();
 
@@ -40,12 +39,7 @@ class AutoPostStockIssueAction
                 ? InventoryItem::where('id', $item->item_id)->value('category')
                 : null;
 
-            $expenseCode = $this->expenseAccountCode($category);
-            $expenseAccountId = DB::table('accounts')->where('code', $expenseCode)->value('id');
-
-            if (! $expenseAccountId) {
-                continue;
-            }
+            $expenseAccountId = $this->accountResolver->id(AccountCode::expenseAccountForCategory($category));
 
             $this->journalService->record([
                 'date' => $date,
@@ -55,19 +49,10 @@ class AutoPostStockIssueAction
                 'amount' => $amount,
                 'source' => JournalSource::SUPPLIES_USED,
                 'reference' => $permit->permit_no,
+                'idempotency_key' => "stock_issue:{$permit->id}:{$item->id}",
                 'cost_center' => $costCenter,
             ]);
         }
-    }
-
-    private function expenseAccountCode(?string $category): string
-    {
-        return match ($category) {
-            'office' => '5250', // مصروفات إدارية وتسويقية
-            'cleaning' => '5240', // مصروفات الصيانة
-            'maintenance' => '5240', // مصروفات الصيانة
-            default => '5010', // تكلفة مستلزمات طبية
-        };
     }
 
     private function resolveCostCenter(?Department $department): CostCenter

@@ -13,6 +13,7 @@ use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
@@ -30,14 +31,14 @@ class BookingService
     public function getFormResources(): array
     {
         return [
-            'services' => Service::select('id', 'name', 'dept', 'price', 'ins_price')->active()->orderBy('name')->get(),
-            'insuranceCompanies' => InsuranceCompany::select('id', 'name')->orderBy('name')->get(),
+            'services' => Service::select('id', 'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price')->active()->orderBy('name')->get(),
+            'insuranceCompanies' => InsuranceCompany::select('id', 'name', 'coverage_pct')->orderBy('name')->get(),
             'priceLists' => PriceList::select('id', 'name', 'ins_company_id', 'ins_coverage')
                 ->where('is_active', true)
                 ->with('items:price_list_id,service_id,price')
                 ->orderBy('name')
                 ->get(),
-            'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
+            'doctors' => Doctor::select('id', 'name', 'departments')->where('is_active', true)->orderBy('name')->get(),
         ];
     }
 
@@ -53,7 +54,7 @@ class BookingService
 
     public function create(BookingData $data, int $createdBy): Booking
     {
-        $fileNo = $this->mrnGenerator->generate();
+        $fileNo = $this->mrnGenerator->generate($data->nationalId);
 
         return $this->bookingRepository->create([
             'file_no' => $fileNo,
@@ -62,6 +63,7 @@ class BookingService
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -97,6 +99,7 @@ class BookingService
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -122,7 +125,7 @@ class BookingService
     {
         return Booking::query()
             ->with('doctor:id,name')
-            ->whereIn('status', [CompletedState::$name, CancelledState::$name])
+            ->whereIn('status', [CompletedState::$name, CompletedElectronicState::$name, CancelledState::$name])
             ->when($filters['search'] ?? null, function ($q, $v) {
                 $q->where(function ($iq) use ($v) {
                     $iq->where('patient_name', 'like', "%{$v}%")

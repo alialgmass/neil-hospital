@@ -2,7 +2,13 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Models\Booking;
+use Modules\Booking\Services\ServicePricingService;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Surgery\Services\SurgeryService;
 
 class UpdateBookingRequest extends FormRequest
@@ -10,6 +16,24 @@ class UpdateBookingRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->can('booking.edit') ?? false;
+    }
+
+    /**
+     * The booking price is always derived server-side from the selected
+     * service's one-eye / both-eyes prices — the client-submitted price is
+     * not trusted.
+     */
+    protected function prepareForValidation(): void
+    {
+        $price = app(ServicePricingService::class)->priceFor(
+            $this->input('service_id'),
+            $this->input('eye_side'),
+            $this->input('price') !== null ? (float) $this->input('price') : null,
+        );
+
+        if ($price !== null) {
+            $this->merge(['price' => $price]);
+        }
     }
 
     public function messages(): array
@@ -23,9 +47,11 @@ class UpdateBookingRequest extends FormRequest
             'patient_age.max' => 'السن يجب ألا يتجاوز 150.',
             'national_id.max' => 'الرقم القومي يجب ألا يتجاوز 20 رقماً.',
             'gender.in' => 'الجنس غير صالح.',
+            'kinship_degree.in' => 'درجة القرابة غير صالحة.',
             'dept.required' => 'القسم مطلوب.',
             'dept.in' => 'القسم المحدد غير صالح.',
             'service_id.exists' => 'الخدمة المحددة غير موجودة.',
+            'service_id.required_with' => 'يجب تحديد الخدمة عند اختيار شركة تأمين.',
             'service_name.max' => 'اسم الخدمة يجب ألا يتجاوز 200 حرف.',
             'doctor_id.exists' => 'الطبيب المحدد غير موجود.',
             'ins_company_id.exists' => 'شركة التأمين المحددة غير موجودة.',
@@ -62,8 +88,9 @@ class UpdateBookingRequest extends FormRequest
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],
-            'dept' => ['required', 'in:clinic,labs,surgery,lasik,laser'],
-            'service_id' => ['nullable', 'exists:services,id'],
+            'kinship_degree' => ['nullable', Rule::in(array_column(KinshipDegree::cases(), 'value'))],
+            'dept' => ['required', Rule::in(SystemModule::enabledDeptValues())],
+            'service_id' => ['nullable', 'required_with:ins_company_id', 'exists:services,id'],
             'service_name' => ['nullable', 'string', 'max:200'],
             'doctor_id' => ['nullable', 'exists:doctors,id'],
             'ins_company_id' => ['nullable', 'exists:insurance_companies,id'],
@@ -75,7 +102,24 @@ class UpdateBookingRequest extends FormRequest
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
             'pay_status' => ['required', 'in:unpaid,partial,paid'],
-            'status' => ['nullable', 'in:waiting,confirmed,in_progress,completed,cancelled'],
+            'status' => [
+                'nullable',
+                'in:waiting,confirmed,in_progress,completed,completed_electronic,cancelled',
+                // "مكتمل - إلكتروني" is a system-only status (set by surgery completion) —
+                // only accept it here as a no-op resubmission of an already-electronic booking.
+                function ($attribute, $value, $fail) {
+                    if ($value !== CompletedElectronicState::$name) {
+                        return;
+                    }
+
+                    $bookingId = $this->route('booking');
+                    $current = $bookingId ? Booking::find($bookingId)?->status : null;
+
+                    if (! $current instanceof CompletedElectronicState) {
+                        $fail('لا يمكن تعيين هذه الحالة يدوياً.');
+                    }
+                },
+            ],
             'visit_note' => ['nullable', 'string', 'max:2000'],
             'bed_id' => [
                 'nullable',

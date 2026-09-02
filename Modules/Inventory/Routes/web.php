@@ -18,6 +18,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/export', [InventoryController::class, 'export'])
+            ->middleware('can:inventory.view')
+            ->name('export');
+
         Route::post('/', [InventoryController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
@@ -40,6 +44,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [SupplierController::class, 'update'])
             ->middleware('can:inventory.write')
             ->name('update');
+
+        Route::post('/{id}/pay', [SupplierController::class, 'pay'])
+            ->middleware('can:inventory.write')
+            ->name('pay');
     });
 
     // Purchase invoices
@@ -48,9 +56,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/items/search', [PurchaseInvoiceController::class, 'searchItems'])
+            ->middleware('can:inventory.view')
+            ->name('items.search');
+
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
+
+        Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])
+            ->middleware('can:purchases.edit')
+            ->name('update');
+
+        Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])
+            ->middleware('can:purchases.delete')
+            ->name('destroy');
     });
 
     // Supply Bundles (بنود المستلزمات)

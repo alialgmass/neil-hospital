@@ -14,6 +14,8 @@ interface Service {
     name: string;
     dept: string;
     price: number;
+    one_eye_price: number;
+    both_eyes_price: number;
     ins_price: number;
     center_type: 'pct' | 'fixed';
     center_val: number;
@@ -50,6 +52,11 @@ watch(filters, () => {
     }, 300);
 }, { deep: true });
 
+const page = usePage<{
+    moduleStatus?: Record<string, boolean>;
+    flash?: { importResult?: { created: number; updated: number; skipped: number } };
+}>();
+
 // ── Dept helpers ──────────────────────────────────────────────────────────────
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -57,7 +64,16 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
+
+const visibleDeptLabels = computed<Record<string, string>>(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(
+        Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false),
+    );
+});
 
 const deptBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'active'> = {
     clinic: 'info',
@@ -65,6 +81,7 @@ const deptBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'danger'
     surgery: 'danger',
     lasik: 'warning',
     laser: 'success',
+    pentacam: 'info',
 };
 
 // ── Create / Edit form ────────────────────────────────────────────────────────
@@ -75,6 +92,8 @@ const form = useForm({
     name: '',
     dept: 'clinic',
     price: 0 as number,
+    one_eye_price: 0 as number,
+    both_eyes_price: 0 as number,
     ins_price: 0 as number,
     center_type: 'pct' as 'pct' | 'fixed',
     center_val: 40 as number,
@@ -100,6 +119,8 @@ function openEdit(svc: Service) {
     form.name = svc.name;
     form.dept = svc.dept;
     form.price = Number(svc.price);
+    form.one_eye_price = Number(svc.one_eye_price);
+    form.both_eyes_price = Number(svc.both_eyes_price);
     form.ins_price = Number(svc.ins_price);
     form.center_type = svc.center_type;
     form.center_val = Number(svc.center_val);
@@ -118,11 +139,15 @@ function closeModal() {
 function submit() {
     if (editingService.value) {
         form.put(`/services/${editingService.value.id}`, {
-            onSuccess: () => { closeModal(); toast.success('تم تحديث الخدمة بنجاح'); },
+            onSuccess: () => {
+ closeModal(); toast.success('تم تحديث الخدمة بنجاح'); 
+},
         });
     } else {
         form.post('/services', {
-            onSuccess: () => { closeModal(); toast.success('تم إضافة الخدمة بنجاح'); },
+            onSuccess: () => {
+ closeModal(); toast.success('تم إضافة الخدمة بنجاح'); 
+},
         });
     }
 }
@@ -183,8 +208,6 @@ function onFileChange(e: Event) {
     importForm.file = file;
     importFileName.value = file?.name ?? '';
 }
-
-const page = usePage<{ flash?: { importResult?: { created: number; updated: number; skipped: number } } }>();
 
 function submitImport() {
     if (!importForm.file) {
@@ -259,7 +282,7 @@ function fmt(n: number) {
                 class="rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
             >
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
             <select
                 v-model="filters.status"
@@ -280,6 +303,7 @@ function fmt(n: number) {
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الخدمة</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">القسم</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">السعر</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر العين (واحدة/اثنتان)</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر التأمين</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة المركز</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة الطبيب</th>
@@ -290,7 +314,7 @@ function fmt(n: number) {
                     <tbody>
                         <!-- Empty state -->
                         <tr v-if="services.data.length === 0">
-                            <td colspan="8" class="py-16 text-center">
+                            <td colspan="9" class="py-16 text-center">
                                 <div class="flex flex-col items-center gap-3 text-hospital-text-3">
                                     <Package class="h-14 w-14 opacity-30" />
                                     <p class="text-base font-medium">لا توجد خدمات</p>
@@ -309,6 +333,7 @@ function fmt(n: number) {
                                 <Badge :variant="deptBadgeVariant[svc.dept] ?? 'info'" :label="deptLabels[svc.dept] ?? svc.dept" />
                             </td>
                             <td class="px-4 py-3 font-mono text-hospital-text">{{ fmt(Number(svc.price)) }}</td>
+                            <td class="px-4 py-3 font-mono text-hospital-text-2">{{ fmt(Number(svc.one_eye_price)) }} / {{ fmt(Number(svc.both_eyes_price)) }}</td>
                             <td class="px-4 py-3 font-mono text-hospital-primary">{{ fmt(Number(svc.ins_price)) }}</td>
                             <td class="px-4 py-3 font-mono text-hospital-warning">
                                 {{ svc.center_type === 'pct' ? `${svc.center_val}%` : `${fmt(Number(svc.center_val))} ج` }}
@@ -376,7 +401,7 @@ function fmt(n: number) {
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                                 :disabled="!!editingService"
                             >
-                                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
                             </select>
                         </div>
 
@@ -434,6 +459,30 @@ function fmt(n: number) {
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                             />
                             <p v-if="form.errors.price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.price }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر العين الواحدة (ج.م)</label>
+                            <input
+                                v-model.number="form.one_eye_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.one_eye_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.one_eye_price }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر العينين (ج.م)</label>
+                            <input
+                                v-model.number="form.both_eyes_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.both_eyes_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.both_eyes_price }}</p>
                         </div>
                         <div>
                             <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين (ج.م)</label>

@@ -12,13 +12,15 @@ class Service extends Model
     use HasUlids;
 
     protected $fillable = [
-        'name', 'dept', 'price', 'ins_price',
+        'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price',
         'center_type', 'center_val', 'center_share', 'dr_share',
         'duration_mins', 'status', 'revenue_account_id',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'one_eye_price' => 'decimal:2',
+        'both_eyes_price' => 'decimal:2',
         'ins_price' => 'decimal:2',
         'center_val' => 'decimal:2',
         'center_share' => 'decimal:2',

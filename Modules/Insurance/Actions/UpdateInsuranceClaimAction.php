@@ -7,6 +7,7 @@ use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\PaidState;
+use Modules\Insurance\States\RejectedState;
 use Modules\Insurance\States\SubmittedState;
 
 class UpdateInsuranceClaimAction
@@ -37,6 +38,11 @@ class UpdateInsuranceClaimAction
             if ($claim->booking_id) {
                 $claim->booking->update(['pay_status' => PayStatus::Paid->value]);
             }
+        }
+
+        // Reverse the submitted receivable/revenue entry when a claim is rejected
+        if ($newStatus === RejectedState::$name && $oldStatus !== RejectedState::$name) {
+            $this->autoPost->onReject($claim);
         }
 
         $this->activityLogService->log(

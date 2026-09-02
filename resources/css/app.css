@@ -248,14 +248,27 @@
     /* Reset layout to single column */
     body,
     #app,
-    main,
-    [data-page] {
+    main {
         display: block !important;
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #fff !important;
+    }
+
+    /* Break out of nested overflow-hidden flex containers */
+    .flex.h-screen,
+    .flex.flex-1.flex-col,
+    .flex.flex-1 {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    main.content {
+        overflow: visible !important;
+        padding: 10mm 0 !important;
     }
 
     /* Hide action buttons when printing */

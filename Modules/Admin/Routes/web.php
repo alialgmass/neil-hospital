@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Modules\Admin\Controllers\ActivityLogController;
 use Modules\Admin\Controllers\ArchiveController;
 use Modules\Admin\Controllers\InsuranceController;
+use Modules\Admin\Controllers\ModuleExportController;
+use Modules\Admin\Controllers\ModuleImportController;
 use Modules\Admin\Controllers\RoleController;
 use Modules\Admin\Controllers\ServicesController;
 use Modules\Admin\Controllers\SettingsController;
@@ -97,5 +99,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{id}/role', [UserManagementController::class, 'updateRole'])
             ->middleware('can:users.manage')
             ->name('update-role');
+    });
+
+    // Module-level data exports
+    Route::prefix('module-exports')->name('module-exports.')->group(function () {
+        Route::get('/', [ModuleExportController::class, 'index'])
+            ->middleware('can:users.manage')
+            ->name('index');
+
+        Route::get('/{module}/download', [ModuleExportController::class, 'export'])
+            ->middleware('can:users.manage')
+            ->name('download');
+    });
+
+    // Module-level data imports
+    Route::prefix('module-imports')->name('module-imports.')->group(function () {
+        Route::get('/', [ModuleImportController::class, 'index'])
+            ->middleware('can:users.manage')
+            ->name('index');
+
+        Route::get('/{module}/template', [ModuleImportController::class, 'template'])
+            ->middleware('can:users.manage')
+            ->name('template');
+
+        Route::post('/{module}/import', [ModuleImportController::class, 'import'])
+            ->middleware('can:users.manage')
+            ->name('import');
     });
 });

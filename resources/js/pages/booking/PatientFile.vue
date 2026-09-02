@@ -1,7 +1,20 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { User, Phone, Calendar, Stethoscope, FlaskConical, Scissors, FileText, Paperclip } from 'lucide-vue-next';
+import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
+import {
+    User,
+    Phone,
+    Calendar,
+    Stethoscope,
+    FlaskConical,
+    Scissors,
+    FileText,
+    Paperclip,
+    Printer,
+} from 'lucide-vue-next';
+import { computed } from 'vue';
 import { archive } from '@/routes';
+import booking from '@/routes/booking';
 
 interface Patient {
     name: string;
@@ -63,11 +76,14 @@ interface Booking {
     media_files: MediaFile[];
 }
 
-defineProps<{
+const props = defineProps<{
     file_no: string;
     patient: Patient | null;
     bookings: Booking[];
 }>();
+
+// Most recent visit — used to print the barcode label, same page/design as the booking barcode.
+const latestBooking = computed(() => props.bookings[0] ?? null);
 
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -75,6 +91,7 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
 
 const deptIcons: Record<string, unknown> = {
@@ -91,14 +108,20 @@ const payStatusColors: Record<string, string> = {
     unpaid: 'bg-hospital-danger/10 text-hospital-danger',
 };
 const payStatusLabels: Record<string, string> = {
-    paid: 'مسدد', partial: 'جزئي', unpaid: 'غير مسدد',
+    paid: 'مسدد',
+    partial: 'جزئي',
+    unpaid: 'غير مسدد',
 };
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
 function fmtDate(d: string) {
-    return new Date(d).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date(d).toLocaleDateString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
 }
 function isImage(mime: string): boolean {
     return mime.startsWith('image/');
@@ -109,48 +132,80 @@ function isImage(mime: string): boolean {
     <Head :title="`ملف المريض — ${file_no}`" />
 
     <!-- Header -->
-    <div class="mb-5 flex items-center justify-between">
+    <div class="no-print mb-5 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-hospital-primary/10 text-hospital-primary">
+            <div
+                class="flex h-12 w-12 items-center justify-center rounded-full bg-hospital-primary/10 text-hospital-primary"
+            >
                 <User class="h-6 w-6" />
             </div>
             <div>
-                <h2 class="text-lg font-bold text-hospital-text">{{ patient?.name ?? 'مريض غير معروف' }}</h2>
-                <p class="text-sm text-hospital-muted">رقم الملف: {{ file_no }}</p>
+                <h2 class="text-lg font-bold text-hospital-text">
+                    {{ patient?.name ?? 'مريض غير معروف' }}
+                </h2>
+                <p class="text-sm text-hospital-muted">
+                    رقم الملف: {{ file_no }}
+                </p>
             </div>
         </div>
-        <Link
-            :href="archive().url"
-            class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text hover:bg-hospital-bg transition-colors"
-        >
-            العودة للأرشيف
-        </Link>
+        <div class="flex items-center gap-2">
+            <a
+                v-if="latestBooking"
+                :href="booking.barcode(latestBooking.id).url"
+                target="_blank"
+                class="flex items-center gap-2 rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text-2 transition-colors hover:bg-hospital-bg"
+            >
+                <Printer class="h-4 w-4" />
+                طباعة الباركود
+            </a>
+            <Link
+                :href="archive().url"
+                class="rounded-lg border border-hospital-border px-4 py-2 text-sm text-hospital-text transition-colors hover:bg-hospital-bg"
+            >
+                العودة للأرشيف
+            </Link>
+        </div>
+    </div>
+
+    <!-- Barcode (reference view — printing uses the same label page as booking barcodes) -->
+    <div class="no-print mb-6">
+        <FileNoBarcode :value="file_no" />
     </div>
 
     <!-- Patient Info Card -->
-    <div v-if="patient" class="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3">
+    <div v-if="patient" class="no-print mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
             <User class="h-4 w-4 text-hospital-muted" />
             <div>
                 <p class="text-xs text-hospital-muted">الاسم</p>
                 <p class="text-sm font-medium">{{ patient.name }}</p>
             </div>
         </div>
-        <div class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3">
+        <div
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
             <Phone class="h-4 w-4 text-hospital-muted" />
             <div>
                 <p class="text-xs text-hospital-muted">الهاتف</p>
                 <p class="text-sm font-medium">{{ patient.phone ?? '—' }}</p>
             </div>
         </div>
-        <div class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3">
+        <div
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
             <Calendar class="h-4 w-4 text-hospital-muted" />
             <div>
                 <p class="text-xs text-hospital-muted">العمر</p>
-                <p class="text-sm font-medium">{{ patient.age ? `${patient.age} سنة` : '—' }}</p>
+                <p class="text-sm font-medium">
+                    {{ patient.age ? `${patient.age} سنة` : '—' }}
+                </p>
             </div>
         </div>
-        <div class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3">
+        <div
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
             <FileText class="h-4 w-4 text-hospital-muted" />
             <div>
                 <p class="text-xs text-hospital-muted">عدد الزيارات</p>
@@ -160,37 +215,59 @@ function isImage(mime: string): boolean {
     </div>
 
     <!-- No bookings -->
-    <div v-if="bookings.length === 0" class="rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-muted">
+    <div
+        v-if="bookings.length === 0"
+        class="no-print rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-muted"
+    >
         لا توجد زيارات مسجلة لهذا الملف
     </div>
 
     <!-- Visit Timeline -->
-    <div class="space-y-4">
+    <div class="no-print space-y-4">
         <div
             v-for="booking in bookings"
             :key="booking.id"
             class="overflow-hidden rounded-xl border border-hospital-border bg-white shadow-sm"
         >
             <!-- Visit Header -->
-            <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
+            <div
+                class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3"
+            >
                 <div class="flex items-center gap-2">
-                    <component :is="(deptIcons[booking.dept] ?? Stethoscope)" class="h-4 w-4 text-hospital-primary" />
-                    <span class="font-semibold text-hospital-text">{{ deptLabels[booking.dept] ?? booking.dept }}</span>
-                    <span class="text-sm text-hospital-muted">— {{ booking.service_name ?? '—' }}</span>
+                    <component
+                        :is="deptIcons[booking.dept] ?? Stethoscope"
+                        class="h-4 w-4 text-hospital-primary"
+                    />
+                    <span class="font-semibold text-hospital-text">{{
+                        deptLabels[booking.dept] ?? booking.dept
+                    }}</span>
+                    <span class="text-sm text-hospital-muted"
+                        >— {{ booking.service_name ?? '—' }}</span
+                    >
                 </div>
                 <div class="flex items-center gap-3">
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="payStatusColors[booking.pay_status] ?? 'bg-hospital-muted/20 text-hospital-muted'"
+                        :class="
+                            payStatusColors[booking.pay_status] ??
+                            'bg-hospital-muted/20 text-hospital-muted'
+                        "
                     >
-                        {{ payStatusLabels[booking.pay_status] ?? booking.pay_status }}
+                        {{
+                            payStatusLabels[booking.pay_status] ??
+                            booking.pay_status
+                        }}
                     </span>
-                    <span class="text-sm font-medium text-hospital-text">{{ fmt(booking.price) }} ج.م</span>
-                    <span class="text-xs text-hospital-muted">{{ fmtDate(booking.visit_date) }}</span>
+                    <span class="text-sm font-medium text-hospital-text"
+                        >{{ fmt(booking.price) }} ج.م</span
+                    >
+                    <span class="text-xs text-hospital-muted">{{
+                        fmtDate(booking.visit_date)
+                    }}</span>
                 </div>
             </div>
 
-            <div class="p-4 space-y-3">
+            <div class="space-y-3 p-4">
                 <!-- Doctor -->
                 <div v-if="booking.doctor" class="text-sm">
                     <span class="text-hospital-muted">الطبيب: </span>
@@ -204,74 +281,139 @@ function isImage(mime: string): boolean {
                 </div>
 
                 <!-- Clinic Sheet -->
-                <div v-if="booking.clinic_sheet" class="rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm space-y-1">
-                    <p class="font-medium text-hospital-primary">ورقة الكشف الطبي</p>
+                <div
+                    v-if="booking.clinic_sheet"
+                    class="space-y-1 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm"
+                >
+                    <p class="font-medium text-hospital-primary">
+                        ورقة الكشف الطبي
+                    </p>
                     <div v-if="booking.clinic_sheet.chief_complaint">
-                        <span class="text-hospital-muted">الشكوى: </span>{{ booking.clinic_sheet.chief_complaint }}
+                        <span class="text-hospital-muted">الشكوى: </span
+                        >{{ booking.clinic_sheet.chief_complaint }}
                     </div>
-                    <div v-if="booking.clinic_sheet.visual_acuity_od || booking.clinic_sheet.visual_acuity_os">
+                    <div
+                        v-if="
+                            booking.clinic_sheet.visual_acuity_od ||
+                            booking.clinic_sheet.visual_acuity_os
+                        "
+                    >
                         <span class="text-hospital-muted">حدة الإبصار: </span>
-                        OD {{ booking.clinic_sheet.visual_acuity_od ?? '—' }} / OS {{ booking.clinic_sheet.visual_acuity_os ?? '—' }}
+                        OD {{ booking.clinic_sheet.visual_acuity_od ?? '—' }} /
+                        OS {{ booking.clinic_sheet.visual_acuity_os ?? '—' }}
                     </div>
                     <div v-if="booking.clinic_sheet.diagnosis">
-                        <span class="text-hospital-muted">التشخيص: </span>{{ booking.clinic_sheet.diagnosis }}
+                        <span class="text-hospital-muted">التشخيص: </span
+                        >{{ booking.clinic_sheet.diagnosis }}
                     </div>
                     <div v-if="booking.clinic_sheet.plan">
-                        <span class="text-hospital-muted">خطة العلاج: </span>{{ booking.clinic_sheet.plan }}
+                        <span class="text-hospital-muted">خطة العلاج: </span
+                        >{{ booking.clinic_sheet.plan }}
                     </div>
                 </div>
 
                 <!-- Diagnostic Results -->
-                <div v-if="booking.diagnostic_results && booking.diagnostic_results.length > 0" class="space-y-1">
-                    <p class="text-sm font-medium text-hospital-primary">نتائج الفحوصات</p>
+                <div
+                    v-if="
+                        booking.diagnostic_results &&
+                        booking.diagnostic_results.length > 0
+                    "
+                    class="space-y-1"
+                >
+                    <p class="text-sm font-medium text-hospital-primary">
+                        نتائج الفحوصات
+                    </p>
                     <div
                         v-for="result in booking.diagnostic_results"
                         :key="result.id"
                         class="rounded-lg border border-hospital-border bg-hospital-bg/50 p-2.5 text-sm"
                     >
                         <div class="flex items-center justify-between">
-                            <span class="font-medium">{{ result.test_name }}</span>
-                            <span class="text-xs text-hospital-muted">{{ result.eye ?? '' }}</span>
+                            <span class="font-medium">{{
+                                result.test_name
+                            }}</span>
+                            <span class="text-xs text-hospital-muted">{{
+                                result.eye ?? ''
+                            }}</span>
                         </div>
-                        <p v-if="result.result_text" class="mt-1 text-hospital-text">{{ result.result_text }}</p>
+                        <p
+                            v-if="result.result_text"
+                            class="mt-1 text-hospital-text"
+                        >
+                            {{ result.result_text }}
+                        </p>
                     </div>
                 </div>
 
                 <!-- Surgery -->
-                <div v-if="booking.surgery" class="rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm space-y-1">
-                    <p class="font-medium text-hospital-primary">العملية الجراحية</p>
+                <div
+                    v-if="booking.surgery"
+                    class="space-y-1 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm"
+                >
+                    <p class="font-medium text-hospital-primary">
+                        العملية الجراحية
+                    </p>
                     <div>
-                        <span class="text-hospital-muted">الإجراء: </span>{{ booking.surgery.procedure }}
-                        <span v-if="booking.surgery.eye" class="text-hospital-muted"> ({{ booking.surgery.eye }})</span>
+                        <span class="text-hospital-muted">الإجراء: </span
+                        >{{ booking.surgery.procedure }}
+                        <span
+                            v-if="booking.surgery.eye"
+                            class="text-hospital-muted"
+                        >
+                            ({{ booking.surgery.eye }})</span
+                        >
                     </div>
                     <div v-if="booking.surgery.op_report">
-                        <span class="text-hospital-muted">تقرير العملية: </span>{{ booking.surgery.op_report }}
+                        <span class="text-hospital-muted">تقرير العملية: </span
+                        >{{ booking.surgery.op_report }}
                     </div>
                 </div>
 
                 <!-- Archived Files -->
                 <div v-if="booking.media_files.length > 0" class="space-y-1.5">
-                    <p class="flex items-center gap-1.5 text-sm font-medium text-hospital-primary">
+                    <p
+                        class="flex items-center gap-1.5 text-sm font-medium text-hospital-primary"
+                    >
                         <Paperclip class="h-3.5 w-3.5" />
                         الملفات المرفقة ({{ booking.media_files.length }})
                     </p>
-                    <div class="divide-y divide-hospital-border rounded-lg border border-hospital-border">
+                    <div
+                        class="divide-y divide-hospital-border rounded-lg border border-hospital-border"
+                    >
                         <div
                             v-for="file in booking.media_files"
                             :key="file.id"
                             class="flex items-center gap-3 px-3 py-2"
                         >
-                            <div class="h-10 w-10 shrink-0 overflow-hidden rounded">
-                                <img v-if="isImage(file.mime)" :src="file.url" :alt="file.name" class="h-full w-full object-cover" />
-                                <div v-else class="flex h-full w-full items-center justify-center bg-hospital-bg">
-                                    <FileText class="h-5 w-5 text-hospital-muted" />
+                            <div
+                                class="h-10 w-10 shrink-0 overflow-hidden rounded"
+                            >
+                                <img
+                                    v-if="isImage(file.mime)"
+                                    :src="file.url"
+                                    :alt="file.name"
+                                    class="h-full w-full object-cover"
+                                />
+                                <div
+                                    v-else
+                                    class="flex h-full w-full items-center justify-center bg-hospital-bg"
+                                >
+                                    <FileText
+                                        class="h-5 w-5 text-hospital-muted"
+                                    />
                                 </div>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <a :href="file.url" target="_blank" class="block truncate text-sm font-medium text-hospital-primary hover:underline">
+                                <a
+                                    :href="file.url"
+                                    target="_blank"
+                                    class="block truncate text-sm font-medium text-hospital-primary hover:underline"
+                                >
                                     {{ file.name }}
                                 </a>
-                                <p class="text-xs text-hospital-muted">{{ file.size }}</p>
+                                <p class="text-xs text-hospital-muted">
+                                    {{ file.size }}
+                                </p>
                             </div>
                         </div>
                     </div>

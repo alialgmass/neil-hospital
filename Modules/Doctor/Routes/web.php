@@ -20,6 +20,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [DoctorController::class, 'update'])
             ->middleware('can:doctors.write')
             ->name('update');
+
+        Route::delete('/{id}', [DoctorController::class, 'destroy'])
+            ->middleware('can:doctors.delete')
+            ->name('destroy');
     });
 
     // Doctor claims

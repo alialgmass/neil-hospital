@@ -21,6 +21,7 @@ const allDeptOptions = [
     { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
     { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
     { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
+    { value: 'pentacam', label: 'البنتكام', icon: '📷', cap: 'فحص القرنية' },
 ];
 
 const page = usePage<{ moduleStatus?: Record<string, boolean> }>();

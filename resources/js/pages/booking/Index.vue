@@ -5,6 +5,7 @@ import {
     Edit3,
     Trash2,
     Printer,
+    Barcode,
     Search,
     X,
     CreditCard,
@@ -16,7 +17,6 @@ import DataTable from '@/components/shared/DataTable.vue';
 import DateFilter from '@/components/shared/DateFilter.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
-import SearchBar from '@/components/shared/SearchBar.vue';
 import StatCard from '@/components/shared/StatCard.vue';
 import BookingForm from './Partials/BookingForm.vue';
 
@@ -41,7 +41,7 @@ interface Booking {
     paid_amount: number;
     pay_method?: string;
     pay_status: 'unpaid' | 'partial' | 'paid';
-    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'completed_electronic' | 'cancelled';
     visit_note?: string;
     eye_side?: string;
     analysis_type?: string;
@@ -80,12 +80,13 @@ interface Props {
 const props = defineProps<Props>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean>; bookingStatusVisibility?: Record<string, boolean> }>();
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 function can(permission: string): boolean {
     return permissions.value.includes('*') || permissions.value.includes(permission);
 }
 const canPay = computed(() => can('booking.pay'));
+const canEditCompleted = computed(() => can('booking.edit_completed'));
 
 // ── State ──
 const showCreateModal = ref(false);
@@ -157,6 +158,7 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
 
 const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
@@ -200,6 +202,11 @@ const allStatCards = [
         key: 'laser',
         label: 'الليزر',
         color: 'danger' as const,
+    },
+    {
+        key: 'pentacam',
+        label: 'البنتكام',
+        color: 'accent' as const,
     },
 ];
 
@@ -255,7 +262,7 @@ function updateBookingStatus(id: string, status: string) {
 }
 
 // Mirrors BookingStatus::config() transition rules
-const bookingNextStates: Record<string, { value: string; label: string }[]> = {
+const bookingNextStatesAll: Record<string, { value: string; label: string }[]> = {
     waiting:     [{ value: 'confirmed', label: 'مؤكد' }, { value: 'cancelled', label: 'ملغي' }],
     confirmed:   [{ value: 'in_progress', label: 'جارٍ' }, { value: 'cancelled', label: 'ملغي' }],
     in_progress: [{ value: 'completed', label: 'مكتمل' }, { value: 'cancelled', label: 'ملغي' }],
@@ -268,8 +275,30 @@ const bookingStatusLabel: Record<string, string> = {
     confirmed: 'مؤكد',
     in_progress: 'جارٍ',
     completed: 'مكتمل',
+    completed_electronic: 'مكتمل - إلكتروني',
     cancelled: 'ملغي',
 };
+
+const bookingStatusVisibility = computed(
+    () => (page.props.bookingStatusVisibility as Record<string, boolean>) ?? {},
+);
+const isStatusVisible = (status: string): boolean => bookingStatusVisibility.value[status] !== false;
+
+const visibleStatusOptions = computed(() =>
+    Object.entries(bookingStatusLabel)
+        .filter(([key]) => isStatusVisible(key))
+        .map(([value, label]) => ({ value, label })),
+);
+
+const bookingNextStates = computed<Record<string, { value: string; label: string }[]>>(() => {
+    const map: Record<string, { value: string; label: string }[]> = {};
+
+    for (const [current, nexts] of Object.entries(bookingNextStatesAll)) {
+        map[current] = nexts.filter((n) => isStatusVisible(n.value));
+    }
+
+    return map;
+});
 
 function doDelete() {
     if (!deleteTarget.value) {
@@ -286,6 +315,22 @@ function doDelete() {
 
 function printReceipt(id: string) {
     window.open(`/booking/${id}/receipt`, '_blank');
+}
+
+function printBarcode(id: string) {
+    window.open(`/booking/${id}/barcode`, '_blank');
+}
+
+function exportExcel() {
+    const params = new URLSearchParams({
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+        dept: selectedDept.value,
+        status: selectedStatus.value,
+        search: search.value,
+    }).toString();
+
+    window.location.href = `/booking/export${params ? '?' + params : ''}`;
 }
 
 function openEditBooking(row: Booking) {
@@ -370,11 +415,13 @@ const isDeleteModalOpen = computed({
                     @change="applySearch"
                 >
                     <option value="">كل الحالات</option>
-                    <option value="waiting">انتظار</option>
-                    <option value="confirmed">مؤكد</option>
-                    <option value="in_progress">جارٍ</option>
-                    <option value="completed">مكتمل</option>
-                    <option value="cancelled">ملغي</option>
+                    <option
+                        v-for="opt in visibleStatusOptions"
+                        :key="opt.value"
+                        :value="opt.value"
+                    >
+                        {{ opt.label }}
+                    </option>
                 </select>
             </div>
 
@@ -416,7 +463,7 @@ const isDeleteModalOpen = computed({
                 <p class="card-title text-[13px] font-bold text-hospital-text">{{ currentDeptLabel }}</p>
                 <p class="card-sub text-[10px] text-hospital-text-3">إجمالي الحجوزات: {{ bookings.total }}</p>
             </div>
-            <ExportBar @print="() => window.print()" />
+            <ExportBar @export="exportExcel" @print="() => window.print()" />
         </div>
 
         <!-- Table -->
@@ -449,6 +496,7 @@ const isDeleteModalOpen = computed({
                         'text-hospital-primary': (row as Booking).status === 'confirmed',
                         'text-hospital-warning': (row as Booking).status === 'in_progress',
                         'text-hospital-success': (row as Booking).status === 'completed',
+                        'text-hospital-accent': (row as Booking).status === 'completed_electronic',
                         'text-hospital-danger': (row as Booking).status === 'cancelled',
                     }"
                     :disabled="!bookingNextStates[(row as Booking).status]?.length"
@@ -488,9 +536,17 @@ const isDeleteModalOpen = computed({
                     </button>
                     <button
                         type="button"
+                        title="طباعة باركود"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-accent-pale hover:text-hospital-accent"
+                        @click="printBarcode((row as Booking).id)"
+                    >
+                        <Barcode class="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
                         title="تعديل"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
+                        :disabled="(row as Booking).status === 'completed' && !canEditCompleted"
                         @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />
@@ -498,8 +554,7 @@ const isDeleteModalOpen = computed({
                     <button
                         type="button"
                         title="حذف"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
                         @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />

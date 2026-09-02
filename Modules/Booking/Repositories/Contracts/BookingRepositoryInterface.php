@@ -25,8 +25,8 @@ interface BookingRepositoryInterface
     /** Count bookings per dept for a given date (dashboard use). */
     public function countByDeptForDate(string $date): array;
 
-    /** Latest MAX sequence number for MRN generation in the given year. */
-    public function maxMrnSequence(int $year): int;
+    /** Latest MAX sequence number for file number generation (global, format-agnostic). */
+    public function maxFileSequence(): int;
 
     /** Check whether a file_no is already taken (for retry guard). */
     public function fileNoExists(string $fileNo): bool;

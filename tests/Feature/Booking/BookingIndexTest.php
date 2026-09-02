@@ -88,6 +88,22 @@ class BookingIndexTest extends TestCase
         );
     }
 
+    public function test_booking_index_exposes_coverage_pct_for_client_side_insurance_fallback(): void
+    {
+        // Regression test: the booking form's insurance amount only auto-calculated
+        // when a dedicated price list existed for the chosen company; otherwise it
+        // silently stayed 0 (readonly) even though the company has a general
+        // coverage_pct that should be used as a fallback.
+        InsuranceCompany::create(['name' => 'التأمين الوطني', 'coverage_pct' => 80]);
+
+        $response = $this->actingAs($this->user)->get('/booking');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('insuranceCompanies.0.coverage_pct', '80.00')
+        );
+    }
+
     public function test_booking_index_returns_or_rooms_in_props(): void
     {
         $response = $this->actingAs($this->user)->get('/booking');
@@ -129,5 +145,48 @@ class BookingIndexTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->where('bookings.data.0.surgery.or_bed_id', $bed->id)
         );
+    }
+
+    public function test_pagination_stays_stable_across_pages_when_many_rows_share_the_same_visit_date(): void
+    {
+        // Regression test: sorting by visit_date alone with no tiebreaker means
+        // rows sharing a date have no deterministic order, so updating any one
+        // of them (e.g. a status change) can shift its position between pages
+        // and make it appear to vanish from the list even though it still
+        // matches every filter. `created_at` breaks the tie deterministically.
+        $bookingIds = [];
+        foreach (range(1, 25) as $i) {
+            $booking = Booking::create([
+                'file_no' => 'MRN-TIE-'.$i,
+                'patient_name' => 'مريض '.$i,
+                'dept' => 'surgery',
+                'visit_date' => '2026-06-20',
+                'price' => 100.00,
+                'discount' => 0.00,
+                'ins_amount' => 0.00,
+                'paid_amount' => 0.00,
+                'pay_method' => 'cash',
+                'pay_status' => 'unpaid',
+                'status' => 'waiting',
+                'created_by' => $this->user->id,
+            ]);
+            $booking->forceFill(['created_at' => now()->addSeconds($i)])->save();
+            $bookingIds[] = $booking->id;
+        }
+
+        // Update the oldest (last-page) booking's status, as a completion would.
+        $oldest = Booking::find($bookingIds[0]);
+        $oldest->update(['status' => 'confirmed']);
+
+        $page1 = $this->actingAs($this->user)->get('/booking?per_page=20&page=1');
+        $page2 = $this->actingAs($this->user)->get('/booking?per_page=20&page=2');
+
+        $page1Response = $page1->getOriginalContent()->getData()['page']['props']['bookings']['data'];
+        $page2Response = $page2->getOriginalContent()->getData()['page']['props']['bookings']['data'];
+
+        $allIds = collect($page1Response)->pluck('id')->merge(collect($page2Response)->pluck('id'));
+
+        $this->assertEqualsCanonicalizing($bookingIds, $allIds->intersect($bookingIds)->values()->all());
+        $this->assertContains($oldest->id, collect($page2Response)->pluck('id')->all());
     }
 }

@@ -4,6 +4,7 @@ import { Eye, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface Booking {
     id: string;
@@ -15,8 +16,12 @@ interface Booking {
     pay_status: 'unpaid' | 'partial' | 'paid';
     price: number;
     doctor?: { name: string };
-    clinic_sheet?: { diagnosis?: string } | null;
+    clinic_sheet?: { diagnosis?: string; referral_to?: string | null } | null;
 }
+
+const referralLabels: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
+};
 
 const props = defineProps<{
     queue: {
@@ -29,6 +34,7 @@ const props = defineProps<{
 }>();
 
 const selectedDate = ref(props.date);
+const fallbackDoctor = computed(() => weekdayDoctorFallback(props.date));
 
 const totalToday    = computed(() => props.queue.total);
 const completedToday = computed(() => props.queue.data.filter((b) => b.status === 'completed').length);
@@ -39,7 +45,6 @@ const revenueToday  = computed(() =>
 );
 
 const columns = [
-    { key: 'visit_time',    label: 'الوقت' },
     { key: 'file_no',       label: 'رقم الملف',   sortable: true },
     { key: 'patient_name',  label: 'المريض',       sortable: true },
     { key: 'patient_phone', label: 'الهاتف' },
@@ -47,6 +52,7 @@ const columns = [
     { key: 'status',        label: 'الحالة' },
     { key: 'pay_status',    label: 'السداد' },
     { key: 'diagnosis',     label: 'التشخيص' },
+    { key: 'referral',      label: 'التوجيه' },
 ];
 
 function changeDate() {
@@ -120,11 +126,8 @@ function goToPage(page: number) {
         empty-text="لا يوجد مرضى في قائمة اليوم"
         @page="goToPage"
     >
-        <template #cell-visit_time="{ value }">
-            {{ (value as string)?.slice(0, 5) ?? '—' }}
-        </template>
         <template #cell-doctor="{ row }">
-            {{ (row as Booking).doctor?.name ?? '—' }}
+            {{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}
         </template>
         <template #cell-status="{ value }">
             <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
@@ -136,6 +139,15 @@ function goToPage(page: number) {
             <span class="line-clamp-1 max-w-xs text-xs text-hospital-text-2">
                 {{ (row as Booking).clinic_sheet?.diagnosis ?? '—' }}
             </span>
+        </template>
+        <template #cell-referral="{ row }">
+            <span
+                v-if="(row as Booking).clinic_sheet?.referral_to"
+                class="rounded-full bg-hospital-accent-pale px-2 py-0.5 text-xs font-medium text-hospital-accent"
+            >
+                → {{ referralLabels[(row as Booking).clinic_sheet!.referral_to!] ?? (row as Booking).clinic_sheet!.referral_to }}
+            </span>
+            <span v-else class="text-xs text-hospital-text-3">—</span>
         </template>
         <template #actions="{ row }">
             <Link

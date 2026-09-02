@@ -2,9 +2,13 @@
 
 namespace Modules\HR\Services;
 
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Modules\Accounting\Actions\AutoPostPayrollAction;
 use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
 use Modules\HR\Enums\EmployeeStatus;
@@ -17,15 +21,20 @@ use Modules\HR\Models\Leave;
 use Modules\HR\Models\Payroll;
 use Modules\HR\Models\Shift;
 use Modules\HR\Models\ShiftHandover;
+use Spatie\Permission\Models\Role;
 
 class HRService
 {
-    public function __construct(private readonly SettingsService $settings) {}
+    public function __construct(
+        private readonly SettingsService $settings,
+        private readonly AutoPostPayrollAction $autoPostPayroll,
+    ) {}
     // ── Employees ──────────────────────────────────────────────────────────
 
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Employee::query()
+            ->with('user:id,name,email,username')
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%")->orWhere('employee_no', 'like', "%{$v}%"))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
@@ -46,6 +55,11 @@ class HRService
         return Employee::query()->whereNotNull('dept')->distinct()->orderBy('dept')->pluck('dept');
     }
 
+    public function getUserRoles(): Collection
+    {
+        return Role::orderBy('name')->get(['id', 'name']);
+    }
+
     public function nextEmployeeNo(): string
     {
         $last = Employee::max('employee_no');
@@ -58,12 +72,37 @@ class HRService
 
     public function createEmployee(array $data): Employee
     {
+        if (empty($data['user_id']) && ! empty($data['username'])) {
+            $email = $data['email'] ?? ($data['username'].'@placeholder.local');
+            $user = User::create([
+                'name' => $data['name'],
+                'username' => $data['username'],
+                'email' => $email,
+                'password' => Hash::make($data['password'] ?? $data['employee_no']),
+            ]);
+
+            if (! empty($data['role'])) {
+                $user->syncRoles([$data['role']]);
+            }
+
+            $data['user_id'] = $user->id;
+        }
+
+        unset($data['password'], $data['role'], $data['username']);
+
         return Employee::create($data);
     }
 
     public function updateEmployee(string $id, array $data): Employee
     {
         $employee = Employee::findOrFail($id);
+
+        if ($employee->user_id && ! empty($data['username'])) {
+            $employee->user()->update(['username' => $data['username']]);
+        }
+
+        unset($data['username']);
+
         $employee->update($data);
 
         return $employee;
@@ -344,17 +383,25 @@ class HRService
 
     public function approvePayroll(string $id): Payroll
     {
-        $payroll = Payroll::findOrFail($id);
-        $payroll->update(['status' => PayrollStatus::Approved]);
+        return DB::transaction(function () use ($id) {
+            $payroll = Payroll::findOrFail($id);
+            $payroll->update(['status' => PayrollStatus::Approved]);
 
-        return $payroll;
+            $this->autoPostPayroll->onApprove($payroll);
+
+            return $payroll;
+        });
     }
 
     public function markPayrollPaid(string $id): Payroll
     {
-        $payroll = Payroll::findOrFail($id);
-        $payroll->update(['status' => PayrollStatus::Paid, 'paid_at' => now()]);
+        return DB::transaction(function () use ($id) {
+            $payroll = Payroll::findOrFail($id);
+            $payroll->update(['status' => PayrollStatus::Paid, 'paid_at' => now()]);
 
-        return $payroll;
+            $this->autoPostPayroll->onPay($payroll->fresh());
+
+            return $payroll;
+        });
     }
 }

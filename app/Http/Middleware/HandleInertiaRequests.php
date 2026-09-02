@@ -6,6 +6,8 @@ use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Admin\Models\Setting;
+use Modules\Booking\States\BookingStatus;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -52,7 +54,7 @@ class HandleInertiaRequests extends Middleware
                 : [],
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
-                'hospital_name' => config('app.name', 'مستشفى النور'),
+                'hospital_name' => Setting::getValue('hospital_name', config('app.name', 'مستشفى النور')),
                 'hospital_specialty' => 'طب وجراحة العيون',
             ],
             // Alerts for notification bell
@@ -60,6 +62,9 @@ class HandleInertiaRequests extends Middleware
             'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
             // Global on/off switches for whole system modules, managed from Settings.
             'moduleStatus' => SystemModule::statuses(),
+            // Global on/off switches per booking status. Hidden statuses are
+            // removed from booking listings, filters, and status pickers.
+            'bookingStatusVisibility' => BookingStatus::visibilityMap(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => $request->session()->get('success'),

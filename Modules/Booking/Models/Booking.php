@@ -4,6 +4,7 @@ namespace Modules\Booking\Models;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Enums\KinshipDegree;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -35,6 +36,7 @@ class Booking extends Model implements HasMedia
         'patient_age',
         'national_id',
         'gender',
+        'kinship_degree',
         'dept',
         'service_name',
         'service_id',
@@ -70,6 +72,7 @@ class Booking extends Model implements HasMedia
         'pay_status' => PayStatus::class,
         'status' => BookingStatus::class,
         'eye_side' => EyeSide::class,
+        'kinship_degree' => KinshipDegree::class,
     ];
 
     public function doctor(): BelongsTo
