@@ -19,6 +19,8 @@ enum SystemModule: string
     case Hr = 'hr';
     case Reports = 'reports';
 
+    const Insurance = 'insurance';
+
     public function label(): string
     {
         return match ($this) {
