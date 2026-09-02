@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
@@ -19,6 +19,8 @@ interface Service {
     name: string;
     dept: string;
     price: number;
+    one_eye_price: number | null;
+    both_eyes_price: number | null;
     ins_price: number;
 }
 
@@ -131,12 +133,8 @@ const showBeds = computed(
 const showAnalysis = computed(
     () => form.dept === 'surgery' || form.dept === 'lasik',
 );
-const showEyeSide = computed(
-    () =>
-        form.dept === 'surgery' ||
-        form.dept === 'lasik' ||
-        form.dept === 'laser',
-);
+// Eye laterality applies to every clinical department once one is selected.
+const showEyeSide = computed(() => !!form.dept);
 
 const deptExtraTitle = computed(() => {
     if (form.dept === 'surgery') {
@@ -151,7 +149,11 @@ return 'بيانات جلسة الليزك';
 return 'بيانات جلسة الليزر';
 }
 
-    return '';
+    if (form.dept === 'pentacam') {
+return 'بيانات فحص البنتكام';
+}
+
+    return 'بيانات الفحص';
 });
 
 const filteredServices = computed(() =>
@@ -219,12 +221,38 @@ return;
             ? String(Math.round((Number(form.price) * company.coverage_pct) / 100 * 100) / 100)
             : '0';
     } else {
-        form.price = String(service.price);
+        form.price = String(eyeSidePrice(service));
         form.ins_amount = '0';
     }
 }
 
+// Preview price only — the server always recomputes from the service + eye side.
+function eyeSidePrice(service: Service): number {
+    const oneEye = service.one_eye_price ?? service.price;
+
+    if (form.eye_side === 'OU') {
+        return (
+            service.both_eyes_price ??
+            (oneEye != null ? oneEye * 2 : service.price)
+        );
+    }
+
+    return oneEye ?? service.price;
+}
+
+function eyePrice() {
+    const service = props.services.find((s) => s.id === form.service_id);
+
+    if (!service || isInsurance.value) {
+        return;
+    }
+
+    form.price = String(eyeSidePrice(service));
+    form.ins_amount = '0';
+}
+
 watch(() => form.service_id, recalcPrice);
+watch(() => form.eye_side, eyePrice);
 watch(() => form.pay_method, () => {
     if (!form.service_id) {
         return;

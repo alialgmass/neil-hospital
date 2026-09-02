@@ -53,7 +53,7 @@ const { print } = usePrint();
 
 const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
 const referralOptions: Record<string, string> = {
-    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
 };
 const availableReferralOptions = computed(() => {
     const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
@@ -118,7 +118,7 @@ function routePatient() {
 }
 
 const deptLabels: Record<string, string> = {
-    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
 };
 </script>
 

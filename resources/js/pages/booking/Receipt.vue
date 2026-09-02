@@ -31,6 +31,7 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
 
 const payMethodLabels: Record<string, string> = {

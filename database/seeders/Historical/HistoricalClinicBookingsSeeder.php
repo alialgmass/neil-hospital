@@ -4,6 +4,7 @@ namespace Database\Seeders\Historical;
 
 use App\Enums\Department;
 use App\Models\User;
+use Database\Seeders\Historical\Concerns\NormalizesArabic;
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\Enums\PayMethod;
@@ -21,6 +22,8 @@ use Modules\Doctor\Models\Doctor;
  */
 class HistoricalClinicBookingsSeeder extends Seeder
 {
+    use NormalizesArabic;
+
     public function run(): void
     {
         $adminId = User::min('id');
@@ -37,7 +40,7 @@ class HistoricalClinicBookingsSeeder extends Seeder
                 continue;
             }
 
-            $doctor = $doctors[$row['doctor_name']] ?? null;
+            $doctor = $doctors[$row['doctor_name']] ?? $doctors[$this->normalizeArabic($row['doctor_name'])] ?? null;
 
             /** @var Booking $booking */
             $booking = Booking::create([
@@ -76,14 +79,20 @@ class HistoricalClinicBookingsSeeder extends Seeder
     private function loadDoctors(): array
     {
         $map = [];
+        foreach (Doctor::all() as $doc) {
+            $map[$this->normalizeArabic($doc->name)] = $doc;
+        }
+
+        $keyed = [];
         foreach (HistoricalDoctorsSeeder::DOCTORS as $key => $data) {
-            $doc = Doctor::where('name', $data['name'])->first();
+            $doc = $map[$this->normalizeArabic($data['name'])] ?? null;
             if ($doc) {
-                $map[$key] = $doc;
+                $keyed[$key] = $doc;
+                $keyed[$this->normalizeArabic($key)] = $doc;
             }
         }
 
-        return $map;
+        return $keyed;
     }
 
     /** @return array<int, array<string, mixed>> */

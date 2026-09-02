@@ -9,6 +9,7 @@ enum Department: string
     case Surgery = 'surgery';
     case Lasik = 'lasik';
     case Laser = 'laser';
+    case Pentacam = 'pentacam';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum Department: string
             self::Surgery => 'العمليات',
             self::Lasik => 'الليزك',
             self::Laser => 'الليزر',
+            self::Pentacam => 'البنتكام',
         };
     }
 }

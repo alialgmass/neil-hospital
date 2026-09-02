@@ -38,8 +38,10 @@ class ServiceController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:200',
-            'dept' => 'required|in:clinic,labs,surgery,lasik,laser',
+            'dept' => 'required|in:clinic,labs,surgery,lasik,laser,pentacam',
             'price' => 'nullable|numeric|min:0',
+            'one_eye_price' => 'nullable|numeric|min:0',
+            'both_eyes_price' => 'nullable|numeric|min:0',
             'ins_price' => 'nullable|numeric|min:0',
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',
@@ -57,8 +59,10 @@ class ServiceController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:200',
-            'dept' => 'required|in:clinic,labs,surgery,lasik,laser',
+            'dept' => 'required|in:clinic,labs,surgery,lasik,laser,pentacam',
             'price' => 'nullable|numeric|min:0',
+            'one_eye_price' => 'nullable|numeric|min:0',
+            'both_eyes_price' => 'nullable|numeric|min:0',
             'ins_price' => 'nullable|numeric|min:0',
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',

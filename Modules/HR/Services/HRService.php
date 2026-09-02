@@ -34,7 +34,7 @@ class HRService
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Employee::query()
-            ->with('user:id,name,email')
+            ->with('user:id,name,email,username')
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%")->orWhere('employee_no', 'like', "%{$v}%"))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
@@ -72,14 +72,14 @@ class HRService
 
     public function createEmployee(array $data): Employee
     {
-        if (! empty($data['email']) && empty($data['user_id'])) {
-            $user = User::firstOrCreate(
-                ['email' => $data['email']],
-                [
-                    'name' => $data['name'],
-                    'password' => Hash::make($data['password'] ?? $data['employee_no']),
-                ],
-            );
+        if (empty($data['user_id']) && ! empty($data['username'])) {
+            $email = $data['email'] ?? ($data['username'].'@placeholder.local');
+            $user = User::create([
+                'name' => $data['name'],
+                'username' => $data['username'],
+                'email' => $email,
+                'password' => Hash::make($data['password'] ?? $data['employee_no']),
+            ]);
 
             if (! empty($data['role'])) {
                 $user->syncRoles([$data['role']]);
@@ -88,7 +88,7 @@ class HRService
             $data['user_id'] = $user->id;
         }
 
-        unset($data['password'], $data['role']);
+        unset($data['password'], $data['role'], $data['username']);
 
         return Employee::create($data);
     }
@@ -96,6 +96,13 @@ class HRService
     public function updateEmployee(string $id, array $data): Employee
     {
         $employee = Employee::findOrFail($id);
+
+        if ($employee->user_id && ! empty($data['username'])) {
+            $employee->user()->update(['username' => $data['username']]);
+        }
+
+        unset($data['username']);
+
         $employee->update($data);
 
         return $employee;

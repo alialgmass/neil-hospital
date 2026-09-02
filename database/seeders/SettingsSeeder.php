@@ -9,7 +9,7 @@ class SettingsSeeder extends Seeder
 {
     private const DEFAULTS = [
         // key                       => [value, group]
-        'hospital_name' => ['مستشفى النور', 'general'],
+        'hospital_name' => ['مركز النيل الدولي للعيون', 'general'],
         'hospital_specialty' => ['طب وجراحة العيون', 'general'],
         'hospital_address' => ['المنيا، مصر', 'general'],
         'mrn_format' => ['MRN-{year}-{seq5}', 'booking'],

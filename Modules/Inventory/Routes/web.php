@@ -18,6 +18,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/export', [InventoryController::class, 'export'])
+            ->middleware('can:inventory.view')
+            ->name('export');
+
         Route::post('/', [InventoryController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');

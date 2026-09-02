@@ -28,7 +28,7 @@ class AutoPostDoctorDuesAction
         ?string $date = null,
         ?string $idempotencyKey = null,
     ): void {
-        if ($amount <= 0) {
+        if ($amount <= 0 || $dept === Department::Pentacam) {
             return;
         }
 

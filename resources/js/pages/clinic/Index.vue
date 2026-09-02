@@ -20,7 +20,7 @@ interface Booking {
 }
 
 const referralLabels: Record<string, string> = {
-    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
 };
 
 const props = defineProps<{

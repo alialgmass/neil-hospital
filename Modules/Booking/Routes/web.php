@@ -10,6 +10,10 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
         ->middleware('can:booking.view')
         ->name('index');
 
+    Route::get('/export', [BookingController::class, 'export'])
+        ->middleware('can:booking.view')
+        ->name('export');
+
     Route::post('/', [BookingController::class, 'store'])
         ->middleware('can:booking.create')
         ->name('store');

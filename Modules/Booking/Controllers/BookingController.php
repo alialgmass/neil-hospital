@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
+use Modules\Booking\Exports\BookingsExport;
 use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Models\Booking;
@@ -49,6 +51,15 @@ class BookingController extends Controller
             'orRooms' => $this->surgeryService->getOrRoomsForDate($filterDate),
             'today' => today()->toDateString(),
         ]);
+    }
+
+    public function export()
+    {
+        $filter = BookingFilterData::fromArray(request()->all());
+
+        $bookings = $this->bookingRepository->filteredAll($filter);
+
+        return Excel::download(new BookingsExport($bookings), 'reservations.xlsx');
     }
 
     public function store(StoreBookingRequest $request): RedirectResponse

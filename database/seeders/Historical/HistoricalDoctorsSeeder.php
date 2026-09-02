@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Historical;
 
+use Database\Seeders\Historical\Concerns\NormalizesArabic;
 use Illuminate\Database\Seeder;
 use Modules\Doctor\Models\Doctor;
 
@@ -11,6 +12,8 @@ use Modules\Doctor\Models\Doctor;
  */
 class HistoricalDoctorsSeeder extends Seeder
 {
+    use NormalizesArabic;
+
     /** @var array<string, array<string, mixed>> */
     public const DOCTORS = [
         'عمرو الجارحى' => [
@@ -86,15 +89,22 @@ class HistoricalDoctorsSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (self::DOCTORS as $key => $data) {
-            $exists = Doctor::where('name', $data['name'])->exists();
+        $existing = Doctor::pluck('id', 'name')
+            ->mapWithKeys(fn ($id, $name) => [$this->normalizeArabic($name) => $id])
+            ->toArray();
 
-            if (! $exists) {
-                Doctor::create($data);
-                $this->command->line("  ✓ Created doctor: {$data['name']}");
-            } else {
+        foreach (self::DOCTORS as $key => $data) {
+            $normalized = $this->normalizeArabic($data['name']);
+
+            if (isset($existing[$normalized])) {
                 $this->command->line("  – Skipped (exists): {$data['name']}");
+
+                continue;
             }
+
+            $doctor = Doctor::create($data);
+            $existing[$normalized] = $doctor->id;
+            $this->command->line("  ✓ Created doctor: {$data['name']}");
         }
     }
 }

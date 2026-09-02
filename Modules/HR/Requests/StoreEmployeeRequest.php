@@ -30,6 +30,7 @@ class StoreEmployeeRequest extends FormRequest
             'national_id' => ['nullable', 'string', 'max:20'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:100', 'unique:users,email'],
+            'username' => ['required_with:password', 'nullable', 'string', 'min:3', 'max:100', 'unique:users,username'],
             'password' => ['nullable', 'string', 'min:8'],
             'role' => ['nullable', 'exists:roles,name'],
             'dept' => ['required', 'string', 'max:50'],

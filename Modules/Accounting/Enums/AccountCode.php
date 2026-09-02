@@ -49,6 +49,7 @@ enum AccountCode: string
     case LASIK_REVENUE = '4040';
     case LASER_REVENUE = '4050';
     case RETINA_REVENUE = '4060';
+    case PENTACAM_REVENUE = '4090';
     case HEALTH_INSURANCE_REVENUE_OVERRIDE = '4070'; // service-level revenue_account_id override, distinct from the canonical hospital-share INSURANCE_REVENUE (4110) posted by AutoPostInsuranceClaimAction
     case PHARMACY_REVENUE = '4080';
     case INSURANCE_REVENUE_GROUP = '4100';
@@ -94,6 +95,7 @@ enum AccountCode: string
             Department::Surgery->value => self::SURGERY_REVENUE,
             Department::Lasik->value => self::LASIK_REVENUE,
             Department::Laser->value => self::LASER_REVENUE,
+            Department::Pentacam->value => self::PENTACAM_REVENUE,
         ];
     }
 

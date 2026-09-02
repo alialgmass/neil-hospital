@@ -17,7 +17,6 @@ import DataTable from '@/components/shared/DataTable.vue';
 import DateFilter from '@/components/shared/DateFilter.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
-import SearchBar from '@/components/shared/SearchBar.vue';
 import StatCard from '@/components/shared/StatCard.vue';
 import BookingForm from './Partials/BookingForm.vue';
 
@@ -159,6 +158,7 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
 
 const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
@@ -202,6 +202,11 @@ const allStatCards = [
         key: 'laser',
         label: 'الليزر',
         color: 'danger' as const,
+    },
+    {
+        key: 'pentacam',
+        label: 'البنتكام',
+        color: 'accent' as const,
     },
 ];
 
@@ -287,9 +292,11 @@ const visibleStatusOptions = computed(() =>
 
 const bookingNextStates = computed<Record<string, { value: string; label: string }[]>>(() => {
     const map: Record<string, { value: string; label: string }[]> = {};
+
     for (const [current, nexts] of Object.entries(bookingNextStatesAll)) {
         map[current] = nexts.filter((n) => isStatusVisible(n.value));
     }
+
     return map;
 });
 
@@ -312,6 +319,18 @@ function printReceipt(id: string) {
 
 function printBarcode(id: string) {
     window.open(`/booking/${id}/barcode`, '_blank');
+}
+
+function exportExcel() {
+    const params = new URLSearchParams({
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+        dept: selectedDept.value,
+        status: selectedStatus.value,
+        search: search.value,
+    }).toString();
+
+    window.location.href = `/booking/export${params ? '?' + params : ''}`;
 }
 
 function openEditBooking(row: Booking) {
@@ -444,7 +463,7 @@ const isDeleteModalOpen = computed({
                 <p class="card-title text-[13px] font-bold text-hospital-text">{{ currentDeptLabel }}</p>
                 <p class="card-sub text-[10px] text-hospital-text-3">إجمالي الحجوزات: {{ bookings.total }}</p>
             </div>
-            <ExportBar @print="() => window.print()" />
+            <ExportBar @export="exportExcel" @print="() => window.print()" />
         </div>
 
         <!-- Table -->

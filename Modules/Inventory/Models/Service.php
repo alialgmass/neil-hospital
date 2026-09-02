@@ -17,6 +17,8 @@ class Service extends Model
         'name',
         'dept',
         'price',
+        'one_eye_price',
+        'both_eyes_price',
         'ins_price',
         'center_type',
         'center_val',
@@ -31,6 +33,8 @@ class Service extends Model
     {
         return [
             'price' => 'float',
+            'one_eye_price' => 'float',
+            'both_eyes_price' => 'float',
             'ins_price' => 'float',
             'center_val' => 'float',
             'center_share' => 'float',

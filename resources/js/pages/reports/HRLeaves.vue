@@ -87,6 +87,7 @@ const deptLabels: Record<string, string> = {
     clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات',
     lasik: 'الليزك', laser: 'الليزر', reception: 'الاستقبال',
     admin: 'الإدارة', pharmacy: 'الصيدلية', hr: 'الموارد البشرية',
+    pentacam: 'وحدة البنتكام',
 };
 </script>
 

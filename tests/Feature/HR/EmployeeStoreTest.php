@@ -30,12 +30,12 @@ class EmployeeStoreTest extends TestCase
     public function test_admin_can_store_employee(): void
     {
         $response = $this->actingAs($this->admin)->post('/employees', [
-            'name'          => 'أحمد محمد',
-            'dept'          => 'التمريض',
-            'position'      => 'ممرض',
-            'hire_date'     => '2026-01-01',
+            'name' => 'أحمد محمد',
+            'dept' => 'التمريض',
+            'position' => 'ممرض',
+            'hire_date' => '2026-01-01',
             'contract_type' => 'full_time',
-            'status'        => 'active',
+            'status' => 'active',
         ]);
 
         $response->assertRedirect();
@@ -47,16 +47,17 @@ class EmployeeStoreTest extends TestCase
         $staffRole = Role::firstOrCreate(['name' => 'reception']);
 
         $response = $this->actingAs($this->admin)->post('/employees', [
-            'employee_no'   => 'EMP-0099',
-            'name'          => 'سارة موظفة',
-            'email'         => 'sara@example.com',
-            'password'      => 'secret-password',
-            'role'          => $staffRole->name,
-            'dept'          => 'الاستقبال',
-            'position'      => 'موظفة استقبال',
-            'hire_date'     => '2026-01-01',
+            'employee_no' => 'EMP-0099',
+            'name' => 'سارة موظفة',
+            'username' => 'sara.employee',
+            'email' => 'sara@example.com',
+            'password' => 'secret-password',
+            'role' => $staffRole->name,
+            'dept' => 'الاستقبال',
+            'position' => 'موظفة استقبال',
+            'hire_date' => '2026-01-01',
             'contract_type' => 'full_time',
-            'status'        => 'active',
+            'status' => 'active',
         ]);
 
         $response->assertRedirect();
@@ -64,20 +65,21 @@ class EmployeeStoreTest extends TestCase
 
         $employee = Employee::where('email', 'sara@example.com')->firstOrFail();
         $this->assertNotNull($employee->user_id);
+        $this->assertSame('sara.employee', $employee->user->username);
         $this->assertTrue($employee->user->hasRole('reception'));
     }
 
     public function test_store_defaults_salary_to_zero_when_empty(): void
     {
         $response = $this->actingAs($this->admin)->post('/employees', [
-            'name'          => 'فاطمة علي',
-            'dept'          => 'الإدارة',
-            'position'      => 'سكرتيرة',
-            'hire_date'     => '2026-01-01',
-            'base_salary'   => '',
-            'allowances'    => '',
+            'name' => 'فاطمة علي',
+            'dept' => 'الإدارة',
+            'position' => 'سكرتيرة',
+            'hire_date' => '2026-01-01',
+            'base_salary' => '',
+            'allowances' => '',
             'contract_type' => 'full_time',
-            'status'        => 'active',
+            'status' => 'active',
         ]);
 
         $response->assertRedirect();
@@ -87,13 +89,55 @@ class EmployeeStoreTest extends TestCase
     public function test_store_requires_name(): void
     {
         $response = $this->actingAs($this->admin)->post('/employees', [
-            'dept'          => 'التمريض',
-            'position'      => 'ممرض',
-            'hire_date'     => '2026-01-01',
+            'dept' => 'التمريض',
+            'position' => 'ممرض',
+            'hire_date' => '2026-01-01',
             'contract_type' => 'full_time',
-            'status'        => 'active',
+            'status' => 'active',
         ]);
 
         $response->assertSessionHasErrors('name');
+    }
+
+    public function test_store_requires_username_when_password_is_provided(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'name' => 'خالد موظف',
+            'email' => 'khaled@example.com',
+            'password' => 'secret-password',
+            'dept' => 'الإدارة',
+            'position' => 'محاسب',
+            'hire_date' => '2026-01-01',
+            'contract_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
+        $response->assertSessionHasErrors('username');
+        $this->assertDatabaseMissing('users', ['email' => 'khaled@example.com']);
+    }
+
+    public function test_store_rejects_duplicate_username(): void
+    {
+        User::create([
+            'name' => 'مستخدم موجود',
+            'username' => 'taken.user',
+            'email' => 'taken@example.com',
+            'password' => bcrypt('secret-password'),
+        ]);
+
+        $response = $this->actingAs($this->admin)->post('/employees', [
+            'employee_no' => 'EMP-0100',
+            'name' => 'آخر موظف',
+            'username' => 'taken.user',
+            'password' => 'secret-password',
+            'role' => 'reception',
+            'dept' => 'الاستقبال',
+            'position' => 'موظف استقبال',
+            'hire_date' => '2026-01-01',
+            'contract_type' => 'full_time',
+            'status' => 'active',
+        ]);
+
+        $response->assertSessionHasErrors('username');
     }
 }

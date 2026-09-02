@@ -6,6 +6,7 @@ use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Services\ServicePricingService;
 use Modules\Surgery\Services\SurgeryService;
 
 class StoreBookingRequest extends FormRequest
@@ -13,6 +14,24 @@ class StoreBookingRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->can('booking.create') ?? false;
+    }
+
+    /**
+     * The booking price is always derived server-side from the selected
+     * service's one-eye / both-eyes prices — the client-submitted price is
+     * not trusted.
+     */
+    protected function prepareForValidation(): void
+    {
+        $price = app(ServicePricingService::class)->priceFor(
+            $this->input('service_id'),
+            $this->input('eye_side'),
+            $this->input('price') !== null ? (float) $this->input('price') : null,
+        );
+
+        if ($price !== null) {
+            $this->merge(['price' => $price]);
+        }
     }
 
     public function rules(): array

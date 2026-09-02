@@ -3,6 +3,8 @@
 namespace Modules\Booking\Repositories;
 
 use App\Repositories\BaseRepository;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Booking\DTOs\BookingFilterData;
@@ -18,6 +20,21 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
     }
 
     public function filterAndPaginate(BookingFilterData $filter): LengthAwarePaginator
+    {
+        return $this->filterQuery($filter)->paginate($filter->perPage);
+    }
+
+    /**
+     * All bookings matching the given filters (no pagination) — used by Excel export.
+     *
+     * @return Collection<int, Booking>
+     */
+    public function filteredAll(BookingFilterData $filter): Collection
+    {
+        return $this->filterQuery($filter)->get();
+    }
+
+    private function filterQuery(BookingFilterData $filter): Builder
     {
         $query = Booking::query()
             ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
@@ -66,7 +83,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             });
         }
 
-        return $query->paginate($filter->perPage);
+        return $query;
     }
 
     public function findOrFail(string $id): Booking

@@ -22,6 +22,8 @@ interface Employee {
     national_id?: string;
     phone?: string;
     email?: string;
+    username?: string;
+    user?: { id: number; name?: string; email?: string; username?: string };
     dept: string;
     position: string;
     hire_date: string;
@@ -113,7 +115,7 @@ const addForm = useForm({
     name: '',
     national_id: '',
     phone: '',
-    email: '',
+    username: '',
     dept: '',
     position: '',
     hire_date: '',
@@ -142,7 +144,7 @@ const editForm = useForm({
     name: '',
     national_id: '',
     phone: '',
-    email: '',
+    username: '',
     dept: '',
     position: '',
     hire_date: '',
@@ -159,7 +161,7 @@ function openEdit(e: Employee) {
     editForm.name = e.name;
     editForm.national_id = e.national_id ?? '';
     editForm.phone = e.phone ?? '';
-    editForm.email = e.email ?? '';
+    editForm.username = e.username ?? e.user?.username ?? '';
     editForm.dept = e.dept;
     editForm.position = e.position;
     editForm.hire_date = e.hire_date;
@@ -494,14 +496,14 @@ function submitEdit() {
                     </p>
                 </div>
                 <div>
-                    <label class="form-label">البريد الإلكتروني</label>
+                    <label class="form-label">اسم المستخدم</label>
                     <input
-                        v-model="addForm.email"
-                        type="email"
+                        v-model="addForm.username"
+                        type="text"
                         class="input-field"
                     />
-                    <p v-if="addForm.errors.email" class="form-error">
-                        {{ addForm.errors.email }}
+                    <p v-if="addForm.errors.username" class="form-error">
+                        {{ addForm.errors.username }}
                     </p>
                 </div>
                 <div>
@@ -693,14 +695,14 @@ function submitEdit() {
                     </p>
                 </div>
                 <div>
-                    <label class="form-label">البريد الإلكتروني</label>
+                    <label class="form-label">اسم المستخدم</label>
                     <input
-                        v-model="editForm.email"
-                        type="email"
+                        v-model="editForm.username"
+                        type="text"
                         class="input-field"
                     />
-                    <p v-if="editForm.errors.email" class="form-error">
-                        {{ editForm.errors.email }}
+                    <p v-if="editForm.errors.username" class="form-error">
+                        {{ editForm.errors.username }}
                     </p>
                 </div>
                 <div>
