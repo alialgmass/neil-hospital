@@ -78,6 +78,7 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                     'gender' => 'unknown',
                     'dept' => Department::Surgery,
                     'service_name' => $row['service_name'],
+                    'service_id' => $this->resolveServiceId($row['service_name'], $surgeryServices, $fallbackServiceId),
                     'doctor_id' => $doctor?->id,
                     'ins_company_id' => ($isInsurance && $insCompany) ? $insCompany->id : null,
                     'visit_date' => $row['visit_date'],
@@ -171,6 +172,13 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
         }
 
         return $keyed;
+    }
+
+    private function resolveServiceId(string $serviceName, array $serviceMap, ?string $fallbackId): ?string
+    {
+        return $serviceMap[$serviceName]
+            ?? collect($serviceMap)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
+            ?? $fallbackId;
     }
 
     /** @return array<int, array<string, mixed>> */

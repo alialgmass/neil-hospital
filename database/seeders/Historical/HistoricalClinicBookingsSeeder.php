@@ -12,6 +12,7 @@ use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
+use Modules\Inventory\Models\Service;
 
 /**
  * Seeds historical clinic examination bookings (كشف sheet).
@@ -29,6 +30,9 @@ class HistoricalClinicBookingsSeeder extends Seeder
         $adminId = User::min('id');
         $doctors = $this->loadDoctors();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
+
+        $clinicServices = Service::where('dept', 'clinic')->pluck('id', 'name')->toArray();
+        $fallbackServiceId = collect($clinicServices)->first() ?? Service::where('name', 'كشف')->value('id');
 
         $created = 0;
         $skipped = 0;
@@ -52,6 +56,7 @@ class HistoricalClinicBookingsSeeder extends Seeder
                 'gender' => 'unknown',
                 'dept' => Department::Clinic,
                 'service_name' => 'كشف طبي',
+                'service_id' => $this->resolveServiceId('كشف طبي', $clinicServices, $fallbackServiceId),
                 'doctor_id' => $doctor?->id,
                 'visit_date' => $row['visit_date'],
                 'visit_time' => '09:00',
@@ -93,6 +98,15 @@ class HistoricalClinicBookingsSeeder extends Seeder
         }
 
         return $keyed;
+    }
+
+    private function resolveServiceId(string $serviceName, array $serviceMap, ?string $fallbackId): ?string
+    {
+        $id = $serviceMap[$serviceName]
+            ?? collect($serviceMap)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
+            ?? $fallbackId;
+
+        return $id;
     }
 
     /** @return array<int, array<string, mixed>> */

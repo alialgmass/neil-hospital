@@ -14,6 +14,7 @@ use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
+use Modules\Inventory\Models\Service;
 
 /**
  * Seeds historical lab bookings:
@@ -36,6 +37,9 @@ class HistoricalLabsBookingsSeeder extends Seeder
         $doctors = $this->loadDoctors();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
         $doctorAction = app(AutoPostDoctorDuesAction::class);
+
+        $labsServices = Service::where('dept', 'labs')->pluck('id', 'name')->toArray();
+        $fallbackServiceId = $labsServices['فحص قرنيه'] ?? $labsServices['فحص قرنية'] ?? collect($labsServices)->first() ?? null;
 
         $created = 0;
         $skipped = 0;
@@ -60,6 +64,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'gender' => 'unknown',
                 'dept' => Department::Labs,
                 'service_name' => $row['service_name'],
+                'service_id' => $this->resolveServiceId($row['service_name'], $labsServices, $fallbackServiceId),
                 'doctor_id' => $doctor?->id,
                 'visit_date' => $row['visit_date'],
                 'visit_time' => '10:00',
@@ -108,6 +113,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'gender' => 'unknown',
                 'dept' => Department::Labs,
                 'service_name' => $row['service_name'],
+                'service_id' => $this->resolveServiceId($row['service_name'], $labsServices, $fallbackServiceId),
                 'doctor_id' => $doctor?->id,
                 'visit_date' => $row['visit_date'],
                 'visit_time' => '10:00',
@@ -163,6 +169,13 @@ class HistoricalLabsBookingsSeeder extends Seeder
         }
 
         return $keyed;
+    }
+
+    private function resolveServiceId(string $serviceName, array $serviceMap, ?string $fallbackId): ?string
+    {
+        return $serviceMap[$serviceName]
+            ?? collect($serviceMap)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
+            ?? $fallbackId;
     }
 
     /** @return array<int, array<string, mixed>> */

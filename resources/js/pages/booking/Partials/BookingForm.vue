@@ -280,12 +280,6 @@ function submit() {
 
 <template>
     <form @submit.prevent="submit">
-        <div
-            v-if="props.booking?.status === 'completed'"
-            class="mb-4 rounded-lg border border-hospital-warning bg-hospital-warning-pale px-3 py-2 text-xs font-bold text-hospital-warning"
-        >
-            تنبيه: أنت تعدّل حجزاً مكتملاً. هذا التعديل استثنائي ويتطلب صلاحية خاصة.
-        </div>
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div>
                 <PatientFields
