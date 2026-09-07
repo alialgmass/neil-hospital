@@ -16,6 +16,14 @@ use Illuminate\Database\Seeder;
  *   3. Surgery      — creates bookings + insurance claims (dept: surgery)
  *   4. Clinic       — creates bookings (dept: clinic)
  *   5. Labs         — creates bookings for pentacam + radiology (dept: labs)
+ *
+ * Accounting: every booking's entries are posted through the AutoPost* actions
+ * (never a hardcoded account id/code), so this data automatically tracks the
+ * chart of accounts described by Modules\Accounting\Enums\AccountCode — currently
+ * الدليل المحاسبي v2.0. Coverage guarded by
+ * tests/Feature/Accounting/HistoricalSeederAccountingTest.php (ledger foots,
+ * no post to a non-postable account). Requires services to be seeded/imported
+ * first (each booking resolves a service by dept).
  */
 class HistoricalSeeder extends Seeder
 {
