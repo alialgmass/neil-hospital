@@ -74,12 +74,12 @@ class ProcessBundleSupplyAccountingTest extends TestCase
 
         app(ProcessBundleSupplyAction::class)->process($bundle->id, 1);
 
-        $recovery = Account::where('code', '4230')->firstOrFail();
+        $recovery = Account::where('code', '5115')->firstOrFail();
         $patientSales = Account::where('code', '4210')->firstOrFail();
         $doctorPayable = Account::where('code', '2010')->firstOrFail();
 
         $chargeEntry = JournalEntry::where('credit_account_id', $recovery->id)->first();
-        $this->assertNotNull($chargeEntry, 'Bundle charge should credit 4230 (doctor recovery), not 4210 (patient sales)');
+        $this->assertNotNull($chargeEntry, 'Bundle charge should credit 5115 (contra-expense), not 4210 (patient sales)');
         $this->assertSame($doctorPayable->id, $chargeEntry->debit_account_id);
         $this->assertEquals(200.00, (float) $chargeEntry->amount);
         $this->assertSame(0, JournalEntry::where('credit_account_id', $patientSales->id)->count());

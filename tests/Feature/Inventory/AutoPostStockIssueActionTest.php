@@ -22,7 +22,7 @@ class AutoPostStockIssueActionTest extends TestCase
 
         $this->actingAs(User::factory()->create());
 
-        Account::create(['code' => '1050', 'name' => 'المخزون', 'group' => 'assets', 'nature' => 'debit']);
+        Account::create(['code' => '1051', 'name' => 'مخزون — مستلزمات طبية', 'group' => 'assets', 'nature' => 'debit']);
         Account::create(['code' => '5010', 'name' => 'تكلفة مستلزمات طبية', 'group' => 'expenses', 'nature' => 'debit']);
         Account::create(['code' => '5250', 'name' => 'مصروفات إدارية وتسويقية', 'group' => 'expenses', 'nature' => 'debit']);
         Account::create(['code' => '5240', 'name' => 'مصروفات الصيانة', 'group' => 'expenses', 'nature' => 'debit']);

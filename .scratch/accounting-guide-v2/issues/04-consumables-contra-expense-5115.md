@@ -13,3 +13,5 @@
 - [ ] Cost center = the service's center
 - [ ] TDD at the `ProcessBundleSupplyAction` seam (rewrite `ProcessBundleSupplyAccountingTest`): assert inventory relieved at cost, 5115 credited at sale price, net doctor payable reduced, center margin = sale − purchase
 - [ ] `vendor/bin/pint --dirty` clean; affected tests green
+
+**Note (from ticket 01):** the v2.0 chart is already seeded (5115, 4110-4150, per-payer master 1030, net-salary master 2030). This ticket additionally owns: seeding the entity sub-accounts under its master, flipping that master to non-postable, and routing its AutoPost action(s) through an entity->leaf resolver.

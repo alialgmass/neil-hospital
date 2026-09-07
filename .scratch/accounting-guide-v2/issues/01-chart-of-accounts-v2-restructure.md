@@ -4,7 +4,15 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** DONE (commit on `feat/accounting-guide-v2`)
+
+**Implementation note:** the additive renumber + inventory master/leaf split + all new
+v2.0 accounts landed. Making `2010/2020/2030` non-postable and seeding per-doctor /
+per-supplier / per-employee (2201–2235 / 2301–2324 / 2401–2416) and per-payer
+(1031–1047) sub-accounts is **deferred** into tickets 05/04, 10, and 06 respectively —
+`AccountResolver::mustBePostableAndActive()` rejects any account with children, so a
+master can only be flipped in the same slice that teaches its posting actions to
+resolve the entity-specific leaf. Tests: `tests/Feature/Accounting/ChartOfAccountsV2Test.php`.
 
 - [ ] `AccountCode` enum extended with: 1011 (development fund), 1080 (prepaid withholding tax), 1090–1096 (per-center cash tracking), 1120/1121, 1130/1131, 1140/1141, 1150/1151, 1160/1161 (gross-asset + contra-accumulated-depreciation pairs), 2041 (social insurance payable), 2060 (accrued expenses), 2070 (income-tax payable), 3030, 3040, 4060 (pentacam revenue), 4110–4150 (insurance revenue by department), 4910/4920 (contra-revenue), 5115 (contra-expense — supply cost recovered from doctor), 5211 (hospital social-insurance share), 5261–5265 (depreciation by asset class)
 - [ ] Per-doctor (2201–2235), per-supplier (2301–2324), per-employee (2401–2416) sub-account ranges seeded under non-postable masters (2010 doctors, 2020 suppliers, 2030 net-salary master); first-cohort codes from the guide seeded

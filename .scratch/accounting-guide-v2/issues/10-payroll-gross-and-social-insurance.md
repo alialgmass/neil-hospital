@@ -12,3 +12,5 @@
 - [ ] Accrual, payment, and remittance each idempotent
 - [ ] TDD at the `AutoPostPayrollAction` seam (new `tests/Feature/HR/`): approve → assert 4 lines; pay → assert payable clears; remit → assert 2041 clears
 - [ ] `vendor/bin/pint --dirty` clean; affected tests green
+
+**Note (from ticket 01):** the v2.0 chart is already seeded (5115, 4110-4150, per-payer master 1030, net-salary master 2030). This ticket additionally owns: seeding the entity sub-accounts under its master, flipping that master to non-postable, and routing its AutoPost action(s) through an entity->leaf resolver.

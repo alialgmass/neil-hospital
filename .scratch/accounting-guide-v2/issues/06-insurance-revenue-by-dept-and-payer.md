@@ -12,3 +12,5 @@
 - [ ] `onReject` reverses `onSubmit` at the original amount against the per-payer receivable + department revenue account
 - [ ] TDD at the `AutoPostInsuranceClaimAction` seam: extend `InsuranceClaimAccountingTest` — submit for each department + payer, reject, assert exact reversal
 - [ ] `vendor/bin/pint --dirty` clean; affected tests green
+
+**Note (from ticket 01):** the v2.0 chart is already seeded (5115, 4110-4150, per-payer master 1030, net-salary master 2030). This ticket additionally owns: seeding the entity sub-accounts under its master, flipping that master to non-postable, and routing its AutoPost action(s) through an entity->leaf resolver.
