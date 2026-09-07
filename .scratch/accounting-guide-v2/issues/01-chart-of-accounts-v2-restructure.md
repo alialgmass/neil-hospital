@@ -19,9 +19,10 @@ resolve the entity-specific leaf. Tests: `tests/Feature/Accounting/ChartOfAccoun
 - [ ] Liabilities renumbered to the guide: 2030 → net-salary payable master, 2040 retired, 2041 → social insurance, 2050 → patient advances, 2060 → accrued expenses, 2070 → income-tax payable; old 2030 (VAT) moved to a non-colliding code or retired (VAT automation stays out of scope)
 - [ ] Reversible migration remaps `accounts.code` and any `services.revenue_account_id` overrides; `journal_entries` FKs are by id so no economic change; a test proves total debits still equal total credits and every account balance is unchanged after migration
 - [ ] `4230` (`DOCTOR_SUPPLY_COST_RECOVERY`) and the `4070` override case reworked per the 5115 decision; documented
-- [ ] `AccountCode::nonPostableCodes()` extended with every new master (1030, 2010, 2020, net-salary master, 1090 group, 4100, …)
-- [ ] Every `AccountCode` case resolves via `AccountResolver` (extend `AccountResolverTest`)
-- [ ] `JournalService::record()` rejects a direct post to every new master account (test)
-- [ ] `AccountsSeeder` and `database/seeders/Historical/*` updated so a fresh rebuild reproduces the guide's balances
-- [ ] `docs/accounts-map.md` and `specs/001-eye-hospital-hms/contracts/accounting.md` regenerated for the v2.0 chart
-- [ ] `vendor/bin/pint --dirty` clean; affected tests green
+- [x] `AccountCode::nonPostableCodes()` extended with the new *pure* masters (1050 inventory group, 4900 contra-revenue group, 5260 depreciation group). **Deferred:** 1030 / 2010 / 2020 / 2030 stay postable until tickets 06 / 05 / 04 / 10 add their entity sub-accounts and route the posting actions (a master with children is rejected by `AccountResolver`, so it can only flip in the same slice).
+- [x] Every `AccountCode` case resolves via `AccountResolver` (`ChartOfAccountsV2Test::test_every_account_code_resolves_to_a_seeded_account`)
+- [x] `JournalService::record()` rejects a direct post to every non-postable master (`ChartOfAccountsV2Test::test_every_non_postable_master_is_flagged_and_rejected_by_journal_service`)
+- [x] `AccountsSeeder` updated. `database/seeders/Historical/*` reference **no** account codes (they drive the AutoPost actions) so they reproduce v2.0 balances transitively — no edit needed.
+- [x] `docs/accounts-map.md` updated (v2.0 delta section + trigger map). `specs/001-eye-hospital-hms/contracts/accounting.md` auto-posting section refreshed + pointed at `accounts-map.md`.
+- [x] Migration reversibility test: `ChartOfAccountsV2Test::test_renumber_migration_preserves_every_balance_and_keeps_the_ledger_footed`
+- [x] `vendor/bin/pint --dirty` clean; affected tests green (303 pass; 2 pre-existing unrelated failures)

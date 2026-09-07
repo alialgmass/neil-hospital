@@ -2,6 +2,9 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Modules\Accounting\Enums\AccountGroup;
+use Modules\Accounting\Enums\AccountNature;
 
 /**
  * Renumber the chart of accounts to الدليل المحاسبي v2.0 (الإصدار 2.0 — أغسطس 2026).
@@ -15,15 +18,22 @@ use Illuminate\Support\Facades\DB;
  * are moved out of the way first (VAT 2030 → 2035, retina 4060 → 4065, the
  * fixed-asset shuffle) before the accounts that claim those numbers are moved.
  * This migration only relabels existing rows; run `db:seed --class=AccountsSeeder`
- * afterwards (deploy step) to upsert every account to its final name, nature,
- * parent and is_postable flag and to insert the accounts new in v2.0.
+ * in the same deploy so every account gets its final name, nature, parent and
+ * is_postable flag and the accounts new in v2.0 are inserted. Running the seeder
+ * without this migration would strand the pre-v2 `1050` inventory balance on a
+ * non-postable group account.
  */
 return new class extends Migration
 {
-    /** @var array<int, array{0:string,1:string}> ordered [from, to] relabels */
+    /**
+     * Ordered [from, to] code relabels. Reversed on down().
+     *
+     * @var array<int, array{0:string, 1:string}>
+     */
     private const RELABELS = [
         ['2030', '2035'], // retire VAT payable (VAT automation stays out of scope)
         ['4060', '4065'], // retire standalone retina revenue (no equivalent in v2.0)
+        ['4120', '4125'], // retire reserved "insurance revenue collected" (unused)
         ['1140', '1150'], // computers
         ['1130', '1140'], // furniture
         ['1110', '1130'], // medical equipment
@@ -41,17 +51,15 @@ return new class extends Migration
             $this->relabel($from, $to);
         }
 
-        // 4230 changes meaning from a revenue account to an expense contra-account.
-        DB::table('accounts')->where('code', '5115')->update([
-            'group' => 'expenses',
-            'nature' => 'credit',
-            'name' => '(-) استرداد تكلفة من الطبيب',
-            'updated_at' => now(),
-        ]);
+        // 4230 (a revenue account) becomes 5115, a credit-nature contra-expense.
+        $this->reclassify('5115', AccountGroup::Expenses, AccountNature::Credit, '(-) استرداد تكلفة من الطبيب');
     }
 
     public function down(): void
     {
+        // Undo the reclassify first — while the row still carries the new code.
+        $this->reclassify('5115', AccountGroup::Revenues, AccountNature::Credit, 'استرداد تكلفة مستلزمات من الطبيب');
+
         foreach (array_reverse(self::RELABELS) as [$from, $to]) {
             $this->relabel($to, $from);
         }
@@ -59,11 +67,29 @@ return new class extends Migration
 
     private function relabel(string $from, string $to): void
     {
-        $source = DB::table('accounts')->where('code', $from)->first();
+        $sourceExists = DB::table('accounts')->where('code', $from)->exists();
         $targetExists = DB::table('accounts')->where('code', $to)->exists();
 
-        if ($source && ! $targetExists) {
-            DB::table('accounts')->where('code', $from)->update(['code' => $to, 'updated_at' => now()]);
+        if (! $sourceExists) {
+            return;
         }
+
+        if ($targetExists) {
+            Log::warning("chart_of_accounts_v2: skipped relabel {$from} → {$to} — target code already exists.");
+
+            return;
+        }
+
+        DB::table('accounts')->where('code', $from)->update(['code' => $to, 'updated_at' => now()]);
+    }
+
+    private function reclassify(string $code, AccountGroup $group, AccountNature $nature, string $name): void
+    {
+        DB::table('accounts')->where('code', $code)->update([
+            'group' => $group->value,
+            'nature' => $nature->value,
+            'name' => $name,
+            'updated_at' => now(),
+        ]);
     }
 };
