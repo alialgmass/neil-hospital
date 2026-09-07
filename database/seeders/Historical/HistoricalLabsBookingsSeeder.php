@@ -5,7 +5,7 @@ namespace Database\Seeders\Historical;
 use App\Enums\Department;
 use App\Enums\EyeSide;
 use App\Models\User;
-use Database\Seeders\Historical\Concerns\NormalizesArabic;
+use Database\Seeders\Historical\Concerns\ResolvesHistoricalLinks;
 use Illuminate\Database\Seeder;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
@@ -13,8 +13,6 @@ use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\States\CompletedState;
-use Modules\Doctor\Models\Doctor;
-use Modules\Inventory\Models\Service;
 
 /**
  * Seeds historical lab bookings:
@@ -29,17 +27,13 @@ use Modules\Inventory\Models\Service;
  */
 class HistoricalLabsBookingsSeeder extends Seeder
 {
-    use NormalizesArabic;
+    use ResolvesHistoricalLinks;
 
     public function run(): void
     {
         $adminId = User::min('id');
-        $doctors = $this->loadDoctors();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
         $doctorAction = app(AutoPostDoctorDuesAction::class);
-
-        $labsServices = Service::where('dept', 'labs')->pluck('id', 'name')->toArray();
-        $fallbackServiceId = $labsServices['فحص قرنيه'] ?? $labsServices['فحص قرنية'] ?? collect($labsServices)->first() ?? null;
 
         $created = 0;
         $skipped = 0;
@@ -52,8 +46,6 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 continue;
             }
 
-            $doctor = $doctors[$row['doctor_name']] ?? $doctors[$this->normalizeArabic($row['doctor_name'])] ?? null;
-
             /** @var Booking $booking */
             $booking = Booking::create([
                 'file_no' => $row['file_no'],
@@ -64,8 +56,8 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'gender' => 'unknown',
                 'dept' => Department::Labs,
                 'service_name' => $row['service_name'],
-                'service_id' => $this->resolveServiceId($row['service_name'], $labsServices, $fallbackServiceId),
-                'doctor_id' => $doctor?->id,
+                'service_id' => $this->resolveServiceId($row['service_name'], 'labs', (float) $row['price']),
+                'doctor_id' => $this->resolveDoctorId($row['doctor_name'] ?? null),
                 'visit_date' => $row['visit_date'],
                 'visit_time' => '10:00',
                 'price' => $row['price'],
@@ -99,7 +91,7 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 continue;
             }
 
-            $doctor = $doctors[$row['doctor_name']] ?? $doctors[$this->normalizeArabic($row['doctor_name'])] ?? null;
+            $doctorId = $this->resolveDoctorId($row['doctor_name'] ?? null);
             $eyeSide = EyeSide::tryFrom($row['eye_side'] ?? 'OU') ?? EyeSide::OU;
             $drShare = (float) ($row['dr_share'] ?? 0);
 
@@ -113,8 +105,8 @@ class HistoricalLabsBookingsSeeder extends Seeder
                 'gender' => 'unknown',
                 'dept' => Department::Labs,
                 'service_name' => $row['service_name'],
-                'service_id' => $this->resolveServiceId($row['service_name'], $labsServices, $fallbackServiceId),
-                'doctor_id' => $doctor?->id,
+                'service_id' => $this->resolveServiceId($row['service_name'], 'labs', (float) $row['price']),
+                'doctor_id' => $doctorId,
                 'visit_date' => $row['visit_date'],
                 'visit_time' => '10:00',
                 'price' => $row['price'],
@@ -134,11 +126,11 @@ class HistoricalLabsBookingsSeeder extends Seeder
             $bookingAction->execute($booking);
 
             // Dr 5130 / Cr 2010  (Doctor dues accrual for radiology)
-            if ($drShare > 0 && $doctor) {
+            if ($drShare > 0 && $doctorId) {
                 $doctorAction->execute(
                     dept: Department::Labs,
                     amount: $drShare,
-                    doctorName: $doctor->name,
+                    doctorName: (string) ($row['doctor_name'] ?? ''),
                     reference: $row['file_no'],
                     date: $row['visit_date'],
                     idempotencyKey: "doctor_dues_hist:{$row['file_no']}",
@@ -149,33 +141,6 @@ class HistoricalLabsBookingsSeeder extends Seeder
         }
 
         $this->command->line("  ✓ Labs (Radiology): {$created} created, {$skipped} skipped");
-    }
-
-    /** @return array<string, Doctor> */
-    private function loadDoctors(): array
-    {
-        $map = [];
-        foreach (Doctor::all() as $doc) {
-            $map[$this->normalizeArabic($doc->name)] = $doc;
-        }
-
-        $keyed = [];
-        foreach (HistoricalDoctorsSeeder::DOCTORS as $key => $data) {
-            $doc = $map[$this->normalizeArabic($data['name'])] ?? null;
-            if ($doc) {
-                $keyed[$key] = $doc;
-                $keyed[$this->normalizeArabic($key)] = $doc;
-            }
-        }
-
-        return $keyed;
-    }
-
-    private function resolveServiceId(string $serviceName, array $serviceMap, ?string $fallbackId): ?string
-    {
-        return $serviceMap[$serviceName]
-            ?? collect($serviceMap)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
-            ?? $fallbackId;
     }
 
     /** @return array<int, array<string, mixed>> */

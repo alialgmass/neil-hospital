@@ -17,13 +17,18 @@ use Illuminate\Database\Seeder;
  *   4. Clinic       — creates bookings (dept: clinic)
  *   5. Labs         — creates bookings for pentacam + radiology (dept: labs)
  *
+ * Doctors and services: each booking row carries a doctor and a service name
+ * from the source sheet (جهار 1 (1).xlsx). ResolvesHistoricalLinks matches
+ * those against real doctors/services (spelling-tolerant) and creates any that
+ * are missing, so no booking is left with a null/invalid doctor_id or
+ * service_id — services do not need to be seeded beforehand.
+ *
  * Accounting: every booking's entries are posted through the AutoPost* actions
  * (never a hardcoded account id/code), so this data automatically tracks the
  * chart of accounts described by Modules\Accounting\Enums\AccountCode — currently
  * الدليل المحاسبي v2.0. Coverage guarded by
- * tests/Feature/Accounting/HistoricalSeederAccountingTest.php (ledger foots,
- * no post to a non-postable account). Requires services to be seeded/imported
- * first (each booking resolves a service by dept).
+ * tests/Feature/Accounting/HistoricalSeederAccountingTest.php (doctor/service
+ * linkage, ledger foots, no post to a non-postable account).
  */
 class HistoricalSeeder extends Seeder
 {

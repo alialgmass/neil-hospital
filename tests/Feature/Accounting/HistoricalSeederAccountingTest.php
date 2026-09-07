@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
-use Modules\Booking\Models\Service;
+use Modules\Inventory\Models\Service;
 use Tests\TestCase;
 
 /**
@@ -32,13 +32,6 @@ class HistoricalSeederAccountingTest extends TestCase
 
         User::factory()->create();
         $this->seed(AccountsSeeder::class);
-
-        // The historical seeders resolve a service per booking by dept; in a
-        // real install services come from an import. Seed the minimum here.
-        foreach (['clinic' => 'كشف طبي', 'surgery' => 'مياه بيضاء', 'labs' => 'اشعة'] as $dept => $name) {
-            Service::create(['name' => $name, 'dept' => $dept, 'price' => 500, 'status' => 'active']);
-        }
-
         $this->seed(HistoricalDoctorsSeeder::class);
         $this->seed(HistoricalInsuranceSeeder::class);
         $this->seed(HistoricalSurgeryBookingsSeeder::class);
@@ -65,6 +58,23 @@ class HistoricalSeederAccountingTest extends TestCase
             JournalEntry::whereIn('debit_account_id', $nonPostableIds)
                 ->orWhereIn('credit_account_id', $nonPostableIds)
                 ->count(),
+        );
+    }
+
+    public function test_every_historical_booking_links_a_doctor_and_a_service(): void
+    {
+        // Every booking row in the sheets carries a doctor and a service name;
+        // the seeder must resolve or create both, never leave them dangling.
+        $this->assertSame(0, Booking::whereNull('service_id')->count());
+        $this->assertGreaterThan(0, Service::whereIn('dept', ['clinic', 'surgery', 'labs'])->count());
+
+        // Rows whose "doctor" column names a real person (not a payer/centre)
+        // must be linked; at minimum the vast majority resolve.
+        $withDoctor = Booking::whereNotNull('doctor_id')->count();
+        $this->assertGreaterThan(Booking::count() * 0.8, $withDoctor);
+
+        Booking::whereNotNull('doctor_id')->get()->each(
+            fn (Booking $b) => $this->assertDatabaseHas('doctors', ['id' => $b->doctor_id]),
         );
     }
 
