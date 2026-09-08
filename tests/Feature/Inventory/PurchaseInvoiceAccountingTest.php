@@ -41,7 +41,7 @@ class PurchaseInvoiceAccountingTest extends TestCase
             ['item_name' => 'مادة', 'qty' => 5, 'unit_cost' => 100],
         ]);
 
-        $inventory = Account::where('code', '1050')->firstOrFail();
+        $inventory = Account::where('code', '1051')->firstOrFail();
         $cash = Account::where('code', '1010')->firstOrFail();
 
         $entry = JournalEntry::where('source', 'purchase')->sole();

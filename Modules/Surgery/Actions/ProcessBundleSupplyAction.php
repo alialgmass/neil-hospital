@@ -100,10 +100,10 @@ class ProcessBundleSupplyAction
     }
 
     /**
-     * Dr 2010 (مستحقات الأطباء) / Cr 4230 (استرداد تكلفة مستلزمات من الطبيب)
+     * Dr 2010 (مستحقات الأطباء) / Cr 5115 ((-) استرداد تكلفة مستلزمات من الطبيب)
      * Records the bundle price deducted from the doctor's dues — this is a
-     * commission recovery, NOT a patient sale, so it must not share 4210
-     * (Supplies Sales Revenue) with genuine patient supply sales.
+     * contra-expense that reduces net doctor fees per الدليل المحاسبي v2.0,
+     * NOT a patient sale (4210) and NOT revenue.
      */
     private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId): void
     {
@@ -113,7 +113,7 @@ class ProcessBundleSupplyAction
         }
 
         $doctorPayableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
-        $recoveryId = $this->accountResolver->id(AccountCode::DOCTOR_SUPPLY_COST_RECOVERY);
+        $recoveryId = $this->accountResolver->id(AccountCode::SUPPLY_COST_RECOVERED_FROM_DOCTOR);
 
         $this->journalService->record([
             'date' => now()->toDateString(),

@@ -217,7 +217,7 @@ class PurchaseInvoiceEditDeleteTest extends TestCase
 
         $this->assertNotNull($original->fresh()->reversed_at);
 
-        $inventory = Account::where('code', '1050')->firstOrFail();
+        $inventory = Account::where('code', '1051')->firstOrFail();
         $newEntry = JournalEntry::where('reference', $invoice->invoice_no)
             ->where('source', 'purchase')
             ->whereNull('reversed_at')

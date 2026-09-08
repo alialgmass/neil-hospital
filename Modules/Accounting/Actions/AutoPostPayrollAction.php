@@ -32,7 +32,7 @@ class AutoPostPayrollAction
         }
 
         $salariesId = $this->accountResolver->id(AccountCode::SALARIES);
-        $payableId = $this->accountResolver->id(AccountCode::EMPLOYEE_PAYABLE);
+        $payableId = $this->accountResolver->id(AccountCode::NET_SALARY_PAYABLE);
         $employeeName = $payroll->employee?->name ?? 'موظف';
 
         $this->journalService->record([
@@ -71,7 +71,7 @@ class AutoPostPayrollAction
             'source' => JournalSource::SALARY,
         ]);
 
-        $payableId = $this->accountResolver->id(AccountCode::EMPLOYEE_PAYABLE);
+        $payableId = $this->accountResolver->id(AccountCode::NET_SALARY_PAYABLE);
         $cashId = $this->accountResolver->id(AccountCode::CASH);
 
         $this->journalService->record([

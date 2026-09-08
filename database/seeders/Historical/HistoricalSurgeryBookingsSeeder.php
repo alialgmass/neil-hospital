@@ -5,7 +5,7 @@ namespace Database\Seeders\Historical;
 use App\Enums\Department;
 use App\Enums\EyeSide;
 use App\Models\User;
-use Database\Seeders\Historical\Concerns\NormalizesArabic;
+use Database\Seeders\Historical\Concerns\ResolvesHistoricalLinks;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
@@ -15,11 +15,9 @@ use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\States\CompletedState;
-use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\InsuranceCompany;
 use Modules\Insurance\States\PaidState;
-use Modules\Inventory\Models\Service;
 
 /**
  * Seeds historical surgery bookings from the operations sheet (عمليات).
@@ -34,20 +32,15 @@ use Modules\Inventory\Models\Service;
  */
 class HistoricalSurgeryBookingsSeeder extends Seeder
 {
-    use NormalizesArabic;
+    use ResolvesHistoricalLinks;
 
     public function run(): void
     {
         $adminId = User::min('id');
-        $doctors = $this->loadDoctors();
         $insCompany = InsuranceCompany::where('name', 'التأمين الصحى')->first();
         $bookingAction = app(AutoPostBookingPaymentAction::class);
         $doctorAction = app(AutoPostDoctorDuesAction::class);
         $insuranceAction = app(AutoPostInsuranceClaimAction::class);
-
-        // Build a name→id map of surgery services for claim lookup.
-        $surgeryServices = Service::where('dept', 'surgery')->pluck('id', 'name')->toArray();
-        $fallbackServiceId = $surgeryServices['مياه بيضاء'] ?? array_values($surgeryServices)[0] ?? null;
 
         $created = 0;
         $skipped = 0;
@@ -59,14 +52,14 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                 continue;
             }
 
-            $doctor = $doctors[$row['doctor_name']] ?? $doctors[$this->normalizeArabic($row['doctor_name'])] ?? null;
+            $doctorId = $this->resolveDoctorId($row['doctor_name'] ?? null);
             $isInsurance = $row['is_insurance'];
             $eyeSide = EyeSide::tryFrom($row['eye_side']) ?? EyeSide::OU;
+            $serviceId = $this->resolveServiceId($row['service_name'], 'surgery', (float) $row['price']);
 
             DB::transaction(function () use (
-                $row, $doctor, $insCompany, $isInsurance, $eyeSide,
-                $bookingAction, $doctorAction, $insuranceAction,
-                $surgeryServices, $fallbackServiceId, $adminId
+                $row, $doctorId, $serviceId, $insCompany, $isInsurance, $eyeSide,
+                $bookingAction, $doctorAction, $insuranceAction, $adminId
             ) {
                 /** @var Booking $booking */
                 $booking = Booking::create([
@@ -78,8 +71,8 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                     'gender' => 'unknown',
                     'dept' => Department::Surgery,
                     'service_name' => $row['service_name'],
-                    'service_id' => $this->resolveServiceId($row['service_name'], $surgeryServices, $fallbackServiceId),
-                    'doctor_id' => $doctor?->id,
+                    'service_id' => $serviceId,
+                    'doctor_id' => $doctorId,
                     'ins_company_id' => ($isInsurance && $insCompany) ? $insCompany->id : null,
                     'visit_date' => $row['visit_date'],
                     'visit_time' => '08:00',
@@ -97,12 +90,6 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
 
                 if ($isInsurance && $insCompany && $row['ins_amount'] > 0) {
                     // ── Insurance path ────────────────────────────────────
-                    // Match service by exact name, then by substring, then fall back.
-                    $serviceName = $row['service_name'];
-                    $serviceId = $surgeryServices[$serviceName]
-                        ?? collect($surgeryServices)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
-                        ?? $fallbackServiceId;
-
                     $claim = InsuranceClaim::create([
                         'booking_id' => $booking->id,
                         'insurance_company_id' => $insCompany->id,
@@ -135,11 +122,11 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
 
                     // Dr 5120 / Cr 2010 (Doctor dues accrual)
                     $drShare = (float) ($row['dr_share'] ?? 0);
-                    if ($drShare > 0 && $doctor) {
+                    if ($drShare > 0 && $doctorId) {
                         $doctorAction->execute(
                             dept: Department::Surgery,
                             amount: $drShare,
-                            doctorName: $doctor->name,
+                            doctorName: (string) ($row['doctor_name'] ?? ''),
                             reference: $row['file_no'],
                             date: $row['visit_date'],
                             idempotencyKey: "doctor_dues_hist:{$row['file_no']}",
@@ -152,33 +139,6 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
         }
 
         $this->command->line("  ✓ Surgery: {$created} created, {$skipped} skipped");
-    }
-
-    /** @return array<string, Doctor> */
-    private function loadDoctors(): array
-    {
-        $map = [];
-        foreach (Doctor::all() as $doc) {
-            $map[$this->normalizeArabic($doc->name)] = $doc;
-        }
-
-        $keyed = [];
-        foreach (HistoricalDoctorsSeeder::DOCTORS as $key => $data) {
-            $doc = $map[$this->normalizeArabic($data['name'])] ?? null;
-            if ($doc) {
-                $keyed[$key] = $doc;
-                $keyed[$this->normalizeArabic($key)] = $doc;
-            }
-        }
-
-        return $keyed;
-    }
-
-    private function resolveServiceId(string $serviceName, array $serviceMap, ?string $fallbackId): ?string
-    {
-        return $serviceMap[$serviceName]
-            ?? collect($serviceMap)->first(fn ($id, $name) => str_contains($serviceName, $name) || str_contains($name, $serviceName))
-            ?? $fallbackId;
     }
 
     /** @return array<int, array<string, mixed>> */

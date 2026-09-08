@@ -13,26 +13,49 @@ use Modules\Inventory\Enums\ItemCategory;
 enum AccountCode: string
 {
     // ── ASSETS ─────────────────────────────────────────────────
+    // Numbering follows الدليل المحاسبي v2.0 (الإصدار 2.0 — أغسطس 2026).
     case CURRENT_ASSETS = '1000';
     case CASH = '1010';
+    case DEVELOPMENT_FUND = '1011'; // خزنة التطوير — الاستقبال: 50 ج من كل خدمة نقدية
     case BANK = '1020';
-    case INSURANCE_RECEIVABLE = '1030';
-    case PATIENT_RECEIVABLE = '1040';
-    case INVENTORY = '1050';
+    case INSURANCE_RECEIVABLE = '1030'; // مجمع الذمم — التفصيل لكل جهة تعاقد بالأكواد 1031–1047
+    case PATIENT_RECEIVABLE = '1048';
+    case STAFF_ADVANCES = '1049';
+    case INVENTORY_GROUP = '1050'; // مجمع المخزون — لا يُرحّل
+    case INVENTORY = '1051'; // مخزون — مستلزمات طبية
+    case MEDICINE_INVENTORY = '1052';
+    case OPERATIONAL_SUPPLIES_INVENTORY = '1053';
     case PREPAID_EXPENSES = '1060';
+    case WITHHOLDING_TAX_PREPAID = '1080'; // ضريبة دخل مخصومة من المنبع — أصل قابل للاسترداد
+    case CENTER_CASH_CLINIC = '1090';
+    case CENTER_CASH_LAB = '1091';
+    case CENTER_CASH_PENTACAM = '1092';
+    case CENTER_CASH_LASER = '1093';
+    case CENTER_CASH_LASIK = '1094';
+    case CENTER_CASH_SURGERY = '1095';
+    case CENTER_CASH_INSURANCE = '1096';
     case FIXED_ASSETS = '1100';
-    case MEDICAL_EQUIPMENT = '1110';
-    case ACCUMULATED_DEPRECIATION_MEDICAL = '1120';
-    case FURNITURE = '1130';
-    case COMPUTERS = '1140';
+    case LAND = '1110';
+    case BUILDINGS = '1120';
+    case ACCUMULATED_DEPRECIATION_BUILDINGS = '1121';
+    case MEDICAL_EQUIPMENT = '1130';
+    case ACCUMULATED_DEPRECIATION_MEDICAL = '1131';
+    case FURNITURE = '1140';
+    case ACCUMULATED_DEPRECIATION_FURNITURE = '1141';
+    case COMPUTERS = '1150';
+    case ACCUMULATED_DEPRECIATION_COMPUTERS = '1151';
+    case VEHICLES = '1160';
+    case ACCUMULATED_DEPRECIATION_VEHICLES = '1161';
 
     // ── LIABILITIES ────────────────────────────────────────────
     case CURRENT_LIABILITIES = '2000';
-    case DOCTOR_PAYABLE = '2010';
-    case SUPPLIER_PAYABLE = '2020';
-    case VAT_PAYABLE = '2030';
-    case EMPLOYEE_PAYABLE = '2040';
+    case DOCTOR_PAYABLE = '2010'; // مجمع — التفصيل لكل طبيب بالأكواد 2201–2235
+    case SUPPLIER_PAYABLE = '2020'; // مجمع — التفصيل لكل مورد بالأكواد 2301–2324
+    case NET_SALARY_PAYABLE = '2030'; // مجمع مستحقات الموظفين — التفصيل بالأكواد 2401–2416
+    case SOCIAL_INSURANCE_PAYABLE = '2041';
     case PATIENT_ADVANCES = '2050';
+    case ACCRUED_EXPENSES = '2060';
+    case INCOME_TAX_PAYABLE = '2070';
     case LONG_TERM_LIABILITIES = '2100';
     case BANK_LOANS = '2110';
 
@@ -40,6 +63,7 @@ enum AccountCode: string
     case CAPITAL = '3010';
     case RETAINED_EARNINGS = '3020';
     case CURRENT_YEAR_NET_PROFIT = '3030';
+    case OWNER_DRAWINGS = '3040';
 
     // ── REVENUE ────────────────────────────────────────────────
     case OPERATING_REVENUE = '4000';
@@ -48,36 +72,61 @@ enum AccountCode: string
     case SURGERY_REVENUE = '4030';
     case LASIK_REVENUE = '4040';
     case LASER_REVENUE = '4050';
-    case RETINA_REVENUE = '4060';
-    case PENTACAM_REVENUE = '4090';
-    case HEALTH_INSURANCE_REVENUE_OVERRIDE = '4070'; // service-level revenue_account_id override, distinct from the canonical hospital-share INSURANCE_REVENUE (4110) posted by AutoPostInsuranceClaimAction
+    case PENTACAM_REVENUE = '4060';
+    case SUPPLIES_SALE_REVENUE = '4070'; // إيراد بيع مستهلكات للأطباء (فرق سعر البيع عن الشراء)
     case PHARMACY_REVENUE = '4080';
     case INSURANCE_REVENUE_GROUP = '4100';
-    case INSURANCE_REVENUE = '4110';
-    case INSURANCE_REVENUE_COLLECTED = '4120'; // unused/reserved — collections reduce 1030, they are not booked as new revenue
+    case INSURANCE_REVENUE = '4110'; // إيرادات تأمين — عيادة / حصة المستشفى (افتراضي حتى تفصيل الأقسام — تذكرة 06)
+    case INSURANCE_LAB_REVENUE = '4120';
+    case INSURANCE_SURGERY_REVENUE = '4130';
+    case INSURANCE_LASIK_REVENUE = '4140';
+    case INSURANCE_LASER_REVENUE = '4150';
     case OTHER_REVENUE_GROUP = '4200';
-    case SUPPLIES_REVENUE = '4210';
+    case SUPPLIES_REVENUE = '4210'; // بيع مستلزمات حقيقي للمريض
     case MISC_REVENUE = '4220';
-    case DOCTOR_SUPPLY_COST_RECOVERY = '4230';
+    case ASSET_SALE_GAIN = '4250';
+    case CONTRA_REVENUE_GROUP = '4900';
+    case PATIENT_DISCOUNTS = '4910';
+    case REVENUE_REFUNDS = '4920';
 
     // ── EXPENSES ───────────────────────────────────────────────
     case DIRECT_MEDICAL_COSTS = '5000';
     case SURGERY_SUPPLIES_COST = '5010';
     case LASIK_SUPPLIES_COST = '5020';
     case MEDICINE_COST = '5030';
+    case LAB_SUPPLIES_COST = '5040';
     case DOCTOR_EXPENSES_GROUP = '5100';
     case DOCTOR_CLINIC_EXPENSE = '5110';
+    case SUPPLY_COST_RECOVERED_FROM_DOCTOR = '5115'; // (-) استرداد تكلفة مستلزمات من الطبيب — حساب مقابل يخفض صافي الأتعاب
     case DOCTOR_SURGERY_EXPENSE = '5120';
     case INSURANCE_DOCTOR_FEES = '5130';
+    case VISITING_DOCTOR_FEES = '5140';
     case OPERATING_EXPENSES_GROUP = '5200';
     case SALARIES = '5210';
+    case HOSPITAL_SOCIAL_INSURANCE = '5211';
+    case BONUSES = '5212';
+    case ALLOWANCES = '5213';
+    case TRAINING = '5214';
     case RENT = '5220';
+    case BUILDING_MAINTENANCE = '5225';
     case UTILITIES = '5230';
+    case COMMUNICATIONS = '5231';
     case MAINTENANCE = '5240';
+    case OFFICE_EQUIPMENT_MAINTENANCE = '5241';
     case ADMIN_EXPENSE = '5250';
-    case DEPRECIATION = '5260';
-    case CREDIT_PURCHASE_EXPENSE = '5270';
+    case CLEANING_EXPENSE = '5251';
+    case MARKETING_EXPENSE = '5252';
+    case DEPRECIATION = '5260'; // مجمع الاستهلاك — لا يُرحّل
+    case DEPRECIATION_BUILDINGS = '5261';
+    case DEPRECIATION_MEDICAL = '5262';
+    case DEPRECIATION_FURNITURE = '5263';
+    case DEPRECIATION_COMPUTERS = '5264';
+    case DEPRECIATION_VEHICLES = '5265';
+    case TRANSPORT_EXPENSE = '5270';
     case BAD_DEBT = '5300';
+    case ASSET_SALE_LOSS = '5310';
+    case LEGAL_CONSULTING = '5330';
+    case SUBSCRIPTIONS_LICENSES = '5340';
 
     /**
      * Dept → default revenue account fallback, used when a service has no
@@ -133,7 +182,12 @@ enum AccountCode: string
     /** @return array<int, string> */
     public static function costOfServiceCodes(): array
     {
-        return [self::SURGERY_SUPPLIES_COST->value, self::LASIK_SUPPLIES_COST->value, self::MEDICINE_COST->value];
+        return [
+            self::SURGERY_SUPPLIES_COST->value,
+            self::LASIK_SUPPLIES_COST->value,
+            self::MEDICINE_COST->value,
+            self::LAB_SUPPLIES_COST->value,
+        ];
     }
 
     /** @return array<int, string> */
@@ -151,15 +205,18 @@ enum AccountCode: string
     {
         return [
             self::CURRENT_ASSETS->value,
+            self::INVENTORY_GROUP->value,
             self::FIXED_ASSETS->value,
             self::CURRENT_LIABILITIES->value,
             self::LONG_TERM_LIABILITIES->value,
             self::OPERATING_REVENUE->value,
             self::INSURANCE_REVENUE_GROUP->value,
             self::OTHER_REVENUE_GROUP->value,
+            self::CONTRA_REVENUE_GROUP->value,
             self::DIRECT_MEDICAL_COSTS->value,
             self::DOCTOR_EXPENSES_GROUP->value,
             self::OPERATING_EXPENSES_GROUP->value,
+            self::DEPRECIATION->value,
         ];
     }
 }
