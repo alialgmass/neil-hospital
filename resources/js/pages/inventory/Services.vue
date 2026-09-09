@@ -21,6 +21,7 @@ interface Service {
     center_val: number;
     center_share: number;
     dr_share: number;
+    default_dr_fee: number | null;
     duration_mins: number;
     status: 'active' | 'inactive';
     revenue_account_id: string | null;
@@ -97,6 +98,7 @@ const form = useForm({
     ins_price: 0 as number,
     center_type: 'pct' as 'pct' | 'fixed',
     center_val: 40 as number,
+    default_dr_fee: null as number | null,
     duration_mins: 30 as number,
     status: 'active' as 'active' | 'inactive',
     revenue_account_id: null as string | null,
@@ -108,6 +110,7 @@ function openCreate() {
     form.dept = 'clinic';
     form.center_type = 'pct';
     form.center_val = 40;
+    form.default_dr_fee = null;
     form.duration_mins = 30;
     form.status = 'active';
     form.revenue_account_id = null;
@@ -124,6 +127,7 @@ function openEdit(svc: Service) {
     form.ins_price = Number(svc.ins_price);
     form.center_type = svc.center_type;
     form.center_val = Number(svc.center_val);
+    form.default_dr_fee = svc.default_dr_fee != null ? Number(svc.default_dr_fee) : null;
     form.duration_mins = svc.duration_mins ?? 30;
     form.status = svc.status;
     form.revenue_account_id = svc.revenue_account_id;
@@ -551,6 +555,23 @@ function fmt(n: number) {
                             <p class="text-xs text-hospital-text-2">مستحق الطبيب</p>
                             <p class="mt-0.5 font-mono text-base font-bold text-hospital-success">{{ centerPreview.dr }} ج</p>
                         </div>
+                    </div>
+
+                    <!-- Default doctor fee -->
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-hospital-text">
+                            أتعاب الطبيب (افتراضي)
+                            <span class="ms-1 text-xs font-normal text-hospital-text-3">(اختياري — يُستخدم عند عدم تحديد أتعاب خاصة للطبيب في حجوزات التأمين والتعاقد)</span>
+                        </label>
+                        <input
+                            v-model.number="form.default_dr_fee"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                        />
+                        <p v-if="form.errors.default_dr_fee" class="mt-1 text-xs text-hospital-danger">{{ form.errors.default_dr_fee }}</p>
                     </div>
 
                     <!-- Revenue account -->

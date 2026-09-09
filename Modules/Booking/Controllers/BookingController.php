@@ -20,6 +20,7 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
 use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -95,10 +96,11 @@ class BookingController extends Controller
         return back()->with('success', 'تم تحديث الحجز بنجاح.');
     }
 
-    public function destroy(string $id): RedirectResponse
+    public function destroy(string $id, SyncDoctorEntitlementAction $syncDoctorEntitlement): RedirectResponse
     {
         $booking = $this->bookingRepository->findOrFail($id);
 
+        $syncDoctorEntitlement->onBookingDeleted($booking);
         $this->bookingRepository->delete($id);
 
         return back()->with('success', 'تم حذف الحجز بنجاح.');

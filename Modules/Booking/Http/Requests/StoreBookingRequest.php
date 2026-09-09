@@ -54,7 +54,7 @@ class StoreBookingRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'ins_amount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance,contract'],
             'pay_status' => ['nullable', 'in:unpaid,partial,paid'],
             'visit_note' => ['nullable', 'string', 'max:2000'],
             'bed_id' => [

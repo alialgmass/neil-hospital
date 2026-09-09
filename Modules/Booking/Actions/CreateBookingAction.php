@@ -6,10 +6,10 @@ use App\Enums\Department;
 use App\Services\ActivityLogService;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\DTOs\BookingData;
-use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
 use Modules\Surgery\DTOs\SurgeryData;
@@ -22,13 +22,14 @@ class CreateBookingAction
         private readonly SurgeryService $surgeryService,
         private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function execute(BookingData $data, int $createdBy): Booking
     {
         $booking = $this->bookingService->create($data, $createdBy);
 
-        if ( $data->insCompanyId) {
+        if ($data->insCompanyId) {
             $patientShare = max(0, $data->price - $data->discount - $data->insAmount);
 
             InsuranceClaim::create([
@@ -64,6 +65,9 @@ class CreateBookingAction
         if ($booking->pay_status === PayStatus::Paid) {
             $this->autoPost->execute($booking);
         }
+
+        // Automatic doctor entitlement for insurance / contract deals
+        $this->syncDoctorEntitlement->execute($booking);
 
         $this->activityLog->log(
             action: 'created',

@@ -36,7 +36,8 @@ class AutoPostBookingPaymentAction
      *
      * Insurance-method bookings post nothing here — that side of the ledger
      * is owned entirely by AutoPostInsuranceClaimAction's Dr 1030/Cr 4110 →
-     * Dr 1010/Cr 1030 lifecycle.
+     * Dr 1010/Cr 1030 lifecycle. Contract bookings have no such claim lifecycle,
+     * so their revenue is posted here on payment exactly like a cash booking.
      *
      * @param  float|null  $amount  Defaults to booking's paid_amount.
      */

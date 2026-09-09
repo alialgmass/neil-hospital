@@ -25,7 +25,7 @@ class PayBookingController extends Controller
 
         $data = $request->validate([
             'paid_amount' => ['required', 'numeric', 'min:0.01'],
-            'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['required', 'in:cash,card,transfer,insurance,contract'],
         ], [
             'price.required' => 'سعر الحجز مطلوب.',
             'price.numeric' => 'سعر الحجز يجب أن يكون رقماً.',

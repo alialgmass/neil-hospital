@@ -6,8 +6,10 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Doctor\Enums\FeeType;
 
 class Doctor extends Model
@@ -62,5 +64,47 @@ class Doctor extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(DoctorPayment::class);
+    }
+
+    /**
+     * Services this doctor provides, with the doctor's fee for each one
+     * carried on the pivot.
+     */
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'doctor_service')
+            ->withPivot('fee')
+            ->withTimestamps();
+    }
+
+    /**
+     * Replace this doctor's per-service fee rows with the given set.
+     *
+     * @param  array<int, array{service_id: string, fee: numeric}>  $services
+     */
+    public function syncServiceFees(array $services): void
+    {
+        $payload = [];
+
+        foreach ($services as $service) {
+            $payload[$service['service_id']] = ['fee' => (float) $service['fee']];
+        }
+
+        $this->services()->sync($payload);
+    }
+
+    /**
+     * The doctor's configured fee for a specific service, or null when no
+     * per-service fee has been set for this doctor.
+     */
+    public function feeForService(Service|string $service): ?float
+    {
+        $serviceId = $service instanceof Service ? $service->id : $service;
+
+        $pivot = $this->services()
+            ->where('services.id', $serviceId)
+            ->first()?->pivot;
+
+        return $pivot ? (float) $pivot->fee : null;
     }
 }

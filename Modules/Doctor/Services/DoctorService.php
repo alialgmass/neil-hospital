@@ -20,6 +20,7 @@ class DoctorService
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Doctor::query()
+            ->with('services:services.id,services.name')
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%"))
             ->orderBy('name')
             ->paginate($perPage);
