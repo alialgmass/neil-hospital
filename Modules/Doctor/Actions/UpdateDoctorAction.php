@@ -13,7 +13,14 @@ class UpdateDoctorAction
 
     public function execute(Doctor $doctor, array $data): Doctor
     {
+        $services = $data['services'] ?? null;
+        unset($data['services']);
+
         $doctor->update($data);
+
+        if ($services !== null) {
+            $doctor->syncServiceFees($services);
+        }
 
         $this->activityLogService->log(
             action: 'update',

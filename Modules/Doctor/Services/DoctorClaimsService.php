@@ -7,6 +7,7 @@ use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Models\DoctorEntitlement;
 use Modules\Doctor\Models\DoctorPayment;
 
 class DoctorClaimsService
@@ -31,11 +32,21 @@ class DoctorClaimsService
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->get();
 
+        // Insurance / contract bookings are settled through a persisted
+        // doctor entitlement — take its amount and never re-compute a share
+        // for them (that would double-count).
+        $entitlements = DB::table('doctor_entitlements')
+            ->where('doctor_id', $doctorId)
+            ->whereIn('status', ['pending', 'settled'])
+            ->pluck('amount', 'booking_id');
+
         $rows = [];
         $totalDrShare = 0.0;
 
         foreach ($bookings as $booking) {
-            $drShare = $this->computeDrShare($doctor, $booking);
+            $drShare = $entitlements->has($booking->id)
+                ? (float) $entitlements[$booking->id]
+                : $this->computeDrShare($doctor, $booking);
             $totalDrShare += $drShare;
 
             $row = [
@@ -76,6 +87,15 @@ class DoctorClaimsService
     public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
         if ($doctor->fee_type === FeeType::Insurance) {
+            return 0.0;
+        }
+
+        // Insurance / contract bookings that carry a persisted entitlement accrue
+        // the doctor's share up front through it, not per cash payment. Bookings
+        // with no entitlement (e.g. created before this feature, or no fee
+        // configured) keep the legacy payment-time accrual unchanged.
+        if ($booking->pay_method->isThirdParty()
+            && DoctorEntitlement::where('booking_id', $booking->id)->exists()) {
             return 0.0;
         }
 

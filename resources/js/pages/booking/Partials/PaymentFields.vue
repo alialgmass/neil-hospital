@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-
 interface InsuranceCompany {
     id: string;
     name: string;
@@ -35,6 +33,7 @@ const payMethodOptions = [
     { value: 'card', label: 'شبكة' },
     { value: 'transfer', label: 'تحويل' },
     { value: 'insurance', label: 'تأمين' },
+    { value: 'contract', label: 'تعاقد' },
 ];
 
 const payStatusOptions = [

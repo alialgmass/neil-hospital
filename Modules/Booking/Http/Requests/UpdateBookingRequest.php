@@ -100,7 +100,7 @@ class UpdateBookingRequest extends FormRequest
             'discount' => ['nullable', 'numeric', 'min:0'],
             'ins_amount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['required', 'in:cash,card,transfer,insurance,contract'],
             'pay_status' => ['required', 'in:unpaid,partial,paid'],
             'status' => [
                 'nullable',

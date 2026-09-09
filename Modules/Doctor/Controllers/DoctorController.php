@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Booking\Models\Service;
 use Modules\Doctor\Actions\CreateDoctorAction;
 use Modules\Doctor\Actions\UpdateDoctorAction;
 use Modules\Doctor\Http\Requests\StoreDoctorRequest;
@@ -27,6 +28,7 @@ class DoctorController extends Controller
 
         return Inertia::render('doctors/Index', [
             'doctors' => $this->doctorService->list($filters),
+            'services' => Service::query()->orderBy('name')->get(['id', 'name', 'dept']),
             'filters' => $filters,
         ]);
     }

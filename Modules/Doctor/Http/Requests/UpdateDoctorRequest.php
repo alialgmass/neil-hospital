@@ -31,6 +31,9 @@ class UpdateDoctorRequest extends FormRequest
             'dept_fees.*.fee_value' => ['nullable', 'numeric', 'min:0'],
             'departments' => ['nullable', 'array'],
             'departments.*' => ['string', "in:{$depts}"],
+            'services' => ['nullable', 'array'],
+            'services.*.service_id' => ['required_with:services', 'exists:services,id'],
+            'services.*.fee' => ['required_with:services', 'numeric', 'min:0'],
         ];
     }
 }

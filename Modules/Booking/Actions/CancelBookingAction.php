@@ -9,6 +9,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 
 class CancelBookingAction
@@ -17,6 +18,7 @@ class CancelBookingAction
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly SurgeryService $surgeryService,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     /**
@@ -43,6 +45,8 @@ class CancelBookingAction
         $booking = $this->bookingRepository->updateStatus($id, 'cancelled', $cancelReason);
 
         $this->surgeryService->updateStatusByBooking($booking->id, 'cancelled');
+
+        $this->syncDoctorEntitlement->voidFor($booking);
 
         $this->activityLog->log(
             action: 'cancelled',

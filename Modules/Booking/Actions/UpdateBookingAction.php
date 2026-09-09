@@ -10,6 +10,7 @@ use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
 use Modules\Surgery\Actions\ScheduleSurgeryAction;
@@ -22,6 +23,7 @@ class UpdateBookingAction
         private readonly ScheduleSurgeryAction $scheduleSurgery,
         private readonly ActivityLogService $activityLog,
         private readonly AutoPostBookingPaymentAction $autoPost,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function execute(string $id, BookingData $data): Booking
@@ -31,6 +33,8 @@ class UpdateBookingAction
         $booking = $this->bookingService->update($id, $data);
 
         $this->syncInsuranceClaim($booking, $old, $data);
+
+        $this->syncDoctorEntitlement->execute($booking);
 
         if (in_array($data->dept, [Department::Surgery, Department::Lasik])) {
             $this->scheduleSurgery->execute(new SurgeryData(

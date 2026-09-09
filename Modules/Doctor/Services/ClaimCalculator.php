@@ -3,6 +3,7 @@
 namespace Modules\Doctor\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
@@ -20,15 +21,23 @@ class ClaimCalculator
             ->with('surgery')
             ->get();
 
+        $entitlements = DB::table('doctor_entitlements')
+            ->where('doctor_id', $doctor->id)
+            ->whereIn('status', ['pending', 'settled'])
+            ->pluck('amount', 'booking_id');
+
         $totalRevenue = 0;
         $totalClaim = 0;
         $details = [];
 
         foreach ($bookings as $booking) {
             $revenue = (float) $booking->price;
-            $claim = 0;
 
-            if ($doctor->fee_type === FeeType::Percentage) {
+            if ($entitlements->has($booking->id)) {
+                // Insurance / contract booking: fixed amount from the persisted
+                // entitlement, never re-computed here (avoids double counting).
+                $claim = (float) $entitlements[$booking->id];
+            } elseif ($doctor->fee_type === FeeType::Percentage) {
                 $claim = $revenue * ((float) $doctor->fee_value / 100);
             } elseif ($doctor->fee_type === FeeType::Fixed) {
                 $claim = (float) $doctor->fee_value;
@@ -36,6 +45,8 @@ class ClaimCalculator
                 // If insurance, claim is usually a percentage of the amount NOT covered by insurance,
                 // or a different specific logic. For now, we'll treat it as percentage of total.
                 $claim = $revenue * ((float) $doctor->fee_value / 100);
+            } else {
+                $claim = 0;
             }
 
             $totalRevenue += $revenue;

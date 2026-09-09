@@ -16,6 +16,12 @@ interface DeptFeeEntry {
     fee_value: number;
 }
 
+interface DoctorServiceEntry {
+    id: string;
+    name: string;
+    pivot: { fee: number | string };
+}
+
 interface Doctor {
     id: string;
     name: string;
@@ -25,11 +31,19 @@ interface Doctor {
     fee_value: number;
     dept_fees: Record<string, DeptFeeEntry> | null;
     departments: string[] | null;
+    services?: DoctorServiceEntry[];
     is_active: boolean;
+}
+
+interface ServiceOption {
+    id: string;
+    name: string;
+    dept: string;
 }
 
 const props = defineProps<{
     doctors: { data: Doctor[]; current_page: number; last_page: number; total: number };
+    services: ServiceOption[];
     filters: { search?: string };
 }>();
 
@@ -107,7 +121,15 @@ const form = useForm({
     is_active: true,
     dept_fees: {} as Record<string, DeptFeeEntry>,
     departments: [] as string[],
+    services: [] as { service_id: string; fee: number }[],
 });
+
+function addServiceFee() {
+    form.services.push({ service_id: props.services[0]?.id ?? '', fee: 0 });
+}
+function removeServiceFee(index: number) {
+    form.services.splice(index, 1);
+}
 
 function openAdd() {
     editingId.value = null;
@@ -116,6 +138,7 @@ function openAdd() {
     form.fee_value = 40;
     form.is_active = true;
     form.departments = [];
+    form.services = [];
     allDepts.forEach(({ key }) => {
         deptOverrides[key] = { enabled: false, fee_type: 'percentage', fee_value: 40 };
     });
@@ -131,6 +154,10 @@ function openEdit(doctor: Doctor) {
     form.fee_value = doctor.fee_value;
     form.is_active = doctor.is_active;
     form.departments = doctor.departments ?? [];
+    form.services = (doctor.services ?? []).map((s) => ({
+        service_id: s.id,
+        fee: Number(s.pivot.fee),
+    }));
 
     allDepts.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
@@ -143,20 +170,27 @@ function openEdit(doctor: Doctor) {
 
 function buildDeptFees(): Record<string, DeptFeeEntry> {
     const result: Record<string, DeptFeeEntry> = {};
+
     for (const { key } of allDepts) {
         if (deptOverrides[key].enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
     }
+
     return result;
 }
 
 function submit() {
     form.dept_fees = buildDeptFees();
+
+    const onSuccess = () => {
+        showModal.value = false;
+    };
+
     if (editingId.value) {
-        form.put(`/doctors/${editingId.value}`, { onSuccess: () => { showModal.value = false; } });
+        form.put(`/doctors/${editingId.value}`, { onSuccess });
     } else {
-        form.post('/doctors', { onSuccess: () => { showModal.value = false; } });
+        form.post('/doctors', { onSuccess });
     }
 }
 
@@ -258,18 +292,18 @@ const feeTypeLabels: Record<string, string> = {
             <!-- Basic info -->
             <div>
                 <label class="mb-1 block text-sm font-medium">الاسم <span class="text-hospital-danger">*</span></label>
-                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
                 <p v-if="form.errors.name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.name }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium">التخصص</label>
-                    <input v-model="form.specialty" type="text" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                    <input v-model="form.specialty" type="text" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">الهاتف</label>
-                    <input v-model="form.phone" type="text" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                    <input v-model="form.phone" type="text" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
                 </div>
             </div>
 
@@ -279,7 +313,7 @@ const feeTypeLabels: Record<string, string> = {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">نوع الحساب</label>
-                        <select v-model="form.fee_type" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
+                        <select v-model="form.fee_type" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
                             <option value="percentage">نسبة مئوية %</option>
                             <option value="fixed">مبلغ ثابت لكل حالة</option>
                             <option value="insurance">تأمين صحي (صفر)</option>
@@ -287,7 +321,7 @@ const feeTypeLabels: Record<string, string> = {
                     </div>
                     <div v-if="form.fee_type !== 'insurance'">
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
-                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
                     </div>
                 </div>
             </div>
@@ -316,7 +350,7 @@ const feeTypeLabels: Record<string, string> = {
                         <div v-if="deptOverrides[dept.key].enabled" class="mt-2 grid grid-cols-2 gap-3">
                             <div>
                                 <label class="mb-1 block text-xs text-hospital-text-2">نوع الحساب</label>
-                                <select v-model="deptOverrides[dept.key].fee_type" class="w-full rounded-md border border-hospital-border bg-hospital-bg px-2 py-1.5 text-xs focus:border-hospital-primary focus:outline-none">
+                                <select v-model="deptOverrides[dept.key].fee_type" class="w-full rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none">
                                     <option value="percentage">نسبة مئوية %</option>
                                     <option value="fixed">مبلغ ثابت</option>
                                     <option value="insurance">تأمين (صفر)</option>
@@ -324,11 +358,35 @@ const feeTypeLabels: Record<string, string> = {
                             </div>
                             <div v-if="deptOverrides[dept.key].fee_type !== 'insurance'">
                                 <label class="mb-1 block text-xs text-hospital-text-2">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
-                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="w-full rounded-md border border-hospital-border bg-hospital-bg px-2 py-1.5 text-xs focus:border-hospital-primary focus:outline-none" />
+                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="w-full rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none" />
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Per-service doctor fees -->
+            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
+                <div class="mb-3 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-bold text-hospital-primary">🩺 خدمات الطبيب وأتعابه</p>
+                        <p class="text-xs text-hospital-text-2">أتعاب الطبيب لكل خدمة — تُستخدم لإنشاء مستحق الطبيب في حجوزات التأمين والتعاقد.</p>
+                    </div>
+                    <button type="button" class="rounded-md border border-hospital-border bg-white px-2 py-1 text-xs hover:bg-hospital-bg" @click="addServiceFee">+ إضافة خدمة</button>
+                </div>
+                <p v-if="!form.services.length" class="text-xs text-hospital-text-2">لا توجد خدمات مضافة.</p>
+                <div v-else class="space-y-2">
+                    <div v-for="(row, i) in form.services" :key="i" class="grid grid-cols-[1fr_120px_auto] items-center gap-2 rounded-lg border border-hospital-border/60 bg-white p-2">
+                        <select v-model="row.service_id" class="rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none">
+                            <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                        <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="الأتعاب (ج.م)" class="rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                        <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceFee(i)">
+                            <Trash2 class="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+                <p v-if="form.errors.services" class="mt-1 text-xs text-hospital-danger">{{ form.errors.services }}</p>
             </div>
 
             <!-- Status (edit only) -->
