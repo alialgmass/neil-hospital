@@ -6,6 +6,7 @@ use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
@@ -133,6 +134,21 @@ class PayBookingAccountingTest extends TestCase
         $deptRevenue = Account::where('code', '4010')->firstOrFail();
         $entry = JournalEntry::where('reference', $booking->file_no)->sole();
         $this->assertSame($deptRevenue->id, $entry->credit_account_id);
+    }
+
+    public function test_pentacam_booking_payment_posts_to_pentacam_revenue_and_cost_center(): void
+    {
+        $booking = $this->createBooking(['dept' => 'pentacam']);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'price' => 400, 'paid_amount' => 400, 'pay_method' => 'cash',
+        ]);
+
+        $pentacamRevenue = Account::where('code', '4060')->firstOrFail();
+        $entry = JournalEntry::where('reference', $booking->file_no)->sole();
+
+        $this->assertSame($pentacamRevenue->id, $entry->credit_account_id);
+        $this->assertSame(CostCenter::Pentacam, $entry->cost_center);
     }
 
     public function test_completion_transition_after_full_incremental_payment_does_not_double_post(): void

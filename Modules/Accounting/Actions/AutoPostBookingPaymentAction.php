@@ -150,6 +150,7 @@ class AutoPostBookingPaymentAction
             Department::Surgery => CostCenter::Surgery,
             Department::Lasik => CostCenter::Lasik,
             Department::Laser => CostCenter::Laser,
+            Department::Pentacam => CostCenter::Pentacam,
         };
     }
 }
