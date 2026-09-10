@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import type { DepartmentOption } from '@/types';
 
 interface Props {
     modelValue: string;
@@ -15,21 +16,25 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void;
 }>();
 
-const allDeptOptions = [
-    { value: 'clinic', label: 'العيادة', icon: '🏥', cap: 'فحص عام' },
-    { value: 'labs', label: 'الفحوصات', icon: '🔬', cap: 'تحاليل وأشعة' },
-    { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
-    { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
-    { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
-    { value: 'pentacam', label: 'البنتكام', icon: '📷', cap: 'فحص القرنية' },
-];
+// Presentational only — the selectable list + labels come from the shared
+// `departments` prop (App\Enums\Department), already filtered to enabled modules.
+const deptDecoration: Record<string, { icon: string; cap: string }> = {
+    clinic: { icon: '🏥', cap: 'فحص عام' },
+    labs: { icon: '🔬', cap: 'تحاليل وأشعة' },
+    laser: { icon: '💡', cap: 'ليزر علاجي' },
+    lasik: { icon: '👁️', cap: 'تصحيح النظر' },
+    surgery: { icon: '⚕️', cap: 'جراحة عيون' },
+    pentacam: { icon: '📷', cap: 'فحص القرنية' },
+};
 
-const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
-const deptOptions = computed(() => {
-    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
-
-    return allDeptOptions.filter((dept) => moduleStatus[dept.value] !== false);
-});
+const page = usePage<{ departments?: DepartmentOption[] }>();
+const deptOptions = computed(() =>
+    (page.props.departments ?? []).map((dept) => ({
+        ...dept,
+        icon: deptDecoration[dept.value]?.icon ?? '🏥',
+        cap: deptDecoration[dept.value]?.cap ?? '',
+    })),
+);
 
 function selectDept(value: string) {
     emit('update:modelValue', value);

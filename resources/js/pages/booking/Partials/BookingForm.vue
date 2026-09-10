@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import type { DepartmentOption } from '@/types';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
 import BookingSummary from './BookingSummary.vue';
@@ -88,13 +89,7 @@ const emit = defineEmits<{
     (e: 'cancel'): void;
 }>();
 
-const deptOptions = [
-    { value: 'clinic', label: 'العيادة', icon: '🏥', cap: 'فحص عام' },
-    { value: 'labs', label: 'الفحوصات', icon: '🔬', cap: 'تحاليل وأشعة' },
-    { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
-    { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
-    { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
-];
+const page = usePage<{ departments?: DepartmentOption[] }>();
 
 const form = useForm({
     patient_name: (props.booking?.patient_name as string) ?? '',
@@ -189,7 +184,7 @@ const selectedDoctorName = computed(
 );
 
 const selectedDeptLabel = computed(
-    () => deptOptions.find((d) => d.value === form.dept)?.label ?? '—',
+    () => (page.props.departments ?? []).find((d) => d.value === form.dept)?.label ?? '—',
 );
 
 const showInvoicePreview = computed(

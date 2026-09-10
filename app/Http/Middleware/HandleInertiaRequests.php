@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Department;
 use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -62,6 +63,9 @@ class HandleInertiaRequests extends Middleware
             'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
             // Global on/off switches for whole system modules, managed from Settings.
             'moduleStatus' => SystemModule::statuses(),
+            // Single source of truth for the department pickers on the booking
+            // and doctors screens — already filtered to enabled modules.
+            'departments' => Department::optionsForEnabledModules(),
             // Global on/off switches per booking status. Hidden statuses are
             // removed from booking listings, filters, and status pickers.
             'bookingStatusVisibility' => BookingStatus::visibilityMap(),

@@ -7,6 +7,7 @@ import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import type { DepartmentOption } from '@/types';
 import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
 type FeeType = 'percentage' | 'fixed' | 'insurance';
@@ -58,20 +59,15 @@ const columns = [
     { key: '_actions',  label: '' },
 ];
 
-const allDepts: { key: string; label: string }[] = [
-    { key: 'clinic',   label: 'العيادة' },
-    { key: 'surgery',  label: 'العمليات' },
-    { key: 'lasik',    label: 'الليزك' },
-    { key: 'laser',    label: 'الليزر' },
-    { key: 'labs',     label: 'الفحوصات' },
-];
+const page = usePage<{ departments?: DepartmentOption[]; permissions?: string[] }>();
 
-const page = usePage<{ moduleStatus?: Record<string, boolean>; permissions?: string[] }>();
-const depts = computed(() => {
-    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
-
-    return allDepts.filter(({ key }) => moduleStatus[key] !== false);
-});
+// Selectable departments come from the shared `departments` prop
+// (App\Enums\Department), already filtered to enabled modules.
+const depts = computed<{ key: string; label: string }[]>(() =>
+    (page.props.departments ?? []).map((d) => ({ key: d.value, label: d.label })),
+);
+const deptLabel = (key: string): string =>
+    depts.value.find((d) => d.key === key)?.label ?? key;
 
 const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 function can(permission: string): boolean {
@@ -104,13 +100,28 @@ function confirmDelete(id: string) {
 }
 
 type DeptOverride = { enabled: boolean; fee_type: FeeType; fee_value: number };
-const deptOverrides = reactive<Record<string, DeptOverride>>({
-    clinic:  { enabled: false, fee_type: 'percentage', fee_value: 40 },
-    surgery: { enabled: false, fee_type: 'percentage', fee_value: 60 },
-    lasik:   { enabled: false, fee_type: 'percentage', fee_value: 60 },
-    laser:   { enabled: false, fee_type: 'percentage', fee_value: 35 },
-    labs:    { enabled: false, fee_type: 'percentage', fee_value: 30 },
-});
+
+// Default fee per department when an override card is first enabled;
+// departments not listed here (e.g. pentacam) default to 0%.
+const deptOverrideDefaults: Record<string, { fee_type: FeeType; fee_value: number }> = {
+    clinic:  { fee_type: 'percentage', fee_value: 40 },
+    surgery: { fee_type: 'percentage', fee_value: 60 },
+    lasik:   { fee_type: 'percentage', fee_value: 60 },
+    laser:   { fee_type: 'percentage', fee_value: 35 },
+    labs:    { fee_type: 'percentage', fee_value: 30 },
+};
+function defaultOverride(key: string): DeptOverride {
+    const d = deptOverrideDefaults[key] ?? { fee_type: 'percentage' as FeeType, fee_value: 0 };
+
+    return { enabled: false, fee_type: d.fee_type, fee_value: d.fee_value };
+}
+
+const deptOverrides = reactive<Record<string, DeptOverride>>({});
+
+// dept_fees entries for departments not shown in the current modal (their
+// module is disabled). Carried through a save untouched so toggling a module
+// off never silently drops a doctor's fee for it.
+const preservedDeptFees = ref<Record<string, DeptFeeEntry>>({});
 
 const form = useForm({
     name:      '',
@@ -139,10 +150,25 @@ function openAdd() {
     form.is_active = true;
     form.departments = [];
     form.services = [];
-    allDepts.forEach(({ key }) => {
-        deptOverrides[key] = { enabled: false, fee_type: 'percentage', fee_value: 40 };
+    preservedDeptFees.value = {};
+    depts.value.forEach(({ key }) => {
+        deptOverrides[key] = defaultOverride(key);
     });
     showModal.value = true;
+}
+
+/** dept_fees keys whose department is not shown in the modal right now. */
+function splitHiddenDeptFees(deptFees: Record<string, DeptFeeEntry> | null): Record<string, DeptFeeEntry> {
+    const visible = new Set(depts.value.map(({ key }) => key));
+    const hidden: Record<string, DeptFeeEntry> = {};
+
+    for (const [key, entry] of Object.entries(deptFees ?? {})) {
+        if (!visible.has(key)) {
+            hidden[key] = entry;
+        }
+    }
+
+    return hidden;
 }
 
 function openEdit(doctor: Doctor) {
@@ -159,20 +185,21 @@ function openEdit(doctor: Doctor) {
         fee: Number(s.pivot.fee),
     }));
 
-    allDepts.forEach(({ key }) => {
+    preservedDeptFees.value = splitHiddenDeptFees(doctor.dept_fees);
+    depts.value.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
         deptOverrides[key] = existing
             ? { enabled: true, fee_type: existing.fee_type, fee_value: existing.fee_value }
-            : { enabled: false, fee_type: 'percentage', fee_value: 40 };
+            : defaultOverride(key);
     });
     showModal.value = true;
 }
 
 function buildDeptFees(): Record<string, DeptFeeEntry> {
-    const result: Record<string, DeptFeeEntry> = {};
+    const result: Record<string, DeptFeeEntry> = { ...preservedDeptFees.value };
 
-    for (const { key } of allDepts) {
-        if (deptOverrides[key].enabled) {
+    for (const { key } of depts.value) {
+        if (deptOverrides[key]?.enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
     }
@@ -261,7 +288,7 @@ const feeTypeLabels: Record<string, string> = {
             <span v-if="!(row as Doctor).departments?.length" class="text-xs text-hospital-text-2">كل الأقسام</span>
             <div v-else class="flex flex-wrap gap-1">
                 <span v-for="key in (row as Doctor).departments" :key="key" class="rounded-full bg-hospital-primary-pale px-2 py-0.5 text-xs text-hospital-primary">
-                    {{ allDepts.find((d) => d.key === key)?.label ?? key }}
+                    {{ deptLabel(key) }}
                 </span>
             </div>
         </template>
