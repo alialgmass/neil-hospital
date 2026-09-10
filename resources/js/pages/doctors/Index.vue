@@ -315,50 +315,50 @@ const feeTypeLabels: Record<string, string> = {
 
     <!-- Add / Edit Modal -->
     <Modal v-model="showModal" :title="editingId ? 'تعديل بيانات الطبيب' : 'إضافة طبيب جديد'" size="lg">
-        <form class="space-y-4" @submit.prevent="submit">
+        <form class="space-y-5" @submit.prevent="submit">
             <!-- Basic info -->
             <div>
-                <label class="mb-1 block text-sm font-medium">الاسم <span class="text-hospital-danger">*</span></label>
-                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
-                <p v-if="form.errors.name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.name }}</p>
+                <label class="form-label">الاسم <span class="text-hospital-danger">*</span></label>
+                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="input-field" />
+                <p v-if="form.errors.name" class="form-error">{{ form.errors.name }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium">التخصص</label>
-                    <input v-model="form.specialty" type="text" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                    <label class="form-label">التخصص</label>
+                    <input v-model="form.specialty" type="text" class="input-field" />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium">الهاتف</label>
-                    <input v-model="form.phone" type="text" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                    <label class="form-label">الهاتف</label>
+                    <input v-model="form.phone" type="text" class="input-field" />
                 </div>
             </div>
 
             <!-- Default fee -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <p class="mb-3 text-xs font-bold text-hospital-primary">⚙️ الإعداد الافتراضي (لكل الأقسام)</p>
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-3 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">⚙️ الإعداد الافتراضي (لكل الأقسام)</p>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">نوع الحساب</label>
-                        <select v-model="form.fee_type" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none">
+                        <label class="form-label">نوع الحساب</label>
+                        <select v-model="form.fee_type" class="input-field">
                             <option value="percentage">نسبة مئوية %</option>
                             <option value="fixed">مبلغ ثابت لكل حالة</option>
                             <option value="insurance">تأمين صحي (صفر)</option>
                         </select>
                     </div>
                     <div v-if="form.fee_type !== 'insurance'">
-                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
-                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                        <label class="form-label">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
+                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="input-field" />
                     </div>
                 </div>
             </div>
 
             <!-- Departments the doctor works in -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <p class="mb-1 text-xs font-bold text-hospital-primary">🏥 الأقسام التي يعمل بها الطبيب</p>
-                <p class="mb-3 text-xs text-hospital-text-2">اترك الكل بدون تحديد ليظهر الطبيب في كل الأقسام، أو حدد الأقسام لحصر ظهوره فيها فقط عند إنشاء حجز.</p>
-                <div class="flex flex-wrap gap-3">
-                    <label v-for="dept in depts" :key="dept.key" class="flex cursor-pointer items-center gap-1.5 text-sm">
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-1 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">🏥 الأقسام التي يعمل بها الطبيب</p>
+                <p class="mb-3 mt-2 text-xs text-hospital-text-2">اترك الكل بدون تحديد ليظهر الطبيب في كل الأقسام، أو حدد الأقسام لحصر ظهوره فيها فقط عند إنشاء حجز.</p>
+                <div class="flex flex-wrap gap-2">
+                    <label v-for="dept in depts" :key="dept.key" class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-hospital-border bg-hospital-surface px-3 py-1.5 text-sm text-hospital-text has-[:checked]:border-hospital-primary has-[:checked]:bg-hospital-primary-pale">
                         <input v-model="form.departments" type="checkbox" :value="dept.key" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
                         {{ dept.label }}
                     </label>
@@ -366,26 +366,26 @@ const feeTypeLabels: Record<string, string> = {
             </div>
 
             <!-- Per-department overrides -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <p class="mb-3 text-xs font-bold text-hospital-text-2">🔀 إعدادات خاصة بكل قسم (اختياري)</p>
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-3 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">🔀 إعدادات خاصة بكل قسم (اختياري)</p>
                 <div class="space-y-2">
-                    <div v-for="dept in depts" :key="dept.key" class="rounded-lg border border-hospital-border/60 bg-white p-3">
-                        <label class="mb-2 flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <div v-for="dept in depts" :key="dept.key" class="rounded-lg border border-hospital-border bg-hospital-surface p-3">
+                        <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-hospital-text">
                             <input v-model="deptOverrides[dept.key].enabled" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
                             {{ dept.label }}
                         </label>
-                        <div v-if="deptOverrides[dept.key].enabled" class="mt-2 grid grid-cols-2 gap-3">
+                        <div v-if="deptOverrides[dept.key].enabled" class="mt-3 grid grid-cols-2 gap-3">
                             <div>
-                                <label class="mb-1 block text-xs text-hospital-text-2">نوع الحساب</label>
-                                <select v-model="deptOverrides[dept.key].fee_type" class="w-full rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none">
+                                <label class="form-label">نوع الحساب</label>
+                                <select v-model="deptOverrides[dept.key].fee_type" class="input-field">
                                     <option value="percentage">نسبة مئوية %</option>
                                     <option value="fixed">مبلغ ثابت</option>
                                     <option value="insurance">تأمين (صفر)</option>
                                 </select>
                             </div>
                             <div v-if="deptOverrides[dept.key].fee_type !== 'insurance'">
-                                <label class="mb-1 block text-xs text-hospital-text-2">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
-                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="w-full rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                                <label class="form-label">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
+                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="input-field" />
                             </div>
                         </div>
                     </div>
@@ -393,38 +393,38 @@ const feeTypeLabels: Record<string, string> = {
             </div>
 
             <!-- Per-service doctor fees -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <div class="mb-3 flex items-center justify-between">
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <div class="mb-3 flex items-center justify-between border-b border-hospital-border pb-2">
                     <div>
-                        <p class="text-xs font-bold text-hospital-primary">🩺 خدمات الطبيب وأتعابه</p>
-                        <p class="text-xs text-hospital-text-2">أتعاب الطبيب لكل خدمة — تُستخدم لإنشاء مستحق الطبيب في حجوزات التأمين والتعاقد.</p>
+                        <p class="text-sm font-bold text-hospital-text">🩺 خدمات الطبيب وأتعابه</p>
+                        <p class="mt-1 text-xs text-hospital-text-2">أتعاب الطبيب لكل خدمة — تُستخدم لإنشاء مستحق الطبيب في حجوزات التأمين والتعاقد.</p>
                     </div>
-                    <button type="button" class="rounded-md border border-hospital-border bg-white px-2 py-1 text-xs hover:bg-hospital-bg" @click="addServiceFee">+ إضافة خدمة</button>
+                    <button type="button" class="shrink-0 rounded-md border border-hospital-border bg-hospital-surface px-2 py-1 text-xs text-hospital-text hover:bg-hospital-bg" @click="addServiceFee">+ إضافة خدمة</button>
                 </div>
                 <p v-if="!form.services.length" class="text-xs text-hospital-text-2">لا توجد خدمات مضافة.</p>
                 <div v-else class="space-y-2">
-                    <div v-for="(row, i) in form.services" :key="i" class="grid grid-cols-[1fr_120px_auto] items-center gap-2 rounded-lg border border-hospital-border/60 bg-white p-2">
-                        <select v-model="row.service_id" class="rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none">
+                    <div v-for="(row, i) in form.services" :key="i" class="grid grid-cols-[1fr_120px_auto] items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface p-2">
+                        <select v-model="row.service_id" class="input-field">
                             <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
                         </select>
-                        <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="الأتعاب (ج.م)" class="rounded-md border border-hospital-border bg-white px-2 py-1.5 text-xs text-hospital-text focus:border-hospital-primary focus:outline-none" />
+                        <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="الأتعاب (ج.م)" class="input-field" />
                         <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceFee(i)">
                             <Trash2 class="h-4 w-4" />
                         </button>
                     </div>
                 </div>
-                <p v-if="form.errors.services" class="mt-1 text-xs text-hospital-danger">{{ form.errors.services }}</p>
+                <p v-if="form.errors.services" class="form-error">{{ form.errors.services }}</p>
             </div>
 
             <!-- Status (edit only) -->
             <div v-if="editingId" class="flex items-center gap-2">
                 <input id="is_active" v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
-                <label for="is_active" class="text-sm font-medium">طبيب نشط</label>
+                <label for="is_active" class="text-sm font-medium text-hospital-text">طبيب نشط</label>
             </div>
 
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showModal = false">إلغاء</button>
-                <button type="submit" :disabled="form.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+            <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
+                <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
+                <button type="submit" :disabled="form.processing" class="btn-primary">
                     {{ editingId ? 'حفظ التعديلات' : 'إضافة الطبيب' }}
                 </button>
             </div>

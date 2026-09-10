@@ -23,6 +23,8 @@ class DoctorEntitlementOnBookingTest extends TestCase
 
     private Doctor $doctor;
 
+    private InsuranceCompany $company;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,6 +41,7 @@ class DoctorEntitlementOnBookingTest extends TestCase
         ]);
         $this->doctor = Doctor::create(['name' => 'د. عمر الجارحي', 'fee_type' => 'fixed', 'fee_value' => 0]);
         $this->doctor->services()->attach($this->cataract->id, ['fee' => 750]);
+        $this->company = InsuranceCompany::create(['name' => 'شركة التأمين', 'coverage_pct' => 80]);
     }
 
     private function book(array $overrides = []): TestResponse
@@ -51,6 +54,7 @@ class DoctorEntitlementOnBookingTest extends TestCase
             'service_name' => $this->cataract->name,
             'doctor_id' => $this->doctor->id,
             'price' => 5000,
+            'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance',
             'pay_status' => 'unpaid',
             'status' => 'waiting',
@@ -109,11 +113,12 @@ class DoctorEntitlementOnBookingTest extends TestCase
         $this->assertDatabaseCount('doctor_entitlements', 0);
     }
 
-    public function test_the_entitlement_is_created_even_without_an_insurance_company(): void
+    public function test_an_insurance_booking_without_a_company_is_rejected(): void
     {
-        $this->book(['pay_method' => 'insurance'])->assertRedirect();
+        $this->book(['pay_method' => 'insurance', 'ins_company_id' => ''])
+            ->assertSessionHasErrors('ins_company_id');
 
-        $this->assertDatabaseCount('doctor_entitlements', 1);
+        $this->assertDatabaseCount('doctor_entitlements', 0);
     }
 
     public function test_the_entitlement_is_created_with_an_insurance_company_selected(): void
@@ -134,7 +139,14 @@ class DoctorEntitlementOnBookingTest extends TestCase
 
     public function test_no_entitlement_when_the_booking_has_no_service(): void
     {
-        $this->book(['pay_method' => 'insurance', 'service_id' => null, 'service_name' => null])->assertRedirect();
+        // A service is mandatory for an insurance booking, so use a contract deal
+        // (also third-party) to exercise the "no service → no entitlement" path.
+        $this->book([
+            'pay_method' => 'contract',
+            'ins_company_id' => '',
+            'service_id' => null,
+            'service_name' => null,
+        ])->assertRedirect();
 
         $this->assertDatabaseCount('doctor_entitlements', 0);
     }

@@ -7,6 +7,7 @@ use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Enums\EntitlementStatus;
 use Modules\Doctor\Models\Doctor;
@@ -49,16 +50,19 @@ class DoctorEntitlementLifecycleTest extends TestCase
         $this->sara->services()->attach($this->service->id, ['fee' => 900]);
 
         $this->otherService = $other;
+        $this->company = InsuranceCompany::create(['name' => 'شركة التأمين', 'coverage_pct' => 80]);
     }
 
     private Service $otherService;
+
+    private InsuranceCompany $company;
 
     private function createInsuranceBooking(): Booking
     {
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->omar->id, 'price' => 5000,
+            'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
@@ -70,7 +74,7 @@ class DoctorEntitlementLifecycleTest extends TestCase
         return $this->actingAs($this->user)->put("/booking/{$booking->id}", array_merge([
             'patient_name' => $booking->patient_name, 'dept' => 'clinic', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->omar->id, 'price' => 5000,
+            'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ], $overrides))->assertRedirect();
     }

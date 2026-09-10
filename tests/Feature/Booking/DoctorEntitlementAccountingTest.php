@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Models\Doctor;
 use Spatie\Permission\Models\Permission;
@@ -25,6 +26,8 @@ class DoctorEntitlementAccountingTest extends TestCase
     private Doctor $omar;
 
     private Doctor $sara;
+
+    private InsuranceCompany $company;
 
     protected function setUp(): void
     {
@@ -44,6 +47,7 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->omar->services()->attach($this->service->id, ['fee' => 750]);
         $this->sara = Doctor::create(['name' => 'د. سارة', 'fee_type' => 'fixed', 'fee_value' => 0]);
         $this->sara->services()->attach($this->service->id, ['fee' => 900]);
+        $this->company = InsuranceCompany::create(['name' => 'شركة التأمين', 'coverage_pct' => 80]);
     }
 
     private function drExpenseId(): string
@@ -61,7 +65,7 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->omar->id, 'price' => 5000,
+            'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
@@ -73,7 +77,7 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", array_merge([
             'patient_name' => $booking->patient_name, 'dept' => 'clinic', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->omar->id, 'price' => 5000,
+            'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ], $overrides))->assertRedirect();
     }
