@@ -21,11 +21,12 @@ interface Booking {
     patient_name: string;
     patient_phone?: string;
     dept: string;
+    service_name?: string;
     visit_date: string;
     status: string;
     pay_status: string;
     price: number;
-    doctor_name?: string;
+    doctor?: { name: string };
     media_files: MediaFile[];
 }
 
@@ -268,6 +269,8 @@ function goToPage(page: number) {
             <div class="flex flex-1 flex-col p-3">
                 <p class="truncate font-semibold text-hospital-text text-sm">{{ record.patient_name }}</p>
                 <p class="mt-0.5 text-xs text-hospital-muted">{{ record.file_no }}</p>
+                <p v-if="record.patient_phone" class="mt-0.5 truncate text-xs text-hospital-muted">{{ record.patient_phone }}</p>
+                <p v-if="record.service_name" class="mt-1 truncate text-xs font-medium text-hospital-text-2">{{ record.service_name }}</p>
                 <div class="mt-2 flex flex-wrap gap-1">
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -303,6 +306,8 @@ function goToPage(page: number) {
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">رقم الملف</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">المريض</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">القسم</th>
+                    <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الخدمة</th>
+                    <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الهاتف</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الطبيب</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">تاريخ الزيارة</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">المبلغ</th>
@@ -323,7 +328,9 @@ function goToPage(page: number) {
                             {{ deptLabels[record.dept] ?? record.dept }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor_name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.service_name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2" dir="ltr">{{ record.patient_phone ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor?.name ?? '—' }}</td>
                     <td class="px-4 py-3 text-hospital-text-2">{{ record.visit_date }}</td>
                     <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('ar-EG') }} ج</td>
                     <td class="px-4 py-3">

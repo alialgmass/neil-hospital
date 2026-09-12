@@ -142,7 +142,7 @@ class BookingService
     public function getPatientFile(string $fileNo): Collection
     {
         return Booking::query()
-            ->with(['doctor', 'clinicSheet', 'diagnosticResults'])
+            ->with(['doctor', 'service', 'clinicSheet', 'diagnosticResults', 'surgery', 'insuranceClaim.company'])
             ->where('file_no', $fileNo)
             ->orderByDesc('visit_date')
             ->get();

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 import {
     User,
     Phone,
@@ -11,8 +10,12 @@ import {
     FileText,
     Paperclip,
     Printer,
+    IdCard,
+    ShieldCheck,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
+import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
+import Badge from '@/components/shared/Badge.vue';
 import { archive } from '@/routes';
 import booking from '@/routes/booking';
 
@@ -21,6 +24,10 @@ interface Patient {
     phone?: string;
     age?: number;
     file_no: string;
+    national_id?: string;
+    gender?: 'male' | 'female';
+    kinship_degree?: string;
+    kinship_degree_label?: string;
 }
 
 interface ClinicSheet {
@@ -50,6 +57,25 @@ interface Surgery {
     scheduled_at?: string;
 }
 
+interface InsuranceClaim {
+    id: string;
+    invoice_amount: number;
+    discount: number;
+    patient_share: number;
+    insurance_share: number;
+    approved_amount: number;
+    paid_amount: number;
+    status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'paid';
+    claim_reference?: string;
+    company?: { name: string };
+}
+
+interface Service {
+    id: string;
+    name: string;
+    dept: string;
+}
+
 interface MediaFile {
     id: number;
     name: string;
@@ -63,16 +89,26 @@ interface Booking {
     file_no: string;
     dept: string;
     service_name?: string;
+    service?: Service;
     visit_date: string;
     visit_time?: string;
     price: number;
+    discount: number;
+    ins_amount: number;
+    paid_amount: number;
+    pay_method: string;
     pay_status: string;
     status: string;
     visit_note?: string;
+    eye_side?: string;
+    analysis_type?: string;
+    analysis_notes?: string;
+    cancel_reason?: string;
     doctor?: { name: string };
     clinic_sheet?: ClinicSheet;
     diagnostic_results?: DiagnosticResult[];
     surgery?: Surgery;
+    insurance_claim?: InsuranceClaim;
     media_files: MediaFile[];
 }
 
@@ -112,6 +148,48 @@ const payStatusLabels: Record<string, string> = {
     partial: 'جزئي',
     unpaid: 'غير مسدد',
 };
+
+const payMethodLabels: Record<string, string> = {
+    cash: 'نقدي',
+    card: 'بطاقة',
+    transfer: 'تحويل',
+    insurance: 'تأمين',
+    contract: 'تعاقد',
+};
+
+const eyeSideLabels: Record<string, string> = {
+    OD: 'العين اليمنى',
+    OS: 'العين اليسرى',
+    OU: 'كلتا العينين',
+};
+
+const genderLabels: Record<string, string> = {
+    male: 'ذكر',
+    female: 'أنثى',
+};
+
+const claimStatusLabels: Record<string, string> = {
+    draft: 'مسودة',
+    submitted: 'مُرسلة',
+    approved: 'معتمدة',
+    rejected: 'مرفوضة',
+    paid: 'مسددة',
+};
+
+const claimStatusVariants: Record<string, string> = {
+    draft: 'inactive',
+    submitted: 'info',
+    approved: 'success',
+    rejected: 'danger',
+    paid: 'paid',
+};
+
+function netAmount(b: Booking): number {
+    return Math.max(0, Number(b.price) - Number(b.discount ?? 0));
+}
+function remainingAmount(b: Booking): number {
+    return Math.max(0, netAmount(b) - Number(b.paid_amount ?? 0));
+}
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
@@ -212,6 +290,36 @@ function isImage(mime: string): boolean {
                 <p class="text-sm font-medium">{{ bookings.length }} زيارة</p>
             </div>
         </div>
+        <div
+            v-if="patient.national_id"
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
+            <IdCard class="h-4 w-4 text-hospital-muted" />
+            <div>
+                <p class="text-xs text-hospital-muted">الرقم القومي</p>
+                <p class="text-sm font-medium">{{ patient.national_id }}</p>
+            </div>
+        </div>
+        <div
+            v-if="patient.gender"
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
+            <User class="h-4 w-4 text-hospital-muted" />
+            <div>
+                <p class="text-xs text-hospital-muted">النوع</p>
+                <p class="text-sm font-medium">{{ genderLabels[patient.gender] ?? patient.gender }}</p>
+            </div>
+        </div>
+        <div
+            v-if="patient.kinship_degree_label"
+            class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
+        >
+            <User class="h-4 w-4 text-hospital-muted" />
+            <div>
+                <p class="text-xs text-hospital-muted">صلة القرابة (لمرافق الحجز)</p>
+                <p class="text-sm font-medium">{{ patient.kinship_degree_label }}</p>
+            </div>
+        </div>
     </div>
 
     <!-- No bookings -->
@@ -274,10 +382,100 @@ function isImage(mime: string): boolean {
                     <span class="font-medium">{{ booking.doctor.name }}</span>
                 </div>
 
+                <!-- Eye side / analysis type -->
+                <div v-if="booking.eye_side" class="text-sm">
+                    <span class="text-hospital-muted">العين: </span>
+                    <span class="font-medium">{{ eyeSideLabels[booking.eye_side] ?? booking.eye_side }}</span>
+                </div>
+                <div v-if="booking.analysis_type" class="text-sm">
+                    <span class="text-hospital-muted">نوع التحليل: </span>
+                    <span class="font-medium">{{ booking.analysis_type }}</span>
+                </div>
+                <div v-if="booking.analysis_notes" class="text-sm">
+                    <span class="text-hospital-muted">ملاحظات التحليل: </span>
+                    <span>{{ booking.analysis_notes }}</span>
+                </div>
+
                 <!-- Visit note -->
                 <div v-if="booking.visit_note" class="text-sm">
                     <span class="text-hospital-muted">ملاحظات: </span>
                     <span>{{ booking.visit_note }}</span>
+                </div>
+
+                <!-- Cancellation reason -->
+                <div v-if="booking.cancel_reason" class="text-sm text-hospital-danger">
+                    <span class="text-hospital-muted">سبب الإلغاء: </span>
+                    <span>{{ booking.cancel_reason }}</span>
+                </div>
+
+                <!-- Financial breakdown -->
+                <div
+                    class="grid grid-cols-2 gap-2 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm sm:grid-cols-4"
+                >
+                    <div>
+                        <p class="text-xs text-hospital-muted">طريقة الدفع</p>
+                        <p class="font-medium">{{ payMethodLabels[booking.pay_method] ?? booking.pay_method }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-hospital-muted">الخصم</p>
+                        <p class="font-medium">{{ fmt(booking.discount ?? 0) }} ج</p>
+                    </div>
+                    <div v-if="Number(booking.ins_amount) > 0">
+                        <p class="text-xs text-hospital-muted">حصة التأمين</p>
+                        <p class="font-medium">{{ fmt(booking.ins_amount) }} ج</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-hospital-muted">المدفوع</p>
+                        <p class="font-medium">{{ fmt(booking.paid_amount ?? 0) }} ج</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-hospital-muted">الصافي المستحق</p>
+                        <p class="font-medium">{{ fmt(netAmount(booking)) }} ج</p>
+                    </div>
+                    <div v-if="remainingAmount(booking) > 0">
+                        <p class="text-xs text-hospital-danger">المتبقي</p>
+                        <p class="font-medium text-hospital-danger">{{ fmt(remainingAmount(booking)) }} ج</p>
+                    </div>
+                </div>
+
+                <!-- Insurance claim -->
+                <div
+                    v-if="booking.insurance_claim"
+                    class="space-y-1 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm"
+                >
+                    <p class="flex items-center gap-1.5 font-medium text-hospital-primary">
+                        <ShieldCheck class="h-3.5 w-3.5" />
+                        مطالبة التأمين
+                        <Badge :variant="claimStatusVariants[booking.insurance_claim.status] as any">
+                            {{ claimStatusLabels[booking.insurance_claim.status] }}
+                        </Badge>
+                    </p>
+                    <div v-if="booking.insurance_claim.company">
+                        <span class="text-hospital-muted">شركة التأمين: </span
+                        >{{ booking.insurance_claim.company.name }}
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div>
+                            <span class="text-hospital-muted">قيمة الفاتورة: </span
+                            >{{ fmt(booking.insurance_claim.invoice_amount) }} ج
+                        </div>
+                        <div>
+                            <span class="text-hospital-muted">حصة التأمين: </span
+                            >{{ fmt(booking.insurance_claim.insurance_share) }} ج
+                        </div>
+                        <div>
+                            <span class="text-hospital-muted">حصة المريض: </span
+                            >{{ fmt(booking.insurance_claim.patient_share) }} ج
+                        </div>
+                        <div>
+                            <span class="text-hospital-muted">المحصّل: </span
+                            >{{ fmt(booking.insurance_claim.paid_amount) }} ج
+                        </div>
+                    </div>
+                    <div v-if="booking.insurance_claim.claim_reference">
+                        <span class="text-hospital-muted">مرجع المطالبة: </span
+                        >{{ booking.insurance_claim.claim_reference }}
+                    </div>
                 </div>
 
                 <!-- Clinic Sheet -->

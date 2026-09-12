@@ -146,6 +146,10 @@ class BookingController extends Controller
                 'phone' => $patient->patient_phone,
                 'age' => $patient->patient_age,
                 'file_no' => $patient->file_no,
+                'national_id' => $patient->national_id,
+                'gender' => $patient->gender,
+                'kinship_degree' => $patient->kinship_degree?->value,
+                'kinship_degree_label' => $patient->kinship_degree?->label(),
             ] : null,
             'bookings' => $bookings,
         ]);

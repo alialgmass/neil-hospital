@@ -22,6 +22,7 @@ interface Service {
     center_share: number;
     dr_share: number;
     default_dr_fee: number | null;
+    dev_treasury_fee: number | null;
     duration_mins: number;
     status: 'active' | 'inactive';
     revenue_account_id: string | null;
@@ -99,6 +100,7 @@ const form = useForm({
     center_type: 'pct' as 'pct' | 'fixed',
     center_val: 40 as number,
     default_dr_fee: null as number | null,
+    dev_treasury_fee: null as number | null,
     duration_mins: 30 as number,
     status: 'active' as 'active' | 'inactive',
     revenue_account_id: null as string | null,
@@ -111,6 +113,7 @@ function openCreate() {
     form.center_type = 'pct';
     form.center_val = 40;
     form.default_dr_fee = null;
+    form.dev_treasury_fee = null;
     form.duration_mins = 30;
     form.status = 'active';
     form.revenue_account_id = null;
@@ -128,6 +131,7 @@ function openEdit(svc: Service) {
     form.center_type = svc.center_type;
     form.center_val = Number(svc.center_val);
     form.default_dr_fee = svc.default_dr_fee != null ? Number(svc.default_dr_fee) : null;
+    form.dev_treasury_fee = svc.dev_treasury_fee != null ? Number(svc.dev_treasury_fee) : null;
     form.duration_mins = svc.duration_mins ?? 30;
     form.status = svc.status;
     form.revenue_account_id = svc.revenue_account_id;
@@ -572,6 +576,23 @@ function fmt(n: number) {
                             class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                         />
                         <p v-if="form.errors.default_dr_fee" class="mt-1 text-xs text-hospital-danger">{{ form.errors.default_dr_fee }}</p>
+                    </div>
+
+                    <!-- Development treasury fee -->
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-hospital-text">
+                            رسوم خزنة التطوير
+                            <span class="ms-1 text-xs font-normal text-hospital-text-3">(اختياري — تُخصم تلقائيًا من الكاش المُحصّل عند الدفع نقدًا وتُحوَّل إلى خزنة التطوير)</span>
+                        </label>
+                        <input
+                            v-model.number="form.dev_treasury_fee"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                        />
+                        <p v-if="form.errors.dev_treasury_fee" class="mt-1 text-xs text-hospital-danger">{{ form.errors.dev_treasury_fee }}</p>
                     </div>
 
                     <!-- Revenue account -->

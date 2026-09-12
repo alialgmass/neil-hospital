@@ -5,6 +5,7 @@ namespace Modules\Booking\Actions;
 use App\Enums\Department;
 use App\Services\ActivityLogService;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostDevelopmentFeeAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
@@ -21,6 +22,7 @@ class CreateBookingAction
         private readonly BookingService $bookingService,
         private readonly SurgeryService $surgeryService,
         private readonly AutoPostBookingPaymentAction $autoPost,
+        private readonly AutoPostDevelopmentFeeAction $autoPostDevelopmentFee,
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
@@ -64,6 +66,7 @@ class CreateBookingAction
         // Automatic Accounting Entry
         if ($booking->pay_status === PayStatus::Paid) {
             $this->autoPost->execute($booking);
+            $this->autoPostDevelopmentFee->execute($booking);
         }
 
         // Automatic doctor entitlement for insurance / contract deals

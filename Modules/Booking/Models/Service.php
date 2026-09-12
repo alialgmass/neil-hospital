@@ -14,7 +14,7 @@ class Service extends Model
     protected $fillable = [
         'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price',
         'center_type', 'center_val', 'center_share', 'dr_share', 'default_dr_fee',
-        'duration_mins', 'status', 'revenue_account_id',
+        'dev_treasury_fee', 'duration_mins', 'status', 'revenue_account_id',
     ];
 
     protected $casts = [
@@ -26,6 +26,7 @@ class Service extends Model
         'center_share' => 'decimal:2',
         'dr_share' => 'decimal:2',
         'default_dr_fee' => 'decimal:2',
+        'dev_treasury_fee' => 'decimal:2',
     ];
 
     public function revenueAccount(): BelongsTo

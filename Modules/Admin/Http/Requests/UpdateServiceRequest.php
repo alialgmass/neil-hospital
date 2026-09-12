@@ -24,6 +24,8 @@ class UpdateServiceRequest extends FormRequest
             'ins_price' => ['nullable', 'numeric', 'min:0'],
             'center_type' => ['required', "in:{$shareTypes}"],
             'center_val' => ['nullable', 'numeric', 'min:0'],
+            'default_dr_fee' => ['nullable', 'numeric', 'min:0'],
+            'dev_treasury_fee' => ['nullable', 'numeric', 'min:0'],
             'duration_mins' => ['nullable', 'integer', 'min:1'],
             'status' => ['nullable', "in:{$statuses}"],
             'revenue_account_id' => ['nullable', 'ulid', 'exists:accounts,id'],

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostDevelopmentFeeAction;
 use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
@@ -15,6 +16,7 @@ class PayBookingController extends Controller
 {
     public function __construct(
         private readonly AutoPostBookingPaymentAction $autoPostAction,
+        private readonly AutoPostDevelopmentFeeAction $autoPostDevelopmentFee,
         private readonly AutoPostDoctorDuesAction $autoPostDoctorDues,
         private readonly DoctorClaimsService $doctorClaimsService,
     ) {}
@@ -55,6 +57,7 @@ class PayBookingController extends Controller
         $booking = $booking->fresh();
 
         $this->autoPostAction->execute($booking, $paymentAmount);
+        $this->autoPostDevelopmentFee->execute($booking);
 
         if ($booking->doctor_id) {
             $doctor = Doctor::find($booking->doctor_id);

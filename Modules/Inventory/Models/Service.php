@@ -25,6 +25,7 @@ class Service extends Model
         'center_share',
         'dr_share',
         'default_dr_fee',
+        'dev_treasury_fee',
         'duration_mins',
         'status',
         'revenue_account_id',
@@ -41,6 +42,7 @@ class Service extends Model
             'center_share' => 'float',
             'dr_share' => 'float',
             'default_dr_fee' => 'float',
+            'dev_treasury_fee' => 'float',
         ];
     }
 

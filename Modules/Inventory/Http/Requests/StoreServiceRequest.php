@@ -23,6 +23,7 @@ class StoreServiceRequest extends FormRequest
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',
             'default_dr_fee' => 'nullable|numeric|min:0',
+            'dev_treasury_fee' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
         ];
