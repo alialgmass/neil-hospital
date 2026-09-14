@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Services;
 
+use App\Enums\Department;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
@@ -88,6 +89,11 @@ class DoctorClaimsService
     public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
         if ($doctor->fee_type === FeeType::Insurance) {
+            return 0.0;
+        }
+
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($booking->dept === Department::Pentacam) {
             return 0.0;
         }
 
@@ -191,9 +197,15 @@ class DoctorClaimsService
 
     public function computeDrShare(Doctor $doctor, object $booking): float
     {
+        $dept = $booking->dept;
+
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($dept === Department::Pentacam->value) {
+            return 0.0;
+        }
+
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
-        $dept = $booking->dept;
 
         // Development-treasury fee is deducted from the price BEFORE the
         // doctor's share is computed (cash bookings only — see
