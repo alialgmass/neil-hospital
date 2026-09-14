@@ -3,7 +3,9 @@ import { Head, router, useForm } from '@inertiajs/vue3';
 import { AlertTriangle, Package, PlusCircle, ShoppingCart, TrendingDown } from 'lucide-vue-next';
 import { ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 
 interface Supplier { id: string; name: string }
@@ -89,10 +91,24 @@ const form = useForm({
     location:     '',
 });
 function submit() {
-    form.post('/inventory', { onSuccess: () => { showAdd.value = false; form.reset(); } });
+    form.post('/inventory', { onSuccess: () => {
+ showAdd.value = false; form.reset(); 
+} });
 }
 
-function fmt(n: number) { return Number(n).toLocaleString('ar-EG') + ' ج.م'; }
+function fmt(n: number) {
+ return Number(n).toLocaleString('ar-EG') + ' ج.م'; 
+}
+
+function exportExcel() {
+    const params = new URLSearchParams({
+        search:    search.value    || '',
+        category:  catFilter.value || '',
+        low_stock: lowStock.value  ? '1' : '',
+    }).toString();
+
+    window.location.href = `/inventory/export${params ? '?' + params : ''}`;
+}
 </script>
 
 <template>
@@ -169,9 +185,16 @@ function fmt(n: number) { return Number(n).toLocaleString('ar-EG') + ' ج.م'; }
                 منخفض فقط
             </label>
         </div>
-        <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="showAdd = true">
-            <PlusCircle class="h-4 w-4" /> صنف جديد
-        </button>
+        <div class="flex items-center gap-2">
+            <ModuleImportButton
+                label="المخزون"
+                templateUrl="/inventory/import-template"
+                importUrl="/inventory/import"
+            />
+            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="showAdd = true">
+                <PlusCircle class="h-4 w-4" /> صنف جديد
+            </button>
+        </div>
     </div>
 
     <!-- Table Card -->
@@ -183,6 +206,7 @@ function fmt(n: number) { return Number(n).toLocaleString('ar-EG') + ' ج.م'; }
                 </p>
                 <p class="text-[10px] text-t2">{{ items.total }} صنف</p>
             </div>
+            <ExportBar @export="exportExcel" @print="() => window.print()" />
         </div>
         <DataTable
             :columns="columns"

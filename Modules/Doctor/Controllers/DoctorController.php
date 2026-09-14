@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Booking\Models\Service;
 use Modules\Doctor\Actions\CreateDoctorAction;
 use Modules\Doctor\Actions\UpdateDoctorAction;
 use Modules\Doctor\Http\Requests\StoreDoctorRequest;
@@ -27,6 +28,7 @@ class DoctorController extends Controller
 
         return Inertia::render('doctors/Index', [
             'doctors' => $this->doctorService->list($filters),
+            'services' => Service::query()->orderBy('name')->get(['id', 'name', 'dept']),
             'filters' => $filters,
         ]);
     }
@@ -44,5 +46,18 @@ class DoctorController extends Controller
         $this->updateAction->execute($doctor, $request->validated());
 
         return back()->with('success', 'تم تعديل بيانات الطبيب بنجاح.');
+    }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $doctor = Doctor::findOrFail($id);
+
+        if ($doctor->payments()->exists() || $doctor->shifts()->exists()) {
+            return back()->with('error', 'لا يمكن حذف الطبيب لوجود مدفوعات أو شِفتات مرتبطة به.');
+        }
+
+        $doctor->delete();
+
+        return back()->with('success', 'تم حذف الطبيب بنجاح.');
     }
 }

@@ -3,14 +3,18 @@
 namespace Modules\Accounting\Actions;
 
 use App\Enums\Department;
-use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
 
 class AutoPostDoctorDuesAction
 {
-    public function __construct(private readonly JournalService $journalService) {}
+    public function __construct(
+        private readonly JournalService $journalService,
+        private readonly AccountResolver $accountResolver,
+    ) {}
 
     /**
      * Record doctor dues accrual for a shift or booking.
@@ -22,22 +26,14 @@ class AutoPostDoctorDuesAction
         string $doctorName,
         string $reference,
         ?string $date = null,
+        ?string $idempotencyKey = null,
     ): void {
-        if ($amount <= 0) {
+        if ($amount <= 0 || $dept === Department::Pentacam) {
             return;
         }
 
-        $expenseCode = match ($dept) {
-            Department::Surgery, Department::Lasik => '5120',
-            default => '5110',
-        };
-
-        $expenseId = DB::table('accounts')->where('code', $expenseCode)->value('id');
-        $payableId = DB::table('accounts')->where('code', '2010')->value('id');
-
-        if (! $expenseId || ! $payableId) {
-            return;
-        }
+        $expenseId = $this->accountResolver->id(AccountCode::doctorExpenseCode($dept));
+        $payableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
 
         $this->journalService->record([
             'date' => $date ?? now()->toDateString(),
@@ -47,6 +43,7 @@ class AutoPostDoctorDuesAction
             'amount' => $amount,
             'source' => JournalSource::DOCTOR_SHIFT,
             'reference' => $reference,
+            'idempotency_key' => $idempotencyKey,
             'cost_center' => CostCenter::Doctors,
         ]);
     }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { Pencil, PlusCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -121,6 +121,15 @@ const deptLabels: Record<string, string> = {
     laser: 'ليزر',
 };
 
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const selectableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(
+        Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false),
+    );
+});
+
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG') + ' ج.م';
 }
@@ -135,7 +144,7 @@ function fmt(n: number) {
             <SearchBar v-model="search" placeholder="ابحث بالاسم..." @update:model-value="applyFilters" />
             <select v-model="deptFilter" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters">
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in selectableDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
             <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openAdd">
                 <PlusCircle class="h-4 w-4" /> خدمة جديدة
@@ -170,7 +179,7 @@ function fmt(n: number) {
                 <div>
                     <label class="mb-1 block text-sm font-medium">القسم</label>
                     <select v-model="form.dept" :disabled="!!editId" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none disabled:opacity-60">
-                        <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                        <option v-for="(label, key) in (editId ? deptLabels : selectableDeptLabels)" :key="key" :value="key">{{ label }}</option>
                     </select>
                 </div>
                 <div>

@@ -6,16 +6,22 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
+use Modules\Booking\Exports\BookingsExport;
 use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -27,6 +33,7 @@ class BookingController extends Controller
         private readonly CreateBookingAction $createAction,
         private readonly UpdateBookingAction $updateAction,
         private readonly BookingRepositoryInterface $bookingRepository,
+        private readonly ActivityLogService $activityLog,
     ) {}
 
     public function index(): Response
@@ -48,6 +55,15 @@ class BookingController extends Controller
         ]);
     }
 
+    public function export()
+    {
+        $filter = BookingFilterData::fromArray(request()->all());
+
+        $bookings = $this->bookingRepository->filteredAll($filter);
+
+        return Excel::download(new BookingsExport($bookings), 'reservations.xlsx');
+    }
+
     public function store(StoreBookingRequest $request): RedirectResponse
     {
         $data = BookingData::fromArray($request->validated());
@@ -60,25 +76,32 @@ class BookingController extends Controller
     public function update(UpdateBookingRequest $request, string $id): RedirectResponse
     {
         $booking = $this->bookingRepository->findOrFail($id);
+        $wasCompleted = $booking->status instanceof CompletedState || $booking->status instanceof CompletedElectronicState;
 
-        if ($booking->status instanceof CompletedState) {
+        if ($wasCompleted && ! $request->user()->can('booking.edit_completed')) {
             return back()->withErrors(['status' => 'لا يمكن تعديل حجز مكتمل.']);
         }
 
         $data = BookingData::fromArray($request->validated());
         $this->updateAction->execute($id, $data);
 
+        if ($wasCompleted) {
+            $this->activityLog->log(
+                'edited_while_completed',
+                'booking',
+                $id,
+                "تعديل حجز مكتمل: {$booking->file_no}",
+            );
+        }
+
         return back()->with('success', 'تم تحديث الحجز بنجاح.');
     }
 
-    public function destroy(string $id): RedirectResponse
+    public function destroy(string $id, SyncDoctorEntitlementAction $syncDoctorEntitlement): RedirectResponse
     {
         $booking = $this->bookingRepository->findOrFail($id);
 
-        if ($booking->status instanceof CompletedState) {
-            return back()->withErrors(['status' => 'لا يمكن حذف حجز مكتمل.']);
-        }
-
+        $syncDoctorEntitlement->onBookingDeleted($booking);
         $this->bookingRepository->delete($id);
 
         return back()->with('success', 'تم حذف الحجز بنجاح.');
@@ -90,6 +113,15 @@ class BookingController extends Controller
 
         return Inertia::render('booking/Receipt', [
             'booking' => $booking->load(['doctor:id,name', 'service:id,name']),
+        ]);
+    }
+
+    public function barcode(string $id): Response
+    {
+        $booking = $this->bookingService->findOrFail($id);
+
+        return Inertia::render('booking/Barcode', [
+            'booking' => $booking->load(['doctor:id,name']),
         ]);
     }
 
@@ -110,11 +142,20 @@ class BookingController extends Controller
 
         return Inertia::render('booking/PatientFile', [
             'file_no' => $fileNo,
+            'transfer_services' => Service::active()
+                ->whereIn('dept', ['surgery', 'lasik', 'laser'])
+                ->orderBy('dept')
+                ->orderBy('name')
+                ->get(['id', 'name', 'dept']),
             'patient' => $patient ? [
                 'name' => $patient->patient_name,
                 'phone' => $patient->patient_phone,
                 'age' => $patient->patient_age,
                 'file_no' => $patient->file_no,
+                'national_id' => $patient->national_id,
+                'gender' => $patient->gender,
+                'kinship_degree' => $patient->kinship_degree?->value,
+                'kinship_degree_label' => $patient->kinship_degree?->label(),
             ] : null,
             'bookings' => $bookings,
         ]);

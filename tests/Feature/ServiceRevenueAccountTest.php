@@ -17,7 +17,8 @@ class ServiceRevenueAccountTest extends TestCase
 {
     use RefreshDatabase;
 
-    // Accounts 2500, 2600, 2700 are inserted by migration add_revenue_account_to_services_table.
+    // Accounts 2500/2600/2700 are inserted by migration add_revenue_account_to_services_table,
+    // then renamed to 4060/4070/4080 by rename_misplaced_revenue_accounts.
     private function account(string $code): Account
     {
         return Account::where('code', $code)->firstOrFail();
@@ -55,7 +56,7 @@ class ServiceRevenueAccountTest extends TestCase
 
     public function test_service_can_store_revenue_account_id(): void
     {
-        $account = $this->account('2500');
+        $account = $this->account('4060');
 
         $service = Service::create([
             'name' => 'ليزر شبكية',
@@ -78,7 +79,7 @@ class ServiceRevenueAccountTest extends TestCase
 
     public function test_service_revenue_account_relationship(): void
     {
-        $account = $this->account('2600');
+        $account = $this->account('4070');
 
         $service = Service::create([
             'name' => 'كشف تأمين',
@@ -92,7 +93,7 @@ class ServiceRevenueAccountTest extends TestCase
         ]);
 
         $this->assertEquals($account->name, $service->revenueAccount->name);
-        $this->assertEquals('2600', $service->revenueAccount->code);
+        $this->assertEquals('4070', $service->revenueAccount->code);
     }
 
     public function test_auto_post_uses_service_revenue_account_when_set(): void
@@ -105,8 +106,8 @@ class ServiceRevenueAccountTest extends TestCase
         ]);
         $this->createAccount('4050', 'إيرادات الليزر');
 
-        // Migration-seeded account 2500 used as service-specific revenue account
-        $specificRevenueAccount = $this->account('2500');
+        // Migration-seeded account 4060 used as service-specific revenue account
+        $specificRevenueAccount = $this->account('4060');
 
         $service = Service::create([
             'name' => 'ليزر شبكية',

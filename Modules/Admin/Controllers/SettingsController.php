@@ -9,6 +9,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Admin\Services\SettingsService;
+use Modules\Booking\States\BookingStatus;
 
 class SettingsController extends Controller
 {
@@ -25,6 +26,7 @@ class SettingsController extends Controller
                 'label' => $module->label(),
                 'enabled' => $module->isEnabled(),
             ])->all(),
+            'bookingStatuses' => BookingStatus::options(),
         ]);
     }
 

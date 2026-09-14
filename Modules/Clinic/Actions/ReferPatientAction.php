@@ -3,6 +3,7 @@
 namespace Modules\Clinic\Actions;
 
 use App\Services\ActivityLogService;
+use Illuminate\Validation\ValidationException;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Models\Booking;
@@ -17,7 +18,12 @@ class ReferPatientAction
     ) {}
 
     /**
-     * Set referral on the clinic sheet and optionally create a follow-up booking.
+     * Set referral on the clinic sheet and optionally create a same-day
+     * follow-up booking in the target department. The follow-up gets its
+     * own file_no (file_no is unique per booking — it can't share the
+     * original's) but its visit_note back-references the original visit,
+     * and patient history is still discoverable via patientHistory()'s
+     * name/phone match.
      *
      * @param  bool  $createFollowUp  Whether to auto-create a follow-up booking in target dept.
      */
@@ -27,27 +33,34 @@ class ReferPatientAction
         int $referringUserId,
         bool $createFollowUp = false,
     ): void {
-        $sheet = $this->clinicSheetRepository->findByBooking($bookingId);
+        $originalBooking = Booking::findOrFail($bookingId);
 
-        if ($sheet) {
-            $this->clinicSheetRepository->createOrUpdate($bookingId, [
-                ...$sheet->toArray(),
-                'referral_to' => $referralTo,
+        if ($referralTo === $originalBooking->dept->value) {
+            throw ValidationException::withMessages([
+                'referral_to' => 'لا يمكن توجيه المريض إلى نفس القسم الحالي.',
             ]);
         }
 
-        if ($createFollowUp) {
-            $originalBooking = Booking::findOrFail($bookingId);
+        $sheet = $this->clinicSheetRepository->findByBooking($bookingId);
 
+        $this->clinicSheetRepository->createOrUpdate($bookingId, [
+            ...($sheet?->toArray() ?? []),
+            'referral_to' => $referralTo,
+        ]);
+
+        if ($createFollowUp) {
             $followUpData = BookingData::fromArray([
                 'patient_name' => $originalBooking->patient_name,
                 'patient_phone' => $originalBooking->patient_phone,
                 'patient_age' => $originalBooking->patient_age,
                 'national_id' => $originalBooking->national_id,
                 'gender' => $originalBooking->gender,
+                'kinship_degree' => $originalBooking->kinship_degree,
                 'dept' => $referralTo,
                 'doctor_id' => $originalBooking->doctor_id,
-                'visit_date' => today()->addDay()->toDateString(),
+                // Same-day: the patient is being routed to the next stop of
+                // *this* visit, not scheduled for a future date.
+                'visit_date' => today()->toDateString(),
                 'pay_method' => 'cash',
                 'pay_status' => 'unpaid',
                 'status' => 'waiting',

@@ -5,12 +5,15 @@ namespace Modules\Inventory\Services;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Actions\AutoPostPurchaseReturnAction;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\PurchaseInvoice;
 use Modules\Inventory\Models\Supplier;
 
 class PurchaseReturnService
 {
+    public function __construct(private readonly AutoPostPurchaseReturnAction $autoPostReturn) {}
+
     public function list(int $perPage = 20): LengthAwarePaginator
     {
         return PurchaseInvoice::query()
@@ -47,6 +50,10 @@ class PurchaseReturnService
             if ($invoice->supplier_id) {
                 Supplier::where('id', $invoice->supplier_id)->decrement('balance', $returnTotal);
             }
+
+            // Post the GL entry for the return (Dr Suppliers/Cash, Cr Inventory)
+            // — previously this bypassed the GL entirely.
+            $this->autoPostReturn->execute($invoice, (float) $returnTotal);
 
             // Mark invoice as returned or cancelled if needed
             // Currently the controller doesn't update the invoice status itself,

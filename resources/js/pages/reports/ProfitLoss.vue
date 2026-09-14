@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { EyeOff, Search, X } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface AccountRow {
     name: string;
@@ -34,6 +36,13 @@ function exportExcel() {
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
 }
+
+const revFilter = useReportRowFilter(() => props.data.revenues, ['name'], (r) => r.name);
+const expFilter = useReportRowFilter(() => props.data.expenses, ['name'], (r) => r.name);
+
+const visibleTotalRevenue = computed(() => revFilter.visibleRows.value.reduce((s, r) => s + Number(r.amount), 0));
+const visibleTotalExpense = computed(() => expFilter.visibleRows.value.reduce((s, r) => s + Number(r.amount), 0));
+const visibleNetIncome = computed(() => visibleTotalRevenue.value - visibleTotalExpense.value);
 </script>
 
 <template>
@@ -68,7 +77,7 @@ function fmt(n: number) {
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي الإيرادات</p>
-                <p class="text-xl font-bold text-s">{{ fmt(data.totalRevenue) }}</p>
+                <p class="text-xl font-bold text-s">{{ fmt(visibleTotalRevenue) }}</p>
                 <p class="text-xs text-t3">ج.م</p>
             </div>
         </div>
@@ -78,7 +87,7 @@ function fmt(n: number) {
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي المصروفات</p>
-                <p class="text-xl font-bold text-d">{{ fmt(data.totalExpense) }}</p>
+                <p class="text-xl font-bold text-d">{{ fmt(visibleTotalExpense) }}</p>
                 <p class="text-xs text-t3">ج.م</p>
             </div>
         </div>
@@ -87,16 +96,16 @@ function fmt(n: number) {
         >
             <div
                 class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-                :class="data.netIncome >= 0 ? 'bg-pp' : 'bg-dp'"
+                :class="visibleNetIncome >= 0 ? 'bg-pp' : 'bg-dp'"
             >
-                <div class="text-lg font-bold" :class="data.netIncome >= 0 ? 'text-p' : 'text-d'">
-                    {{ data.netIncome >= 0 ? '=' : '!' }}
+                <div class="text-lg font-bold" :class="visibleNetIncome >= 0 ? 'text-p' : 'text-d'">
+                    {{ visibleNetIncome >= 0 ? '=' : '!' }}
                 </div>
             </div>
             <div>
                 <p class="text-xs text-t3">صافي الدخل</p>
-                <p class="text-xl font-bold" :class="data.netIncome >= 0 ? 'text-p' : 'text-d'">{{ fmt(data.netIncome) }}</p>
-                <p class="text-xs" :class="data.netIncome >= 0 ? 'text-s' : 'text-d'">{{ data.netIncome >= 0 ? 'ربح' : 'خسارة' }}</p>
+                <p class="text-xl font-bold" :class="visibleNetIncome >= 0 ? 'text-p' : 'text-d'">{{ fmt(visibleNetIncome) }}</p>
+                <p class="text-xs" :class="visibleNetIncome >= 0 ? 'text-s' : 'text-d'">{{ visibleNetIncome >= 0 ? 'ربح' : 'خسارة' }}</p>
             </div>
         </div>
     </div>
@@ -108,20 +117,38 @@ function fmt(n: number) {
             <div class="border-b border-br bg-sp/50 px-4 py-3">
                 <p class="font-semibold text-s">الإيرادات</p>
             </div>
+            <div class="flex flex-wrap items-center gap-2 border-b border-br px-4 py-2.5 print:hidden">
+                <div class="relative">
+                    <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+                    <input v-model="revFilter.search.value" type="text" placeholder="ابحث في بنود الإيرادات..." class="input-field h-8 w-56 pr-9 text-xs" />
+                </div>
+                <button v-if="revFilter.excludedCount.value > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:bg-sf2" @click="revFilter.restoreAll()">
+                    <EyeOff class="h-3.5 w-3.5" />
+                    {{ revFilter.excludedCount.value }} مستبعد — إظهار الكل
+                </button>
+            </div>
             <table class="w-full text-sm">
                 <tbody class="divide-y divide-br/50">
-                    <tr v-for="(row, idx) in data.revenues" :key="idx" class="hover:bg-sf2">
+                    <tr v-for="row in revFilter.visibleRows.value" :key="row.name" class="hover:bg-sf2">
                         <td class="px-4 py-2.5 text-t">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-s">{{ fmt(row.amount) }} ج.م</td>
+                        <td class="w-6 px-2 py-2.5 print:hidden">
+                            <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="revFilter.exclude(row)">
+                                <X class="h-3.5 w-3.5" />
+                            </button>
+                        </td>
                     </tr>
-                    <tr v-if="data.revenues.length === 0">
-                        <td colspan="2" class="px-4 py-4 text-center text-t3">لا توجد إيرادات</td>
+                    <tr v-if="revFilter.visibleRows.value.length === 0">
+                        <td colspan="3" class="px-4 py-4 text-center text-t3">
+                            {{ data.revenues.length === 0 ? 'لا توجد إيرادات' : 'لا توجد نتائج مطابقة' }}
+                        </td>
                     </tr>
                 </tbody>
                 <tfoot>
                     <tr class="border-t-2 border-s/30 bg-sp/30 font-bold">
                         <td class="px-4 py-3 text-s">إجمالي الإيرادات</td>
-                        <td class="px-4 py-3 text-left font-mono text-s">{{ fmt(data.totalRevenue) }} ج.م</td>
+                        <td class="px-4 py-3 text-left font-mono text-s">{{ fmt(visibleTotalRevenue) }} ج.م</td>
+                        <td class="print:hidden" />
                     </tr>
                 </tfoot>
             </table>
@@ -132,20 +159,38 @@ function fmt(n: number) {
             <div class="border-b border-br bg-dp/50 px-4 py-3">
                 <p class="font-semibold text-d">المصروفات</p>
             </div>
+            <div class="flex flex-wrap items-center gap-2 border-b border-br px-4 py-2.5 print:hidden">
+                <div class="relative">
+                    <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+                    <input v-model="expFilter.search.value" type="text" placeholder="ابحث في بنود المصروفات..." class="input-field h-8 w-56 pr-9 text-xs" />
+                </div>
+                <button v-if="expFilter.excludedCount.value > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:bg-sf2" @click="expFilter.restoreAll()">
+                    <EyeOff class="h-3.5 w-3.5" />
+                    {{ expFilter.excludedCount.value }} مستبعد — إظهار الكل
+                </button>
+            </div>
             <table class="w-full text-sm">
                 <tbody class="divide-y divide-br/50">
-                    <tr v-for="(row, idx) in data.expenses" :key="idx" class="hover:bg-sf2">
+                    <tr v-for="row in expFilter.visibleRows.value" :key="row.name" class="hover:bg-sf2">
                         <td class="px-4 py-2.5 text-t">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-d">{{ fmt(row.amount) }} ج.م</td>
+                        <td class="w-6 px-2 py-2.5 print:hidden">
+                            <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="expFilter.exclude(row)">
+                                <X class="h-3.5 w-3.5" />
+                            </button>
+                        </td>
                     </tr>
-                    <tr v-if="data.expenses.length === 0">
-                        <td colspan="2" class="px-4 py-4 text-center text-t3">لا توجد مصروفات</td>
+                    <tr v-if="expFilter.visibleRows.value.length === 0">
+                        <td colspan="3" class="px-4 py-4 text-center text-t3">
+                            {{ data.expenses.length === 0 ? 'لا توجد مصروفات' : 'لا توجد نتائج مطابقة' }}
+                        </td>
                     </tr>
                 </tbody>
                 <tfoot>
                     <tr class="border-t-2 border-d/30 bg-dp/30 font-bold">
                         <td class="px-4 py-3 text-d">إجمالي المصروفات</td>
-                        <td class="px-4 py-3 text-left font-mono text-d">{{ fmt(data.totalExpense) }} ج.م</td>
+                        <td class="px-4 py-3 text-left font-mono text-d">{{ fmt(visibleTotalExpense) }} ج.م</td>
+                        <td class="print:hidden" />
                     </tr>
                 </tfoot>
             </table>
@@ -161,15 +206,15 @@ function fmt(n: number) {
             <p class="text-sm text-t2">الفترة من {{ data.from }} إلى {{ data.to }}</p>
             <p
                 class="mt-3 text-4xl font-bold"
-                :class="data.netIncome >= 0 ? 'text-s' : 'text-d'"
+                :class="visibleNetIncome >= 0 ? 'text-s' : 'text-d'"
             >
-                {{ fmt(data.netIncome) }} ج.م
+                {{ fmt(visibleNetIncome) }} ج.م
             </p>
             <span
                 class="mt-2 inline-block rounded-full px-4 py-1 text-sm font-semibold"
-                :class="data.netIncome >= 0 ? 'bg-sp text-s' : 'bg-dp text-d'"
+                :class="visibleNetIncome >= 0 ? 'bg-sp text-s' : 'bg-dp text-d'"
             >
-                {{ data.netIncome >= 0 ? 'ربح' : 'خسارة' }}
+                {{ visibleNetIncome >= 0 ? 'ربح' : 'خسارة' }}
             </span>
         </div>
     </div>

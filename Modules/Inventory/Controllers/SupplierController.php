@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Inventory\Actions\RecordSupplierPaymentAction;
 use Modules\Inventory\Models\PurchaseInvoice;
 use Modules\Inventory\Models\Supplier;
 use Modules\Inventory\Services\InventoryService;
@@ -14,7 +15,8 @@ use Modules\Inventory\Services\InventoryService;
 class SupplierController extends Controller
 {
     public function __construct(
-        private readonly InventoryService $inventoryService
+        private readonly InventoryService $inventoryService,
+        private readonly RecordSupplierPaymentAction $recordSupplierPayment,
     ) {}
 
     public function index(): Response
@@ -71,5 +73,23 @@ class SupplierController extends Controller
         $this->inventoryService->updateSupplier($id, $data);
 
         return back()->with('success', 'تم تعديل المورد بنجاح.');
+    }
+
+    public function pay(Request $request, string $id): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'method' => ['required', 'in:cash,transfer'],
+            'reference' => ['nullable', 'string', 'max:80'],
+            'paid_at' => ['nullable', 'date'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $data['supplier_id'] = $id;
+        $data['paid_at'] ??= now()->toDateString();
+
+        $this->recordSupplierPayment->execute($data);
+
+        return back()->with('success', 'تم تسجيل سداد المورد بنجاح.');
     }
 }

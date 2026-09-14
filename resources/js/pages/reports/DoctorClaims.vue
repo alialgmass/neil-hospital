@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Download, Users, Wallet } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { Download, EyeOff, Search, Users, Wallet, X } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface Row {
+    doctor_id: string;
     doctor_name: string;
     fee_type: string;
     cases: number;
@@ -12,6 +14,7 @@ interface Row {
     net_billed: number;
     doctor_claim: number;
     center_share: number;
+    last_visit: string;
 }
 
 const props = defineProps<{
@@ -22,9 +25,15 @@ const props = defineProps<{
 const from = ref(props.filters.from);
 const to = ref(props.filters.to);
 
-const totalClaim = props.data.rows.reduce((s, r) => s + Number(r.doctor_claim), 0);
-const totalCases = props.data.rows.reduce((s, r) => s + Number(r.cases), 0);
-const totalBilled = props.data.rows.reduce((s, r) => s + Number(r.total_billed), 0);
+const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = useReportRowFilter(
+    () => props.data.rows,
+    ['doctor_name'],
+    (r) => r.doctor_id,
+);
+
+const totalClaim = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.doctor_claim), 0));
+const totalCases = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.cases), 0));
+const totalBilled = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.total_billed), 0));
 
 function fmt(n: number) {
     return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
@@ -99,39 +108,61 @@ function exportExcel() {
         <button class="btn-secondary self-end" @click="() => window.print()">طباعة</button>
     </div>
 
+    <!-- Row search + exclusion status -->
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+        <div class="relative">
+            <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+            <input v-model="rowSearch" type="text" placeholder="ابحث باسم الطبيب..." class="input-field h-9 w-64 pr-9" />
+        </div>
+        <button v-if="excludedCount > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-3 py-1.5 text-xs text-t2 hover:bg-sf2" @click="restoreAll">
+            <EyeOff class="h-3.5 w-3.5" />
+            {{ excludedCount }} صف مستبعد من العرض — إظهار الكل
+        </button>
+    </div>
+
     <!-- Table -->
     <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
         <table class="w-full text-sm">
             <thead class="bg-sf2">
                 <tr>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الطبيب</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">آخر حالة</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الحالات</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">إجمالي الفواتير</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">تأمين</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الصافي</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">مستحق الطبيب</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">حصة المركز</th>
+                    <th class="w-8 px-2 py-3 print:hidden" />
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="(row, idx) in data.rows" :key="idx" class="hover:bg-sf2">
+                <tr v-for="row in visibleRows" :key="row.doctor_id" class="hover:bg-sf2">
                     <td class="px-4 py-3 font-medium text-t">{{ row.doctor_name }}</td>
+                    <td class="px-4 py-3 text-t2">{{ row.last_visit }}</td>
                     <td class="px-4 py-3 text-t2">{{ row.cases }}</td>
                     <td class="px-4 py-3 font-mono text-t">{{ Number(row.total_billed).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono text-p">{{ Number(row.ins_amount).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono text-t2">{{ Number(row.net_billed).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono font-bold text-s">{{ Number(row.doctor_claim).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono text-t2">{{ Number(row.center_share).toFixed(2) }} ج</td>
+                    <td class="px-2 py-3 print:hidden">
+                        <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
+                            <X class="h-3.5 w-3.5" />
+                        </button>
+                    </td>
                 </tr>
-                <tr v-if="data.rows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="7">لا توجد بيانات في هذه الفترة</td>
+                <tr v-if="visibleRows.length === 0">
+                    <td class="px-4 py-10 text-center text-t3" colspan="9">
+                        {{ data.rows.length === 0 ? 'لا توجد بيانات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
+                    </td>
                 </tr>
             </tbody>
             <tfoot class="border-t-2 border-br bg-sf2">
                 <tr>
                     <td class="px-4 py-3 font-bold text-t" colspan="5">إجمالي المستحقات</td>
                     <td class="px-4 py-3 font-mono font-bold text-s">{{ fmt(totalClaim) }} ج</td>
-                    <td />
+                    <td colspan="2" />
                 </tr>
             </tfoot>
         </table>

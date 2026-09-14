@@ -4,9 +4,15 @@ namespace Modules\Reporting\Services;
 
 use Illuminate\Support\Facades\DB;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Doctor\Enums\FeeType;
+use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorClaimsService;
+use Modules\Insurance\States\ClaimStatus;
 
 class ReportingService
 {
+    public function __construct(private readonly DoctorClaimsService $doctorClaimsService) {}
+
     // 1. Department Revenue Report
     public function deptRevenue(string $from, string $to): array
     {
@@ -51,6 +57,7 @@ class ReportingService
                 'bookings.visit_date',
             )
             ->when($dept, fn ($q, $v) => $q->where('bookings.dept', $v))
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->whereBetween('bookings.visit_date', [$from, $to])
             ->orderByDesc('bookings.visit_date')
             ->get()
@@ -62,42 +69,47 @@ class ReportingService
     // 3. Doctor Claims Report
     public function doctorClaims(string $from, string $to, ?string $doctorId = null): array
     {
-        $rows = DB::table('bookings')
-            ->join('doctors', 'bookings.doctor_id', '=', 'doctors.id')
-            ->select(
-                'doctors.id as doctor_id',
-                'doctors.name as doctor_name',
-                'doctors.fee_type',
-                'doctors.fee_value',
-                DB::raw('COUNT(*) as cases'),
-                DB::raw('SUM(bookings.price) as total_billed'),
-                DB::raw('SUM(bookings.ins_amount) as ins_amount'),
-            )
-            ->where('bookings.pay_status', '!=', 'unpaid')
-            ->whereBetween('bookings.visit_date', [$from, $to])
-            ->when($doctorId, fn ($q, $v) => $q->where('bookings.doctor_id', $v))
-            ->groupBy('doctors.id', 'doctors.name', 'doctors.fee_type', 'doctors.fee_value')
-            ->orderBy('doctors.name')
-            ->get()
-            ->map(function ($row) {
-                $billed = (float) $row->total_billed;
-                $ins = (float) $row->ins_amount;
-                $net = $billed - $ins;
-                $feeValue = (float) $row->fee_value;
+        $bookings = DB::table('bookings')
+            ->whereNotNull('doctor_id')
+            ->where('pay_status', '!=', 'unpaid')
+            ->whereBetween('visit_date', [$from, $to])
+            ->whereIn('dept', SystemModule::enabledDeptValues())
+            ->when($doctorId, fn ($q, $v) => $q->where('doctor_id', $v))
+            ->get();
 
-                $doctorClaim = match ($row->fee_type) {
-                    'percentage' => round($net * $feeValue / 100, 2),
-                    'fixed' => $row->cases * $feeValue,
-                    default => 0,
-                };
+        $doctors = Doctor::whereIn('id', $bookings->pluck('doctor_id')->unique())->get()->keyBy('id');
+
+        $rows = $bookings->groupBy('doctor_id')
+            ->map(function ($doctorBookings, $doctorId) use ($doctors) {
+                $doctor = $doctors->get($doctorId);
+                if (! $doctor) {
+                    return null;
+                }
+
+                $totalBilled = (float) $doctorBookings->sum('price');
+                $insAmount = (float) $doctorBookings->sum('ins_amount');
+                $netBilled = $totalBilled - $insAmount;
+
+                $doctorClaim = $doctor->fee_type === FeeType::Insurance
+                    ? 0.0
+                    : (float) $doctorBookings->sum(fn ($booking) => $this->doctorClaimsService->computeDrShare($doctor, $booking));
 
                 return (object) [
-                    ...(array) $row,
-                    'net_billed' => $net,
-                    'doctor_claim' => $doctorClaim,
-                    'center_share' => round($net - $doctorClaim, 2),
+                    'doctor_id' => $doctor->id,
+                    'doctor_name' => $doctor->name,
+                    'fee_type' => $doctor->fee_type->value,
+                    'cases' => $doctorBookings->count(),
+                    'total_billed' => $totalBilled,
+                    'ins_amount' => $insAmount,
+                    'net_billed' => $netBilled,
+                    'doctor_claim' => round($doctorClaim, 2),
+                    'center_share' => round($netBilled - $doctorClaim, 2),
+                    'last_visit' => $doctorBookings->max('visit_date'),
                 ];
             })
+            ->filter()
+            ->sortByDesc('last_visit')
+            ->values()
             ->toArray();
 
         return compact('rows', 'from', 'to');
@@ -110,8 +122,10 @@ class ReportingService
             ->join('doctors', 'dr_payments.doctor_id', '=', 'doctors.id')
             ->leftJoin('users', 'dr_payments.created_by', '=', 'users.id')
             ->select(
+                'doctors.id as doctor_id',
                 'doctors.name as doctor_name',
                 'dr_payments.amount',
+                'dr_payments.method',
                 'dr_payments.period_from',
                 'dr_payments.period_to',
                 'dr_payments.paid_at',
@@ -142,6 +156,7 @@ class ReportingService
                 DB::raw('SUM(bookings.price - bookings.ins_amount) as patient_amount'),
             )
             ->where('bookings.pay_method', 'insurance')
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
             ->whereBetween('bookings.visit_date', [$from, $to])
             ->when($companyId, fn ($q, $v) => $q->where('bookings.ins_company_id', $v))
             ->groupBy('insurance_companies.id', 'insurance_companies.name')
@@ -149,29 +164,71 @@ class ReportingService
             ->get()
             ->toArray();
 
-        return compact('rows', 'from', 'to');
+        $statusCounts = DB::table('insurance_claims')
+            ->select('status', DB::raw('COUNT(*) as count'), DB::raw('SUM(insurance_share) as total'))
+            ->whereBetween('claim_date', [$from, $to])
+            ->when($companyId, fn ($q, $v) => $q->where('insurance_company_id', $v))
+            ->groupBy('status')
+            ->get()
+            ->keyBy('status');
+
+        $statusBreakdown = collect(ClaimStatus::labels())
+            ->map(fn (string $label, string $status) => [
+                'status' => $status,
+                'label' => $label,
+                'count' => (int) ($statusCounts->get($status)->count ?? 0),
+                'total' => (float) ($statusCounts->get($status)->total ?? 0),
+            ])
+            ->values()
+            ->toArray();
+
+        return compact('rows', 'statusBreakdown', 'from', 'to');
     }
 
     // 6. Inventory Movement Report
     public function inventoryMovement(string $from, string $to, ?string $itemId = null): array
     {
-        $rows = DB::table('stock_permit_items')
+        // Manual stock-in/stock-out/adjustment permits.
+        $permitMovements = DB::table('stock_permit_items')
             ->join('stock_permits', 'stock_permit_items.permit_id', '=', 'stock_permits.id')
             ->leftJoin('inventory', 'stock_permit_items.item_id', '=', 'inventory.id')
             ->select(
                 'inventory.name as item_name',
                 'inventory.unit',
                 'stock_permits.type',
-                'stock_permits.permit_no',
-                'stock_permits.department',
+                'stock_permits.permit_no as reference_no',
+                'stock_permits.department as party',
                 'stock_permit_items.qty',
                 'stock_permit_items.unit_cost',
                 DB::raw('stock_permit_items.qty * stock_permit_items.unit_cost as total'),
-                'stock_permits.created_at as permit_date',
+                'stock_permits.created_at as movement_date',
             )
             ->when($itemId, fn ($q, $v) => $q->where('stock_permit_items.item_id', $v))
-            ->whereBetween('stock_permits.created_at', [$from, $to.' 23:59:59'])
-            ->orderByDesc('stock_permits.created_at')
+            ->whereBetween('stock_permits.created_at', [$from, $to.' 23:59:59']);
+
+        // Purchase invoice receipts also increase stock (see PurchaseInvoiceService::create())
+        // but never create a stock_permit row, so they were previously missing entirely
+        // from this report's "in" movements.
+        $purchaseMovements = DB::table('purchase_invoice_items')
+            ->join('purchase_invoices', 'purchase_invoice_items.invoice_id', '=', 'purchase_invoices.id')
+            ->leftJoin('inventory', 'purchase_invoice_items.item_id', '=', 'inventory.id')
+            ->leftJoin('suppliers', 'purchase_invoices.supplier_id', '=', 'suppliers.id')
+            ->select(
+                'inventory.name as item_name',
+                'inventory.unit',
+                DB::raw("'in' as type"),
+                'purchase_invoices.invoice_no as reference_no',
+                'suppliers.name as party',
+                'purchase_invoice_items.qty',
+                'purchase_invoice_items.unit_cost',
+                'purchase_invoice_items.total',
+                'purchase_invoices.invoice_date as movement_date',
+            )
+            ->when($itemId, fn ($q, $v) => $q->where('purchase_invoice_items.item_id', $v))
+            ->whereBetween('purchase_invoices.invoice_date', [$from, $to]);
+
+        $rows = $permitMovements->unionAll($purchaseMovements)
+            ->orderByDesc('movement_date')
             ->get()
             ->toArray();
 

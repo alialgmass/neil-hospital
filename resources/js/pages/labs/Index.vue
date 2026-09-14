@@ -6,6 +6,7 @@ import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface DiagnosticResult {
     id: string;
@@ -34,7 +35,6 @@ const props = defineProps<{
 }>();
 
 const columns = [
-    { key: 'time',    label: 'الوقت' },
     { key: 'file_no', label: 'رقم الملف',  sortable: true },
     { key: 'patient', label: 'المريض',     sortable: true },
     { key: 'doctor',  label: 'الطبيب' },
@@ -45,6 +45,7 @@ const columns = [
 
 const selectedDate = ref(props.date);
 const search       = ref(props.filters.search ?? '');
+const fallbackDoctor = computed(() => weekdayDoctorFallback(props.date));
 
 function applyFilters() {
     router.get('/labs', { date: selectedDate.value, search: search.value || undefined }, { preserveState: true });
@@ -126,9 +127,8 @@ const revenueToday   = computed(() =>
     </div>
 
     <DataTable :columns="columns" :rows="queue.data" :current-page="queue.current_page" :last-page="queue.last_page" :total="queue.total" empty-text="لا توجد حجوزات فحوصات لهذا اليوم" @page="goToPage">
-        <template #cell-time="{ value }">{{ (value as string)?.slice(0, 5) ?? '—' }}</template>
         <template #cell-patient="{ row }">{{ (row as Booking).patient_name }}</template>
-        <template #cell-doctor="{ row }">{{ (row as Booking).doctor?.name ?? '—' }}</template>
+        <template #cell-doctor="{ row }">{{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}</template>
         <template #cell-results="{ row }">
             <span class="text-xs text-hospital-text-2">
                 {{ (row as Booking).diagnostic_results?.length ?? 0 }} فحص

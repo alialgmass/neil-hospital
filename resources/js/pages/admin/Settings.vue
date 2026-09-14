@@ -15,9 +15,16 @@ interface SystemModuleOption {
     enabled: boolean;
 }
 
+interface BookingStatusOption {
+    value: string;
+    label: string;
+    visible: boolean;
+}
+
 const props = defineProps<{
     settings: Record<string, Setting>;
     systemModules: SystemModuleOption[];
+    bookingStatuses: BookingStatusOption[];
 }>();
 
 const form = ref<Record<string, string>>({});
@@ -29,8 +36,16 @@ function moduleKey(module: string): string {
     return `module_enabled_${module}`;
 }
 
+function bookingStatusKey(status: string): string {
+    return `booking_status_visible_${status}`;
+}
+
 props.systemModules.forEach((m) => {
     form.value[moduleKey(m.value)] = form.value[moduleKey(m.value)] ?? (m.enabled ? 'true' : 'false');
+});
+
+props.bookingStatuses.forEach((s) => {
+    form.value[bookingStatusKey(s.value)] = form.value[bookingStatusKey(s.value)] ?? (s.visible ? 'true' : 'false');
 });
 
 function submit() {
@@ -48,6 +63,14 @@ function isModuleEnabled(module: string): boolean {
 
 function toggleModule(module: string): void {
     form.value[moduleKey(module)] = isModuleEnabled(module) ? 'false' : 'true';
+}
+
+function isBookingStatusVisible(status: string): boolean {
+    return form.value[bookingStatusKey(status)] !== 'false';
+}
+
+function toggleBookingStatus(status: string): void {
+    form.value[bookingStatusKey(status)] = isBookingStatusVisible(status) ? 'false' : 'true';
 }
 </script>
 
@@ -224,6 +247,31 @@ function toggleModule(module: string): void {
                     </button>
                     <span class="module-toggle-state" :class="{ 'module-toggle-state--off': !isModuleEnabled(m.value) }">
                         {{ isModuleEnabled(m.value) ? 'مفعّل' : 'مخفي' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Booking Status Visibility ── -->
+        <div class="settings-section lg:col-span-2">
+            <div class="settings-title">🗂️ إظهار حالات الحجز</div>
+            <p class="mb-3 text-xs text-hospital-text-3">
+                اختر الحالات التي تظهر في شاشة الحجز وقوائم التصفية وقوائم تغيير الحالة. الحالات المخفية تُستبعد من كل النظام.
+            </p>
+            <div class="module-toggle-list">
+                <div v-for="s in bookingStatuses" :key="s.value" class="module-toggle-row">
+                    <span class="module-toggle-label">{{ s.label }}</span>
+                    <button
+                        type="button"
+                        class="module-toggle-switch"
+                        :class="{ 'module-toggle-switch--on': isBookingStatusVisible(s.value) }"
+                        :aria-pressed="isBookingStatusVisible(s.value)"
+                        @click="toggleBookingStatus(s.value)"
+                    >
+                        <span class="module-toggle-knob" />
+                    </button>
+                    <span class="module-toggle-state" :class="{ 'module-toggle-state--off': !isBookingStatusVisible(s.value) }">
+                        {{ isBookingStatusVisible(s.value) ? 'ظاهر' : 'مخفي' }}
                     </span>
                 </div>
             </div>

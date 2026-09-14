@@ -66,6 +66,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:reports.financial')
             ->name('doctor-payments');
 
+        Route::get('/doctor-payments/export', [DoctorPaymentsReportController::class, 'export'])
+            ->middleware('can:reports.financial')
+            ->name('doctor-payments.export');
+
         Route::get('/insurance', InsuranceReportController::class)
             ->middleware('can:reports.financial')
             ->name('insurance');

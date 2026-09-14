@@ -2,6 +2,7 @@
 import { FileText, Plus, Tag } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue'
 import PriceListCard from './Partials/PriceListCard.vue'
 import PriceListModal from './Partials/PriceListModal.vue'
 
@@ -63,13 +64,20 @@ function toggleExpand(id: string) {
                 <h1 class="text-xl font-bold text-hospital-text">قوائم الأسعار</h1>
                 <p class="mt-0.5 text-sm text-hospital-text-3">إدارة قوائم أسعار شركات التأمين والزيارات</p>
             </div>
-            <button
-                class="flex items-center gap-2 rounded-xl bg-hospital-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-hospital-primary/90 active:scale-95"
-                @click="showModal = true"
-            >
-                <Plus class="h-4 w-4" />
-                قائمة جديدة
-            </button>
+            <div class="flex items-center gap-2">
+                <ModuleImportButton
+                    label="قوائم الأسعار"
+                    templateUrl="/insurance/price-lists/import-template"
+                    importUrl="/insurance/price-lists/import"
+                />
+                <button
+                    class="flex items-center gap-2 rounded-xl bg-hospital-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-hospital-primary/90 active:scale-95"
+                    @click="showModal = true"
+                >
+                    <Plus class="h-4 w-4" />
+                    قائمة جديدة
+                </button>
+            </div>
         </div>
 
         <!-- Stats strip -->

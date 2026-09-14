@@ -34,6 +34,8 @@ class EmployeeController extends Controller
             'filters' => $filters,
             'stats' => $stats,
             'next_employee_no' => $this->hr->nextEmployeeNo(),
+            'roles' => $this->hr->getUserRoles(),
+            'permissions_by_module' => $this->hr->getPermissionsByModule(),
         ]);
     }
 

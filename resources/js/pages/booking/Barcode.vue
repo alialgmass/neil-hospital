@@ -1,0 +1,73 @@
+<script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
+import { onMounted } from 'vue';
+
+const props = defineProps<{
+    booking: {
+        file_no: string;
+        patient_name: string;
+        patient_age?: number;
+        dept: string;
+        visit_date: string;
+        doctor?: { name: string };
+    };
+}>();
+
+const deptLabels: Record<string, string> = {
+    clinic: 'العيادة',
+    labs: 'الفحوصات',
+    surgery: 'العمليات',
+    lasik: 'الليزك',
+    laser: 'الليزر',
+    pentacam: 'البنتكام',
+};
+
+onMounted(() => {
+    setTimeout(() => window.print(), 200);
+});
+</script>
+
+<template>
+    <Head title="طباعة بيانات المريض" />
+
+    <div class="flex min-h-screen items-center justify-center bg-white p-6 print:block print:min-h-0 print:p-0">
+        <div class="label-box w-full max-w-[76mm] rounded-lg border border-gray-300 bg-white px-2 py-2 text-center print:max-w-none print:rounded-none print:border-0">
+            <!-- Patient name -->
+            <p class="truncate text-[16px] font-bold leading-tight text-gray-900 print:text-black">
+                {{ booking.patient_name }}
+            </p>
+
+            <!-- Medical file number -->
+            <p class="mt-1 font-mono text-[20px] font-extrabold leading-tight tracking-wider text-gray-900 print:text-black">
+                {{ booking.file_no }}
+            </p>
+
+            <p class="mt-0.5 text-[10px] leading-tight text-gray-500 print:text-black">
+                {{ deptLabels[booking.dept] ?? booking.dept }}
+                <span v-if="booking.doctor"> · {{ booking.doctor.name }}</span>
+                · {{ booking.visit_date }}
+            </p>
+        </div>
+
+        <!-- Print button (hidden in print) -->
+        <div class="fixed bottom-6 left-1/2 -translate-x-1/2 print:hidden">
+            <button
+                type="button"
+                class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white hover:bg-hospital-primary-light"
+                onclick="window.print()"
+            >
+                طباعة
+            </button>
+        </div>
+    </div>
+</template>
+
+<style>
+/* Fits a small thermal/label printer — width fixed to the label, height left to the
+   content so the patient name and file number are never cut off. */
+@media print {
+    body { background: white; margin: 0; }
+    .label-box { border: none !important; }
+    @page { size: 80mm auto; margin: 2mm; }
+}
+</style>
