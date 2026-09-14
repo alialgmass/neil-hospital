@@ -24,6 +24,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{id}', [InsuranceCompanyController::class, 'destroy'])->name('destroy');
 
             Route::post('/price-lists', [PriceListController::class, 'store'])->name('price-lists.store');
+            Route::put('/price-lists/items/{item}', [PriceListController::class, 'updateItem'])->name('price-lists.items.update');
 
             Route::prefix('claims')->name('claims.')->group(function () {
                 Route::post('/', [InsuranceClaimController::class, 'store'])->name('store');

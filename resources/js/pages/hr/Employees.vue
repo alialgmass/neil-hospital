@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     Briefcase,
     PlusCircle,
@@ -8,6 +8,7 @@ import {
     Users,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import ManagePermissionsModal from '@/components/hr/ManagePermissionsModal.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 
@@ -24,7 +25,18 @@ interface Employee {
     phone?: string;
     email?: string;
     username?: string;
-    user?: { id: number; name?: string; email?: string; username?: string };
+    user?: {
+        id: number;
+        name?: string;
+        email?: string;
+        username?: string;
+        roles?: {
+            id: number;
+            name: string;
+            permissions?: { id: number; name: string }[];
+        }[];
+        permissions?: { id: number; name: string }[];
+    };
     dept: string;
     position: string;
     hire_date: string;
@@ -53,7 +65,21 @@ const props = defineProps<{
     };
     next_employee_no: string;
     roles: Role[];
+    permissions_by_module: Record<string, { name: string }[]>;
 }>();
+
+// ── Permissions (for gating the "manage permissions" button) ──
+const page = usePage<{ permissions?: string[] }>();
+const currentUserPermissions = computed<string[]>(
+    () => (page.props.permissions as string[]) ?? [],
+);
+function can(permission: string): boolean {
+    return (
+        currentUserPermissions.value.includes('*') ||
+        currentUserPermissions.value.includes(permission)
+    );
+}
+const canManageHr = computed(() => can('hr.manage'));
 
 const deptOptions = computed(() => props.dept_options);
 const contractOptions = [
@@ -153,6 +179,7 @@ const editForm = useForm({
     allowances: '',
     password: '',
     role: '',
+    permissions: [] as string[],
     contract_type: 'full_time',
     status: 'active',
     notes: '',
@@ -168,6 +195,8 @@ function openEdit(e: Employee) {
     editForm.hire_date = e.hire_date;
     editForm.base_salary = String(e.base_salary);
     editForm.allowances = String(e.allowances);
+    editForm.role = e.user?.roles?.[0]?.name ?? '';
+    editForm.permissions = (e.user?.permissions ?? []).map((p) => p.name);
     editForm.contract_type = e.contract_type;
     editForm.status = e.status;
     editForm.notes = e.notes ?? '';
@@ -179,6 +208,22 @@ function submitEdit() {
             showEdit.value = false;
         },
     });
+}
+
+// Manage permissions modal (direct permissions, separate from role)
+const showPermissionsModal = ref(false);
+// Permissions inherited via the employee's current role — shown (but not
+// editable) in the modal, as loaded when the edit form was opened.
+const editingRolePermissions = ref<string[]>([]);
+function openPermissionsModal(e: Employee) {
+    editingRolePermissions.value = (e.user?.roles?.[0]?.permissions ?? []).map(
+        (p) => p.name,
+    );
+    showPermissionsModal.value = true;
+}
+function savePermissions(selected: string[]) {
+    editForm.permissions = selected;
+    showPermissionsModal.value = false;
 }
 </script>
 
@@ -783,6 +828,35 @@ function submitEdit() {
                         {{ editForm.errors.status }}
                     </p>
                 </div>
+                <div>
+                    <label class="form-label">الدور (Role)</label>
+                    <select v-model="editForm.role" class="input-field">
+                        <option value="">— بدون تغيير —</option>
+                        <option v-for="r in roles" :key="r.id" :value="r.name">
+                            {{ r.name }}
+                        </option>
+                    </select>
+                    <p v-if="editForm.errors.role" class="form-error">
+                        {{ editForm.errors.role }}
+                    </p>
+                </div>
+                <div v-if="canManageHr" class="flex items-end">
+                    <button
+                        type="button"
+                        class="btn-secondary flex w-full items-center justify-center gap-1.5"
+                        @click="
+                            openPermissionsModal(
+                                employees.data.find((x) => x.id === editingId)!,
+                            )
+                        "
+                    >
+                        إدارة الصلاحيات
+                        <span
+                            class="rounded-full bg-pp px-1.5 py-0.5 text-[10px] font-bold text-p"
+                            >{{ editForm.permissions.length }}</span
+                        >
+                    </button>
+                </div>
                 <div class="col-span-2">
                     <label class="form-label">ملاحظات</label>
                     <textarea
@@ -812,4 +886,12 @@ function submitEdit() {
             </div>
         </form>
     </Modal>
+
+    <ManagePermissionsModal
+        v-model="showPermissionsModal"
+        :permissions-by-module="permissions_by_module"
+        :selected="editForm.permissions"
+        :role-permissions="editingRolePermissions"
+        @save="savePermissions"
+    />
 </template>

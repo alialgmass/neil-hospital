@@ -57,6 +57,7 @@ class PurchaseInvoiceController extends Controller
             'items.*.item_id' => ['nullable', 'exists:inventory,id'],
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+            'items.*.sell_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         // Auto-generate invoice number if not provided
@@ -105,6 +106,7 @@ class PurchaseInvoiceController extends Controller
             'items.*.item_id' => ['nullable', 'exists:inventory,id'],
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
+            'items.*.sell_price' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $invoice = $this->purchaseService->update($id, $data, $data['items']);

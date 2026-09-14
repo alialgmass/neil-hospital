@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     User,
     Phone,
@@ -12,10 +12,13 @@ import {
     Printer,
     IdCard,
     ShieldCheck,
+    ArrowLeftRight,
 } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 import Badge from '@/components/shared/Badge.vue';
+import Modal from '@/components/shared/Modal.vue';
+import EyeSideSelector from '@/pages/booking/Partials/EyeSideSelector.vue';
 import { archive } from '@/routes';
 import booking from '@/routes/booking';
 
@@ -116,10 +119,77 @@ const props = defineProps<{
     file_no: string;
     patient: Patient | null;
     bookings: Booking[];
+    transfer_services: { id: string; name: string; dept: string }[];
 }>();
 
 // Most recent visit — used to print the barcode label, same page/design as the booking barcode.
 const latestBooking = computed(() => props.bookings[0] ?? null);
+
+// ── Permissions ──
+const page = usePage<{ permissions?: string[] }>();
+const permissions = computed<string[]>(
+    () => (page.props.permissions as string[]) ?? [],
+);
+function can(permission: string): boolean {
+    return (
+        permissions.value.includes('*') ||
+        permissions.value.includes(permission)
+    );
+}
+const canTransfer = computed(() => can('transfer_medical_record'));
+
+// ── Transfer to Operation (Surgery/Lasik/Laser) ──
+const showTransferModal = ref(false);
+const transferringBooking = ref<Booking | null>(null);
+const transferForm = ref({ service_id: '', dept: '', eye: '' });
+
+function canTransferBooking(b: Booking): boolean {
+    // Already an operation, or already converted — nothing to transfer.
+    return !b.surgery && b.status !== 'cancelled';
+}
+
+function openTransfer(b: Booking) {
+    transferringBooking.value = b;
+    const matchedService =
+        props.transfer_services.find((s) => s.name === b.service_name) ??
+        props.transfer_services[0] ??
+        null;
+    transferForm.value = {
+        service_id: matchedService?.id ?? '',
+        dept: matchedService?.dept ?? 'surgery',
+        eye: b.eye_side ?? '',
+    };
+    showTransferModal.value = true;
+}
+
+function onTransferServiceChange() {
+    const service = props.transfer_services.find(
+        (s) => s.id === transferForm.value.service_id,
+    );
+
+    if (service) {
+        transferForm.value.dept = service.dept;
+    }
+}
+
+function confirmTransfer() {
+    if (
+        !transferringBooking.value ||
+        !transferForm.value.service_id ||
+        !transferForm.value.dept
+    ) {
+        return;
+    }
+
+    router.visit(`/${transferForm.value.dept}`, {
+        method: 'get',
+        data: {
+            transfer_booking_id: transferringBooking.value.id,
+            service_id: transferForm.value.service_id,
+            eye: transferForm.value.eye || undefined,
+        },
+    });
+}
 
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -177,7 +247,7 @@ const claimStatusLabels: Record<string, string> = {
 };
 
 const claimStatusVariants: Record<string, string> = {
-    draft: 'inactive',
+    draft: 'draft',
     submitted: 'info',
     approved: 'success',
     rejected: 'danger',
@@ -251,7 +321,10 @@ function isImage(mime: string): boolean {
     </div>
 
     <!-- Patient Info Card -->
-    <div v-if="patient" class="no-print mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div
+        v-if="patient"
+        class="no-print mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4"
+    >
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
@@ -307,7 +380,9 @@ function isImage(mime: string): boolean {
             <User class="h-4 w-4 text-hospital-muted" />
             <div>
                 <p class="text-xs text-hospital-muted">النوع</p>
-                <p class="text-sm font-medium">{{ genderLabels[patient.gender] ?? patient.gender }}</p>
+                <p class="text-sm font-medium">
+                    {{ genderLabels[patient.gender] ?? patient.gender }}
+                </p>
             </div>
         </div>
         <div
@@ -316,8 +391,12 @@ function isImage(mime: string): boolean {
         >
             <User class="h-4 w-4 text-hospital-muted" />
             <div>
-                <p class="text-xs text-hospital-muted">صلة القرابة (لمرافق الحجز)</p>
-                <p class="text-sm font-medium">{{ patient.kinship_degree_label }}</p>
+                <p class="text-xs text-hospital-muted">
+                    صلة القرابة (لمرافق الحجز)
+                </p>
+                <p class="text-sm font-medium">
+                    {{ patient.kinship_degree_label }}
+                </p>
             </div>
         </div>
     </div>
@@ -372,6 +451,16 @@ function isImage(mime: string): boolean {
                     <span class="text-xs text-hospital-muted">{{
                         fmtDate(booking.visit_date)
                     }}</span>
+                    <button
+                        v-if="canTransfer && canTransferBooking(booking)"
+                        type="button"
+                        class="flex items-center gap-1 rounded-lg border border-hospital-border px-2 py-1 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary/10"
+                        title="تحويل إلى عملية"
+                        @click="openTransfer(booking)"
+                    >
+                        <ArrowLeftRight class="h-3.5 w-3.5" />
+                        تحويل
+                    </button>
                 </div>
             </div>
 
@@ -385,7 +474,9 @@ function isImage(mime: string): boolean {
                 <!-- Eye side / analysis type -->
                 <div v-if="booking.eye_side" class="text-sm">
                     <span class="text-hospital-muted">العين: </span>
-                    <span class="font-medium">{{ eyeSideLabels[booking.eye_side] ?? booking.eye_side }}</span>
+                    <span class="font-medium">{{
+                        eyeSideLabels[booking.eye_side] ?? booking.eye_side
+                    }}</span>
                 </div>
                 <div v-if="booking.analysis_type" class="text-sm">
                     <span class="text-hospital-muted">نوع التحليل: </span>
@@ -403,7 +494,10 @@ function isImage(mime: string): boolean {
                 </div>
 
                 <!-- Cancellation reason -->
-                <div v-if="booking.cancel_reason" class="text-sm text-hospital-danger">
+                <div
+                    v-if="booking.cancel_reason"
+                    class="text-sm text-hospital-danger"
+                >
                     <span class="text-hospital-muted">سبب الإلغاء: </span>
                     <span>{{ booking.cancel_reason }}</span>
                 </div>
@@ -414,27 +508,44 @@ function isImage(mime: string): boolean {
                 >
                     <div>
                         <p class="text-xs text-hospital-muted">طريقة الدفع</p>
-                        <p class="font-medium">{{ payMethodLabels[booking.pay_method] ?? booking.pay_method }}</p>
+                        <p class="font-medium">
+                            {{
+                                payMethodLabels[booking.pay_method] ??
+                                booking.pay_method
+                            }}
+                        </p>
                     </div>
                     <div>
                         <p class="text-xs text-hospital-muted">الخصم</p>
-                        <p class="font-medium">{{ fmt(booking.discount ?? 0) }} ج</p>
+                        <p class="font-medium">
+                            {{ fmt(booking.discount ?? 0) }} ج
+                        </p>
                     </div>
                     <div v-if="Number(booking.ins_amount) > 0">
                         <p class="text-xs text-hospital-muted">حصة التأمين</p>
-                        <p class="font-medium">{{ fmt(booking.ins_amount) }} ج</p>
+                        <p class="font-medium">
+                            {{ fmt(booking.ins_amount) }} ج
+                        </p>
                     </div>
                     <div>
                         <p class="text-xs text-hospital-muted">المدفوع</p>
-                        <p class="font-medium">{{ fmt(booking.paid_amount ?? 0) }} ج</p>
+                        <p class="font-medium">
+                            {{ fmt(booking.paid_amount ?? 0) }} ج
+                        </p>
                     </div>
                     <div>
-                        <p class="text-xs text-hospital-muted">الصافي المستحق</p>
-                        <p class="font-medium">{{ fmt(netAmount(booking)) }} ج</p>
+                        <p class="text-xs text-hospital-muted">
+                            الصافي المستحق
+                        </p>
+                        <p class="font-medium">
+                            {{ fmt(netAmount(booking)) }} ج
+                        </p>
                     </div>
                     <div v-if="remainingAmount(booking) > 0">
                         <p class="text-xs text-hospital-danger">المتبقي</p>
-                        <p class="font-medium text-hospital-danger">{{ fmt(remainingAmount(booking)) }} ج</p>
+                        <p class="font-medium text-hospital-danger">
+                            {{ fmt(remainingAmount(booking)) }} ج
+                        </p>
                     </div>
                 </div>
 
@@ -443,11 +554,23 @@ function isImage(mime: string): boolean {
                     v-if="booking.insurance_claim"
                     class="space-y-1 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm"
                 >
-                    <p class="flex items-center gap-1.5 font-medium text-hospital-primary">
+                    <p
+                        class="flex items-center gap-1.5 font-medium text-hospital-primary"
+                    >
                         <ShieldCheck class="h-3.5 w-3.5" />
                         مطالبة التأمين
-                        <Badge :variant="claimStatusVariants[booking.insurance_claim.status] as any">
-                            {{ claimStatusLabels[booking.insurance_claim.status] }}
+                        <Badge
+                            :variant="
+                                claimStatusVariants[
+                                    booking.insurance_claim.status
+                                ] as any
+                            "
+                        >
+                            {{
+                                claimStatusLabels[
+                                    booking.insurance_claim.status
+                                ]
+                            }}
                         </Badge>
                     </p>
                     <div v-if="booking.insurance_claim.company">
@@ -456,12 +579,17 @@ function isImage(mime: string): boolean {
                     </div>
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div>
-                            <span class="text-hospital-muted">قيمة الفاتورة: </span
+                            <span class="text-hospital-muted"
+                                >قيمة الفاتورة: </span
                             >{{ fmt(booking.insurance_claim.invoice_amount) }} ج
                         </div>
                         <div>
-                            <span class="text-hospital-muted">حصة التأمين: </span
-                            >{{ fmt(booking.insurance_claim.insurance_share) }} ج
+                            <span class="text-hospital-muted"
+                                >حصة التأمين: </span
+                            >{{
+                                fmt(booking.insurance_claim.insurance_share)
+                            }}
+                            ج
                         </div>
                         <div>
                             <span class="text-hospital-muted">حصة المريض: </span
@@ -619,4 +747,67 @@ function isImage(mime: string): boolean {
             </div>
         </div>
     </div>
+
+    <!-- Transfer to Operation Modal -->
+    <Modal v-model="showTransferModal" title="تحويل إلى عملية" size="md">
+        <div v-if="transferringBooking" class="space-y-4">
+            <p class="text-sm text-hospital-muted">
+                تحويل زيارة
+                {{
+                    deptLabels[transferringBooking.dept] ??
+                    transferringBooking.dept
+                }}
+                — {{ transferringBooking.service_name }} إلى عملية.
+            </p>
+            <div>
+                <label
+                    class="mb-1 block text-xs font-semibold text-hospital-text-2"
+                    >الخدمة</label
+                >
+                <select
+                    v-model="transferForm.service_id"
+                    class="input-field w-full"
+                    @change="onTransferServiceChange"
+                >
+                    <option value="">— اختر الخدمة —</option>
+                    <option
+                        v-for="s in transfer_services"
+                        :key="s.id"
+                        :value="s.id"
+                    >
+                        {{ deptLabels[s.dept] ?? s.dept }} — {{ s.name }}
+                    </option>
+                </select>
+            </div>
+            <div>
+                <label
+                    class="mb-1 block text-xs font-semibold text-hospital-text-2"
+                    >القسم</label
+                >
+                <select v-model="transferForm.dept" class="input-field w-full">
+                    <option value="surgery">العمليات</option>
+                    <option value="lasik">الليزك</option>
+                    <option value="laser">الليزر</option>
+                </select>
+            </div>
+            <EyeSideSelector v-model="transferForm.eye" />
+        </div>
+        <template #footer>
+            <button
+                type="button"
+                class="btn-secondary"
+                @click="showTransferModal = false"
+            >
+                إلغاء
+            </button>
+            <button
+                type="button"
+                class="btn-primary"
+                :disabled="!transferForm.service_id"
+                @click="confirmTransfer"
+            >
+                متابعة إلى صفحة العمليات
+            </button>
+        </template>
+    </Modal>
 </template>

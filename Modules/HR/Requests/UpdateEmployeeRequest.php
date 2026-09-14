@@ -42,6 +42,9 @@ class UpdateEmployeeRequest extends FormRequest
             'contract_type' => ['required', Rule::enum(ContractType::class)],
             'status' => ['required', Rule::enum(EmployeeStatus::class)],
             'notes' => ['nullable', 'string'],
+            'role' => ['nullable', 'string', 'exists:roles,name'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'exists:permissions,name'],
         ];
     }
 

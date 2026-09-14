@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import SearchableSelect from '@/components/shared/SearchableSelect.vue';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -79,13 +80,18 @@ interface Bundle {
 const props = defineProps<{
     surgeries: Paginator;
     orRooms: OrRoom[];
-    inventoryItems: { id: string; name: string; code: string; sell_price: number; quantity: number }[];
     bundles: Bundle[];
     doctors: { id: string; name: string }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
     filters: { status?: string };
     revenue: number;
+    prefill?: {
+        booking_id: string;
+        dept: string;
+        eye: string | null;
+        service_id: string | null;
+    } | null;
 }>();
 
 const columns = [
@@ -113,15 +119,26 @@ watch(statusFilter, () => {
 });
 
 function applyFilters() {
-    router.get('/surgery', { status: statusFilter.value || undefined }, { preserveState: true });
+    router.get(
+        '/surgery',
+        { status: statusFilter.value || undefined },
+        { preserveState: true },
+    );
 }
 function goToPage(page: number) {
-    router.get('/surgery', { status: statusFilter.value || undefined, page }, { preserveState: true });
+    router.get(
+        '/surgery',
+        { status: statusFilter.value || undefined, page },
+        { preserveState: true },
+    );
 }
 
 /* ── Beds grid ── */
 const bedMap = computed(() => {
-    const map: Record<number, { room: OrRoom; bed: OrBed; surgery: Surgery | null }> = {};
+    const map: Record<
+        number,
+        { room: OrRoom; bed: OrBed; surgery: Surgery | null }
+    > = {};
     let counter = 1;
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
@@ -143,9 +160,14 @@ const flatOrBeds = computed<FlatOrBed[]>(() => {
     let seq = 1;
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
-            result.push({ id: bed.id, displayNumber: seq++, surgery: bed.surgery ?? null });
+            result.push({
+                id: bed.id,
+                displayNumber: seq++,
+                surgery: bed.surgery ?? null,
+            });
         });
     });
+
     return result;
 });
 
@@ -167,19 +189,39 @@ const statusAr: Record<string, string> = {
     cancelled: 'ملغاة',
 };
 
-const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين يسرى', OU: 'كلاهما' };
+const eyeLabel: Record<string, string> = {
+    OD: 'عين يمنى',
+    OS: 'عين يسرى',
+    OU: 'كلاهما',
+};
 
 /* ── Stats ── */
-const scheduledCount = computed(() => props.surgeries.data.filter((s) => s.status === 'scheduled').length);
-const inProgressCount = computed(() => props.surgeries.data.filter((s) => s.status === 'in_progress' || s.status === 'prep').length);
-const completedCount = computed(() => props.surgeries.data.filter((s) => s.status === 'completed').length);
-const supplyTotal = computed(() => props.surgeries.data.reduce((s, b) => s + Number(b.supply_total ?? 0), 0));
+const scheduledCount = computed(
+    () => props.surgeries.data.filter((s) => s.status === 'scheduled').length,
+);
+const inProgressCount = computed(
+    () =>
+        props.surgeries.data.filter(
+            (s) => s.status === 'in_progress' || s.status === 'prep',
+        ).length,
+);
+const completedCount = computed(
+    () => props.surgeries.data.filter((s) => s.status === 'completed').length,
+);
+const supplyTotal = computed(() =>
+    props.surgeries.data.reduce((s, b) => s + Number(b.supply_total ?? 0), 0),
+);
 
 const occupiedBedIds = computed(() => {
     const ids: number[] = [];
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
-            if (bed.surgery && ['scheduled', 'prep', 'in_progress'].includes(bed.surgery.status)) {
+            if (
+                bed.surgery &&
+                ['scheduled', 'prep', 'in_progress'].includes(
+                    bed.surgery.status,
+                )
+            ) {
                 ids.push(bed.id);
             }
         });
@@ -192,10 +234,18 @@ const occupiedBedIds = computed(() => {
 const selectedCase = ref<Surgery | null>(null);
 const activeOverlayTab = ref<'supplies' | 'report' | 'status'>('supplies');
 
-const overlayReportForm = useForm({ op_report: '', post_op_notes: '', complications: '' });
+const overlayReportForm = useForm({
+    op_report: '',
+    post_op_notes: '',
+    complications: '',
+});
 
-const newSupplyItems = ref<NewSupplyItem[]>([{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]);
-const newSuppliesTotal = computed(() => newSupplyItems.value.reduce((s, i) => s + i.qty * i.unit_cost, 0));
+const newSupplyItems = ref<NewSupplyItem[]>([
+    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
+]);
+const newSuppliesTotal = computed(() =>
+    newSupplyItems.value.reduce((s, i) => s + i.qty * i.unit_cost, 0),
+);
 
 // Bundle selection
 const newBundlePick = ref('');
@@ -219,15 +269,23 @@ const expandedBundleName = ref('');
 const expandedBundlePrice = ref(0);
 
 const selectedBundles = ref<SelectedBundle[]>([]);
-const bundlesTotal = computed(() => selectedBundles.value.reduce((s, b) => s + b.bundle_total, 0));
+const bundlesTotal = computed(() =>
+    selectedBundles.value.reduce((s, b) => s + b.bundle_total, 0),
+);
 
 watch(newBundlePick, (bundleId) => {
     if (!bundleId) {
         expandedBundleItems.value = [];
+
         return;
     }
+
     const bundle = props.bundles.find((b) => b.id === bundleId);
-    if (!bundle) return;
+
+    if (!bundle) {
+        return;
+    }
+
     expandedBundleId.value = bundle.id;
     expandedBundleName.value = bundle.name;
     expandedBundlePrice.value = Number(bundle.price);
@@ -240,17 +298,25 @@ watch(newBundlePick, (bundleId) => {
 });
 
 function confirmAddBundle() {
-    const selected = expandedBundleItems.value.filter((i) => i.selected && i.inventory_item_id);
+    const selected = expandedBundleItems.value.filter(
+        (i) => i.selected && i.inventory_item_id,
+    );
+
     if (selected.length === 0) {
         toast.error('يرجى تحديد صنف واحد على الأقل من البند');
+
         return;
     }
+
     const bundleTotal = selected.reduce((s, i) => s + i.qty * i.unit_cost, 0);
     selectedBundles.value.push({
         bundle_id: expandedBundleId.value,
         name: expandedBundleName.value,
         price: expandedBundlePrice.value,
-        selected_items: selected.map((i) => ({ inventory_item_id: i.inventory_item_id!, qty: i.qty })),
+        selected_items: selected.map((i) => ({
+            inventory_item_id: i.inventory_item_id!,
+            qty: i.qty,
+        })),
         items_label: `${selected.length} ${selected.length === 1 ? 'صنف' : 'أصناف'}`,
         bundle_total: bundleTotal,
     });
@@ -262,10 +328,15 @@ function removeBundleFromSelected(idx: number) {
     selectedBundles.value.splice(idx, 1);
 }
 
-function openCase(surgery: Surgery, tab: 'supplies' | 'report' | 'status' = 'supplies') {
+function openCase(
+    surgery: Surgery,
+    tab: 'supplies' | 'report' | 'status' = 'supplies',
+) {
     selectedCase.value = surgery;
     activeOverlayTab.value = tab;
-    newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+    newSupplyItems.value = [
+        { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
+    ];
     newBundlePick.value = '';
     expandedBundleItems.value = [];
     selectedBundles.value = [];
@@ -278,18 +349,13 @@ function closeOverlay() {
     selectedCase.value = null;
 }
 
-function selectNewSupplyItem(item: NewSupplyItem, inventoryId: string) {
-    const inv = props.inventoryItems.find((i) => i.id === inventoryId);
-
-    if (inv) {
-        item.inventory_item_id = inventoryId;
-        item.name = inv.name;
-        item.unit_cost = inv.sell_price;
-    }
-}
-
 function addNewSupplyRow() {
-    newSupplyItems.value.push({ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 });
+    newSupplyItems.value.push({
+        inventory_item_id: '',
+        name: '',
+        qty: 1,
+        unit_cost: 0,
+    });
 }
 
 function removeNewSupplyRow(idx: number) {
@@ -297,18 +363,23 @@ function removeNewSupplyRow(idx: number) {
 }
 
 function submitOverlaySupplies() {
-    const existing = (selectedCase.value!.supplies_used ?? []) as SupplyUsedItem[];
+    const existing = (selectedCase.value!.supplies_used ??
+        []) as SupplyUsedItem[];
     const adding = newSupplyItems.value
         .filter((i) => i.inventory_item_id !== '')
         .map((i) => ({ ...i, total: i.qty * i.unit_cost }));
 
     if (adding.length === 0 && selectedBundles.value.length === 0) {
         toast.error('يرجى إضافة صنف أو بند واحد على الأقل');
+
         return;
     }
 
     const newTotal =
-        adding.reduce((sum, item) => sum + (item.total ?? item.qty * item.unit_cost), 0) + bundlesTotal.value;
+        adding.reduce(
+            (sum, item) => sum + (item.total ?? item.qty * item.unit_cost),
+            0,
+        ) + bundlesTotal.value;
     const optimisticSupplies = [...existing, ...adding];
 
     router.post(
@@ -325,13 +396,21 @@ function submitOverlaySupplies() {
         {
             onSuccess: (page) => {
                 if (page.props.flash?.surgery) {
-                    selectedCase.value!.supplies_used = page.props.flash.surgery.supplies_used;
-                    selectedCase.value!.supply_total = page.props.flash.surgery.supply_total;
+                    selectedCase.value!.supplies_used =
+                        page.props.flash.surgery.supplies_used;
+                    selectedCase.value!.supply_total =
+                        page.props.flash.surgery.supply_total;
                 } else {
                     selectedCase.value!.supplies_used = optimisticSupplies;
-                    selectedCase.value!.supply_total = (parseFloat(String(selectedCase.value!.supply_total)) + newTotal).toFixed(2);
+                    selectedCase.value!.supply_total = (
+                        parseFloat(String(selectedCase.value!.supply_total)) +
+                        newTotal
+                    ).toFixed(2);
                 }
-                newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+
+                newSupplyItems.value = [
+                    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
+                ];
                 newBundlePick.value = '';
                 selectedBundles.value = [];
                 toast.success('تم تسجيل المستلزمات بنجاح');
@@ -353,7 +432,10 @@ function submitOverlayReport() {
 /* ── Status update ── */
 const nextStatuses = computed(() => {
     const c = selectedCase.value?.status;
-    const map: Record<string, { value: string; label: string; color: string }[]> = {
+    const map: Record<
+        string,
+        { value: string; label: string; color: string }[]
+    > = {
         scheduled: [
             { value: 'prep', label: 'بدء التحضير', color: '#2980B9' },
             { value: 'cancelled', label: 'إلغاء', color: '#95A5A6' },
@@ -403,14 +485,15 @@ const scheduleForm = useForm({
 
 function selectOrBed(bedId: number) {
     if (occupiedBedIds.value.includes(bedId)) {
-return;
-}
+        return;
+    }
 
     scheduleForm.or_bed_id = scheduleForm.or_bed_id === bedId ? null : bedId;
 }
 
 function getBedLabel(bedId: number): string {
     const found = flatOrBeds.value.find((b) => b.id === bedId);
+
     return found ? `سرير ${found.displayNumber}` : '';
 }
 
@@ -423,6 +506,19 @@ function submitSchedule() {
         },
     });
 }
+
+// Arrived from the medical-record "تحويل" action — open the schedule modal
+// pre-filled, still reviewable/editable before saving.
+if (props.prefill) {
+    scheduleForm.booking_id = props.prefill.booking_id;
+    scheduleForm.dept = props.prefill.dept;
+
+    if (props.prefill.eye) {
+        scheduleForm.eye = props.prefill.eye;
+    }
+
+    showSchedule.value = true;
+}
 </script>
 
 <template>
@@ -434,29 +530,62 @@ function submitSchedule() {
             <h2 class="text-base font-bold text-hospital-text">
                 غرف الإقامة — قسم العمليات ({{ totalBeds }} سرير)
             </h2>
-            <div class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-hospital-text-2">
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-[#27AE60]"></span>مجدولة</span>
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-[#E74C3C]"></span>جارية</span>
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-[#2980B9]"></span>تحضير</span>
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-[#1A8C5B]"></span>مكتملة</span>
-                <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-sm bg-gray-300"></span>فارغة</span>
+            <div
+                class="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-hospital-text-2"
+            >
+                <span class="flex items-center gap-1.5"
+                    ><span class="h-3 w-3 rounded-sm bg-[#27AE60]"></span
+                    >مجدولة</span
+                >
+                <span class="flex items-center gap-1.5"
+                    ><span class="h-3 w-3 rounded-sm bg-[#E74C3C]"></span
+                    >جارية</span
+                >
+                <span class="flex items-center gap-1.5"
+                    ><span class="h-3 w-3 rounded-sm bg-[#2980B9]"></span
+                    >تحضير</span
+                >
+                <span class="flex items-center gap-1.5"
+                    ><span class="h-3 w-3 rounded-sm bg-[#1A8C5B]"></span
+                    >مكتملة</span
+                >
+                <span class="flex items-center gap-1.5"
+                    ><span class="h-3 w-3 rounded-sm bg-gray-300"></span
+                    >فارغة</span
+                >
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <div class="flex items-center gap-0.5 rounded-lg border border-hospital-border bg-white p-1">
+            <div
+                class="flex items-center gap-0.5 rounded-lg border border-hospital-border bg-white p-1"
+            >
                 <button
                     class="rounded p-1.5 transition-colors"
-                    :class="viewMode === 'grid' ? 'bg-hospital-primary text-white' : 'text-gray-400 hover:text-gray-600'"
+                    :class="
+                        viewMode === 'grid'
+                            ? 'bg-hospital-primary text-white'
+                            : 'text-gray-400 hover:text-gray-600'
+                    "
                     title="عرض الغرف"
                     @click="viewMode = 'grid'"
                 >
-                    <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3z" />
+                    <svg
+                        class="h-4 w-4"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                    >
+                        <path
+                            d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zm8 0A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm-8 8A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm8 0A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3z"
+                        />
                     </svg>
                 </button>
                 <button
                     class="rounded p-1.5 transition-colors"
-                    :class="viewMode === 'table' ? 'bg-hospital-primary text-white' : 'text-gray-400 hover:text-gray-600'"
+                    :class="
+                        viewMode === 'table'
+                            ? 'bg-hospital-primary text-white'
+                            : 'text-gray-400 hover:text-gray-600'
+                    "
                     title="عرض جدول"
                     @click="viewMode = 'table'"
                 >
@@ -519,50 +648,94 @@ function submitSchedule() {
             class="bed-card group cursor-pointer"
             :style="
                 item.surgery
-                    ? { background: item.surgery.dept === dept ? (bedBg[item.surgery.status] ?? '#27AE60') : '#E67E22' }
+                    ? {
+                          background:
+                              item.surgery.dept === dept
+                                  ? (bedBg[item.surgery.status] ?? '#27AE60')
+                                  : '#E67E22',
+                      }
                     : { background: '#BDC3C7', opacity: '0.75' }
             "
-            @click="item.surgery && item.surgery.dept === dept ? openCase(item.surgery) : (showSchedule = true)"
+            @click="
+                item.surgery && item.surgery.dept === dept
+                    ? openCase(item.surgery)
+                    : (showSchedule = true)
+            "
         >
             <div class="bed-card-hd">
                 <span class="text-[13px] font-black">سرير {{ idx }}</span>
                 <span v-if="item.surgery" class="bed-status-badge">
-                    {{ item.surgery.dept === dept ? statusAr[item.surgery.status] : 'قسم آخر' }}
+                    {{
+                        item.surgery.dept === dept
+                            ? statusAr[item.surgery.status]
+                            : 'قسم آخر'
+                    }}
                 </span>
             </div>
-            <div v-if="item.surgery && item.surgery.dept === dept" class="bed-card-body">
-                <p class="mb-1 text-[14px] font-extrabold leading-tight">
+            <div
+                v-if="item.surgery && item.surgery.dept === dept"
+                class="bed-card-body"
+            >
+                <p class="mb-1 text-[14px] leading-tight font-extrabold">
                     {{ item.surgery.booking?.patient_name ?? '—' }}
                 </p>
-                <p class="bed-info-row"><span>العملية:</span><strong>{{ item.surgery.procedure || '—' }}</strong></p>
-                <p class="bed-info-row"><span>الطبيب:</span><strong>{{ item.surgery.surgeon?.name ?? '—' }}</strong></p>
+                <p class="bed-info-row">
+                    <span>العملية:</span
+                    ><strong>{{ item.surgery.procedure || '—' }}</strong>
+                </p>
+                <p class="bed-info-row">
+                    <span>الطبيب:</span
+                    ><strong>{{ item.surgery.surgeon?.name ?? '—' }}</strong>
+                </p>
                 <p v-if="item.surgery.eye" class="bed-info-row">
-                    <span>العين:</span><strong>{{ eyeLabel[item.surgery.eye!] ?? item.surgery.eye }}</strong>
+                    <span>العين:</span
+                    ><strong>{{
+                        eyeLabel[item.surgery.eye!] ?? item.surgery.eye
+                    }}</strong>
                 </p>
                 <p v-if="item.surgery.scheduled_at" class="bed-info-row">
-                    <span>الموعد:</span><strong>{{ item.surgery.scheduled_at.slice(0, 16).replace('T', ' ') }}</strong>
+                    <span>الموعد:</span
+                    ><strong>{{
+                        item.surgery.scheduled_at.slice(0, 16).replace('T', ' ')
+                    }}</strong>
                 </p>
                 <div class="mt-2 flex gap-1.5" @click.stop>
-                    <button class="bed-action-btn" @click="openCase(item.surgery!, 'supplies')">
+                    <button
+                        class="bed-action-btn"
+                        @click="openCase(item.surgery!, 'supplies')"
+                    >
                         💊 مستلزمات
                     </button>
-                    <button class="bed-action-btn" @click="openCase(item.surgery!, 'report')">
+                    <button
+                        class="bed-action-btn"
+                        @click="openCase(item.surgery!, 'report')"
+                    >
                         📋 تقرير
                     </button>
-                    <button class="bed-action-btn" @click="openCase(item.surgery!, 'status')">
+                    <button
+                        class="bed-action-btn"
+                        @click="openCase(item.surgery!, 'status')"
+                    >
                         ⚡ حالة
                     </button>
                 </div>
             </div>
-            <div v-else-if="item.surgery && item.surgery.dept !== dept" class="bed-card-empty">
+            <div
+                v-else-if="item.surgery && item.surgery.dept !== dept"
+                class="bed-card-empty"
+            >
                 <div class="text-2xl">🔒</div>
-                <p class="mt-1 text-[11px] opacity-90 font-semibold">مشغول بقسم آخر</p>
+                <p class="mt-1 text-[11px] font-semibold opacity-90">
+                    مشغول بقسم آخر
+                </p>
             </div>
 
             <div v-else class="bed-card-empty">
                 <div class="text-2xl">🛏️</div>
                 <p class="mt-1 text-[11px] opacity-80">غرفة فارغة</p>
-                <div class="mt-2 rounded bg-white/30 px-2 py-1 text-[10px]">+ جدولة عملية</div>
+                <div class="mt-2 rounded bg-white/30 px-2 py-1 text-[10px]">
+                    + جدولة عملية
+                </div>
             </div>
         </div>
     </div>
@@ -581,22 +754,42 @@ function submitSchedule() {
         <template #cell-scheduled_at="{ value }">
             {{ value ? (value as string).replace('T', ' ').slice(0, 16) : '—' }}
         </template>
-        <template #cell-file_no="{ row }">{{ (row as Surgery).booking?.file_no ?? '—' }}</template>
-        <template #cell-patient="{ row }">{{ (row as Surgery).booking?.patient_name ?? '—' }}</template>
-        <template #cell-eye="{ value }">{{ value ? (eyeLabel[value as string] ?? value) : '—' }}</template>
-        <template #cell-surgeon="{ row }">{{ (row as Surgery).surgeon?.name ?? '—' }}</template>
+        <template #cell-file_no="{ row }">{{
+            (row as Surgery).booking?.file_no ?? '—'
+        }}</template>
+        <template #cell-patient="{ row }">{{
+            (row as Surgery).booking?.patient_name ?? '—'
+        }}</template>
+        <template #cell-eye="{ value }">{{
+            value ? (eyeLabel[value as string] ?? value) : '—'
+        }}</template>
+        <template #cell-surgeon="{ row }">{{
+            (row as Surgery).surgeon?.name ?? '—'
+        }}</template>
         <template #cell-bed_no="{ value }">
             <span
                 v-if="value"
                 class="inline-flex h-6 w-6 items-center justify-center rounded bg-hospital-primary-pale text-xs font-bold text-hospital-primary"
-            >{{ value }}</span>
+                >{{ value }}</span
+            >
             <span v-else class="text-hospital-text-2">—</span>
         </template>
         <template #cell-status="{ value }">
-            <Badge :variant="value as 'scheduled' | 'prep' | 'in_progress' | 'completed' | 'cancelled'" />
+            <Badge
+                :variant="
+                    value as
+                        | 'scheduled'
+                        | 'prep'
+                        | 'in_progress'
+                        | 'completed'
+                        | 'cancelled'
+                "
+            />
         </template>
         <template #cell-supply_total="{ value }">
-            <span class="font-mono text-sm">{{ Number(value).toLocaleString('ar-EG') }} ج.م</span>
+            <span class="font-mono text-sm"
+                >{{ Number(value).toLocaleString('ar-EG') }} ج.م</span
+            >
         </template>
         <template #actions="{ row }">
             <div class="flex items-center gap-1">
@@ -619,9 +812,12 @@ function submitSchedule() {
     <!-- ═══════════════════════════════════════════════════
          CASE OVERLAY — matches HTML design
     ════════════════════════════════════════════════════ -->
-    <div v-if="selectedCase" class="case-overlay-backdrop" @click.self="closeOverlay">
+    <div
+        v-if="selectedCase"
+        class="case-overlay-backdrop"
+        @click.self="closeOverlay"
+    >
         <div class="case-overlay-panel">
-
             <!-- ── Sticky header (green) ── -->
             <div class="case-overlay-hdr">
                 <div>
@@ -630,7 +826,9 @@ function submitSchedule() {
                     </div>
                     <div class="text-[12px] opacity-75">
                         {{ selectedCase.procedure || 'عملية' }}
-                        <span v-if="selectedCase.bed_no"> — سرير {{ selectedCase.bed_no }}</span>
+                        <span v-if="selectedCase.bed_no">
+                            — سرير {{ selectedCase.bed_no }}</span
+                        >
                     </div>
                 </div>
                 <button class="case-close-btn" @click="closeOverlay">×</button>
@@ -638,140 +836,285 @@ function submitSchedule() {
 
             <!-- ── Patient summary bar ── -->
             <div class="case-patient-bar">
-                <span><strong>ملف:</strong> {{ selectedCase.booking?.file_no ?? '—' }}</span>
-                <span><strong>الطبيب:</strong> {{ selectedCase.surgeon?.name ?? '—' }}</span>
-                <span><strong>الحالة:</strong> {{ statusAr[selectedCase.status] }}</span>
-                <span v-if="selectedCase.eye"><strong>العين:</strong> {{ eyeLabel[selectedCase.eye!] ?? selectedCase.eye }}</span>
-                <span v-if="selectedCase.anaesthesia"><strong>التخدير:</strong> {{ selectedCase.anaesthesia }}</span>
+                <span
+                    ><strong>ملف:</strong>
+                    {{ selectedCase.booking?.file_no ?? '—' }}</span
+                >
+                <span
+                    ><strong>الطبيب:</strong>
+                    {{ selectedCase.surgeon?.name ?? '—' }}</span
+                >
+                <span
+                    ><strong>الحالة:</strong>
+                    {{ statusAr[selectedCase.status] }}</span
+                >
+                <span v-if="selectedCase.eye"
+                    ><strong>العين:</strong>
+                    {{ eyeLabel[selectedCase.eye!] ?? selectedCase.eye }}</span
+                >
+                <span v-if="selectedCase.anaesthesia"
+                    ><strong>التخدير:</strong>
+                    {{ selectedCase.anaesthesia }}</span
+                >
                 <span v-if="selectedCase.scheduled_at">
-                    <strong>الموعد:</strong> {{ selectedCase.scheduled_at.slice(0, 16).replace('T', ' ') }}
+                    <strong>الموعد:</strong>
+                    {{
+                        selectedCase.scheduled_at.slice(0, 16).replace('T', ' ')
+                    }}
                 </span>
                 <span>
                     <strong>المستلزمات:</strong>
-                    {{ Number(selectedCase.supply_total).toLocaleString('ar-EG') }} ج
+                    {{
+                        Number(selectedCase.supply_total).toLocaleString(
+                            'ar-EG',
+                        )
+                    }}
+                    ج
                 </span>
             </div>
 
             <!-- ── Tab bar ── -->
             <div class="case-tab-bar">
                 <button
-                    :class="['case-tab', activeOverlayTab === 'supplies' ? 'case-tab-active' : '']"
+                    :class="[
+                        'case-tab',
+                        activeOverlayTab === 'supplies'
+                            ? 'case-tab-active'
+                            : '',
+                    ]"
                     @click="activeOverlayTab = 'supplies'"
-                >مستلزمات العملية</button>
+                >
+                    مستلزمات العملية
+                </button>
                 <button
-                    :class="['case-tab', activeOverlayTab === 'report' ? 'case-tab-active' : '']"
+                    :class="[
+                        'case-tab',
+                        activeOverlayTab === 'report' ? 'case-tab-active' : '',
+                    ]"
                     @click="activeOverlayTab = 'report'"
-                >تقرير العملية</button>
+                >
+                    تقرير العملية
+                </button>
                 <button
-                    :class="['case-tab', activeOverlayTab === 'status' ? 'case-tab-active' : '']"
+                    :class="[
+                        'case-tab',
+                        activeOverlayTab === 'status' ? 'case-tab-active' : '',
+                    ]"
                     @click="activeOverlayTab = 'status'"
-                >تحديث الحالة</button>
+                >
+                    تحديث الحالة
+                </button>
             </div>
 
             <!-- ── Tab content ── -->
             <div class="case-overlay-body">
-
                 <!-- ===== SUPPLIES TAB ===== -->
                 <div v-if="activeOverlayTab === 'supplies'">
-
                     <!-- Add supply form -->
                     <div class="overlay-card mb-4">
                         <div class="overlay-card-hd">إضافة مستلزمات عملية</div>
                         <div class="p-4">
-
                             <!-- Bundle picker -->
-                            <div v-if="bundles.length" class="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-3">
-                                <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-purple-700">📦 البنود الجاهزة</div>
-                                <select v-model="newBundlePick" class="overlay-input text-sm">
-                                    <option value="">— اختر بنداً لعرض محتوياته —</option>
-                                    <option v-for="b in bundles" :key="b.id" :value="b.id">
+                            <div
+                                v-if="bundles.length"
+                                class="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-3"
+                            >
+                                <div
+                                    class="mb-2 text-xs font-semibold tracking-wide text-purple-700 uppercase"
+                                >
+                                    📦 البنود الجاهزة
+                                </div>
+                                <select
+                                    v-model="newBundlePick"
+                                    class="overlay-input text-sm"
+                                >
+                                    <option value="">
+                                        — اختر بنداً لعرض محتوياته —
+                                    </option>
+                                    <option
+                                        v-for="b in bundles"
+                                        :key="b.id"
+                                        :value="b.id"
+                                    >
                                         {{ b.name }}
                                     </option>
                                 </select>
 
                                 <!-- Bundle items expansion -->
-                                <div v-if="expandedBundleItems.length" class="mt-3 rounded-lg border border-purple-300 bg-white p-3">
-                                    <div class="mb-2 text-xs font-semibold text-purple-800">اختر المستلزمات المستخدمة من بند: {{ expandedBundleName }}</div>
+                                <div
+                                    v-if="expandedBundleItems.length"
+                                    class="mt-3 rounded-lg border border-purple-300 bg-white p-3"
+                                >
+                                    <div
+                                        class="mb-2 text-xs font-semibold text-purple-800"
+                                    >
+                                        اختر المستلزمات المستخدمة من بند:
+                                        {{ expandedBundleName }}
+                                    </div>
                                     <div class="space-y-1.5">
                                         <div
-                                            v-for="(item, idx) in expandedBundleItems"
+                                            v-for="(
+                                                item, idx
+                                            ) in expandedBundleItems"
                                             :key="idx"
                                             class="flex items-center gap-2 rounded border px-3 py-2 text-sm"
-                                            :class="item.selected ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50'"
+                                            :class="
+                                                item.selected
+                                                    ? 'border-purple-200 bg-purple-50'
+                                                    : 'border-gray-100 bg-gray-50'
+                                            "
                                         >
                                             <input
                                                 v-model="item.selected"
                                                 type="checkbox"
                                                 class="h-4 w-4 rounded"
-                                                :disabled="!item.inventory_item_id"
+                                                :disabled="
+                                                    !item.inventory_item_id
+                                                "
                                             />
-                                            <span class="flex-1" :class="item.selected ? 'font-medium text-gray-900' : 'text-gray-400'">
+                                            <span
+                                                class="flex-1"
+                                                :class="
+                                                    item.selected
+                                                        ? 'font-medium text-gray-900'
+                                                        : 'text-gray-400'
+                                                "
+                                            >
                                                 {{ item.item_name }}
-                                                <span v-if="!item.inventory_item_id" class="text-xs text-gray-400">(غير مرتبط)</span>
+                                                <span
+                                                    v-if="
+                                                        !item.inventory_item_id
+                                                    "
+                                                    class="text-xs text-gray-400"
+                                                    >(غير مرتبط)</span
+                                                >
                                             </span>
                                             <input
-                                                v-if="item.selected && item.inventory_item_id"
+                                                v-if="
+                                                    item.selected &&
+                                                    item.inventory_item_id
+                                                "
                                                 v-model.number="item.qty"
                                                 type="number"
                                                 min="0.01"
                                                 step="0.01"
                                                 class="overlay-input w-20 text-center"
                                             />
-                                            <span v-else class="w-20 text-center text-gray-400">{{ item.qty }}</span>
-                                            <span class="w-28 text-left text-xs text-gray-500">{{ Number(item.unit_cost).toLocaleString('ar-EG') }} ج/وحدة</span>
+                                            <span
+                                                v-else
+                                                class="w-20 text-center text-gray-400"
+                                                >{{ item.qty }}</span
+                                            >
+                                            <span
+                                                class="w-28 text-left text-xs text-gray-500"
+                                                >{{
+                                                    Number(
+                                                        item.unit_cost,
+                                                    ).toLocaleString('ar-EG')
+                                                }}
+                                                ج/وحدة</span
+                                            >
                                         </div>
                                     </div>
-                                    <div class="mt-3 flex items-center justify-between border-t border-purple-100 pt-2">
+                                    <div
+                                        class="mt-3 flex items-center justify-between border-t border-purple-100 pt-2"
+                                    >
                                         <span class="text-xs text-gray-500">
-                                            {{ expandedBundleItems.filter(i => i.selected && i.inventory_item_id).length }} أصناف محددة
+                                            {{
+                                                expandedBundleItems.filter(
+                                                    (i) =>
+                                                        i.selected &&
+                                                        i.inventory_item_id,
+                                                ).length
+                                            }}
+                                            أصناف محددة
                                         </span>
                                         <div class="flex gap-2">
-                                            <button type="button" class="overlay-btn-grey text-xs py-1.5 px-3" @click="newBundlePick = ''">إلغاء</button>
-                                            <button type="button" class="overlay-btn-green text-xs py-1.5 px-3" @click="confirmAddBundle">+ إضافة البند</button>
+                                            <button
+                                                type="button"
+                                                class="overlay-btn-grey px-3 py-1.5 text-xs"
+                                                @click="newBundlePick = ''"
+                                            >
+                                                إلغاء
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="overlay-btn-green px-3 py-1.5 text-xs"
+                                                @click="confirmAddBundle"
+                                            >
+                                                + إضافة البند
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Confirmed bundles -->
-                                <div v-if="selectedBundles.length" class="mt-2 space-y-1.5">
+                                <div
+                                    v-if="selectedBundles.length"
+                                    class="mt-2 space-y-1.5"
+                                >
                                     <div
                                         v-for="(b, idx) in selectedBundles"
                                         :key="idx"
                                         class="flex items-center gap-2 rounded-md bg-white px-3 py-2 shadow-sm"
                                     >
-                                        <span class="flex-1 text-sm font-medium text-purple-800">📦 {{ b.name }}</span>
-                                        <span class="text-xs text-gray-500 bg-purple-100 rounded-full px-2 py-0.5">{{ b.items_label }}</span>
-                                        <span class="w-24 text-left text-sm font-semibold text-purple-700">
-                                            {{ Number(b.bundle_total).toLocaleString('ar-EG') }} ج
+                                        <span
+                                            class="flex-1 text-sm font-medium text-purple-800"
+                                            >📦 {{ b.name }}</span
+                                        >
+                                        <span
+                                            class="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-gray-500"
+                                            >{{ b.items_label }}</span
+                                        >
+                                        <span
+                                            class="w-24 text-left text-sm font-semibold text-purple-700"
+                                        >
+                                            {{
+                                                Number(
+                                                    b.bundle_total,
+                                                ).toLocaleString('ar-EG')
+                                            }}
+                                            ج
                                         </span>
-                                        <button type="button" class="text-red-400 hover:text-red-600" @click="removeBundleFromSelected(idx)">×</button>
+                                        <button
+                                            type="button"
+                                            class="text-red-400 hover:text-red-600"
+                                            @click="
+                                                removeBundleFromSelected(idx)
+                                            "
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Individual items -->
-                            <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">أصناف فردية</div>
+                            <div
+                                class="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase"
+                            >
+                                أصناف فردية
+                            </div>
                             <div
                                 v-for="(item, idx) in newSupplyItems"
                                 :key="idx"
                                 class="mb-2 grid grid-cols-12 items-center gap-2"
                             >
-                                <select
-                                    :value="item.inventory_item_id"
-                                    class="overlay-input col-span-5"
-                                    @change="selectNewSupplyItem(item, ($event.target as HTMLSelectElement).value)"
-                                >
-                                    <option value="">— اختر من المخزن —</option>
-                                    <option v-for="inv in inventoryItems" :key="inv.id" :value="inv.id">
-                                        {{ inv.name }} ({{ inv.code }}) — {{ inv.quantity }} متوفر
-                                    </option>
-                                </select>
-                                <input
-                                    v-model="item.name"
-                                    type="text"
-                                    placeholder="الاسم"
-                                    class="overlay-input col-span-2"
-                                />
+                                <div class="col-span-7">
+                                    <SearchableSelect
+                                        v-model="item.name"
+                                        :endpoint="`/${dept}/items/search`"
+                                        placeholder="ابحث عن صنف بالاسم أو الكود..."
+                                        @select="
+                                            (matched) => {
+                                                item.inventory_item_id =
+                                                    matched.id;
+                                                item.unit_cost =
+                                                    matched.sell_price ?? 0;
+                                            }
+                                        "
+                                    />
+                                </div>
                                 <input
                                     v-model.number="item.qty"
                                     type="number"
@@ -790,24 +1133,55 @@ function submitSchedule() {
                                 <button
                                     class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
                                     @click="removeNewSupplyRow(idx)"
-                                >×</button>
+                                >
+                                    ×
+                                </button>
                             </div>
-                            <button class="mt-1 text-sm text-[#1A8C5B] hover:underline" @click="addNewSupplyRow">
+                            <button
+                                class="mt-1 text-sm text-[#1A8C5B] hover:underline"
+                                @click="addNewSupplyRow"
+                            >
                                 + إضافة صنف فردي
                             </button>
 
                             <!-- Total preview -->
-                            <div v-if="newSuppliesTotal + bundlesTotal > 0" class="overlay-total-preview">
+                            <div
+                                v-if="newSuppliesTotal + bundlesTotal > 0"
+                                class="overlay-total-preview"
+                            >
                                 الإجمالي المضاف:
-                                <strong style="color:#1A8C5B;font-size:14px">
-                                    {{ (newSuppliesTotal + bundlesTotal).toLocaleString('ar-EG') }} ج
+                                <strong style="color: #1a8c5b; font-size: 14px">
+                                    {{
+                                        (
+                                            newSuppliesTotal + bundlesTotal
+                                        ).toLocaleString('ar-EG')
+                                    }}
+                                    ج
                                 </strong>
                             </div>
                             <div class="mt-3 flex justify-end gap-2">
-                                <button class="overlay-btn-grey" @click="newSupplyItems = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]; selectedBundles = []; newBundlePick = ''; expandedBundleItems = []">
+                                <button
+                                    class="overlay-btn-grey"
+                                    @click="
+                                        newSupplyItems = [
+                                            {
+                                                inventory_item_id: '',
+                                                name: '',
+                                                qty: 1,
+                                                unit_cost: 0,
+                                            },
+                                        ];
+                                        selectedBundles = [];
+                                        newBundlePick = '';
+                                        expandedBundleItems = [];
+                                    "
+                                >
                                     مسح
                                 </button>
-                                <button class="overlay-btn-green" @click="submitOverlaySupplies">
+                                <button
+                                    class="overlay-btn-green"
+                                    @click="submitOverlaySupplies"
+                                >
                                     حفظ المستلزمات ✓
                                 </button>
                             </div>
@@ -816,13 +1190,27 @@ function submitSchedule() {
 
                     <!-- Existing supplies table -->
                     <div class="overlay-card overflow-hidden">
-                        <div class="overlay-card-hd-green flex items-center justify-between">
+                        <div
+                            class="overlay-card-hd-green flex items-center justify-between"
+                        >
                             <span>المستلزمات المضافة</span>
                             <span class="text-xs font-normal opacity-80">
-                                الإجمالي: {{ Number(selectedCase.supply_total).toLocaleString('ar-EG') }} ج
+                                الإجمالي:
+                                {{
+                                    Number(
+                                        selectedCase.supply_total,
+                                    ).toLocaleString('ar-EG')
+                                }}
+                                ج
                             </span>
                         </div>
-                        <div v-if="selectedCase.supplies_used && selectedCase.supplies_used.length" class="overflow-x-auto">
+                        <div
+                            v-if="
+                                selectedCase.supplies_used &&
+                                selectedCase.supplies_used.length
+                            "
+                            class="overflow-x-auto"
+                        >
                             <table class="supply-table">
                                 <thead>
                                     <tr>
@@ -834,28 +1222,64 @@ function submitSchedule() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="(s, i) in selectedCase.supplies_used" :key="i">
+                                    <tr
+                                        v-for="(
+                                            s, i
+                                        ) in selectedCase.supplies_used"
+                                        :key="i"
+                                    >
                                         <td>{{ i + 1 }}</td>
                                         <td>
-                                            <span v-if="(s as any).is_bundle" class="ml-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700">بند</span>
+                                            <span
+                                                v-if="(s as any).is_bundle"
+                                                class="ml-1 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700"
+                                                >بند</span
+                                            >
                                             {{ s.name || '—' }}
                                         </td>
                                         <td>{{ s.qty }}</td>
-                                        <td>{{ Number(s.unit_cost).toLocaleString('ar-EG') }} ج</td>
-                                        <td class="font-semibold">{{ Number(s.total).toLocaleString('ar-EG') }} ج</td>
+                                        <td>
+                                            {{
+                                                Number(
+                                                    s.unit_cost,
+                                                ).toLocaleString('ar-EG')
+                                            }}
+                                            ج
+                                        </td>
+                                        <td class="font-semibold">
+                                            {{
+                                                Number(s.total).toLocaleString(
+                                                    'ar-EG',
+                                                )
+                                            }}
+                                            ج
+                                        </td>
                                     </tr>
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="4" class="text-right font-bold">الإجمالي الكلي</td>
+                                        <td
+                                            colspan="4"
+                                            class="text-right font-bold"
+                                        >
+                                            الإجمالي الكلي
+                                        </td>
                                         <td class="font-bold text-[#1A8C5B]">
-                                            {{ Number(selectedCase.supply_total).toLocaleString('ar-EG') }} ج
+                                            {{
+                                                Number(
+                                                    selectedCase.supply_total,
+                                                ).toLocaleString('ar-EG')
+                                            }}
+                                            ج
                                         </td>
                                     </tr>
                                 </tfoot>
                             </table>
                         </div>
-                        <div v-else class="p-6 text-center text-sm text-hospital-text-2">
+                        <div
+                            v-else
+                            class="p-6 text-center text-sm text-hospital-text-2"
+                        >
                             لا توجد مستلزمات مسجلة بعد
                         </div>
                     </div>
@@ -865,9 +1289,14 @@ function submitSchedule() {
                 <div v-if="activeOverlayTab === 'report'">
                     <div class="overlay-card">
                         <div class="overlay-card-hd">تقرير العملية</div>
-                        <form class="space-y-4 p-4" @submit.prevent="submitOverlayReport">
+                        <form
+                            class="space-y-4 p-4"
+                            @submit.prevent="submitOverlayReport"
+                        >
                             <div>
-                                <label class="overlay-label">تقرير العملية التفصيلي</label>
+                                <label class="overlay-label"
+                                    >تقرير العملية التفصيلي</label
+                                >
                                 <textarea
                                     v-model="overlayReportForm.op_report"
                                     rows="5"
@@ -876,7 +1305,9 @@ function submitSchedule() {
                                 />
                             </div>
                             <div>
-                                <label class="overlay-label">ملاحظات ما بعد العملية</label>
+                                <label class="overlay-label"
+                                    >ملاحظات ما بعد العملية</label
+                                >
                                 <textarea
                                     v-model="overlayReportForm.post_op_notes"
                                     rows="3"
@@ -893,8 +1324,14 @@ function submitSchedule() {
                                     placeholder="إن وجدت..."
                                 />
                             </div>
-                            <div class="flex justify-end gap-2 border-t border-hospital-border pt-3">
-                                <button type="button" class="overlay-btn-grey" @click="overlayReportForm.reset()">
+                            <div
+                                class="flex justify-end gap-2 border-t border-hospital-border pt-3"
+                            >
+                                <button
+                                    type="button"
+                                    class="overlay-btn-grey"
+                                    @click="overlayReportForm.reset()"
+                                >
                                     مسح
                                 </button>
                                 <button
@@ -909,20 +1346,43 @@ function submitSchedule() {
                     </div>
 
                     <!-- Show existing report if exists -->
-                    <div v-if="selectedCase.op_report" class="overlay-card mt-4">
+                    <div
+                        v-if="selectedCase.op_report"
+                        class="overlay-card mt-4"
+                    >
                         <div class="overlay-card-hd">التقرير المحفوظ</div>
                         <div class="space-y-3 p-4 text-sm text-hospital-text">
                             <div>
-                                <p class="mb-1 font-semibold text-hospital-text-2">تقرير العملية:</p>
-                                <p class="whitespace-pre-wrap">{{ selectedCase.op_report }}</p>
+                                <p
+                                    class="mb-1 font-semibold text-hospital-text-2"
+                                >
+                                    تقرير العملية:
+                                </p>
+                                <p class="whitespace-pre-wrap">
+                                    {{ selectedCase.op_report }}
+                                </p>
                             </div>
                             <div v-if="selectedCase.post_op_notes">
-                                <p class="mb-1 font-semibold text-hospital-text-2">ملاحظات ما بعد العملية:</p>
-                                <p class="whitespace-pre-wrap">{{ selectedCase.post_op_notes }}</p>
+                                <p
+                                    class="mb-1 font-semibold text-hospital-text-2"
+                                >
+                                    ملاحظات ما بعد العملية:
+                                </p>
+                                <p class="whitespace-pre-wrap">
+                                    {{ selectedCase.post_op_notes }}
+                                </p>
                             </div>
                             <div v-if="selectedCase.complications">
-                                <p class="mb-1 font-semibold text-hospital-text-2">المضاعفات:</p>
-                                <p class="whitespace-pre-wrap text-hospital-danger">{{ selectedCase.complications }}</p>
+                                <p
+                                    class="mb-1 font-semibold text-hospital-text-2"
+                                >
+                                    المضاعفات:
+                                </p>
+                                <p
+                                    class="whitespace-pre-wrap text-hospital-danger"
+                                >
+                                    {{ selectedCase.complications }}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -935,16 +1395,27 @@ function submitSchedule() {
                         <div class="p-5">
                             <!-- Current status -->
                             <div class="mb-5 flex items-center gap-3">
-                                <p class="text-sm font-medium text-hospital-text-2">الحالة الحالية:</p>
+                                <p
+                                    class="text-sm font-medium text-hospital-text-2"
+                                >
+                                    الحالة الحالية:
+                                </p>
                                 <span
                                     class="rounded-full px-4 py-1 text-sm font-bold text-white"
-                                    :style="{ background: bedBg[selectedCase.status] ?? '#999' }"
+                                    :style="{
+                                        background:
+                                            bedBg[selectedCase.status] ??
+                                            '#999',
+                                    }"
                                 >
                                     {{ statusAr[selectedCase.status] }}
                                 </span>
                             </div>
                             <!-- Transition buttons -->
-                            <div v-if="nextStatuses.length" class="flex flex-wrap gap-3">
+                            <div
+                                v-if="nextStatuses.length"
+                                class="flex flex-wrap gap-3"
+                            >
                                 <button
                                     v-for="s in nextStatuses"
                                     :key="s.value"
@@ -955,19 +1426,32 @@ function submitSchedule() {
                                     {{ s.label }}
                                 </button>
                             </div>
-                            <div v-else class="rounded-lg bg-gray-50 p-4 text-center text-sm text-hospital-text-2">
+                            <div
+                                v-else
+                                class="rounded-lg bg-gray-50 p-4 text-center text-sm text-hospital-text-2"
+                            >
                                 لا توجد تحولات متاحة لهذه الحالة
                             </div>
 
                             <!-- Pre-op notes display -->
-                            <div v-if="selectedCase.pre_op_notes" class="mt-5 rounded-lg bg-hospital-bg p-3 text-sm">
-                                <p class="mb-1 font-semibold text-hospital-text-2">ملاحظات ما قبل العملية:</p>
-                                <p class="whitespace-pre-wrap text-hospital-text">{{ selectedCase.pre_op_notes }}</p>
+                            <div
+                                v-if="selectedCase.pre_op_notes"
+                                class="mt-5 rounded-lg bg-hospital-bg p-3 text-sm"
+                            >
+                                <p
+                                    class="mb-1 font-semibold text-hospital-text-2"
+                                >
+                                    ملاحظات ما قبل العملية:
+                                </p>
+                                <p
+                                    class="whitespace-pre-wrap text-hospital-text"
+                                >
+                                    {{ selectedCase.pre_op_notes }}
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -977,26 +1461,50 @@ function submitSchedule() {
         <form class="space-y-4" @submit.prevent="submitSchedule">
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">المريض / الحجز</label>
-                    <select v-model="scheduleForm.booking_id" class="dept-input">
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >المريض / الحجز</label
+                    >
+                    <select
+                        v-model="scheduleForm.booking_id"
+                        class="dept-input"
+                    >
                         <option value="">— اختر المريض —</option>
                         <option v-for="b in bookings" :key="b.id" :value="b.id">
                             {{ b.file_no }} — {{ b.patient_name }}
                         </option>
                     </select>
-                    <p v-if="scheduleForm.errors.booking_id" class="mt-1 text-xs text-hospital-danger">
+                    <p
+                        v-if="scheduleForm.errors.booking_id"
+                        class="mt-1 text-xs text-hospital-danger"
+                    >
                         {{ scheduleForm.errors.booking_id }}
                     </p>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">الطبيب الجراح</label>
-                    <select v-model="scheduleForm.surgeon_id" class="dept-input">
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >الطبيب الجراح</label
+                    >
+                    <select
+                        v-model="scheduleForm.surgeon_id"
+                        class="dept-input"
+                    >
                         <option value="">— اختر الطبيب —</option>
-                        <option v-for="doc in doctors" :key="doc.id" :value="doc.id">{{ doc.name }}</option>
+                        <option
+                            v-for="doc in doctors"
+                            :key="doc.id"
+                            :value="doc.id"
+                        >
+                            {{ doc.name }}
+                        </option>
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">العين</label>
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >العين</label
+                    >
                     <select v-model="scheduleForm.eye" class="dept-input">
                         <option value="">—</option>
                         <option value="OD">عين يمنى (OD)</option>
@@ -1005,8 +1513,14 @@ function submitSchedule() {
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">التخدير</label>
-                    <select v-model="scheduleForm.anaesthesia" class="dept-input">
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >التخدير</label
+                    >
+                    <select
+                        v-model="scheduleForm.anaesthesia"
+                        class="dept-input"
+                    >
                         <option value="">—</option>
                         <option value="local">موضعي (Local)</option>
                         <option value="topical">سطحي (Topical)</option>
@@ -1015,12 +1529,27 @@ function submitSchedule() {
                     </select>
                 </div>
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">الإجراء</label>
-                    <input v-model="scheduleForm.procedure" type="text" placeholder="اسم الإجراء الجراحي" class="dept-input" />
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >الإجراء</label
+                    >
+                    <input
+                        v-model="scheduleForm.procedure"
+                        type="text"
+                        placeholder="اسم الإجراء الجراحي"
+                        class="dept-input"
+                    />
                 </div>
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium text-hospital-text">موعد العملية</label>
-                    <input v-model="scheduleForm.scheduled_at" type="datetime-local" class="dept-input" />
+                    <label
+                        class="mb-1 block text-sm font-medium text-hospital-text"
+                        >موعد العملية</label
+                    >
+                    <input
+                        v-model="scheduleForm.scheduled_at"
+                        type="datetime-local"
+                        class="dept-input"
+                    />
                 </div>
             </div>
 
@@ -1030,7 +1559,10 @@ function submitSchedule() {
                     <span class="beds-legend-dot beds-legend-free" /> فارغ
                     <span class="beds-legend-dot beds-legend-busy" /> مشغول
                     <span class="beds-legend-dot beds-legend-selected" /> محدد
-                    <span v-if="scheduleForm.or_bed_id" class="beds-panel-selected ms-auto">
+                    <span
+                        v-if="scheduleForm.or_bed_id"
+                        class="beds-panel-selected ms-auto"
+                    >
                         ✓ {{ getBedLabel(scheduleForm.or_bed_id) }}
                     </span>
                 </div>
@@ -1039,25 +1571,54 @@ function submitSchedule() {
                         v-for="bed in flatOrBeds"
                         :key="bed.id"
                         type="button"
-                        :class="['or-bed', occupiedBedIds.includes(bed.id) ? 'or-bed-busy' : 'or-bed-free', scheduleForm.or_bed_id === bed.id ? 'or-bed-selected' : '']"
-                        :title="occupiedBedIds.includes(bed.id) ? `سرير ${bed.displayNumber} مشغول` : `سرير ${bed.displayNumber}`"
+                        :class="[
+                            'or-bed',
+                            occupiedBedIds.includes(bed.id)
+                                ? 'or-bed-busy'
+                                : 'or-bed-free',
+                            scheduleForm.or_bed_id === bed.id
+                                ? 'or-bed-selected'
+                                : '',
+                        ]"
+                        :title="
+                            occupiedBedIds.includes(bed.id)
+                                ? `سرير ${bed.displayNumber} مشغول`
+                                : `سرير ${bed.displayNumber}`
+                        "
                         @click="selectOrBed(bed.id)"
                     >
                         <span class="or-bed-num">{{ bed.displayNumber }}</span>
-                        <span v-if="occupiedBedIds.includes(bed.id)" class="or-bed-busy-dot" />
+                        <span
+                            v-if="occupiedBedIds.includes(bed.id)"
+                            class="or-bed-busy-dot"
+                        />
                     </button>
                 </div>
             </div>
 
             <div>
-                <label class="mb-1 block text-sm font-medium text-hospital-text">ملاحظات ما قبل العملية</label>
-                <textarea v-model="scheduleForm.pre_op_notes" rows="3" class="dept-input" />
+                <label class="mb-1 block text-sm font-medium text-hospital-text"
+                    >ملاحظات ما قبل العملية</label
+                >
+                <textarea
+                    v-model="scheduleForm.pre_op_notes"
+                    rows="3"
+                    class="dept-input"
+                />
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showSchedule = false">
+                <button
+                    type="button"
+                    class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
+                    @click="showSchedule = false"
+                >
                     إلغاء
                 </button>
-                <button type="submit" :disabled="scheduleForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60">
+                <button
+                    type="submit"
+                    :disabled="scheduleForm.processing"
+                    class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
+                >
                     جدولة
                 </button>
             </div>
@@ -1075,8 +1636,18 @@ function submitSchedule() {
     padding: 12px 14px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
-.stat-lbl { font-size: 10px; font-weight: 600; color: var(--color-hospital-text-3, #8a96ae); margin-bottom: 4px; }
-.stat-val { font-size: 22px; font-weight: 800; color: var(--color-hospital-text, #0d1f3c); line-height: 1; }
+.stat-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-hospital-text-3, #8a96ae);
+    margin-bottom: 4px;
+}
+.stat-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--color-hospital-text, #0d1f3c);
+    line-height: 1;
+}
 
 /* ── Bed cards (grid view) ── */
 .bed-card {
@@ -1084,14 +1655,39 @@ function submitSchedule() {
     overflow: hidden;
     color: #fff;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18);
-    transition: transform 0.18s, box-shadow 0.18s;
+    transition:
+        transform 0.18s,
+        box-shadow 0.18s;
 }
-.bed-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28); }
-.bed-card-hd { background: rgba(0, 0, 0, 0.18); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
-.bed-status-badge { font-size: 9px; background: rgba(255, 255, 255, 0.25); padding: 2px 8px; border-radius: 12px; }
-.bed-card-body { padding: 10px 12px; font-size: 11px; line-height: 1.85; }
-.bed-info-row { display: flex; gap: 4px; }
-.bed-info-row span { opacity: 0.75; }
+.bed-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+.bed-card-hd {
+    background: rgba(0, 0, 0, 0.18);
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.bed-status-badge {
+    font-size: 9px;
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+.bed-card-body {
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.85;
+}
+.bed-info-row {
+    display: flex;
+    gap: 4px;
+}
+.bed-info-row span {
+    opacity: 0.75;
+}
 .bed-action-btn {
     flex: 1;
     padding: 5px 4px;
@@ -1105,8 +1701,13 @@ function submitSchedule() {
     transition: background 0.15s;
     white-space: nowrap;
 }
-.bed-action-btn:hover { background: rgba(255, 255, 255, 0.35); }
-.bed-card-empty { padding: 20px 12px; text-align: center; }
+.bed-action-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.bed-card-empty {
+    padding: 20px 12px;
+    text-align: center;
+}
 
 /* ── Case Overlay ── */
 .case-overlay-backdrop {
@@ -1150,7 +1751,9 @@ function submitSchedule() {
     transition: background 0.15s;
     flex-shrink: 0;
 }
-.case-close-btn:hover { background: rgba(255, 255, 255, 0.35); }
+.case-close-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
 .case-patient-bar {
     background: #f0faf5;
     border-bottom: 2px solid #1a8c5b;
@@ -1180,14 +1783,20 @@ function submitSchedule() {
     background: none;
     font-family: inherit;
     white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
+    transition:
+        color 0.15s,
+        border-color 0.15s;
 }
-.case-tab:hover { color: #1a8c5b; }
+.case-tab:hover {
+    color: #1a8c5b;
+}
 .case-tab-active {
     color: #1a8c5b;
     border-bottom-color: #1a8c5b;
 }
-.case-overlay-body { padding: 20px; }
+.case-overlay-body {
+    padding: 20px;
+}
 
 /* ── Overlay cards ── */
 .overlay-card {
@@ -1222,8 +1831,18 @@ function submitSchedule() {
     background: #fff;
     direction: rtl;
 }
-.overlay-input:focus { outline: none; border-color: #1a8c5b; box-shadow: 0 0 0 3px rgba(26, 140, 91, 0.12); }
-.overlay-label { display: block; font-size: 12px; font-weight: 600; color: var(--color-hospital-text-2, #4a5878); margin-bottom: 5px; }
+.overlay-input:focus {
+    outline: none;
+    border-color: #1a8c5b;
+    box-shadow: 0 0 0 3px rgba(26, 140, 91, 0.12);
+}
+.overlay-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-hospital-text-2, #4a5878);
+    margin-bottom: 5px;
+}
 .overlay-total-preview {
     margin-top: 10px;
     background: #f0faf5;
@@ -1245,7 +1864,9 @@ function submitSchedule() {
     font-weight: 600;
     transition: background 0.15s;
 }
-.overlay-btn-green:hover { background: #0f6040; }
+.overlay-btn-green:hover {
+    background: #0f6040;
+}
 .overlay-btn-grey {
     padding: 8px 20px;
     background: #95a5a6;
@@ -1257,10 +1878,16 @@ function submitSchedule() {
     font-family: inherit;
     transition: background 0.15s;
 }
-.overlay-btn-grey:hover { background: #7f8c8d; }
+.overlay-btn-grey:hover {
+    background: #7f8c8d;
+}
 
 /* ── Supplies table ── */
-.supply-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.supply-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
 .supply-table th {
     background: #f0faf5;
     padding: 8px 12px;
@@ -1269,9 +1896,18 @@ function submitSchedule() {
     color: #1a8c5b;
     border-bottom: 1px solid #1a8c5b30;
 }
-.supply-table td { padding: 8px 12px; border-bottom: 1px solid var(--color-hospital-border, #dde4ef); }
-.supply-table tbody tr:hover { background: #f9fafb; }
-.supply-table tfoot td { background: #f0faf5; padding: 8px 12px; border-top: 2px solid #1a8c5b30; }
+.supply-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-hospital-border, #dde4ef);
+}
+.supply-table tbody tr:hover {
+    background: #f9fafb;
+}
+.supply-table tfoot td {
+    background: #f0faf5;
+    padding: 8px 12px;
+    border-top: 2px solid #1a8c5b30;
+}
 
 /* ── Bed picker in modal ── */
 .beds-panel {
@@ -1283,13 +1919,49 @@ function submitSchedule() {
     flex-direction: column;
     gap: 10px;
 }
-.beds-panel-legend { display: flex; align-items: center; gap: 10px; font-size: 10px; font-weight: 600; color: #4a5878; border-bottom: 1px solid #dde4ef; padding-bottom: 8px; flex-wrap: wrap; }
-.beds-legend-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1.5px solid transparent; }
-.beds-legend-free { background: #fff; border-color: #dde4ef; }
-.beds-legend-busy { background: #fff0ee; border-color: #e74c3c; }
-.beds-legend-selected { background: #27ae60; border-color: #27ae60; }
-.beds-panel-selected { font-size: 10px; font-weight: 700; background: #27ae60; color: #fff; border-radius: 12px; padding: 2px 10px; }
-.beds-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.beds-panel-legend {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #4a5878;
+    border-bottom: 1px solid #dde4ef;
+    padding-bottom: 8px;
+    flex-wrap: wrap;
+}
+.beds-legend-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    border: 1.5px solid transparent;
+}
+.beds-legend-free {
+    background: #fff;
+    border-color: #dde4ef;
+}
+.beds-legend-busy {
+    background: #fff0ee;
+    border-color: #e74c3c;
+}
+.beds-legend-selected {
+    background: #27ae60;
+    border-color: #27ae60;
+}
+.beds-panel-selected {
+    font-size: 10px;
+    font-weight: 700;
+    background: #27ae60;
+    color: #fff;
+    border-radius: 12px;
+    padding: 2px 10px;
+}
+.beds-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
 .or-bed {
     width: 48px;
     height: 42px;
@@ -1307,14 +1979,45 @@ function submitSchedule() {
     position: relative;
     gap: 3px;
 }
-.or-bed-num { font-size: 14px; font-weight: 800; color: #0d1f3c; line-height: 1; }
-.or-bed-free:hover { border-color: #27ae60; background: #edfaf3; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(39, 174, 96, 0.18); }
-.or-bed-free:hover .or-bed-num { color: #27ae60; }
-.or-bed-busy { background: #fff0ee; border-color: #e74c3c; cursor: not-allowed; opacity: 0.8; }
-.or-bed-busy .or-bed-num { color: #e74c3c; }
-.or-bed-busy-dot { width: 5px; height: 5px; border-radius: 50%; background: #e74c3c; }
-.or-bed-selected { background: #27ae60 !important; border-color: #27ae60 !important; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(39, 174, 96, 0.35); }
-.or-bed-selected .or-bed-num { color: #fff !important; }
+.or-bed-num {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0d1f3c;
+    line-height: 1;
+}
+.or-bed-free:hover {
+    border-color: #27ae60;
+    background: #edfaf3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(39, 174, 96, 0.18);
+}
+.or-bed-free:hover .or-bed-num {
+    color: #27ae60;
+}
+.or-bed-busy {
+    background: #fff0ee;
+    border-color: #e74c3c;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+.or-bed-busy .or-bed-num {
+    color: #e74c3c;
+}
+.or-bed-busy-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #e74c3c;
+}
+.or-bed-selected {
+    background: #27ae60 !important;
+    border-color: #27ae60 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.35);
+}
+.or-bed-selected .or-bed-num {
+    color: #fff !important;
+}
 
 /* ── Form inputs (modal) ── */
 .dept-input {
@@ -1328,5 +2031,9 @@ function submitSchedule() {
     background: #fff;
     direction: rtl;
 }
-.dept-input:focus { outline: none; border-color: var(--color-hospital-primary, #0a4fa6); box-shadow: 0 0 0 3px rgba(10, 79, 166, 0.1); }
+.dept-input:focus {
+    outline: none;
+    border-color: var(--color-hospital-primary, #0a4fa6);
+    box-shadow: 0 0 0 3px rgba(10, 79, 166, 0.1);
+}
 </style>

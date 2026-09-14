@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { AlertCircle, Edit3, FileText, PlusCircle, ShoppingCart, Trash2 } from 'lucide-vue-next';
+import {
+    AlertCircle,
+    Edit3,
+    FileText,
+    PlusCircle,
+    ShoppingCart,
+    Trash2,
+} from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import ItemAutocomplete from '@/components/shared/ItemAutocomplete.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -16,6 +23,7 @@ interface InvoiceItem {
     item_name: string;
     qty: number;
     unit_cost: number;
+    sell_price?: number | null;
 }
 
 interface PurchaseInvoice {
@@ -34,18 +42,38 @@ interface PurchaseInvoice {
 }
 
 const props = defineProps<{
-    invoices: { data: PurchaseInvoice[]; current_page: number; last_page: number; total: number };
+    invoices: {
+        data: PurchaseInvoice[];
+        current_page: number;
+        last_page: number;
+        total: number;
+    };
     suppliers: Supplier[];
-    filters: { from?: string; to?: string; supplier_id?: string; status?: string };
-    stats: { invoice_count: number; total_amount: number; unpaid_count: number; total_due: number };
+    filters: {
+        from?: string;
+        to?: string;
+        supplier_id?: string;
+        status?: string;
+    };
+    stats: {
+        invoice_count: number;
+        total_amount: number;
+        unpaid_count: number;
+        total_due: number;
+    };
     next_invoice_no: string;
 }>();
 
 // ── Permissions ──
 const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+const permissions = computed<string[]>(
+    () => (page.props.permissions as string[]) ?? [],
+);
 function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
+    return (
+        permissions.value.includes('*') ||
+        permissions.value.includes(permission)
+    );
 }
 const canEdit = computed(() => can('purchases.edit'));
 const canDelete = computed(() => can('purchases.delete'));
@@ -97,14 +125,28 @@ const formData = ref({
     paid_amount: 0,
     notes: '',
 });
-const items = ref<InvoiceItem[]>([{ item_id: '', item_name: '', qty: 1, unit_cost: 0 }]);
+const items = ref<InvoiceItem[]>([
+    { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+]);
 
-const subtotal = computed(() => items.value.reduce((s, i) => s + i.qty * i.unit_cost, 0));
-const total = computed(() => Math.max(0, subtotal.value - formData.value.discount));
-const remaining = computed(() => Math.max(0, total.value - formData.value.paid_amount));
+const subtotal = computed(() =>
+    items.value.reduce((s, i) => s + i.qty * i.unit_cost, 0),
+);
+const total = computed(() =>
+    Math.max(0, subtotal.value - formData.value.discount),
+);
+const remaining = computed(() =>
+    Math.max(0, total.value - formData.value.paid_amount),
+);
 
 function addItem() {
-    items.value.push({ item_id: '', item_name: '', qty: 1, unit_cost: 0 });
+    items.value.push({
+        item_id: '',
+        item_name: '',
+        qty: 1,
+        unit_cost: 0,
+        sell_price: 0,
+    });
 }
 
 function removeItem(idx: number) {
@@ -123,7 +165,9 @@ function openAdd() {
         paid_amount: 0,
         notes: '',
     };
-    items.value = [{ item_id: '', item_name: '', qty: 1, unit_cost: 0 }];
+    items.value = [
+        { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+    ];
     showAdd.value = true;
 }
 
@@ -142,29 +186,43 @@ function openEdit(inv: PurchaseInvoice) {
         item_name: i.item_name,
         qty: Number(i.qty),
         unit_cost: Number(i.unit_cost),
+        sell_price: i.sell_price != null ? Number(i.sell_price) : 0,
     }));
+
     if (items.value.length === 0) {
-        items.value = [{ item_id: '', item_name: '', qty: 1, unit_cost: 0 }];
+        items.value = [
+            { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+        ];
     }
+
     showAdd.value = true;
 }
 
 function submit() {
     if (editingId.value) {
-        router.put(`/purchases/${editingId.value}`, { ...formData.value, items: items.value }, {
-            onSuccess: () => {
-                showAdd.value = false;
-                editingId.value = null;
+        router.put(
+            `/purchases/${editingId.value}`,
+            { ...formData.value, items: items.value },
+            {
+                onSuccess: () => {
+                    showAdd.value = false;
+                    editingId.value = null;
+                },
             },
-        });
+        );
+
         return;
     }
 
-    router.post('/purchases', { ...formData.value, items: items.value }, {
-        onSuccess: () => {
-            showAdd.value = false;
+    router.post(
+        '/purchases',
+        { ...formData.value, items: items.value },
+        {
+            onSuccess: () => {
+                showAdd.value = false;
+            },
         },
-    });
+    );
 }
 
 const confirmingDeleteId = ref<string | null>(null);
@@ -177,6 +235,7 @@ function doDelete() {
     if (!confirmingDeleteId.value) {
         return;
     }
+
     router.delete(`/purchases/${confirmingDeleteId.value}`, {
         onFinish: () => {
             confirmingDeleteId.value = null;
@@ -200,32 +259,50 @@ const statusConfig: Record<string, { label: string; class: string }> = {
     <!-- Page Header -->
     <div class="mb-6">
         <h1 class="text-xl font-bold text-t">فواتير الشراء</h1>
-        <p class="mt-0.5 text-sm text-t3">تسجيل ومتابعة فواتير المشتريات من الموردين</p>
+        <p class="mt-0.5 text-sm text-t3">
+            تسجيل ومتابعة فواتير المشتريات من الموردين
+        </p>
     </div>
 
     <!-- Stats -->
     <div class="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pp">
+        <div
+            class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]"
+        >
+            <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pp"
+            >
                 <FileText class="h-5 w-5 text-p" />
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي الفواتير</p>
-                <p class="text-xl font-bold text-t">{{ stats.invoice_count }}</p>
+                <p class="text-xl font-bold text-t">
+                    {{ stats.invoice_count }}
+                </p>
             </div>
         </div>
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sp">
+        <div
+            class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]"
+        >
+            <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sp"
+            >
                 <ShoppingCart class="h-5 w-5 text-s" />
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي المشتريات</p>
-                <p class="text-xl font-bold text-t">{{ fmt(stats.total_amount) }}</p>
+                <p class="text-xl font-bold text-t">
+                    {{ fmt(stats.total_amount) }}
+                </p>
                 <p class="text-xs text-t3">ج.م</p>
             </div>
         </div>
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-wp">
+        <div
+            class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]"
+        >
+            <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-wp"
+            >
                 <AlertCircle class="h-5 w-5 text-w" />
             </div>
             <div>
@@ -233,13 +310,19 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 <p class="text-xl font-bold text-w">{{ stats.unpaid_count }}</p>
             </div>
         </div>
-        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dp">
+        <div
+            class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]"
+        >
+            <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-dp"
+            >
                 <AlertCircle class="h-5 w-5 text-d" />
             </div>
             <div>
                 <p class="text-xs text-t3">إجمالي المستحق</p>
-                <p class="text-xl font-bold text-d">{{ fmt(stats.total_due) }}</p>
+                <p class="text-xl font-bold text-d">
+                    {{ fmt(stats.total_due) }}
+                </p>
                 <p class="text-xs text-t3">ج.م</p>
             </div>
         </div>
@@ -249,22 +332,42 @@ const statusConfig: Record<string, { label: string; class: string }> = {
     <div class="mb-4 flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
             <label class="form-label">من</label>
-            <input v-model="fromFilter" type="date" class="input-field" @change="applyFilters" />
+            <input
+                v-model="fromFilter"
+                type="date"
+                class="input-field"
+                @change="applyFilters"
+            />
         </div>
         <div class="flex flex-col gap-1">
             <label class="form-label">إلى</label>
-            <input v-model="toFilter" type="date" class="input-field" @change="applyFilters" />
+            <input
+                v-model="toFilter"
+                type="date"
+                class="input-field"
+                @change="applyFilters"
+            />
         </div>
         <div class="flex flex-col gap-1">
             <label class="form-label">المورد</label>
-            <select v-model="supplierFilter" class="input-field" @change="applyFilters">
+            <select
+                v-model="supplierFilter"
+                class="input-field"
+                @change="applyFilters"
+            >
                 <option value="">كل الموردين</option>
-                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                <option v-for="s in suppliers" :key="s.id" :value="s.id">
+                    {{ s.name }}
+                </option>
             </select>
         </div>
         <div class="flex flex-col gap-1">
             <label class="form-label">الحالة</label>
-            <select v-model="statusFilter" class="input-field" @change="applyFilters">
+            <select
+                v-model="statusFilter"
+                class="input-field"
+                @change="applyFilters"
+            >
                 <option value="">كل الحالات</option>
                 <option value="unpaid">غير مدفوعة</option>
                 <option value="partial">مدفوعة جزئياً</option>
@@ -277,7 +380,10 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 templateUrl="/purchases/import-template"
                 importUrl="/purchases/import"
             />
-            <button class="btn-primary flex items-center gap-1.5" @click="openAdd">
+            <button
+                class="btn-primary flex items-center gap-1.5"
+                @click="openAdd"
+            >
                 <PlusCircle class="h-4 w-4" />
                 فاتورة جديدة
             </button>
@@ -285,34 +391,91 @@ const statusConfig: Record<string, { label: string; class: string }> = {
     </div>
 
     <!-- Table -->
-    <div class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]">
+    <div
+        class="overflow-hidden rounded-[var(--rl)] border border-br bg-sf shadow-[var(--sh)]"
+    >
         <table class="w-full text-sm">
             <thead class="bg-sf2">
                 <tr>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">رقم الفاتورة</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">التاريخ</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المورد</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الإجمالي</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المدفوع</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">المتبقي</th>
-                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الحالة</th>
-                    <th v-if="canEdit || canDelete" class="px-4 py-3 text-right text-xs font-semibold text-t2">إجراءات</th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        رقم الفاتورة
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        التاريخ
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        المورد
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        الإجمالي
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        المدفوع
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        المتبقي
+                    </th>
+                    <th
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        الحالة
+                    </th>
+                    <th
+                        v-if="canEdit || canDelete"
+                        class="px-4 py-3 text-right text-xs font-semibold text-t2"
+                    >
+                        إجراءات
+                    </th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-br/50">
-                <tr v-for="inv in invoices.data" :key="inv.id" class="hover:bg-sf2">
-                    <td class="px-4 py-3 font-mono text-xs font-medium text-p">{{ inv.invoice_no }}</td>
+                <tr
+                    v-for="inv in invoices.data"
+                    :key="inv.id"
+                    class="hover:bg-sf2"
+                >
+                    <td class="px-4 py-3 font-mono text-xs font-medium text-p">
+                        {{ inv.invoice_no }}
+                    </td>
                     <td class="px-4 py-3 text-t2">{{ inv.invoice_date }}</td>
-                    <td class="px-4 py-3 font-medium text-t">{{ inv.supplier?.name ?? '—' }}</td>
-                    <td class="px-4 py-3 font-mono font-medium text-t">{{ fmt(inv.total) }} ج</td>
-                    <td class="px-4 py-3 font-mono text-s">{{ fmt(inv.paid_amount) }} ج</td>
-                    <td class="px-4 py-3 font-mono" :class="Number(inv.remaining) > 0 ? 'font-medium text-d' : 'text-t3'">
+                    <td class="px-4 py-3 font-medium text-t">
+                        {{ inv.supplier?.name ?? '—' }}
+                    </td>
+                    <td class="px-4 py-3 font-mono font-medium text-t">
+                        {{ fmt(inv.total) }} ج
+                    </td>
+                    <td class="px-4 py-3 font-mono text-s">
+                        {{ fmt(inv.paid_amount) }} ج
+                    </td>
+                    <td
+                        class="px-4 py-3 font-mono"
+                        :class="
+                            Number(inv.remaining) > 0
+                                ? 'font-medium text-d'
+                                : 'text-t3'
+                        "
+                    >
                         {{ fmt(inv.remaining) }} ج
                     </td>
                     <td class="px-4 py-3">
                         <span
                             class="rounded-full px-2 py-0.5 text-xs font-medium"
-                            :class="statusConfig[inv.status]?.class ?? 'bg-sf2 text-t2'"
+                            :class="
+                                statusConfig[inv.status]?.class ??
+                                'bg-sf2 text-t2'
+                            "
                         >
                             {{ statusConfig[inv.status]?.label ?? inv.status }}
                         </span>
@@ -341,20 +504,34 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                     </td>
                 </tr>
                 <tr v-if="invoices.data.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" :colspan="canEdit || canDelete ? 8 : 7">لا توجد فواتير</td>
+                    <td
+                        class="px-4 py-10 text-center text-t3"
+                        :colspan="canEdit || canDelete ? 8 : 7"
+                    >
+                        لا توجد فواتير
+                    </td>
                 </tr>
             </tbody>
         </table>
 
         <!-- Pagination -->
-        <div v-if="invoices.last_page > 1" class="flex items-center justify-between border-t border-br px-4 py-3">
-            <span class="text-xs text-t3">إجمالي {{ invoices.total }} فاتورة</span>
+        <div
+            v-if="invoices.last_page > 1"
+            class="flex items-center justify-between border-t border-br px-4 py-3"
+        >
+            <span class="text-xs text-t3"
+                >إجمالي {{ invoices.total }} فاتورة</span
+            >
             <div class="flex gap-1">
                 <button
                     v-for="p in invoices.last_page"
                     :key="p"
                     class="h-7 w-7 rounded-lg text-xs transition-colors"
-                    :class="p === invoices.current_page ? 'bg-p text-white' : 'text-t2 hover:bg-sf2'"
+                    :class="
+                        p === invoices.current_page
+                            ? 'bg-p text-white'
+                            : 'text-t2 hover:bg-sf2'
+                    "
                     @click="goToPage(p)"
                 >
                     {{ p }}
@@ -364,45 +541,72 @@ const statusConfig: Record<string, { label: string; class: string }> = {
     </div>
 
     <!-- Add/Edit Invoice Modal -->
-    <Modal v-model="showAdd" :title="editingId ? 'تعديل فاتورة مشتريات' : 'فاتورة مشتريات جديدة'" size="xl">
+    <Modal
+        v-model="showAdd"
+        :title="editingId ? 'تعديل فاتورة مشتريات' : 'فاتورة مشتريات جديدة'"
+        size="xl"
+    >
         <div class="space-y-5">
             <!-- Header fields -->
             <div class="grid grid-cols-3 gap-4">
                 <div>
                     <label class="form-label">رقم الفاتورة</label>
-                    <input v-model="formData.invoice_no" type="text" class="input-field" placeholder="PI-0001" />
+                    <input
+                        v-model="formData.invoice_no"
+                        type="text"
+                        class="input-field"
+                        placeholder="PI-0001"
+                    />
                 </div>
                 <div>
                     <label class="form-label">المورد</label>
                     <select v-model="formData.supplier_id" class="input-field">
                         <option value="">— بدون مورد —</option>
-                        <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        <option
+                            v-for="s in suppliers"
+                            :key="s.id"
+                            :value="s.id"
+                        >
+                            {{ s.name }}
+                        </option>
                     </select>
                 </div>
                 <div>
                     <label class="form-label">تاريخ الفاتورة</label>
-                    <input v-model="formData.invoice_date" type="date" class="input-field" />
+                    <input
+                        v-model="formData.invoice_date"
+                        type="date"
+                        class="input-field"
+                    />
                 </div>
             </div>
 
             <!-- Items -->
             <div>
-                <div class="mb-2 grid grid-cols-12 gap-2 text-xs font-semibold text-t2">
-                    <span class="col-span-5">الصنف</span>
-                    <span class="col-span-2 text-center">الكمية</span>
-                    <span class="col-span-3 text-center">سعر الوحدة (ج)</span>
-                    <span class="col-span-1 text-center">الإجمالي</span>
+                <div
+                    class="mb-2 grid grid-cols-12 gap-2 text-xs font-semibold text-t2"
+                >
+                    <span class="col-span-4">الصنف</span>
+                    <span class="col-span-1 text-center">الكمية</span>
+                    <span class="col-span-2 text-center">سعر الشراء (ج)</span>
+                    <span class="col-span-2 text-center">سعر البيع (ج)</span>
+                    <span class="col-span-2 text-center">الإجمالي</span>
                     <span class="col-span-1" />
                 </div>
                 <div class="space-y-2">
-                    <div v-for="(item, idx) in items" :key="idx" class="grid grid-cols-12 items-center gap-2">
-                        <div class="col-span-5">
+                    <div
+                        v-for="(item, idx) in items"
+                        :key="idx"
+                        class="grid grid-cols-12 items-center gap-2"
+                    >
+                        <div class="col-span-4">
                             <ItemAutocomplete
                                 v-model="item.item_name"
                                 @select="
                                     (matched) => {
                                         item.item_id = matched.id;
                                         item.unit_cost = matched.unit_cost;
+                                        item.sell_price = matched.sell_price;
                                     }
                                 "
                             />
@@ -412,20 +616,35 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                             type="number"
                             min="0.01"
                             step="0.01"
-                            class="input-field col-span-2"
+                            class="input-field col-span-1"
                         />
                         <input
                             v-model.number="item.unit_cost"
                             type="number"
                             min="0"
                             step="0.01"
-                            class="input-field col-span-3"
+                            class="input-field col-span-2"
+                            placeholder="سعر الشراء"
                         />
-                        <span class="col-span-1 text-center font-mono text-xs text-t2">
-                            {{ (item.qty * item.unit_cost).toLocaleString('ar-EG') }}
+                        <input
+                            v-model.number="item.sell_price"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="input-field col-span-2"
+                            placeholder="سعر البيع"
+                        />
+                        <span
+                            class="col-span-2 text-center font-mono text-xs text-t2"
+                        >
+                            {{
+                                (item.qty * item.unit_cost).toLocaleString(
+                                    'ar-EG',
+                                )
+                            }}
                         </span>
                         <button
-                            class="col-span-1 flex h-8 w-8 items-center justify-center rounded-lg text-t3 hover:bg-dp hover:text-d transition-colors"
+                            class="col-span-1 flex h-8 w-8 items-center justify-center rounded-lg text-t3 transition-colors hover:bg-dp hover:text-d"
                             :disabled="items.length === 1"
                             @click="removeItem(idx)"
                         >
@@ -433,31 +652,57 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                         </button>
                     </div>
                 </div>
-                <button class="mt-2 text-sm text-p hover:underline" @click="addItem">+ إضافة صنف</button>
+                <button
+                    class="mt-2 text-sm text-p hover:underline"
+                    @click="addItem"
+                >
+                    + إضافة صنف
+                </button>
             </div>
 
             <!-- Totals row -->
             <div class="grid grid-cols-3 gap-4 border-t border-br pt-4">
                 <div>
                     <label class="form-label">الخصم (ج)</label>
-                    <input v-model.number="formData.discount" type="number" min="0" step="0.01" class="input-field" />
+                    <input
+                        v-model.number="formData.discount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="input-field"
+                    />
                 </div>
                 <div>
                     <label class="form-label">المدفوع (ج)</label>
-                    <input v-model.number="formData.paid_amount" type="number" min="0" step="0.01" class="input-field" />
+                    <input
+                        v-model.number="formData.paid_amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="input-field"
+                    />
                 </div>
                 <div class="flex flex-col gap-1 rounded-xl bg-sf2 p-3">
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-t3">المجموع الفرعي</span>
-                        <span class="font-mono text-t2">{{ fmt(subtotal) }} ج</span>
+                        <span class="font-mono text-t2"
+                            >{{ fmt(subtotal) }} ج</span
+                        >
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-t3">الإجمالي المستحق</span>
-                        <span class="font-mono font-bold text-p">{{ fmt(total) }} ج</span>
+                        <span class="font-mono font-bold text-p"
+                            >{{ fmt(total) }} ج</span
+                        >
                     </div>
-                    <div v-if="remaining > 0" class="flex items-center justify-between text-xs">
+                    <div
+                        v-if="remaining > 0"
+                        class="flex items-center justify-between text-xs"
+                    >
                         <span class="text-t3">المتبقي</span>
-                        <span class="font-mono font-bold text-d">{{ fmt(remaining) }} ج</span>
+                        <span class="font-mono font-bold text-d"
+                            >{{ fmt(remaining) }} ج</span
+                        >
                     </div>
                 </div>
             </div>
@@ -465,25 +710,50 @@ const statusConfig: Record<string, { label: string; class: string }> = {
             <!-- Notes -->
             <div>
                 <label class="form-label">ملاحظات</label>
-                <textarea v-model="formData.notes" rows="2" class="input-field" placeholder="ملاحظات اختيارية..." />
+                <textarea
+                    v-model="formData.notes"
+                    rows="2"
+                    class="input-field"
+                    placeholder="ملاحظات اختيارية..."
+                />
             </div>
 
             <div class="flex justify-end gap-2 border-t border-br pt-4">
-                <button class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button class="btn-primary" @click="submit">{{ editingId ? 'حفظ التعديلات' : 'تسجيل الفاتورة' }}</button>
+                <button class="btn-secondary" @click="showAdd = false">
+                    إلغاء
+                </button>
+                <button class="btn-primary" @click="submit">
+                    {{ editingId ? 'حفظ التعديلات' : 'تسجيل الفاتورة' }}
+                </button>
             </div>
         </div>
     </Modal>
 
     <!-- Delete Confirmation Modal -->
-    <Modal :model-value="confirmingDeleteId !== null" title="تأكيد الحذف" size="sm" @update:model-value="confirmingDeleteId = null">
+    <Modal
+        :model-value="confirmingDeleteId !== null"
+        title="تأكيد الحذف"
+        size="sm"
+        @update:model-value="confirmingDeleteId = null"
+    >
         <div class="space-y-4">
             <p class="text-sm text-t2">
-                هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس تأثيرها على المخزون والحسابات. لا يمكن التراجع عن هذا الإجراء.
+                هل أنت متأكد من حذف هذه الفاتورة؟ سيتم عكس تأثيرها على المخزون
+                والحسابات. لا يمكن التراجع عن هذا الإجراء.
             </p>
             <div class="flex justify-end gap-2">
-                <button class="btn-secondary" @click="confirmingDeleteId = null">إلغاء</button>
-                <button class="btn-primary bg-d hover:bg-d/90" @click="doDelete">حذف نهائي</button>
+                <button
+                    class="btn-secondary"
+                    @click="confirmingDeleteId = null"
+                >
+                    إلغاء
+                </button>
+                <button
+                    class="btn-primary bg-d hover:bg-d/90"
+                    @click="doDelete"
+                >
+                    حذف نهائي
+                </button>
             </div>
         </div>
     </Modal>

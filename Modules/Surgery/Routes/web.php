@@ -20,6 +20,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:surgery.view')
             ->name('index');
 
+        Route::get('/items/search', [SurgeryController::class, 'searchItems'])
+            ->middleware('can:surgery.view')
+            ->name('items.search');
+
         Route::post('/', [SurgeryController::class, 'store'])
             ->middleware('can:surgery.write')
             ->name('store');
@@ -42,6 +46,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [SurgeryController::class, 'index'])
             ->middleware('can:lasik.view')
             ->name('index');
+
+        Route::get('/items/search', [SurgeryController::class, 'searchItems'])
+            ->middleware('can:lasik.view')
+            ->name('items.search');
 
         Route::post('/', [SurgeryController::class, 'store'])
             ->middleware('can:lasik.write')

@@ -21,6 +21,7 @@ use Modules\HR\Models\Leave;
 use Modules\HR\Models\Payroll;
 use Modules\HR\Models\Shift;
 use Modules\HR\Models\ShiftHandover;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
 class HRService
@@ -34,7 +35,12 @@ class HRService
     public function listEmployees(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Employee::query()
-            ->with('user:id,name,email,username')
+            ->with([
+                'user:id,name,email,username',
+                'user.roles:id,name',
+                'user.permissions:id,name',
+                'user.roles.permissions:id,name',
+            ])
             ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%")->orWhere('employee_no', 'like', "%{$v}%"))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
@@ -101,11 +107,33 @@ class HRService
             $employee->user()->update(['username' => $data['username']]);
         }
 
-        unset($data['username']);
+        // Role and direct permissions are managed independently: changing
+        // one must never affect the other (Spatie stores role permissions
+        // and direct/model permissions in separate pivot tables).
+        if ($employee->user_id && array_key_exists('role', $data) && ! empty($data['role'])) {
+            $employee->user->syncRoles([$data['role']]);
+        }
+
+        if ($employee->user_id && array_key_exists('permissions', $data)) {
+            $employee->user->syncPermissions($data['permissions'] ?? []);
+        }
+
+        unset($data['username'], $data['role'], $data['permissions']);
 
         $employee->update($data);
 
         return $employee;
+    }
+
+    /**
+     * All permissions grouped by module (the part before the first "."),
+     * for the "manage permissions" UI on the employee edit screen.
+     */
+    public function getPermissionsByModule(): Collection
+    {
+        return Permission::orderBy('name')
+            ->get(['name'])
+            ->groupBy(fn ($p) => explode('.', $p->name)[0]);
     }
 
     // ── Shifts ─────────────────────────────────────────────────────────────

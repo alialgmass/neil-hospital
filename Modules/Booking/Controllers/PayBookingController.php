@@ -65,10 +65,16 @@ class PayBookingController extends Controller
             if ($doctor) {
                 $drShare = $this->doctorClaimsService->computeShareForPayment($doctor, $booking, $paymentAmount, $isFirstPayment);
 
-                if ($drShare > 0) {
+                // Any outstanding debt on the doctor (from prior unpaid
+                // bookings — see CreateBookingAction::recordDoctorDebtIfUnpaid)
+                // is settled out of this share before it's posted as dues.
+                $settled = $drShare > 0 ? $doctor->settleDebt($drShare) : 0.0;
+                $netShare = $drShare - $settled;
+
+                if ($netShare > 0) {
                     $this->autoPostDoctorDues->execute(
                         dept: $booking->dept,
-                        amount: $drShare,
+                        amount: $netShare,
                         doctorName: $doctor->name,
                         reference: $booking->file_no,
                         date: $booking->visit_date->toDateString(),

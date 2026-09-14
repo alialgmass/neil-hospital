@@ -56,6 +56,7 @@ class RolesPermissionsSeeder extends Seeder
         'users.manage',
         'settings.manage',
         'hide_amounts',
+        'transfer_medical_record',
     ];
 
     /** Role → permission map (admin gets everything in run()). */
@@ -86,6 +87,7 @@ class RolesPermissionsSeeder extends Seeder
             'surgery.view',
             'lasik.view',
             'laser.view',
+            'transfer_medical_record',
         ],
         'accountant' => [
             'dashboard',

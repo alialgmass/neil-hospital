@@ -16,6 +16,7 @@ use Modules\Booking\Exports\BookingsExport;
 use Modules\Booking\Http\Requests\StoreBookingRequest;
 use Modules\Booking\Http\Requests\UpdateBookingRequest;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
 use Modules\Booking\States\CompletedElectronicState;
@@ -141,6 +142,11 @@ class BookingController extends Controller
 
         return Inertia::render('booking/PatientFile', [
             'file_no' => $fileNo,
+            'transfer_services' => Service::active()
+                ->whereIn('dept', ['surgery', 'lasik', 'laser'])
+                ->orderBy('dept')
+                ->orderBy('name')
+                ->get(['id', 'name', 'dept']),
             'patient' => $patient ? [
                 'name' => $patient->patient_name,
                 'phone' => $patient->patient_phone,

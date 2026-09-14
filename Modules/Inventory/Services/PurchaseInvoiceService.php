@@ -63,12 +63,16 @@ class PurchaseInvoiceService
                     'item_name' => $item['item_name'],
                     'qty' => $item['qty'],
                     'unit_cost' => $item['unit_cost'],
+                    'sell_price' => $item['sell_price'] ?? null,
                     'total' => $item['qty'] * $item['unit_cost'],
                 ]);
 
-                // Update stock quantity
+                // Update stock quantity and refresh the item's live prices so
+                // future consumption (surgery supplies, etc.) uses the latest
+                // purchase/sell price. Historical invoice lines above already
+                // keep their own snapshot and are unaffected by this.
                 if (! empty($item['item_id'])) {
-                    InventoryItem::where('id', $item['item_id'])->increment('quantity', $item['qty']);
+                    $this->applyItemQuantityAndPrices($item['item_id'], (float) $item['qty'], $item);
                 }
             }
 
@@ -137,11 +141,12 @@ class PurchaseInvoiceService
                     'item_name' => $item['item_name'],
                     'qty' => $item['qty'],
                     'unit_cost' => $item['unit_cost'],
+                    'sell_price' => $item['sell_price'] ?? null,
                     'total' => $item['qty'] * $item['unit_cost'],
                 ]);
 
                 if (! empty($item['item_id'])) {
-                    $this->applyItemQuantity($item['item_id'], (float) $item['qty']);
+                    $this->applyItemQuantityAndPrices($item['item_id'], (float) $item['qty'], $item);
                 }
             }
 
@@ -210,9 +215,31 @@ class PurchaseInvoiceService
         }
     }
 
-    private function applyItemQuantity(string $itemId, float $qty): void
+    /**
+     * Increment stock and refresh the item's live unit_cost/sell_price to
+     * the values just entered on this invoice line. This only affects
+     * future lookups of the item (e.g. future surgery supply recording or
+     * future purchase invoices) — it never rewrites this or any other
+     * already-saved purchase_invoice_items row, and never touches supply
+     * consumption already recorded against past operations.
+     */
+    private function applyItemQuantityAndPrices(string $itemId, float $qty, array $item): void
     {
         InventoryItem::whereKey($itemId)->increment('quantity', $qty);
+
+        $priceUpdates = [];
+
+        if (array_key_exists('unit_cost', $item) && $item['unit_cost'] !== null) {
+            $priceUpdates['unit_cost'] = $item['unit_cost'];
+        }
+
+        if (array_key_exists('sell_price', $item) && $item['sell_price'] !== null) {
+            $priceUpdates['sell_price'] = $item['sell_price'];
+        }
+
+        if ($priceUpdates !== []) {
+            InventoryItem::whereKey($itemId)->update($priceUpdates);
+        }
     }
 
     /**

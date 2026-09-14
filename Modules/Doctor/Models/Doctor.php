@@ -27,6 +27,7 @@ class Doctor extends Model
         'user_id',
         'is_active',
         'notes',
+        'doctor_debt_balance',
     ];
 
     protected $casts = [
@@ -35,7 +36,38 @@ class Doctor extends Model
         'fee_type' => FeeType::class,
         'dept_fees' => 'array',
         'departments' => 'array',
+        'doctor_debt_balance' => 'decimal:2',
     ];
+
+    /**
+     * Add to this doctor's debt balance — the unpaid portion of a service
+     * (price minus dev-treasury fee) that the doctor is liable for when a
+     * patient pays nothing (see the "patient_paid = 0" business rule).
+     */
+    public function incurDebt(float $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $this->increment('doctor_debt_balance', round($amount, 2));
+    }
+
+    /**
+     * Settle up to $amount of this doctor's outstanding debt, returning the
+     * amount actually settled (never more than the current balance or the
+     * amount offered).
+     */
+    public function settleDebt(float $amount): float
+    {
+        $settled = min((float) $this->doctor_debt_balance, max(0, $amount));
+
+        if ($settled > 0) {
+            $this->decrement('doctor_debt_balance', round($settled, 2));
+        }
+
+        return round($settled, 2);
+    }
 
     /**
      * Whether this doctor is scoped to the given department. An empty/null
