@@ -16,6 +16,7 @@ enum JournalSource: string
     case SUPPLIES_USED = 'supplies_used';
     case DOCTOR_SHIFT = 'doctor_shift';
     case DOCTOR_PAYMENT = 'doctor_payment';
+    case INSURANCE_DOCTOR_PAYMENT = 'insurance_doctor_payment';
     case SUPPLIER_PAYMENT = 'supplier_payment';
     case REVERSAL = 'reversal';
 
@@ -34,6 +35,7 @@ enum JournalSource: string
             self::SUPPLIES_USED => 'صرف مستلزمات',
             self::DOCTOR_SHIFT => 'شيفت طبيب',
             self::DOCTOR_PAYMENT => 'صرف مستحقات طبيب',
+            self::INSURANCE_DOCTOR_PAYMENT => 'صرف أتعاب طبيب تأمين (كاش فوري)',
             self::SUPPLIER_PAYMENT => 'سداد مورد',
             self::REVERSAL => 'عكس قيد (إلغاء)',
         };

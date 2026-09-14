@@ -50,9 +50,19 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->company = InsuranceCompany::create(['name' => 'شركة التأمين', 'coverage_pct' => 80]);
     }
 
+    /**
+     * Insurance doctor fees post to 5130 (INSURANCE_DOCTOR_FEES), paid cash
+     * immediately — never 5110/2010, which is now reserved for Contract
+     * bookings (a different third-party payer type the spec doesn't touch).
+     */
     private function drExpenseId(): string
     {
-        return Account::where('code', '5110')->value('id');
+        return Account::where('code', '5130')->value('id');
+    }
+
+    private function cashId(): string
+    {
+        return Account::where('code', '1010')->value('id');
     }
 
     private function payableId(): string
@@ -92,14 +102,15 @@ class DoctorEntitlementAccountingTest extends TestCase
             ->first();
     }
 
-    public function test_creating_an_insurance_booking_posts_the_doctor_payable_accrual_once(): void
+    public function test_creating_an_insurance_booking_posts_the_doctor_cash_payment_once(): void
     {
         $booking = $this->createInsuranceBooking();
 
         $entry = $this->liveAccrual($booking);
         $this->assertNotNull($entry);
         $this->assertEquals(750.0, (float) $entry->amount);
-        $this->assertSame($this->payableId(), $entry->credit_account_id);
+        $this->assertSame($this->cashId(), $entry->credit_account_id);
+        $this->assertNotSame($this->payableId(), $entry->credit_account_id);
     }
 
     public function test_re_saving_the_booking_unchanged_posts_no_new_entry(): void
