@@ -100,10 +100,11 @@ class ProcessBundleSupplyAction
     }
 
     /**
-     * Dr 2010 (مستحقات الأطباء) / Cr 5115 ((-) استرداد تكلفة مستلزمات من الطبيب)
-     * Records the bundle price deducted from the doctor's dues — this is a
-     * contra-expense that reduces net doctor fees per الدليل المحاسبي v2.0,
-     * NOT a patient sale (4210) and NOT revenue.
+     * Dr 2010 (مستحقات الأطباء) / Cr 4070 (إيراد بيع مستهلكات للأطباء)
+     * Records the bundle price charged against the doctor's dues at selling
+     * price — per الدليل المحاسبي v2.0's final worked example, this is
+     * revenue to the center (the spread over purchase cost is the center's
+     * supplies profit), NOT a patient sale (4210) and NOT a contra-expense.
      */
     private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId): void
     {
@@ -113,13 +114,13 @@ class ProcessBundleSupplyAction
         }
 
         $doctorPayableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
-        $recoveryId = $this->accountResolver->id(AccountCode::SUPPLY_COST_RECOVERED_FROM_DOCTOR);
+        $revenueId = $this->accountResolver->id(AccountCode::SUPPLIES_SALE_REVENUE);
 
         $this->journalService->record([
             'date' => now()->toDateString(),
             'description' => "سعر بند مستلزمات: {$bundle->name} × {$qty}",
             'debit_account_id' => $doctorPayableId,
-            'credit_account_id' => $recoveryId,
+            'credit_account_id' => $revenueId,
             'amount' => $bundlePrice,
             'source' => JournalSource::SUPPLIES_USED,
             'reference' => $bundle->name,
