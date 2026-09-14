@@ -82,10 +82,15 @@ class HistoricalSeederAccountingTest extends TestCase
     {
         $clinicRevenue = Account::where('code', '4010')->first();
         $surgeryRevenue = Account::where('code', '4030')->first();
-        $insuranceReceivable = Account::where('code', '1030')->first();
+        $insuranceReceivableParent = Account::where('code', '1030')->first();
+        $companyReceivableIds = Account::where('parent_id', $insuranceReceivableParent->id)->pluck('id');
 
         $this->assertGreaterThan(0, JournalEntry::where('credit_account_id', $clinicRevenue->id)->sum('amount'));
         $this->assertGreaterThan(0, JournalEntry::where('credit_account_id', $surgeryRevenue->id)->sum('amount'));
-        $this->assertGreaterThan(0, JournalEntry::where('debit_account_id', $insuranceReceivable->id)->sum('amount'));
+
+        // Insurance receivables post to each company's own 1031–1047
+        // sub-account, never to the shared 1030 roll-up.
+        $this->assertGreaterThan(0, JournalEntry::whereIn('debit_account_id', $companyReceivableIds)->sum('amount'));
+        $this->assertSame(0, JournalEntry::where('debit_account_id', $insuranceReceivableParent->id)->count());
     }
 }
