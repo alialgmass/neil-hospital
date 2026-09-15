@@ -7,7 +7,6 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
-use Modules\Booking\Enums\PayMethod;
 use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Models\SupplyBundle;
@@ -26,9 +25,17 @@ class ProcessBundleSupplyAction
      * Deduct each sub-item from inventory, post accounting entries, and return
      * the bundle as a single supply-line entry ready to be stored in supplies_used.
      *
+     * Inventory consumption (5010/5020 → 1051) posts regardless of pay
+     * method. The doctor-charge leg (2010 → 4070, postBundleChargeEntry())
+     * is skipped for an insurance-paid case, since insurance doctor fees
+     * are a fixed amount (Dr 5130 / Cr 1010, see
+     * AutoPostInsuranceDoctorCashPaymentAction) that never accrues to 2010
+     * and is never supplies-adjusted.
+     *
      * @param  array<array{inventory_item_id: string, qty: float}>  $selectedItems
      *                                                                              When provided, only those items are deducted with their given quantities.
      *                                                                              When empty, all bundle items are deducted using bundle defaults × $qty.
+     * @param  string|null  $surgeryId  Used to resolve the linked booking's pay method (see $isInsurancePaid()).
      */
     public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = [], ?string $surgeryId = null): array
     {
@@ -88,11 +95,6 @@ class ProcessBundleSupplyAction
             }
         }
 
-        // Insurance doctor fees are a fixed amount (Dr 5130 / Cr 1010, see
-        // AutoPostInsuranceDoctorCashPaymentAction) and never accrue to 2010
-        // — so supplies must never be charged against the doctor's payable
-        // for an insurance-paid case either. Supplies are still consumed
-        // from inventory above regardless of pay method.
         if (! $this->isInsurancePaid($surgeryId)) {
             $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id);
         }
@@ -140,11 +142,7 @@ class ProcessBundleSupplyAction
 
     private function isInsurancePaid(?string $surgeryId): bool
     {
-        if ($surgeryId === null) {
-            return false;
-        }
-
-        return Surgery::with('booking:id,pay_method')->find($surgeryId)?->booking?->pay_method === PayMethod::Insurance;
+        return $surgeryId !== null && (Surgery::find($surgeryId)?->isInsurancePaid() ?? false);
     }
 
     private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit

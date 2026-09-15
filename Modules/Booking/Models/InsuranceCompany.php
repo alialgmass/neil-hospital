@@ -4,13 +4,12 @@ namespace Modules\Booking\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Modules\Accounting\Models\Account;
+use Modules\Accounting\Concerns\HasReceivableAccount;
 
 class InsuranceCompany extends Model
 {
-    use HasUlids;
+    use HasReceivableAccount, HasUlids;
 
     protected $table = 'insurance_companies';
 
@@ -28,10 +27,5 @@ class InsuranceCompany extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'insurance_company_id');
-    }
-
-    public function receivableAccount(): BelongsTo
-    {
-        return $this->belongsTo(Account::class, 'receivable_account_id');
     }
 }

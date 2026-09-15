@@ -34,36 +34,51 @@ class AutoPostDepreciationAction
         $posted = 0;
 
         FixedAsset::where('is_active', true)->each(function (FixedAsset $asset) use ($period, $date, &$posted) {
-            $amount = $asset->monthlyDepreciationAmount();
-
-            if ($amount <= 0) {
-                return;
-            }
-
-            $expenseId = $this->accountResolver->id($asset->asset_class->depreciationExpenseCode());
-            $accumulatedId = $this->accountResolver->id($asset->asset_class->accumulatedDepreciationCode());
-
-            $entry = $this->journalService->record([
-                'date' => $date,
-                'description' => "إهلاك {$period}: {$asset->name}",
-                'debit_account_id' => $expenseId,
-                'credit_account_id' => $accumulatedId,
-                'amount' => $amount,
-                'source' => JournalSource::EXPENSE,
-                'reference' => $asset->id,
-                'idempotency_key' => "depreciation:{$asset->id}:{$period}",
-                'cost_center' => CostCenter::Admin,
-            ]);
-
-            // Idempotent re-run: only bump accumulated_depreciation the first
-            // time this period's entry is actually created, not on a no-op
-            // replay that returned the already-existing entry.
-            if ($entry->wasRecentlyCreated) {
-                $asset->increment('accumulated_depreciation', $amount);
+            if ($this->postForAsset($asset, $period, $date)) {
                 $posted++;
             }
         });
 
         return $posted;
+    }
+
+    /**
+     * Post (or no-op replay) one asset's depreciation entry for the period,
+     * bumping its running accumulated_depreciation only the first time the
+     * entry is actually created — never on a no-op replay that returned the
+     * already-existing entry, so a re-run of the same period is idempotent.
+     *
+     * @return bool Whether an entry was newly posted for this asset.
+     */
+    private function postForAsset(FixedAsset $asset, string $period, string $date): bool
+    {
+        $amount = $asset->monthlyDepreciationAmount();
+
+        if ($amount <= 0) {
+            return false;
+        }
+
+        $expenseId = $this->accountResolver->id($asset->asset_class->depreciationExpenseCode());
+        $accumulatedId = $this->accountResolver->id($asset->asset_class->accumulatedDepreciationCode());
+
+        $entry = $this->journalService->record([
+            'date' => $date,
+            'description' => "إهلاك {$period}: {$asset->name}",
+            'debit_account_id' => $expenseId,
+            'credit_account_id' => $accumulatedId,
+            'amount' => $amount,
+            'source' => JournalSource::EXPENSE,
+            'reference' => $asset->id,
+            'idempotency_key' => "depreciation:{$asset->id}:{$period}",
+            'cost_center' => CostCenter::Admin,
+        ]);
+
+        if (! $entry->wasRecentlyCreated) {
+            return false;
+        }
+
+        $asset->increment('accumulated_depreciation', $amount);
+
+        return true;
     }
 }
