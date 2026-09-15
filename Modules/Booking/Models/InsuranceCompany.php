@@ -16,12 +16,13 @@ class InsuranceCompany extends Model
 
     protected $fillable = [
         'name', 'code', 'receivable_account_id', 'phone', 'address', 'contract_no',
-        'coverage_pct', 'disc_pct', 'contact_person', 'email', 'status', 'notes',
+        'coverage_pct', 'disc_pct', 'withholding_pct', 'contact_person', 'email', 'status', 'notes',
     ];
 
     protected $casts = [
         'coverage_pct' => 'decimal:2',
         'disc_pct' => 'decimal:2',
+        'withholding_pct' => 'decimal:2',
     ];
 
     public function bookings(): HasMany

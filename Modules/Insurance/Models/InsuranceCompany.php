@@ -24,6 +24,7 @@ class InsuranceCompany extends Model
         'contract_no',
         'coverage_pct',
         'disc_pct',
+        'withholding_pct',
         'contact_person',
         'email',
         'status',
@@ -35,6 +36,7 @@ class InsuranceCompany extends Model
         return [
             'coverage_pct' => 'float',
             'disc_pct' => 'float',
+            'withholding_pct' => 'float',
             'status' => CompanyStatus::class,
         ];
     }

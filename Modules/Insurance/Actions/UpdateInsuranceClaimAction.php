@@ -6,6 +6,7 @@ use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\States\ApprovedState;
 use Modules\Insurance\States\PaidState;
 use Modules\Insurance\States\RejectedState;
 use Modules\Insurance\States\SubmittedState;
@@ -20,6 +21,14 @@ class UpdateInsuranceClaimAction
     public function execute(InsuranceClaim $claim, array $data): InsuranceClaim
     {
         $oldStatus = (string) $claim->status;
+
+        // Approval without an explicit approved_amount means "approved in
+        // full" — default it to the claim's insurance_share so collection
+        // (which is driven entirely by approved_amount, see
+        // AutoPostInsuranceClaimAction::onCollect()) always has a basis.
+        if (($data['status'] ?? null) === ApprovedState::$name && ! array_key_exists('approved_amount', $data)) {
+            $data['approved_amount'] = $claim->insurance_share;
+        }
 
         $claim->update($data);
         $claim->refresh();
