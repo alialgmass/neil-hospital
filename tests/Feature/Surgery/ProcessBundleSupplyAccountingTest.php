@@ -68,20 +68,22 @@ class ProcessBundleSupplyAccountingTest extends TestCase
         $this->assertSame(0, JournalEntry::where('debit_account_id', $utilities->id)->count());
     }
 
-    public function test_bundle_charge_posts_to_doctor_supply_recovery_not_patient_sales_revenue(): void
+    public function test_bundle_charge_posts_to_supplies_sale_revenue_not_patient_sales_or_contra_expense(): void
     {
         $bundle = $this->makeBundle(ItemCategory::Medical);
 
         app(ProcessBundleSupplyAction::class)->process($bundle->id, 1);
 
+        $supplyRevenue = Account::where('code', '4070')->firstOrFail();
         $recovery = Account::where('code', '5115')->firstOrFail();
         $patientSales = Account::where('code', '4210')->firstOrFail();
         $doctorPayable = Account::where('code', '2010')->firstOrFail();
 
-        $chargeEntry = JournalEntry::where('credit_account_id', $recovery->id)->first();
-        $this->assertNotNull($chargeEntry, 'Bundle charge should credit 5115 (contra-expense), not 4210 (patient sales)');
+        $chargeEntry = JournalEntry::where('credit_account_id', $supplyRevenue->id)->first();
+        $this->assertNotNull($chargeEntry, 'Bundle charge should credit 4070 (supplies-sale revenue), not 5115 or 4210');
         $this->assertSame($doctorPayable->id, $chargeEntry->debit_account_id);
         $this->assertEquals(200.00, (float) $chargeEntry->amount);
         $this->assertSame(0, JournalEntry::where('credit_account_id', $patientSales->id)->count());
+        $this->assertSame(0, JournalEntry::where('credit_account_id', $recovery->id)->count());
     }
 }

@@ -156,6 +156,7 @@ class SurgeryController extends Controller
                 max(1, (int) ($bundleReq['qty'] ?? 1)),
                 $dept,
                 $bundleReq['selected_items'] ?? [],
+                $request->surgery_id,
             );
         }
 

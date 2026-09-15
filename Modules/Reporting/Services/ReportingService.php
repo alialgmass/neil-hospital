@@ -3,6 +3,7 @@
 namespace Modules\Reporting\Services;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\CostCenter;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
@@ -286,6 +287,73 @@ class ReportingService
         $netIncome = $totalRevenue - $totalExpense;
 
         return compact('revenues', 'expenses', 'totalRevenue', 'totalExpense', 'netIncome', 'from', 'to');
+    }
+
+    /**
+     * Revenue, expenses and net profit per cost center for a date range
+     * (a month, a year, or an arbitrary range — the caller picks $from/$to).
+     * Derived entirely from account `group` (revenues/expenses) and the
+     * `cost_center` tag already carried by every journal entry — no
+     * hardcoded account-code list.
+     *
+     * Revenue/expense are NET of reversals: a reversal swaps debit/credit
+     * accounts of the original entry, so a revenue account can appear on
+     * either side — summing only "credits to revenue accounts" would leave
+     * a rejected/reversed claim's revenue overstated. Netting credit-side
+     * against debit-side (and vice versa for expenses) cancels it out
+     * correctly.
+     */
+    public function costCenterProfitability(string $from, string $to): array
+    {
+        $netByCenter = function (string $group, string $creditJoinColumn, string $debitJoinColumn) use ($from, $to) {
+            $credits = DB::table('journal_entries')
+                ->join('accounts', "journal_entries.{$creditJoinColumn}", '=', 'accounts.id')
+                ->where('accounts.group', $group)
+                ->whereBetween('journal_entries.date', [$from, $to])
+                ->whereNotNull('journal_entries.cost_center')
+                ->select('journal_entries.cost_center', DB::raw('SUM(journal_entries.amount) as amount'))
+                ->groupBy('journal_entries.cost_center')
+                ->pluck('amount', 'cost_center');
+
+            $debits = DB::table('journal_entries')
+                ->join('accounts', "journal_entries.{$debitJoinColumn}", '=', 'accounts.id')
+                ->where('accounts.group', $group)
+                ->whereBetween('journal_entries.date', [$from, $to])
+                ->whereNotNull('journal_entries.cost_center')
+                ->select('journal_entries.cost_center', DB::raw('SUM(journal_entries.amount) as amount'))
+                ->groupBy('journal_entries.cost_center')
+                ->pluck('amount', 'cost_center');
+
+            return $credits->keys()->merge($debits->keys())->unique()
+                ->mapWithKeys(fn ($center) => [$center => (float) ($credits[$center] ?? 0) - (float) ($debits[$center] ?? 0)]);
+        };
+
+        // Revenue accounts are credit-nature: net = credits − debits (a
+        // reversal debits the revenue account, reducing it back out).
+        $revenueByCenter = $netByCenter('revenues', 'credit_account_id', 'debit_account_id');
+        // Expense accounts are debit-nature: net = debits − credits.
+        $expenseByCenter = $netByCenter('expenses', 'debit_account_id', 'credit_account_id');
+
+        $centers = $revenueByCenter->keys()->merge($expenseByCenter->keys())->unique()->sort()->values();
+
+        $rows = $centers->map(function (string $center) use ($revenueByCenter, $expenseByCenter) {
+            $revenue = round($revenueByCenter[$center] ?? 0.0, 2);
+            $expense = round($expenseByCenter[$center] ?? 0.0, 2);
+
+            return [
+                'cost_center' => $center,
+                'label' => CostCenter::tryFrom($center)?->label() ?? $center,
+                'revenue' => $revenue,
+                'expense' => $expense,
+                'profit' => round($revenue - $expense, 2),
+            ];
+        })->values()->toArray();
+
+        $totalRevenue = round(array_sum(array_column($rows, 'revenue')), 2);
+        $totalExpense = round(array_sum(array_column($rows, 'expense')), 2);
+        $netProfit = round($totalRevenue - $totalExpense, 2);
+
+        return compact('rows', 'totalRevenue', 'totalExpense', 'netProfit', 'from', 'to');
     }
 
     // 9. Expense Analysis Report

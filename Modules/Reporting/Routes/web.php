@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Reporting\Controllers\CasesReportController;
+use Modules\Reporting\Controllers\CostCenterProfitabilityController;
 use Modules\Reporting\Controllers\DashboardController;
 use Modules\Reporting\Controllers\DeptRevenueReportController;
 use Modules\Reporting\Controllers\DoctorClaimsReportController;
@@ -93,6 +94,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/expense-analysis', ExpenseAnalysisController::class)
             ->middleware('can:reports.financial')
             ->name('expense-analysis');
+
+        Route::get('/cost-center-profitability', CostCenterProfitabilityController::class)
+            ->middleware('can:reports.financial')
+            ->name('cost-center-profitability');
 
         Route::get('/surgeries', SurgeriesReportController::class)
             ->middleware('can:reports.clinical')
