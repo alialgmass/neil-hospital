@@ -7,10 +7,12 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Models\SupplyBundle;
 use Modules\Inventory\Services\InventoryService;
+use Modules\Surgery\Models\Surgery;
 
 class ProcessBundleSupplyAction
 {
@@ -28,7 +30,7 @@ class ProcessBundleSupplyAction
      *                                                                              When provided, only those items are deducted with their given quantities.
      *                                                                              When empty, all bundle items are deducted using bundle defaults × $qty.
      */
-    public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = []): array
+    public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = [], ?string $surgeryId = null): array
     {
         $bundle = SupplyBundle::with('items.inventoryItem')->findOrFail($bundleId);
 
@@ -86,7 +88,14 @@ class ProcessBundleSupplyAction
             }
         }
 
-        $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id);
+        // Insurance doctor fees are a fixed amount (Dr 5130 / Cr 1010, see
+        // AutoPostInsuranceDoctorCashPaymentAction) and never accrue to 2010
+        // — so supplies must never be charged against the doctor's payable
+        // for an insurance-paid case either. Supplies are still consumed
+        // from inventory above regardless of pay method.
+        if (! $this->isInsurancePaid($surgeryId)) {
+            $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id);
+        }
 
         return [
             'bundle_id' => $bundle->id,
@@ -127,6 +136,15 @@ class ProcessBundleSupplyAction
             'idempotency_key' => "bundle_supply_charge:{$permitId}",
             'cost_center' => $costCenter,
         ]);
+    }
+
+    private function isInsurancePaid(?string $surgeryId): bool
+    {
+        if ($surgeryId === null) {
+            return false;
+        }
+
+        return Surgery::with('booking:id,pay_method')->find($surgeryId)?->booking?->pay_method === PayMethod::Insurance;
     }
 
     private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit
