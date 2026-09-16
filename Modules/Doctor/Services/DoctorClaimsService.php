@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Services;
 
+use App\Enums\Department;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
@@ -91,6 +92,11 @@ class DoctorClaimsService
             return 0.0;
         }
 
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($booking->dept === Department::Pentacam) {
+            return 0.0;
+        }
+
         // Insurance / contract bookings that carry a persisted entitlement accrue
         // the doctor's share up front through it, not per cash payment. Bookings
         // with no entitlement (e.g. created before this feature, or no fee
@@ -119,6 +125,18 @@ class DoctorClaimsService
             }
 
             return $this->surgeryShareForPayment($booking, $netAmount, $isFirstPayment);
+        }
+
+        // Laser strategy (fixed hospital revenue): the doctor gets whatever is
+        // left after the hospital's fixed cut for this service, not a
+        // percentage/fixed fee of their own. Deducted on the first payment
+        // only, mirroring the surgery/lasik supply deduction above.
+        if ($dept === Department::Laser->value) {
+            $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id);
+
+            if ($fixedRevenue !== null) {
+                return $isFirstPayment ? max(0, round($netAmount - $fixedRevenue, 2)) : max(0, $netAmount);
+            }
         }
 
         return match ($doctor->fee_type) {
@@ -181,6 +199,27 @@ class DoctorClaimsService
         return max(0, $paymentAmount - $supplyTotal);
     }
 
+    /**
+     * A Laser service's fixed hospital-revenue cut, when the admin has
+     * configured the service's center as a flat amount rather than a
+     * percentage. Returns null when the service isn't configured this way,
+     * so callers fall back to the doctor's own fee_type/fee_value.
+     */
+    private function resolveLaserFixedRevenue(?string $serviceId): ?float
+    {
+        if ($serviceId === null) {
+            return null;
+        }
+
+        $service = DB::table('services')->where('id', $serviceId)->first(['center_type', 'center_val']);
+
+        if (! $service || $service->center_type !== 'fixed') {
+            return null;
+        }
+
+        return (float) $service->center_val;
+    }
+
     private function insuranceSurgeryFixedFee(Booking $booking): float
     {
         return (float) DB::table('services')
@@ -191,9 +230,15 @@ class DoctorClaimsService
 
     public function computeDrShare(Doctor $doctor, object $booking): float
     {
+        $dept = $booking->dept;
+
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($dept === Department::Pentacam->value) {
+            return 0.0;
+        }
+
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
-        $dept = $booking->dept;
 
         // Development-treasury fee is deducted from the price BEFORE the
         // doctor's share is computed (cash bookings only — see
@@ -218,7 +263,9 @@ class DoctorClaimsService
             in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $netPaid),
 
             // Clinic, Labs, Laser: dr_share = f(net paid) per doctor fee_type
-            default => $this->computeServiceShare($doctor, $netPaid, $insAmount),
+            // (Laser falls back to a fixed-hospital-revenue split when the
+            // service is configured that way — see resolveLaserFixedRevenue()).
+            default => $this->computeServiceShare($doctor, $netPaid, $insAmount, $dept, $booking->service_id ?? null),
         };
     }
 
@@ -269,8 +316,16 @@ class DoctorClaimsService
      * Clinic/Labs/Laser strategy: dr_share = paid − center_share.
      * center_share derived from service definition (pct or fixed).
      */
-    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount): float
+    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount, ?string $dept = null, ?string $serviceId = null): float
     {
+        if ($dept === Department::Laser->value) {
+            $fixedRevenue = $this->resolveLaserFixedRevenue($serviceId);
+
+            if ($fixedRevenue !== null) {
+                return max(0, round($paid - $fixedRevenue, 2));
+            }
+        }
+
         if ($doctor->fee_type === FeeType::Percentage) {
             return round($paid * ($doctor->fee_value / 100), 2);
         }

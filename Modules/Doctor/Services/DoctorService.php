@@ -2,7 +2,6 @@
 
 namespace Modules\Doctor\Services;
 
-use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Booking\States\ConfirmedStatus;
@@ -14,7 +13,7 @@ use Modules\Doctor\Models\DoctorPayment;
 class DoctorService
 {
     public function __construct(
-        private readonly ClaimCalculator $claimCalculator
+        private readonly DoctorClaimsService $claimsService
     ) {}
 
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
@@ -28,21 +27,13 @@ class DoctorService
 
     public function getActiveDoctorsWithClaims(string $from, string $to): Collection
     {
-        $paidByDoctor = DoctorPayment::whereDate('paid_at', '>=', $from)
-            ->whereDate('paid_at', '<=', $to)
-            ->selectRaw('doctor_id, SUM(amount) as total_paid')
-            ->groupBy('doctor_id')
-            ->pluck('total_paid', 'doctor_id');
-
-        return Doctor::where('is_active', true)->orderBy('name')->get()->map(function ($doctor) use ($from, $to, $paidByDoctor) {
-            $calc = $this->claimCalculator->calculate($doctor, Carbon::parse($from), Carbon::parse($to));
-            $totalClaim = $calc['stats']['total_claim'];
-            $paid = (float) ($paidByDoctor[$doctor->id] ?? 0);
+        return Doctor::where('is_active', true)->orderBy('name')->get()->map(function ($doctor) use ($from, $to) {
+            $result = $this->claimsService->calculateClaims($doctor->id, $from, $to);
 
             return (object) array_merge($doctor->toArray(), [
-                'claim' => $totalClaim,
-                'paid_amount' => $paid,
-                'net_due' => max(0, $totalClaim - $paid),
+                'claim' => $result['total_claims'],
+                'paid_amount' => $result['paid_amount'],
+                'net_due' => $result['net_due'],
             ]);
         });
     }

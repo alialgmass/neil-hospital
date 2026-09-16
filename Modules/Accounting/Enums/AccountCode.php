@@ -154,6 +154,29 @@ enum AccountCode: string
     }
 
     /**
+     * Dept → insurance revenue account (4110–4150). Insurance revenue is
+     * split by department the same way cash revenue is — it must never all
+     * land on 4110 (Clinic's insurance revenue account) regardless of dept.
+     *
+     * @return array<string, self>
+     */
+    public static function insuranceRevenueMap(): array
+    {
+        return [
+            Department::Clinic->value => self::INSURANCE_REVENUE,
+            Department::Labs->value => self::INSURANCE_LAB_REVENUE,
+            Department::Surgery->value => self::INSURANCE_SURGERY_REVENUE,
+            Department::Lasik->value => self::INSURANCE_LASIK_REVENUE,
+            Department::Laser->value => self::INSURANCE_LASER_REVENUE,
+        ];
+    }
+
+    public static function insuranceRevenueCode(Department $dept): self
+    {
+        return self::insuranceRevenueMap()[$dept->value] ?? self::INSURANCE_REVENUE;
+    }
+
+    /**
      * Dept → doctor-share expense account (clinic-style vs surgery-style).
      */
     public static function doctorExpenseCode(Department $dept): self
@@ -205,6 +228,7 @@ enum AccountCode: string
     {
         return [
             self::CURRENT_ASSETS->value,
+            self::INSURANCE_RECEIVABLE->value, // roll-up only — claims post to a company's 1031–1047 sub-account
             self::INVENTORY_GROUP->value,
             self::FIXED_ASSETS->value,
             self::CURRENT_LIABILITIES->value,

@@ -3,6 +3,7 @@
 namespace Modules\Doctor\Actions;
 
 use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
+use Modules\Accounting\Actions\AutoPostInsuranceDoctorCashPaymentAction;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalService;
@@ -26,6 +27,7 @@ class SyncDoctorEntitlementAction
 {
     public function __construct(
         private readonly AutoPostDoctorDuesAction $autoPostDoctorDues,
+        private readonly AutoPostInsuranceDoctorCashPaymentAction $autoPostInsuranceDoctorCash,
         private readonly JournalService $journalService,
     ) {}
 
@@ -70,7 +72,7 @@ class SyncDoctorEntitlementAction
             ],
         );
 
-        $this->syncAccrual($booking, $doctor, $amount);
+        $this->syncAccrual($booking, $doctor, $amount, $source);
     }
 
     /**
@@ -122,13 +124,19 @@ class SyncDoctorEntitlementAction
     }
 
     /**
-     * Post the doctor-payable accrual for the current entitlement amount,
+     * Post the doctor's accrual for the current entitlement amount,
      * reversing any earlier accrual for this booking first. A no-op when the
      * accrual for this exact amount is already live.
+     *
+     * Insurance bookings never accrue to 2010 (doctor payable) — the fixed
+     * fee is paid cash, immediately, via AutoPostInsuranceDoctorCashPaymentAction
+     * (Dr 5130 / Cr 1010). Contract bookings keep the existing accrual path
+     * (Dr 5110/5120 / Cr 2010) — the spec's cash-immediate rule is specific
+     * to insurance companies, not every third-party payer.
      */
-    private function syncAccrual(Booking $booking, Doctor $doctor, float $amount): void
+    private function syncAccrual(Booking $booking, Doctor $doctor, float $amount, EntitlementSource $source): void
     {
-        $key = $this->idempotencyKey($booking, $amount);
+        $key = $this->idempotencyKey($booking, $amount, $source);
 
         $alreadyPosted = JournalEntry::where('idempotency_key', $key)
             ->whereNull('reversed_at')
@@ -139,6 +147,18 @@ class SyncDoctorEntitlementAction
         }
 
         $this->reverseAccrual($booking);
+
+        if ($source === EntitlementSource::Insurance) {
+            $this->autoPostInsuranceDoctorCash->execute(
+                amount: $amount,
+                doctorName: $doctor->name,
+                reference: $booking->file_no,
+                date: $booking->visit_date?->toDateString(),
+                idempotencyKey: $key,
+            );
+
+            return;
+        }
 
         $this->autoPostDoctorDues->execute(
             dept: $booking->dept,
@@ -153,22 +173,22 @@ class SyncDoctorEntitlementAction
     private function reverseAccrual(Booking $booking): void
     {
         JournalEntry::where('reference', $booking->file_no)
-            ->where('source', JournalSource::DOCTOR_SHIFT->value)
+            ->whereIn('source', [JournalSource::DOCTOR_SHIFT->value, JournalSource::INSURANCE_DOCTOR_PAYMENT->value])
             ->where('idempotency_key', 'like', 'doctor_entitlement:%')
             ->whereNull('reversed_at')
             ->whereNull('reversal_of_id')
             ->get()
             ->each(fn (JournalEntry $entry) => $this->journalService->reverse(
                 entry: $entry,
-                reversalSource: JournalSource::DOCTOR_SHIFT,
+                reversalSource: $entry->source === JournalSource::INSURANCE_DOCTOR_PAYMENT ? JournalSource::REVERSAL : JournalSource::DOCTOR_SHIFT,
                 reference: $booking->file_no,
                 description: "عكس مستحق الطبيب: {$booking->file_no}",
                 date: $booking->visit_date?->toDateString(),
             ));
     }
 
-    private function idempotencyKey(Booking $booking, float $amount): string
+    private function idempotencyKey(Booking $booking, float $amount, EntitlementSource $source): string
     {
-        return "doctor_entitlement:{$booking->id}:".number_format($amount, 2, '.', '');
+        return "doctor_entitlement:{$source->value}:{$booking->id}:".number_format($amount, 2, '.', '');
     }
 }
