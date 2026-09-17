@@ -423,7 +423,7 @@ function printInvoice() {
                                 >
                                 <span
                                     v-if="(s.doctor.debt_balance ?? 0) > 0"
-                                    class="rounded-md bg-hospital-danger-pale px-1.5 py-0.5 text-[10px] font-bold text-hospital-danger"
+                                    class="rounded-md bg-hospital-danger px-1.5 py-0.5 text-[10px] font-bold text-white"
                                     :title="
                                         'دين على الطبيب: ' +
                                         fmt(s.doctor.debt_balance ?? 0)
@@ -435,7 +435,7 @@ function printInvoice() {
                         </td>
                         <td class="px-4 py-3">
                             <span
-                                class="rounded-md bg-hospital-bg px-2 py-1 text-[10px] font-bold text-hospital-text-2"
+                                class="rounded-md bg-hospital-text-2 px-2 py-1 text-[10px] font-bold text-white"
                             >
                                 {{
                                     feeTypeLabel[s.doctor.fee_type] ??
@@ -657,11 +657,11 @@ function printInvoice() {
                                     p.paid_at
                                 }}</span>
                                 <span
-                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                                    class="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
                                     :class="
                                         p.method === 'cash'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-blue-100 text-blue-700'
+                                            ? 'bg-hospital-success'
+                                            : 'bg-hospital-primary'
                                     "
                                 >
                                     {{ p.method === 'cash' ? 'نقدي' : 'تحويل' }}
