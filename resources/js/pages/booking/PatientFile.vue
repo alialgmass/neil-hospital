@@ -162,13 +162,20 @@ function openTransfer(b: Booking) {
     showTransferModal.value = true;
 }
 
-function onTransferServiceChange() {
-    const service = props.transfer_services.find(
+const filteredTransferServices = computed(() =>
+    props.transfer_services.filter(
+        (s) => s.dept === transferForm.value.dept,
+    ),
+);
+
+function onTransferDeptChange() {
+    const stillValid = filteredTransferServices.value.some(
         (s) => s.id === transferForm.value.service_id,
     );
 
-    if (service) {
-        transferForm.value.dept = service.dept;
+    if (!stillValid) {
+        transferForm.value.service_id =
+            filteredTransferServices.value[0]?.id ?? '';
     }
 }
 
@@ -762,33 +769,43 @@ function isImage(mime: string): boolean {
             <div>
                 <label
                     class="mb-1 block text-xs font-semibold text-hospital-text-2"
-                    >الخدمة</label
+                    >القسم</label
                 >
                 <select
-                    v-model="transferForm.service_id"
+                    v-model="transferForm.dept"
                     class="input-field w-full"
-                    @change="onTransferServiceChange"
+                    @change="onTransferDeptChange"
                 >
-                    <option value="">— اختر الخدمة —</option>
-                    <option
-                        v-for="s in transfer_services"
-                        :key="s.id"
-                        :value="s.id"
-                    >
-                        {{ deptLabels[s.dept] ?? s.dept }} — {{ s.name }}
-                    </option>
+                    <option value="surgery">العمليات</option>
+                    <option value="lasik">الليزك</option>
+                    <option value="laser">الليزر</option>
                 </select>
             </div>
             <div>
                 <label
                     class="mb-1 block text-xs font-semibold text-hospital-text-2"
-                    >القسم</label
+                    >الخدمة</label
                 >
-                <select v-model="transferForm.dept" class="input-field w-full">
-                    <option value="surgery">العمليات</option>
-                    <option value="lasik">الليزك</option>
-                    <option value="laser">الليزر</option>
+                <select
+                    v-model="transferForm.service_id"
+                    class="input-field w-full"
+                    :disabled="filteredTransferServices.length === 0"
+                >
+                    <option value="">— اختر الخدمة —</option>
+                    <option
+                        v-for="s in filteredTransferServices"
+                        :key="s.id"
+                        :value="s.id"
+                    >
+                        {{ s.name }}
+                    </option>
                 </select>
+                <p
+                    v-if="filteredTransferServices.length === 0"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
+                    لا توجد خدمات متاحة لهذا القسم
+                </p>
             </div>
             <EyeSideSelector v-model="transferForm.eye" />
         </div>
