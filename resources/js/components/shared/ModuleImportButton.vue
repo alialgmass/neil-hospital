@@ -73,7 +73,7 @@ function submitImport() {
 
     <Modal v-model="showModal" :title="label ? `استيراد — ${label}` : 'استيراد بيانات'" @close="showModal = false">
         <form @submit.prevent="submitImport" class="flex flex-col gap-4">
-            <p class="text-sm text-hospital-muted">
+            <p class="text-sm text-hospital-text-3">
                 ارفع ملف Excel أو CSV يحتوي البيانات بالتنسيق المطابق للقالب.
             </p>
 

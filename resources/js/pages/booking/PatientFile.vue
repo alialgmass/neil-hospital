@@ -216,9 +216,9 @@ const deptIcons: Record<string, unknown> = {
 };
 
 const payStatusColors: Record<string, string> = {
-    paid: 'bg-hospital-success/10 text-hospital-success',
-    partial: 'bg-yellow-50 text-yellow-600',
-    unpaid: 'bg-hospital-danger/10 text-hospital-danger',
+    paid: 'bg-hospital-success text-white',
+    partial: 'bg-hospital-warning text-white',
+    unpaid: 'bg-hospital-danger text-white',
 };
 const payStatusLabels: Record<string, string> = {
     paid: 'مسدد',
@@ -298,7 +298,7 @@ function isImage(mime: string): boolean {
                 <h2 class="text-lg font-bold text-hospital-text">
                     {{ patient?.name ?? 'مريض غير معروف' }}
                 </h2>
-                <p class="text-sm text-hospital-muted">
+                <p class="text-sm text-hospital-text-3">
                     رقم الملف: {{ file_no }}
                 </p>
             </div>
@@ -335,27 +335,27 @@ function isImage(mime: string): boolean {
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <User class="h-4 w-4 text-hospital-muted" />
+            <User class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">الاسم</p>
+                <p class="text-xs text-hospital-text-3">الاسم</p>
                 <p class="text-sm font-medium">{{ patient.name }}</p>
             </div>
         </div>
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <Phone class="h-4 w-4 text-hospital-muted" />
+            <Phone class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">الهاتف</p>
+                <p class="text-xs text-hospital-text-3">الهاتف</p>
                 <p class="text-sm font-medium">{{ patient.phone ?? '—' }}</p>
             </div>
         </div>
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <Calendar class="h-4 w-4 text-hospital-muted" />
+            <Calendar class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">العمر</p>
+                <p class="text-xs text-hospital-text-3">العمر</p>
                 <p class="text-sm font-medium">
                     {{ patient.age ? `${patient.age} سنة` : '—' }}
                 </p>
@@ -364,9 +364,9 @@ function isImage(mime: string): boolean {
         <div
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <FileText class="h-4 w-4 text-hospital-muted" />
+            <FileText class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">عدد الزيارات</p>
+                <p class="text-xs text-hospital-text-3">عدد الزيارات</p>
                 <p class="text-sm font-medium">{{ bookings.length }} زيارة</p>
             </div>
         </div>
@@ -374,9 +374,9 @@ function isImage(mime: string): boolean {
             v-if="patient.national_id"
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <IdCard class="h-4 w-4 text-hospital-muted" />
+            <IdCard class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">الرقم القومي</p>
+                <p class="text-xs text-hospital-text-3">الرقم القومي</p>
                 <p class="text-sm font-medium">{{ patient.national_id }}</p>
             </div>
         </div>
@@ -384,9 +384,9 @@ function isImage(mime: string): boolean {
             v-if="patient.gender"
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <User class="h-4 w-4 text-hospital-muted" />
+            <User class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">النوع</p>
+                <p class="text-xs text-hospital-text-3">النوع</p>
                 <p class="text-sm font-medium">
                     {{ genderLabels[patient.gender] ?? patient.gender }}
                 </p>
@@ -396,9 +396,9 @@ function isImage(mime: string): boolean {
             v-if="patient.kinship_degree_label"
             class="flex items-center gap-2 rounded-lg border border-hospital-border bg-white p-3"
         >
-            <User class="h-4 w-4 text-hospital-muted" />
+            <User class="h-4 w-4 text-hospital-text-3" />
             <div>
-                <p class="text-xs text-hospital-muted">
+                <p class="text-xs text-hospital-text-3">
                     صلة القرابة (لمرافق الحجز)
                 </p>
                 <p class="text-sm font-medium">
@@ -411,7 +411,7 @@ function isImage(mime: string): boolean {
     <!-- No bookings -->
     <div
         v-if="bookings.length === 0"
-        class="no-print rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-muted"
+        class="no-print rounded-xl border border-hospital-border bg-white p-8 text-center text-hospital-text-3"
     >
         لا توجد زيارات مسجلة لهذا الملف
     </div>
@@ -435,7 +435,7 @@ function isImage(mime: string): boolean {
                     <span class="font-semibold text-hospital-text">{{
                         deptLabels[booking.dept] ?? booking.dept
                     }}</span>
-                    <span class="text-sm text-hospital-muted"
+                    <span class="text-sm text-hospital-text-3"
                         >— {{ booking.service_name ?? '—' }}</span
                     >
                 </div>
@@ -444,7 +444,7 @@ function isImage(mime: string): boolean {
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
                         :class="
                             payStatusColors[booking.pay_status] ??
-                            'bg-hospital-muted/20 text-hospital-muted'
+                            'bg-hospital-text-3 text-white'
                         "
                     >
                         {{
@@ -455,7 +455,7 @@ function isImage(mime: string): boolean {
                     <span class="text-sm font-medium text-hospital-text"
                         >{{ fmt(booking.price) }} ج.م</span
                     >
-                    <span class="text-xs text-hospital-muted">{{
+                    <span class="text-xs text-hospital-text-3">{{
                         fmtDate(booking.visit_date)
                     }}</span>
                     <button
@@ -474,29 +474,29 @@ function isImage(mime: string): boolean {
             <div class="space-y-3 p-4">
                 <!-- Doctor -->
                 <div v-if="booking.doctor" class="text-sm">
-                    <span class="text-hospital-muted">الطبيب: </span>
+                    <span class="text-hospital-text-3">الطبيب: </span>
                     <span class="font-medium">{{ booking.doctor.name }}</span>
                 </div>
 
                 <!-- Eye side / analysis type -->
                 <div v-if="booking.eye_side" class="text-sm">
-                    <span class="text-hospital-muted">العين: </span>
+                    <span class="text-hospital-text-3">العين: </span>
                     <span class="font-medium">{{
                         eyeSideLabels[booking.eye_side] ?? booking.eye_side
                     }}</span>
                 </div>
                 <div v-if="booking.analysis_type" class="text-sm">
-                    <span class="text-hospital-muted">نوع التحليل: </span>
+                    <span class="text-hospital-text-3">نوع التحليل: </span>
                     <span class="font-medium">{{ booking.analysis_type }}</span>
                 </div>
                 <div v-if="booking.analysis_notes" class="text-sm">
-                    <span class="text-hospital-muted">ملاحظات التحليل: </span>
+                    <span class="text-hospital-text-3">ملاحظات التحليل: </span>
                     <span>{{ booking.analysis_notes }}</span>
                 </div>
 
                 <!-- Visit note -->
                 <div v-if="booking.visit_note" class="text-sm">
-                    <span class="text-hospital-muted">ملاحظات: </span>
+                    <span class="text-hospital-text-3">ملاحظات: </span>
                     <span>{{ booking.visit_note }}</span>
                 </div>
 
@@ -505,7 +505,7 @@ function isImage(mime: string): boolean {
                     v-if="booking.cancel_reason"
                     class="text-sm text-hospital-danger"
                 >
-                    <span class="text-hospital-muted">سبب الإلغاء: </span>
+                    <span class="text-hospital-text-3">سبب الإلغاء: </span>
                     <span>{{ booking.cancel_reason }}</span>
                 </div>
 
@@ -514,7 +514,7 @@ function isImage(mime: string): boolean {
                     class="grid grid-cols-2 gap-2 rounded-lg border border-hospital-border bg-hospital-bg/50 p-3 text-sm sm:grid-cols-4"
                 >
                     <div>
-                        <p class="text-xs text-hospital-muted">طريقة الدفع</p>
+                        <p class="text-xs text-hospital-text-3">طريقة الدفع</p>
                         <p class="font-medium">
                             {{
                                 payMethodLabels[booking.pay_method] ??
@@ -523,25 +523,25 @@ function isImage(mime: string): boolean {
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs text-hospital-muted">الخصم</p>
+                        <p class="text-xs text-hospital-text-3">الخصم</p>
                         <p class="font-medium">
                             {{ fmt(booking.discount ?? 0) }} ج
                         </p>
                     </div>
                     <div v-if="Number(booking.ins_amount) > 0">
-                        <p class="text-xs text-hospital-muted">حصة التأمين</p>
+                        <p class="text-xs text-hospital-text-3">حصة التأمين</p>
                         <p class="font-medium">
                             {{ fmt(booking.ins_amount) }} ج
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs text-hospital-muted">المدفوع</p>
+                        <p class="text-xs text-hospital-text-3">المدفوع</p>
                         <p class="font-medium">
                             {{ fmt(booking.paid_amount ?? 0) }} ج
                         </p>
                     </div>
                     <div>
-                        <p class="text-xs text-hospital-muted">
+                        <p class="text-xs text-hospital-text-3">
                             الصافي المستحق
                         </p>
                         <p class="font-medium">
@@ -581,17 +581,17 @@ function isImage(mime: string): boolean {
                         </Badge>
                     </p>
                     <div v-if="booking.insurance_claim.company">
-                        <span class="text-hospital-muted">شركة التأمين: </span
+                        <span class="text-hospital-text-3">شركة التأمين: </span
                         >{{ booking.insurance_claim.company.name }}
                     </div>
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div>
-                            <span class="text-hospital-muted"
+                            <span class="text-hospital-text-3"
                                 >قيمة الفاتورة: </span
                             >{{ fmt(booking.insurance_claim.invoice_amount) }} ج
                         </div>
                         <div>
-                            <span class="text-hospital-muted"
+                            <span class="text-hospital-text-3"
                                 >حصة التأمين: </span
                             >{{
                                 fmt(booking.insurance_claim.insurance_share)
@@ -599,16 +599,16 @@ function isImage(mime: string): boolean {
                             ج
                         </div>
                         <div>
-                            <span class="text-hospital-muted">حصة المريض: </span
+                            <span class="text-hospital-text-3">حصة المريض: </span
                             >{{ fmt(booking.insurance_claim.patient_share) }} ج
                         </div>
                         <div>
-                            <span class="text-hospital-muted">المحصّل: </span
+                            <span class="text-hospital-text-3">المحصّل: </span
                             >{{ fmt(booking.insurance_claim.paid_amount) }} ج
                         </div>
                     </div>
                     <div v-if="booking.insurance_claim.claim_reference">
-                        <span class="text-hospital-muted">مرجع المطالبة: </span
+                        <span class="text-hospital-text-3">مرجع المطالبة: </span
                         >{{ booking.insurance_claim.claim_reference }}
                     </div>
                 </div>
@@ -622,7 +622,7 @@ function isImage(mime: string): boolean {
                         ورقة الكشف الطبي
                     </p>
                     <div v-if="booking.clinic_sheet.chief_complaint">
-                        <span class="text-hospital-muted">الشكوى: </span
+                        <span class="text-hospital-text-3">الشكوى: </span
                         >{{ booking.clinic_sheet.chief_complaint }}
                     </div>
                     <div
@@ -631,16 +631,16 @@ function isImage(mime: string): boolean {
                             booking.clinic_sheet.visual_acuity_os
                         "
                     >
-                        <span class="text-hospital-muted">حدة الإبصار: </span>
+                        <span class="text-hospital-text-3">حدة الإبصار: </span>
                         OD {{ booking.clinic_sheet.visual_acuity_od ?? '—' }} /
                         OS {{ booking.clinic_sheet.visual_acuity_os ?? '—' }}
                     </div>
                     <div v-if="booking.clinic_sheet.diagnosis">
-                        <span class="text-hospital-muted">التشخيص: </span
+                        <span class="text-hospital-text-3">التشخيص: </span
                         >{{ booking.clinic_sheet.diagnosis }}
                     </div>
                     <div v-if="booking.clinic_sheet.plan">
-                        <span class="text-hospital-muted">خطة العلاج: </span
+                        <span class="text-hospital-text-3">خطة العلاج: </span
                         >{{ booking.clinic_sheet.plan }}
                     </div>
                 </div>
@@ -665,7 +665,7 @@ function isImage(mime: string): boolean {
                             <span class="font-medium">{{
                                 result.test_name
                             }}</span>
-                            <span class="text-xs text-hospital-muted">{{
+                            <span class="text-xs text-hospital-text-3">{{
                                 result.eye ?? ''
                             }}</span>
                         </div>
@@ -687,17 +687,17 @@ function isImage(mime: string): boolean {
                         العملية الجراحية
                     </p>
                     <div>
-                        <span class="text-hospital-muted">الإجراء: </span
+                        <span class="text-hospital-text-3">الإجراء: </span
                         >{{ booking.surgery.procedure }}
                         <span
                             v-if="booking.surgery.eye"
-                            class="text-hospital-muted"
+                            class="text-hospital-text-3"
                         >
                             ({{ booking.surgery.eye }})</span
                         >
                     </div>
                     <div v-if="booking.surgery.op_report">
-                        <span class="text-hospital-muted">تقرير العملية: </span
+                        <span class="text-hospital-text-3">تقرير العملية: </span
                         >{{ booking.surgery.op_report }}
                     </div>
                 </div>
@@ -732,7 +732,7 @@ function isImage(mime: string): boolean {
                                     class="flex h-full w-full items-center justify-center bg-hospital-bg"
                                 >
                                     <FileText
-                                        class="h-5 w-5 text-hospital-muted"
+                                        class="h-5 w-5 text-hospital-text-3"
                                     />
                                 </div>
                             </div>
@@ -744,7 +744,7 @@ function isImage(mime: string): boolean {
                                 >
                                     {{ file.name }}
                                 </a>
-                                <p class="text-xs text-hospital-muted">
+                                <p class="text-xs text-hospital-text-3">
                                     {{ file.size }}
                                 </p>
                             </div>
@@ -758,7 +758,7 @@ function isImage(mime: string): boolean {
     <!-- Transfer to Operation Modal -->
     <Modal v-model="showTransferModal" title="تحويل إلى عملية" size="md">
         <div v-if="transferringBooking" class="space-y-4">
-            <p class="text-sm text-hospital-muted">
+            <p class="text-sm text-hospital-text-3">
                 تحويل زيارة
                 {{
                     deptLabels[transferringBooking.dept] ??

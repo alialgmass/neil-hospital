@@ -268,7 +268,7 @@ const feeTypeLabels: Record<string, string> = {
     <div class="mb-5 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-bold text-hospital-text">إدارة الأطباء وصلاحياتهم</h2>
-            <p class="text-xs text-hospital-muted">تحديد نسبة أو قيمة حصة كل طبيب من الإيرادات</p>
+            <p class="text-xs text-hospital-text-3">تحديد نسبة أو قيمة حصة كل طبيب من الإيرادات</p>
         </div>
         <div class="flex items-center gap-2">
             <SearchBar v-model="search" placeholder="بحث بالاسم..." @update:model-value="applySearch" />

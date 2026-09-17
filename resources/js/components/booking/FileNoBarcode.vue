@@ -45,7 +45,7 @@ watch(() => props.value, draw);
     >
         <p
             v-if="label"
-            class="text-[10px] font-bold tracking-[0.2em] text-hospital-muted uppercase print:text-black"
+            class="text-[10px] font-bold tracking-[0.2em] text-hospital-text-3 uppercase print:text-black"
         >
             {{ label }}
         </p>

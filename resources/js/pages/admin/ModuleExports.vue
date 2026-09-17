@@ -25,7 +25,7 @@ function download(module: SystemModule) {
 
     <div class="mb-5">
         <h2 class="text-lg font-bold text-hospital-text">تصدير بيانات الوحدات</h2>
-        <p class="text-sm text-hospital-muted">تصدير سجل واحد لكل وحدة (Excel) — يتم التصدير وفق البيانات المتاحة في النظام.</p>
+        <p class="text-sm text-hospital-text-3">تصدير سجل واحد لكل وحدة (Excel) — يتم التصدير وفق البيانات المتاحة في النظام.</p>
     </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -40,7 +40,7 @@ function download(module: SystemModule) {
 
             <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-semibold text-hospital-text">{{ module.label }}</p>
-                <p class="text-xs text-hospital-muted">{{ module.enabled ? 'مفعلة' : 'معطلة' }}</p>
+                <p class="text-xs text-hospital-text-3">{{ module.enabled ? 'مفعلة' : 'معطلة' }}</p>
             </div>
 
             <button

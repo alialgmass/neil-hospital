@@ -97,12 +97,12 @@ function fmt(n: number) {
                     {{ deptRows.excludedCount.value }} مستبعد
                 </button>
             </div>
-            <div v-if="deptRows.visibleRows.value.length === 0" class="py-8 text-center text-sm text-hospital-muted">
+            <div v-if="deptRows.visibleRows.value.length === 0" class="py-8 text-center text-sm text-hospital-text-3">
                 {{ revenueByDept.length === 0 ? 'لا توجد إيرادات في هذا اليوم' : 'لا توجد نتائج مطابقة' }}
             </div>
             <table v-else class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-hospital-border text-right text-xs text-hospital-muted">
+                    <tr class="border-b border-hospital-border text-right text-xs text-hospital-text-3">
                         <th class="pb-2">القسم</th>
                         <th class="pb-2 text-center">الحالات</th>
                         <th class="pb-2 text-left">الإيراد</th>
@@ -112,7 +112,7 @@ function fmt(n: number) {
                 <tbody class="divide-y divide-hospital-border/50">
                     <tr v-for="row in deptRows.visibleRows.value" :key="row.dept" class="hover:bg-hospital-bg/50">
                         <td class="py-2 font-medium">{{ deptLabels[row.dept!] ?? row.dept }}</td>
-                        <td class="py-2 text-center text-hospital-muted">{{ row.cases }}</td>
+                        <td class="py-2 text-center text-hospital-text-3">{{ row.cases }}</td>
                         <td class="py-2 text-left font-mono text-hospital-success">{{ fmt(row.revenue) }} ج.م</td>
                         <td class="w-6 py-2">
                             <button type="button" title="استبعاد" class="rounded p-1 text-hospital-text-3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="deptRows.exclude(row)">
@@ -145,12 +145,12 @@ function fmt(n: number) {
                     {{ docRows.excludedCount.value }} مستبعد
                 </button>
             </div>
-            <div v-if="docRows.visibleRows.value.length === 0" class="py-8 text-center text-sm text-hospital-muted">
+            <div v-if="docRows.visibleRows.value.length === 0" class="py-8 text-center text-sm text-hospital-text-3">
                 {{ revenueByDoc.length === 0 ? 'لا توجد إيرادات في هذا اليوم' : 'لا توجد نتائج مطابقة' }}
             </div>
             <table v-else class="w-full text-sm">
                 <thead>
-                    <tr class="border-b border-hospital-border text-right text-xs text-hospital-muted">
+                    <tr class="border-b border-hospital-border text-right text-xs text-hospital-text-3">
                         <th class="pb-2">الطبيب</th>
                         <th class="pb-2 text-center">الحالات</th>
                         <th class="pb-2 text-left">الإيراد</th>
@@ -160,7 +160,7 @@ function fmt(n: number) {
                 <tbody class="divide-y divide-hospital-border/50">
                     <tr v-for="row in docRows.visibleRows.value" :key="row.doctor_name" class="hover:bg-hospital-bg/50">
                         <td class="py-2 font-medium">{{ row.doctor_name }}</td>
-                        <td class="py-2 text-center text-hospital-muted">{{ row.cases }}</td>
+                        <td class="py-2 text-center text-hospital-text-3">{{ row.cases }}</td>
                         <td class="py-2 text-left font-mono text-hospital-success">{{ fmt(row.revenue) }} ج.م</td>
                         <td class="w-6 py-2">
                             <button type="button" title="استبعاد" class="rounded p-1 text-hospital-text-3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="docRows.exclude(row)">
@@ -178,15 +178,15 @@ function fmt(n: number) {
         <h3 class="mb-4 font-semibold text-hospital-text">ملخص حركة الخزنة لهذا اليوم</h3>
         <div class="grid grid-cols-3 gap-4 text-center">
             <div class="rounded-lg bg-hospital-success/10 p-4">
-                <p class="text-xs text-hospital-muted">وارد اليوم</p>
+                <p class="text-xs text-hospital-text-3">وارد اليوم</p>
                 <p class="mt-1 text-lg font-bold text-hospital-success">{{ fmt(treasury.total_in) }} ج.م</p>
             </div>
             <div class="rounded-lg bg-hospital-danger/10 p-4">
-                <p class="text-xs text-hospital-muted">صادر اليوم</p>
+                <p class="text-xs text-hospital-text-3">صادر اليوم</p>
                 <p class="mt-1 text-lg font-bold text-hospital-danger">{{ fmt(treasury.total_out) }} ج.م</p>
             </div>
             <div class="rounded-lg bg-hospital-primary/10 p-4">
-                <p class="text-xs text-hospital-muted">صافي اليوم</p>
+                <p class="text-xs text-hospital-text-3">صافي اليوم</p>
                 <p class="mt-1 text-lg font-bold" :class="treasury.balance >= 0 ? 'text-hospital-primary' : 'text-hospital-danger'">
                     {{ fmt(treasury.balance) }} ج.م
                 </p>

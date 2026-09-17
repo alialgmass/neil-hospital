@@ -72,7 +72,7 @@ function dismissFlash() {
 
     <div class="mb-5">
         <h2 class="text-lg font-bold text-hospital-text">استيراد بيانات الوحدات</h2>
-        <p class="text-sm text-hospital-muted">تنزيل نموذج فارغ (قالب Excel) ثم رفع الملف المملوء للاستيراد.</p>
+        <p class="text-sm text-hospital-text-3">تنزيل نموذج فارغ (قالب Excel) ثم رفع الملف المملوء للاستيراد.</p>
     </div>
 
     <!-- Flash result -->
@@ -84,7 +84,7 @@ function dismissFlash() {
             <CheckCircle2 class="h-5 w-5 shrink-0 text-hospital-success" />
             <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold text-hospital-text">تم الاستيراد — {{ flashResult.module }}</p>
-                <p class="text-xs text-hospital-muted">
+                <p class="text-xs text-hospital-text-3">
                     إضافة: {{ flashResult.created }} · تعديل: {{ flashResult.updated }} · تخطي: {{ flashResult.skipped }}
                 </p>
             </div>
@@ -107,7 +107,7 @@ function dismissFlash() {
                 </div>
                 <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-semibold text-hospital-text">{{ mod.label }}</p>
-                    <p class="text-xs text-hospital-muted">{{ mod.hasImport ? 'قالب + استيراد' : 'قالب فقط' }} · {{ mod.enabled ? 'مفعلة' : 'معطلة' }}</p>
+                    <p class="text-xs text-hospital-text-3">{{ mod.hasImport ? 'قالب + استيراد' : 'قالب فقط' }} · {{ mod.enabled ? 'مفعلة' : 'معطلة' }}</p>
                 </div>
             </div>
 
@@ -132,7 +132,7 @@ function dismissFlash() {
     <!-- Import modal -->
     <Modal v-model="showImportModal" :title="`استيراد — ${selectedModule?.label ?? ''}`" @close="showImportModal = false">
         <form @submit.prevent="submitImport" class="flex flex-col gap-4">
-            <p class="text-sm text-hospital-muted">
+            <p class="text-sm text-hospital-text-3">
                 ارفع ملف Excel أو CSV يحتوي البيانات بالتنسيق المطابق للقالب.
             </p>
 

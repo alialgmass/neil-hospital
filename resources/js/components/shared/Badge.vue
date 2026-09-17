@@ -35,72 +35,72 @@ const variantConfig: Record<
     { classes: string; defaultLabel: string }
 > = {
     waiting: {
-        classes: 'bg-hospital-warning-pale text-hospital-warning',
+        classes: 'bg-hospital-warning text-white',
         defaultLabel: 'انتظار',
     },
     confirmed: {
-        classes: 'bg-hospital-primary-pale text-hospital-primary',
+        classes: 'bg-hospital-primary text-white',
         defaultLabel: 'مؤكد',
     },
     in_progress: {
-        classes: 'bg-hospital-accent-pale text-hospital-accent',
+        classes: 'bg-hospital-accent text-white',
         defaultLabel: 'جارٍ',
     },
     completed: {
-        classes: 'bg-hospital-success-pale text-hospital-success',
+        classes: 'bg-hospital-success text-white',
         defaultLabel: 'مكتمل',
     },
     completed_electronic: {
-        classes: 'bg-hospital-accent-pale text-hospital-accent',
+        classes: 'bg-hospital-accent text-white',
         defaultLabel: 'مكتمل - إلكتروني',
     },
     cancelled: {
-        classes: 'bg-hospital-danger-pale text-hospital-danger',
+        classes: 'bg-hospital-danger text-white',
         defaultLabel: 'ملغي',
     },
     paid: {
-        classes: 'bg-hospital-success-pale text-hospital-success',
+        classes: 'bg-hospital-success text-white',
         defaultLabel: 'مسدد',
     },
     partial: {
-        classes: 'bg-hospital-warning-pale text-hospital-warning',
+        classes: 'bg-hospital-warning text-white',
         defaultLabel: 'جزئي',
     },
     unpaid: {
-        classes: 'bg-hospital-danger-pale text-hospital-danger',
+        classes: 'bg-hospital-danger text-white',
         defaultLabel: 'غير مسدد',
     },
     active: {
-        classes: 'bg-hospital-success-pale text-hospital-success',
+        classes: 'bg-hospital-success text-white',
         defaultLabel: 'نشط',
     },
-    inactive: { classes: 'bg-gray-100 text-gray-500', defaultLabel: 'معطل' },
+    inactive: { classes: 'bg-hospital-text-3 text-white', defaultLabel: 'معطل' },
     draft: {
-        classes: 'bg-hospital-primary-pale/60 text-hospital-primary/80',
+        classes: 'bg-hospital-text-2 text-white',
         defaultLabel: 'مسودة',
     },
     info: {
-        classes: 'bg-hospital-primary-pale text-hospital-primary',
+        classes: 'bg-hospital-primary text-white',
         defaultLabel: 'معلومات',
     },
     danger: {
-        classes: 'bg-hospital-danger-pale text-hospital-danger',
+        classes: 'bg-hospital-danger text-white',
         defaultLabel: 'خطر',
     },
     warning: {
-        classes: 'bg-hospital-warning-pale text-hospital-warning',
+        classes: 'bg-hospital-warning text-white',
         defaultLabel: 'تحذير',
     },
     success: {
-        classes: 'bg-hospital-success-pale text-hospital-success',
+        classes: 'bg-hospital-success text-white',
         defaultLabel: 'ناجح',
     },
     scheduled: {
-        classes: 'bg-hospital-primary-pale text-hospital-primary',
+        classes: 'bg-hospital-primary text-white',
         defaultLabel: 'مجدول',
     },
     prep: {
-        classes: 'bg-hospital-warning-pale text-hospital-warning',
+        classes: 'bg-hospital-warning text-white',
         defaultLabel: 'تحضير',
     },
 };

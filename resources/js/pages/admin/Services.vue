@@ -162,7 +162,7 @@ function fmt(n: number) {
             <Badge :variant="(value as 'active' | 'inactive')" />
         </template>
         <template #cell-_actions="{ row }">
-            <button class="rounded p-1 text-hospital-muted hover:text-hospital-primary" @click="openEdit(row as Service)">
+            <button class="rounded p-1 text-hospital-text-3 hover:text-hospital-primary" @click="openEdit(row as Service)">
                 <Pencil class="h-4 w-4" />
             </button>
         </template>
@@ -206,7 +206,7 @@ function fmt(n: number) {
                     <input v-model.number="form.center_val" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
                 </div>
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium">حساب الإيراد <span class="text-xs text-hospital-muted">(اختياري — يُستخدم في القيود المحاسبية)</span></label>
+                    <label class="mb-1 block text-sm font-medium">حساب الإيراد <span class="text-xs text-hospital-text-3">(اختياري — يُستخدم في القيود المحاسبية)</span></label>
                     <select v-model="form.revenue_account_id" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
                         <option :value="null">— افتراضي حسب القسم —</option>
                         <option v-for="acc in revenueAccounts" :key="acc.id" :value="acc.id">

@@ -47,7 +47,7 @@ function submitHandover() {
     <div class="mb-5 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-bold text-hospital-text">تسليم الوردية</h2>
-            <p class="text-sm text-hospital-muted">
+            <p class="text-sm text-hospital-text-3">
                 {{ shift.doctor?.name }} — {{ shift.shift_date }}
             </p>
         </div>
@@ -60,7 +60,7 @@ function submitHandover() {
         </button>
         <span
             v-else
-            class="rounded-full bg-hospital-muted/20 px-3 py-1 text-sm text-hospital-muted"
+            class="rounded-full bg-hospital-muted/20 px-3 py-1 text-sm text-hospital-text-3"
         >
             تم التسليم
         </span>

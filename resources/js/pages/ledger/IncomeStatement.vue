@@ -72,12 +72,12 @@ function printPage() {
                 <tbody>
                     <tr v-for="row in statement.revenues" :key="row.code"
                         class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 font-mono text-hospital-muted">{{ row.code }}</td>
+                        <td class="px-4 py-2.5 font-mono text-hospital-text-3">{{ row.code }}</td>
                         <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-green-700">{{ fmt(row.balance) }}</td>
                     </tr>
                     <tr v-if="statement.revenues.length === 0">
-                        <td colspan="3" class="px-4 py-3 text-center text-hospital-muted">لا توجد إيرادات</td>
+                        <td colspan="3" class="px-4 py-3 text-center text-hospital-text-3">لا توجد إيرادات</td>
                     </tr>
                 </tbody>
                 <tfoot class="border-t border-green-200 bg-green-50 font-semibold">
@@ -98,12 +98,12 @@ function printPage() {
                 <tbody>
                     <tr v-for="row in statement.costOfServices" :key="row.code"
                         class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 font-mono text-hospital-muted">{{ row.code }}</td>
+                        <td class="px-4 py-2.5 font-mono text-hospital-text-3">{{ row.code }}</td>
                         <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-red-700">{{ fmt(row.balance) }}</td>
                     </tr>
                     <tr v-if="statement.costOfServices.length === 0">
-                        <td colspan="3" class="px-4 py-3 text-center text-hospital-muted">—</td>
+                        <td colspan="3" class="px-4 py-3 text-center text-hospital-text-3">—</td>
                     </tr>
                 </tbody>
                 <tfoot class="border-t border-red-200 bg-red-50 font-semibold">
@@ -132,12 +132,12 @@ function printPage() {
                 <tbody>
                     <tr v-for="row in statement.doctorFees" :key="row.code"
                         class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 font-mono text-hospital-muted">{{ row.code }}</td>
+                        <td class="px-4 py-2.5 font-mono text-hospital-text-3">{{ row.code }}</td>
                         <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-orange-700">{{ fmt(row.balance) }}</td>
                     </tr>
                     <tr v-if="statement.doctorFees.length === 0">
-                        <td colspan="3" class="px-4 py-3 text-center text-hospital-muted">—</td>
+                        <td colspan="3" class="px-4 py-3 text-center text-hospital-text-3">—</td>
                     </tr>
                 </tbody>
                 <tfoot class="border-t border-orange-200 bg-orange-50 font-semibold">
@@ -158,12 +158,12 @@ function printPage() {
                 <tbody>
                     <tr v-for="row in statement.operatingExpenses" :key="row.code"
                         class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
-                        <td class="px-4 py-2.5 font-mono text-hospital-muted">{{ row.code }}</td>
+                        <td class="px-4 py-2.5 font-mono text-hospital-text-3">{{ row.code }}</td>
                         <td class="px-4 py-2.5 text-hospital-text">{{ row.name }}</td>
                         <td class="px-4 py-2.5 text-left font-mono font-medium text-red-700">{{ fmt(row.balance) }}</td>
                     </tr>
                     <tr v-if="statement.operatingExpenses.length === 0">
-                        <td colspan="3" class="px-4 py-3 text-center text-hospital-muted">—</td>
+                        <td colspan="3" class="px-4 py-3 text-center text-hospital-text-3">—</td>
                     </tr>
                 </tbody>
                 <tfoot class="border-t border-red-200 bg-red-50 font-semibold">

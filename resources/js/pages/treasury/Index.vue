@@ -274,7 +274,7 @@ function printPage() {
     <!-- Filters + Actions -->
     <div class="mb-5 flex flex-wrap items-end gap-3">
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">من</label>
+            <label class="text-xs font-bold text-hospital-text-3">من</label>
             <input
                 v-model="fromFilter"
                 type="date"
@@ -283,7 +283,7 @@ function printPage() {
             />
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">إلى</label>
+            <label class="text-xs font-bold text-hospital-text-3">إلى</label>
             <input
                 v-model="toFilter"
                 type="date"
@@ -292,7 +292,7 @@ function printPage() {
             />
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">النوع</label>
+            <label class="text-xs font-bold text-hospital-text-3">النوع</label>
             <select
                 v-model="typeFilter"
                 class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
@@ -304,7 +304,7 @@ function printPage() {
             </select>
         </div>
         <div class="flex flex-col gap-1">
-            <label class="text-xs font-bold text-hospital-muted">المصدر</label>
+            <label class="text-xs font-bold text-hospital-text-3">المصدر</label>
             <select
                 v-model="sourceFilter"
                 class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
@@ -353,7 +353,7 @@ function printPage() {
             <p class="text-sm font-bold text-hospital-text">
                 كشف حركة الخزنة الرئيسية
             </p>
-            <p class="text-xs text-hospital-muted">{{ entries.total }} حركة</p>
+            <p class="text-xs text-hospital-text-3">{{ entries.total }} حركة</p>
         </div>
         <DataTable
             :columns="columns"

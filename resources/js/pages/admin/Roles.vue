@@ -159,7 +159,7 @@ function submitEdit() {
                     <Shield class="h-4 w-4 text-hospital-primary" />
                     <span class="font-semibold text-hospital-text">{{ roleLabels[role.name] ?? role.name }}</span>
                 </div>
-                <span class="text-xs text-hospital-muted">{{ role.permissions.length }} صلاحية</span>
+                <span class="text-xs text-hospital-text-3">{{ role.permissions.length }} صلاحية</span>
             </div>
 
             <!-- Permissions list -->
@@ -172,7 +172,7 @@ function submitEdit() {
                     >
                         {{ permissionLabels[perm.name] ?? perm.name }}
                     </span>
-                    <span v-if="role.permissions.length === 0" class="text-xs text-hospital-muted">لا توجد صلاحيات</span>
+                    <span v-if="role.permissions.length === 0" class="text-xs text-hospital-text-3">لا توجد صلاحيات</span>
                 </div>
                 <button
                     v-if="role.name !== 'admin'"
@@ -181,7 +181,7 @@ function submitEdit() {
                 >
                     تعديل الصلاحيات
                 </button>
-                <p v-else class="mt-3 text-center text-xs text-hospital-muted">صلاحيات كاملة — لا يمكن تعديلها</p>
+                <p v-else class="mt-3 text-center text-xs text-hospital-text-3">صلاحيات كاملة — لا يمكن تعديلها</p>
             </div>
         </div>
     </div>
