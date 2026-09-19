@@ -63,6 +63,8 @@ class CreateBookingAction
                 dept: $data->dept,
                 orBedId: $data->bedId,
                 surgeonId: $data->doctorId,
+                eye: $data->eyeSide,
+                procedure: $data->serviceName,
             ));
         }
 
