@@ -38,6 +38,18 @@ class SurgeryItemSearchTest extends TestCase
         $this->assertSame('عدسة داخل العين', $response->json('0.name'));
     }
 
+    public function test_finds_items_by_single_arabic_letter(): void
+    {
+        InventoryItem::create(['name' => 'عدسة داخل العين', 'quantity' => 10]);
+        InventoryItem::create(['name' => 'شاش طبي', 'quantity' => 10]);
+
+        $response = $this->actingAs($this->user)->getJson('/surgery/items/search?q='.urlencode('ع'));
+
+        $response->assertOk();
+        $this->assertCount(1, $response->json());
+        $this->assertSame('عدسة داخل العين', $response->json('0.name'));
+    }
+
     public function test_matches_regardless_of_ta_marbuta_ha_variant(): void
     {
         InventoryItem::create(['name' => 'إبرة تخدير', 'quantity' => 5]);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, Package, PlusCircle, ShoppingCart, TrendingDown } from 'lucide-vue-next';
+import { AlertTriangle, Edit2, Package, PlusCircle, ShoppingCart, TrendingDown } from 'lucide-vue-next';
 import { ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
@@ -76,7 +76,8 @@ function setTab(val: string) {
     applyFilters();
 }
 
-const showAdd = ref(false);
+const showModal = ref(false);
+const editingItem = ref<InventoryItem | null>(null);
 const form = useForm({
     name:         '',
     code:         '',
@@ -90,10 +91,41 @@ const form = useForm({
     expiry_date:  '',
     location:     '',
 });
+
+function openCreate() {
+    editingItem.value = null;
+    form.reset();
+    showModal.value = true;
+}
+
+function openEdit(item: InventoryItem) {
+    editingItem.value = item;
+    form.name         = item.name;
+    form.code         = item.code ?? '';
+    form.category     = item.category ?? '';
+    form.unit         = item.unit ?? '';
+    form.quantity     = Number(item.quantity);
+    form.min_quantity = Number(item.min_quantity);
+    form.unit_cost    = Number(item.unit_cost);
+    form.sell_price   = Number(item.sell_price);
+    form.supplier_id  = item.supplier?.id ?? '';
+    form.expiry_date  = item.expiry_date ?? '';
+    form.location     = item.location ?? '';
+    showModal.value = true;
+}
+
+function closeModal() {
+    showModal.value = false;
+    form.reset();
+    form.clearErrors();
+}
+
 function submit() {
-    form.post('/inventory', { onSuccess: () => {
- showAdd.value = false; form.reset(); 
-} });
+    if (editingItem.value) {
+        form.put(`/inventory/${editingItem.value.id}`, { onSuccess: closeModal });
+    } else {
+        form.post('/inventory', { onSuccess: closeModal });
+    }
 }
 
 function fmt(n: number) {
@@ -191,7 +223,7 @@ function exportExcel() {
                 templateUrl="/inventory/import-template"
                 importUrl="/inventory/import"
             />
-            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="showAdd = true">
+            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="openCreate">
                 <PlusCircle class="h-4 w-4" /> صنف جديد
             </button>
         </div>
@@ -227,11 +259,20 @@ function exportExcel() {
             <template #cell-unit_cost="{ value }">{{ fmt(Number(value)) }}</template>
             <template #cell-sell_price="{ value }">{{ fmt(Number(value)) }}</template>
             <template #cell-supplier="{ row }">{{ (row as InventoryItem).supplier?.name ?? '—' }}</template>
+            <template #actions="{ row }">
+                <button
+                    class="rounded p-1.5 text-t3 transition-colors hover:bg-hospital-primary-pale hover:text-p"
+                    title="تعديل"
+                    @click="openEdit(row as InventoryItem)"
+                >
+                    <Edit2 class="h-4 w-4" />
+                </button>
+            </template>
         </DataTable>
     </div>
 
-    <!-- Add Modal -->
-    <Modal v-model="showAdd" title="إضافة صنف جديد" size="lg">
+    <!-- Add / Edit Modal -->
+    <Modal v-model="showModal" :title="editingItem ? 'تعديل صنف' : 'إضافة صنف جديد'" size="lg" @close="closeModal">
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
@@ -258,10 +299,15 @@ function exportExcel() {
                         <option v-for="u in units" :key="u.value" :value="u.value">{{ u.label }}</option>
                     </select>
                 </div>
-                <div>
+                <div v-if="!editingItem">
                     <label class="form-label">الكمية الابتدائية</label>
                     <input v-model.number="form.quantity" type="number" min="0" class="input-field" placeholder="0" />
                     <p v-if="form.errors.quantity" class="form-error">{{ form.errors.quantity }}</p>
+                </div>
+                <div v-else>
+                    <label class="form-label">الكمية الحالية</label>
+                    <input :value="form.quantity" type="number" disabled class="input-field opacity-60" />
+                    <p class="mt-1 text-xs text-t3">تُعدَّل الكمية عبر الجرد أو أذون الإضافة/الصرف فقط.</p>
                 </div>
                 <div>
                     <label class="form-label">حد التنبيه (الأدنى)</label>
@@ -286,9 +332,9 @@ function exportExcel() {
                 </div>
             </div>
             <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
-                <button type="button" class="btn-secondary" @click="showAdd = false">إلغاء</button>
+                <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
                 <button type="submit" :disabled="form.processing" class="btn-primary">
-                    {{ form.processing ? 'جارٍ الحفظ...' : 'إضافة الصنف' }}
+                    {{ form.processing ? 'جارٍ الحفظ...' : editingItem ? 'حفظ التغييرات' : 'إضافة الصنف' }}
                 </button>
             </div>
         </form>
