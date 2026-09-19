@@ -631,7 +631,7 @@ if (props.prefill) {
         <div class="stat-card border-r-hospital-accent">
             <p class="stat-lbl">تكلفة المستلزمات</p>
             <p class="stat-val text-sm">
-                {{ supplyTotal.toLocaleString('ar-EG') }}
+                {{ supplyTotal.toLocaleString('en-US') }}
                 <span class="text-xs text-hospital-text-2">ج</span>
             </p>
         </div>
@@ -788,7 +788,7 @@ if (props.prefill) {
         </template>
         <template #cell-supply_total="{ value }">
             <span class="font-mono text-sm"
-                >{{ Number(value).toLocaleString('ar-EG') }} ج.م</span
+                >{{ Number(value).toLocaleString('en-US') }} ج.م</span
             >
         </template>
         <template #actions="{ row }">
@@ -1010,7 +1010,7 @@ if (props.prefill) {
                                                 >{{
                                                     Number(
                                                         item.unit_cost,
-                                                    ).toLocaleString('ar-EG')
+                                                    ).toLocaleString('en-US')
                                                 }}
                                                 ج/وحدة</span
                                             >
@@ -1072,7 +1072,7 @@ if (props.prefill) {
                                             {{
                                                 Number(
                                                     b.bundle_total,
-                                                ).toLocaleString('ar-EG')
+                                                ).toLocaleString('en-US')
                                             }}
                                             ج
                                         </span>
@@ -1154,7 +1154,7 @@ if (props.prefill) {
                                     {{
                                         (
                                             newSuppliesTotal + bundlesTotal
-                                        ).toLocaleString('ar-EG')
+                                        ).toLocaleString('en-US')
                                     }}
                                     ج
                                 </strong>
@@ -1199,7 +1199,7 @@ if (props.prefill) {
                                 {{
                                     Number(
                                         selectedCase.supply_total,
-                                    ).toLocaleString('ar-EG')
+                                    ).toLocaleString('en-US')
                                 }}
                                 ج
                             </span>
@@ -1242,7 +1242,7 @@ if (props.prefill) {
                                             {{
                                                 Number(
                                                     s.unit_cost,
-                                                ).toLocaleString('ar-EG')
+                                                ).toLocaleString('en-US')
                                             }}
                                             ج
                                         </td>
@@ -1268,7 +1268,7 @@ if (props.prefill) {
                                             {{
                                                 Number(
                                                     selectedCase.supply_total,
-                                                ).toLocaleString('ar-EG')
+                                                ).toLocaleString('en-US')
                                             }}
                                             ج
                                         </td>

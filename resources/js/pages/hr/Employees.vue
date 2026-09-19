@@ -132,7 +132,7 @@ function goToPage(page: number) {
 }
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 0 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0 });
 }
 
 // Add

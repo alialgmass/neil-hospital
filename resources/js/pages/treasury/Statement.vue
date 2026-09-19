@@ -34,10 +34,10 @@ function applyFilters() {
 }
 
 function fmt(n: number) {
-    return n > 0 ? n.toLocaleString('ar-EG', { minimumFractionDigits: 2 }) : '—';
+    return n > 0 ? n.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—';
 }
 function fmtBal(n: number) {
-    return n.toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 function printPage() {
     window.print();

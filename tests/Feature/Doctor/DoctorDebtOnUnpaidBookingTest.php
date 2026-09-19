@@ -52,7 +52,7 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
     public function test_creating_an_unpaid_cash_booking_adds_debt_on_the_doctor(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض بلا دفع', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض بلا دفع', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id,
             'price' => 1000, 'paid_amount' => 0,
@@ -63,10 +63,32 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
         $this->assertEquals(950.0, (float) $this->doctor->fresh()->doctor_debt_balance);
     }
 
+    /**
+     * Regression test: an insurance-fee-type doctor was still getting debt
+     * recorded on an unpaid cash booking, but DoctorClaimsService::
+     * computeShareForPayment() always returns 0 for them — so the debt could
+     * never be settled back no matter how much got paid later. It has to be
+     * excluded at the point debt is incurred, not just at settlement time.
+     */
+    public function test_insurance_fee_type_doctor_never_incurs_debt_even_on_an_unpaid_cash_booking(): void
+    {
+        $insuranceDoctor = Doctor::create(['name' => 'د. تأمين', 'fee_type' => 'insurance', 'fee_value' => 0]);
+
+        $this->actingAs($this->user)->post('/booking', [
+            'patient_name' => 'مريض بلا دفع', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
+            'service_id' => $this->service->id, 'service_name' => $this->service->name,
+            'doctor_id' => $insuranceDoctor->id,
+            'price' => 1000, 'paid_amount' => 0,
+            'pay_method' => 'cash', 'pay_status' => 'unpaid', 'status' => 'waiting',
+        ])->assertRedirect();
+
+        $this->assertEquals(0.0, (float) $insuranceDoctor->fresh()->doctor_debt_balance);
+    }
+
     public function test_fully_paid_booking_creates_no_debt(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض دافع', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض دافع', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id,
             'price' => 1000, 'paid_amount' => 1000,
@@ -80,7 +102,7 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
     {
         // Booking #1: unpaid → doctor owes 950.
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض 1', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض 1', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id,
             'price' => 1000, 'paid_amount' => 0,

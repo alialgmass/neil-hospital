@@ -19,19 +19,19 @@ defineProps<Props>();
         </div>
         <div class="inv-line">
             <span>السعر الأصلي</span
-            ><span>{{ Number(price).toLocaleString('ar-EG') }} ج</span>
+            ><span>{{ Number(price).toLocaleString('en-US') }} ج</span>
         </div>
         <div class="inv-line">
             <span>الخصم</span
-            ><span>{{ Number(discount).toLocaleString('ar-EG') }} ج</span>
+            ><span>{{ Number(discount).toLocaleString('en-US') }} ج</span>
         </div>
         <div v-if="isInsurance" class="inv-line">
             <span>مبلغ التأمين</span
-            ><span>{{ Number(insAmount).toLocaleString('ar-EG') }} ج</span>
+            ><span>{{ Number(insAmount).toLocaleString('en-US') }} ج</span>
         </div>
         <div class="inv-line font-bold">
             <span>💰 الإجمالي المستحق</span
-            ><span>{{ netAmount.toLocaleString('ar-EG') }} ج</span>
+            ><span>{{ netAmount.toLocaleString('en-US') }} ج</span>
         </div>
     </div>
 </template>

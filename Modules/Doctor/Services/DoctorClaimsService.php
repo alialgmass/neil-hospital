@@ -3,6 +3,7 @@
 namespace Modules\Doctor\Services;
 
 use App\Enums\Department;
+use App\Enums\EyeSide;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
@@ -21,11 +22,6 @@ class DoctorClaimsService
     public function calculateClaims(string $doctorId, ?string $from, ?string $to): array
     {
         $doctor = Doctor::findOrFail($doctorId);
-
-        // If insurance doctor → zero entitlement (paid directly)
-        if ($doctor->fee_type === FeeType::Insurance) {
-            return $this->buildClaimsResult($doctor, $from, $to, 0, []);
-        }
 
         $bookings = DB::table('bookings')
             ->where('doctor_id', $doctorId)
@@ -88,10 +84,6 @@ class DoctorClaimsService
      */
     public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
-        if ($doctor->fee_type === FeeType::Insurance) {
-            return 0.0;
-        }
-
         // Pentacam never generates a doctor fee, regardless of fee configuration.
         if ($booking->dept === Department::Pentacam) {
             return 0.0;
@@ -121,7 +113,7 @@ class DoctorClaimsService
 
         if (in_array($dept, ['surgery', 'lasik'], true)) {
             if ($booking->pay_method === PayMethod::Insurance) {
-                return $isFirstPayment ? $this->insuranceSurgeryFixedFee($booking) : 0.0;
+                return $isFirstPayment ? $this->insuranceSurgeryFixedFee($doctor, $booking) : 0.0;
             }
 
             return $this->surgeryShareForPayment($booking, $netAmount, $isFirstPayment);
@@ -132,7 +124,7 @@ class DoctorClaimsService
         // percentage/fixed fee of their own. Deducted on the first payment
         // only, mirroring the surgery/lasik supply deduction above.
         if ($dept === Department::Laser->value) {
-            $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id);
+            $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id, $booking->eye_side);
 
             if ($fixedRevenue !== null) {
                 return $isFirstPayment ? max(0, round($netAmount - $fixedRevenue, 2)) : max(0, $netAmount);
@@ -200,32 +192,80 @@ class DoctorClaimsService
     }
 
     /**
-     * A Laser service's fixed hospital-revenue cut, when the admin has
-     * configured the service's center as a flat amount rather than a
-     * percentage. Returns null when the service isn't configured this way,
-     * so callers fall back to the doctor's own fee_type/fee_value.
+     * The hospital's cut of a Laser service — deducted from the (already
+     * dev-fee-netted) paid amount, the doctor keeps the remainder. Two
+     * configurations, checked in order:
+     *
+     * 1. Eye-priced service, booking has a recorded eye side: the cut is the
+     *    service's price for that side (one_eye_price / both_eyes_price) —
+     *    the patient is expected to pay above this floor; the doctor's share
+     *    is whatever they paid beyond it (0 if they paid exactly the floor).
+     *    Gated on the booking actually carrying an eye side so this never
+     *    fires for bookings that predate eye tracking — a migration
+     *    backfilled one_eye_price = price on every existing service, so
+     *    without this gate every legacy fixed-center booking would wrongly
+     *    match here too and its doctor share would silently zero out.
+     * 2. Legacy fixed-center service (center_type = 'fixed'): the cut is the
+     *    flat center_val, regardless of eye side.
+     *
+     * Returns null when neither applies, so callers fall back to the
+     * doctor's own fee_type/fee_value.
      */
-    private function resolveLaserFixedRevenue(?string $serviceId): ?float
+    private function resolveLaserFixedRevenue(?string $serviceId, EyeSide|string|null $eyeSide = null): ?float
     {
         if ($serviceId === null) {
             return null;
         }
 
-        $service = DB::table('services')->where('id', $serviceId)->first(['center_type', 'center_val']);
+        $service = DB::table('services')->where('id', $serviceId)
+            ->first(['center_type', 'center_val', 'one_eye_price', 'both_eyes_price']);
 
-        if (! $service || $service->center_type !== 'fixed') {
+        if (! $service) {
+            return null;
+        }
+
+        if ($eyeSide !== null) {
+            $eyeSideValue = $eyeSide instanceof EyeSide ? $eyeSide->value : $eyeSide;
+            $eyePrice = $eyeSideValue === EyeSide::OU->value ? $service->both_eyes_price : $service->one_eye_price;
+
+            if ($eyePrice !== null) {
+                return (float) $eyePrice;
+            }
+        }
+
+        if ($service->center_type !== 'fixed') {
             return null;
         }
 
         return (float) $service->center_val;
     }
 
-    private function insuranceSurgeryFixedFee(Booking $booking): float
+    /**
+     * The doctor's fixed fee for an insurance surgery/lasik booking: their
+     * own per-service rate (doctor_service.fee), falling back to the
+     * service's default_dr_fee. Never derived from the service's
+     * price/center split — see resolveDoctorFixedFee() and
+     * SyncDoctorEntitlementAction::resolveFee(), the same rule applied
+     * to the newer entitlement-based accrual path.
+     */
+    private function insuranceSurgeryFixedFee(Doctor $doctor, Booking $booking): float
     {
-        return (float) DB::table('services')
-            ->where('name', $booking->service_name)
-            ->where('dept', $booking->dept->value)
-            ->value('dr_share') ?? 0.0;
+        return $this->resolveDoctorFixedFee($doctor, $booking->service_id);
+    }
+
+    private function resolveDoctorFixedFee(Doctor $doctor, ?string $serviceId): float
+    {
+        if ($serviceId === null) {
+            return 0.0;
+        }
+
+        $pivotFee = $doctor->feeForService($serviceId);
+
+        if ($pivotFee !== null) {
+            return $pivotFee;
+        }
+
+        return (float) (Service::whereKey($serviceId)->value('default_dr_fee') ?? 0);
     }
 
     public function computeDrShare(Doctor $doctor, object $booking): float
@@ -237,6 +277,9 @@ class DoctorClaimsService
             return 0.0;
         }
 
+        // booking->price is the authoritative base, not the service's list
+        // price: a patient discount must come out of the doctor's own share,
+        // never out of the hospital's fixed cut (see LaserFixedHospitalRevenueTest).
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
 
@@ -256,16 +299,17 @@ class DoctorClaimsService
         }
 
         return match (true) {
-            // Insurance surgery: dr_share = fixed fee from service definition (stored as center_val)
-            $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik']) => $this->computeInsuranceSurgeryShare($booking),
+            // Insurance surgery: dr_share = the doctor's fixed fee (Doctors module — see resolveDoctorFixedFee())
+            $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik']) => $this->computeInsuranceSurgeryShare($doctor, $booking),
 
             // Surgery/Lasik: dr_share = net paid − supply_total
             in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $netPaid),
 
             // Clinic, Labs, Laser: dr_share = f(net paid) per doctor fee_type
-            // (Laser falls back to a fixed-hospital-revenue split when the
-            // service is configured that way — see resolveLaserFixedRevenue()).
-            default => $this->computeServiceShare($doctor, $netPaid, $insAmount, $dept, $booking->service_id ?? null),
+            // (Laser falls back to an eye-priced or fixed-hospital-revenue
+            // split when the service is configured that way — see
+            // resolveLaserFixedRevenue()).
+            default => $this->computeServiceShare($doctor, $netPaid, $insAmount, $dept, $booking->service_id ?? null, $booking->eye_side ?? null),
         };
     }
 
@@ -293,33 +337,30 @@ class DoctorClaimsService
     }
 
     /**
-     * Insurance surgery strategy: triple formula.
-     * Center = total − supplies − doctor fee
-     * Doctor fee = fixed amount from service definition.
+     * Insurance surgery strategy: dr_share = the doctor's fixed fee — their
+     * own per-service rate (Doctors module), never derived from the
+     * service's price/center split. See resolveDoctorFixedFee().
      */
-    private function computeInsuranceSurgeryShare(object $booking): float
+    private function computeInsuranceSurgeryShare(Doctor $doctor, object $booking): float
     {
-        $total = (float) $booking->paid_amount + (float) $booking->ins_amount;
-        $supplyTotal = (float) DB::table('surgeries')
-            ->where('booking_id', $booking->id)
-            ->value('supply_total') ?? 0.0;
-
-        $drFixedFee = (float) DB::table('services')
-            ->where('name', $booking->service_name)
-            ->where('dept', $booking->dept)
-            ->value('dr_share') ?? 0.0;
-
-        return $drFixedFee;
+        return $this->resolveDoctorFixedFee($doctor, $booking->service_id ?? null);
     }
 
     /**
      * Clinic/Labs/Laser strategy: dr_share = paid − center_share.
      * center_share derived from service definition (pct or fixed).
+     *
+     * Laser is special-cased first, mirroring computeShareForPayment(): the
+     * doctor gets whatever remains of the (already dev-fee-netted) paid
+     * amount after the hospital's cut — the service's one-eye/both-eyes
+     * price for the booked side, or its legacy fixed center_val — not a
+     * percentage/fixed fee of their own. Falls through to the normal doctor
+     * fee_type strategies when the service has neither configured.
      */
-    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount, ?string $dept = null, ?string $serviceId = null): float
+    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount, ?string $dept = null, ?string $serviceId = null, EyeSide|string|null $eyeSide = null): float
     {
         if ($dept === Department::Laser->value) {
-            $fixedRevenue = $this->resolveLaserFixedRevenue($serviceId);
+            $fixedRevenue = $this->resolveLaserFixedRevenue($serviceId, $eyeSide);
 
             if ($fixedRevenue !== null) {
                 return max(0, round($paid - $fixedRevenue, 2));

@@ -13,6 +13,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Services\BookingService;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
+use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
@@ -101,12 +102,24 @@ class CreateBookingAction
      *
      * Insurance/contract bookings are excluded: those are already settled
      * through SyncDoctorEntitlementAction regardless of patient payment.
+     *
+     * An insurance-fee-type doctor is also excluded, even on a cash booking:
+     * DoctorClaimsService::computeShareForPayment() always returns 0 for
+     * them (they're settled entirely outside the cash system), so any debt
+     * incurred here could never be settled back — it would sit on their
+     * balance permanently no matter how much gets paid later.
      */
     private function recordDoctorDebtIfUnpaid(Booking $booking): void
     {
         if ((float) $booking->paid_amount > 0
             || $booking->pay_method !== PayMethod::Cash
             || ! $booking->doctor_id) {
+            return;
+        }
+
+        $doctor = Doctor::whereKey($booking->doctor_id)->first();
+
+        if (! $doctor || $doctor->fee_type === FeeType::Insurance) {
             return;
         }
 
@@ -117,7 +130,7 @@ class CreateBookingAction
         $debt = max(0, (float) $booking->price - $devFee);
 
         if ($debt > 0) {
-            Doctor::whereKey($booking->doctor_id)->first()?->incurDebt($debt);
+            $doctor->incurDebt($debt);
         }
     }
 }

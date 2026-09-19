@@ -76,6 +76,7 @@ class UpdateBookingRequest extends FormRequest
             'visit_note.max' => 'الملاحظات يجب ألا تتجاوز 2000 حرف.',
             'bed_id.required_if' => 'رقم السرير مطلوب لأقسام العمليات والليزك.',
             'bed_id.exists' => 'السرير المحدد غير موجود.',
+            'eye_side.required' => 'يجب تحديد جانب العين.',
             'eye_side.in' => 'جانب العين غير صالح.',
             'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',
@@ -141,7 +142,7 @@ class UpdateBookingRequest extends FormRequest
                     }
                 },
             ],
-            'eye_side' => ['nullable', 'in:OD,OS,OU'],
+            'eye_side' => ['required', 'in:OD,OS,OU'],
             'analysis_type' => ['nullable', 'string', 'max:150'],
             'analysis_notes' => ['nullable', 'string', 'max:500'],
         ];

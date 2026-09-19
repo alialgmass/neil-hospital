@@ -43,6 +43,12 @@ class MedicalServiceService
         Service::where('id', $id)->update(['status' => $status]);
     }
 
+    /**
+     * Splits the configured price into the hospital's center cut only — the
+     * doctor's fee is never derived from the service price/center split.
+     * It comes exclusively from the Doctors module (per-doctor per-service
+     * fee, falling back to the service's default_dr_fee).
+     */
     private function calculateShares(array $data): array
     {
         $price = (float) ($data['price'] ?? 0);
@@ -55,7 +61,6 @@ class MedicalServiceService
 
         $data['center_share'] = $centerShare;
         $data['center_type'] = $type;
-        $data['dr_share'] = round($price - $centerShare, 2);
 
         return $data;
     }

@@ -108,7 +108,7 @@ const revenueToday   = computed(() =>
         </div>
         <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
             <p class="text-xs font-medium text-orange-600">إيراد الفحوصات (ج)</p>
-            <p class="text-2xl font-bold text-orange-700">{{ revenueToday.toLocaleString('ar-EG') }}</p>
+            <p class="text-2xl font-bold text-orange-700">{{ revenueToday.toLocaleString('en-US') }}</p>
             <p class="text-xs text-orange-500">↑ اليوم</p>
         </div>
     </div>

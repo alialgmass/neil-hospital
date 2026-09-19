@@ -66,6 +66,7 @@ class BookingKinshipDegreeTest extends TestCase
         return array_merge([
             'patient_name' => 'محمد علي',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'price' => 150,
             'discount' => 0,

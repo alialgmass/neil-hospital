@@ -312,7 +312,7 @@ function close() {
                         <span
                             class="w-24 text-left font-semibold text-purple-700"
                             >{{
-                                Number(b.bundle_total).toLocaleString('ar-EG')
+                                Number(b.bundle_total).toLocaleString('en-US')
                             }}
                             ج</span
                         >
@@ -372,7 +372,7 @@ function close() {
                 <span
                     class="col-span-1 text-center text-xs font-semibold text-hospital-text-2"
                 >
-                    {{ (item.qty * item.unit_cost).toLocaleString('ar-EG') }}
+                    {{ (item.qty * item.unit_cost).toLocaleString('en-US') }}
                 </span>
 
                 <button
@@ -396,7 +396,7 @@ function close() {
                 class="flex items-center justify-between border-t border-hospital-border pt-3"
             >
                 <span class="text-sm font-bold text-hospital-text">
-                    الإجمالي: {{ total.toLocaleString('ar-EG') }} ج.م
+                    الإجمالي: {{ total.toLocaleString('en-US') }} ج.م
                 </span>
                 <div class="flex gap-2">
                     <button

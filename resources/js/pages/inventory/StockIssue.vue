@@ -79,7 +79,7 @@ function formatTime(dateStr: string): string {
 }
 
 function formatMoney(val: number): string {
-    return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const allDeptOptions = [

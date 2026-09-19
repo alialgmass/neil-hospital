@@ -347,7 +347,7 @@ function goToPage(page: number) {
                     <td class="px-4 py-3 text-hospital-text-2" dir="ltr">{{ record.patient_phone ?? '—' }}</td>
                     <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor?.name ?? '—' }}</td>
                     <td class="px-4 py-3 text-hospital-text-2">{{ record.visit_date }}</td>
-                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('ar-EG') }} ج</td>
+                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('en-US') }} ج</td>
                     <td class="px-4 py-3">
                         <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="payStatusColors[record.pay_status] ?? 'bg-gray-500 text-white'">
                             {{ payStatusLabels[record.pay_status] ?? record.pay_status }}

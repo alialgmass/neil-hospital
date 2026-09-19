@@ -130,7 +130,7 @@ const hospitalName = usePage().props.settings.hospital_name;
                 <tr class="border-b border-gray-100">
                     <td class="p-2">السعر الأصلي</td>
                     <td class="p-2 text-left font-medium">
-                        {{ Number(booking.price).toLocaleString('ar-EG') }}
+                        {{ Number(booking.price).toLocaleString('en-US') }}
                     </td>
                 </tr>
                 <tr
@@ -139,7 +139,7 @@ const hospitalName = usePage().props.settings.hospital_name;
                 >
                     <td class="p-2">خصم</td>
                     <td class="p-2 text-left">
-                        — {{ Number(booking.discount).toLocaleString('ar-EG') }}
+                        — {{ Number(booking.discount).toLocaleString('en-US') }}
                     </td>
                 </tr>
                 <tr
@@ -149,7 +149,7 @@ const hospitalName = usePage().props.settings.hospital_name;
                     <td class="p-2">تأمين</td>
                     <td class="p-2 text-left">
                         —
-                        {{ Number(booking.ins_amount).toLocaleString('ar-EG') }}
+                        {{ Number(booking.ins_amount).toLocaleString('en-US') }}
                     </td>
                 </tr>
                 <tr
@@ -158,14 +158,14 @@ const hospitalName = usePage().props.settings.hospital_name;
                     <td class="p-2">المبلغ المدفوع</td>
                     <td class="p-2 text-left text-hospital-primary">
                         {{
-                            Number(booking.paid_amount).toLocaleString('ar-EG')
+                            Number(booking.paid_amount).toLocaleString('en-US')
                         }}
                     </td>
                 </tr>
                 <tr v-if="remaining > 0" class="text-hospital-danger">
                     <td class="p-2">المتبقي</td>
                     <td class="p-2 text-left">
-                        {{ remaining.toLocaleString('ar-EG') }}
+                        {{ remaining.toLocaleString('en-US') }}
                     </td>
                 </tr>
             </tbody>

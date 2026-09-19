@@ -51,7 +51,7 @@ const availableDeptLabels = computed(() => {
 });
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG');
+    return Number(n).toLocaleString('en-US');
 }
 
 const deptFiltered = computed(() => {

@@ -216,7 +216,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                     <span>
                         <strong>المستلزمات:</strong>
                         {{
-                            Number(surgery.supply_total).toLocaleString('ar-EG')
+                            Number(surgery.supply_total).toLocaleString('en-US')
                         }}
                         ج
                     </span>
@@ -362,7 +362,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     {{
                                         Number(
                                             surgery.supply_total,
-                                        ).toLocaleString('ar-EG')
+                                        ).toLocaleString('en-US')
                                     }}
                                     ج
                                 </span>
@@ -398,7 +398,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                                 {{
                                                     Number(
                                                         s.unit_cost,
-                                                    ).toLocaleString('ar-EG')
+                                                    ).toLocaleString('en-US')
                                                 }}
                                                 ج
                                             </td>
@@ -406,7 +406,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                                 {{
                                                     Number(
                                                         s.total,
-                                                    ).toLocaleString('ar-EG')
+                                                    ).toLocaleString('en-US')
                                                 }}
                                                 ج
                                             </td>
@@ -426,7 +426,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                                 {{
                                                     Number(
                                                         surgery.supply_total,
-                                                    ).toLocaleString('ar-EG')
+                                                    ).toLocaleString('en-US')
                                                 }}
                                                 ج
                                             </td>

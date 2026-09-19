@@ -46,6 +46,7 @@ class ContractDealTypeTest extends TestCase
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'محمد علي',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-05-01',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
@@ -67,6 +68,7 @@ class ContractDealTypeTest extends TestCase
             'file_no' => 'MRN-CT-1',
             'patient_name' => 'سعاد حسن',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
             'visit_date' => '2026-05-01',
@@ -83,6 +85,7 @@ class ContractDealTypeTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-05-01',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,

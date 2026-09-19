@@ -55,7 +55,7 @@ const paidCount = computed(() => visibleRows.value.filter((r) => r.pay_status ==
 const pendingCount = computed(() => visibleRows.value.filter((r) => r.pay_status !== 'paid').length);
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 function search() {

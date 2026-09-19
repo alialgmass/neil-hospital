@@ -93,7 +93,7 @@ function goToPage(page: number) {
             </div>
             <div>
                 <p class="text-xs font-medium text-teal-600">إيراد العيادة (ج)</p>
-                <p class="text-2xl font-bold text-teal-700">{{ revenueToday.toLocaleString('ar-EG') }}</p>
+                <p class="text-2xl font-bold text-teal-700">{{ revenueToday.toLocaleString('en-US') }}</p>
             </div>
         </div>
     </div>

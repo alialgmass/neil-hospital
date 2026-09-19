@@ -180,7 +180,7 @@ function doDelete() {
 const pageTotal = computed(() => props.entries.data.reduce((s, e) => s + Number(e.amount), 0));
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 </script>
 

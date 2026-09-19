@@ -54,8 +54,11 @@ class ServiceDefaultDrFeeTest extends TestCase
 
         $service = Service::where('name', 'ليزك')->firstOrFail();
         $this->assertEquals(1200.0, (float) $service->default_dr_fee);
-        // dr_share is still the derived price-portion, untouched by the new field
-        $this->assertEquals(5600.0, (float) $service->dr_share);
+        // center_share is still the derived price-portion; dr_share is no
+        // longer auto-computed from price at all — the doctor's fee comes
+        // exclusively from the Doctors module (per-doctor fee / default_dr_fee).
+        $this->assertEquals(2400.0, (float) $service->center_share);
+        $this->assertEquals(0.0, (float) $service->dr_share);
     }
 
     public function test_a_negative_default_doctor_fee_is_rejected(): void

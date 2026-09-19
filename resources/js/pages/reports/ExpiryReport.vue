@@ -50,7 +50,7 @@ function search() {
 }
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 const statusInfo: Record<string, { label: string; class: string }> = {

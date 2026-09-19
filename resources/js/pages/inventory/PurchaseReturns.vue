@@ -91,7 +91,7 @@ const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Numb
                 <div class="h-10 w-10 rounded-lg bg-orange-600 text-white flex items-center justify-center text-lg font-bold">ج</div>
                 <div>
                     <p class="text-xs font-medium text-orange-600">قيمة المردودات</p>
-                    <p class="text-2xl font-bold text-orange-700">{{ totalValue.toLocaleString('ar-EG') }}</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ totalValue.toLocaleString('en-US') }}</p>
                     <p class="text-xs text-orange-500">جنيه</p>
                 </div>
             </div>

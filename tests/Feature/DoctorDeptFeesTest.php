@@ -122,11 +122,15 @@ class DoctorDeptFeesTest extends TestCase
         // Regression test: an unreachable match arm in computeDrShare() meant
         // insurance-paid surgery/lasik bookings were always treated as
         // ordinary surgery cases (paid − supply_total) instead of using the
-        // fixed dr_share defined on the service.
+        // doctor's fixed fee for the service — now sourced exclusively from
+        // the Doctors module (doctor_service pivot fee, falling back to the
+        // service's default_dr_fee), never from the service's price/center
+        // split (see DoctorClaimsService::resolveDoctorFixedFee()).
         $doctor = Doctor::create(['name' => 'د. جراح تأمين', 'fee_type' => 'percentage', 'fee_value' => 50]);
 
+        $serviceId = Str::ulid()->toString();
         DB::table('services')->insert([
-            'id' => Str::ulid()->toString(),
+            'id' => $serviceId,
             'name' => 'استئصال المياه البيضاء',
             'dept' => 'surgery',
             'price' => 2000,
@@ -134,7 +138,7 @@ class DoctorDeptFeesTest extends TestCase
             'center_type' => 'fixed',
             'center_val' => 500,
             'center_share' => 500,
-            'dr_share' => 800,
+            'default_dr_fee' => 800,
             'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
@@ -147,6 +151,7 @@ class DoctorDeptFeesTest extends TestCase
             'patient_name' => 'مريض تأمين',
             'file_no' => 'T003',
             'dept' => 'surgery',
+            'service_id' => $serviceId,
             'service_name' => 'استئصال المياه البيضاء',
             'pay_method' => 'insurance',
             'price' => 2000,
@@ -171,7 +176,55 @@ class DoctorDeptFeesTest extends TestCase
         $service = app(DoctorClaimsService::class);
         $result = $service->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
 
-        // Fixed dr_share (800) from the service definition, not paid(0) − supply_total(1500).
+        // Fixed default_dr_fee (800) from the Doctors module, not paid(0) − supply_total(1500).
         $this->assertEquals(800.0, $result['total_claims']);
+    }
+
+    public function test_insurance_paid_surgery_prefers_the_doctors_own_per_service_fee_over_the_default(): void
+    {
+        $doctor = Doctor::create(['name' => 'د. جراح خاص', 'fee_type' => 'percentage', 'fee_value' => 50]);
+
+        $serviceId = Str::ulid()->toString();
+        DB::table('services')->insert([
+            'id' => $serviceId,
+            'name' => 'استئصال المياه البيضاء',
+            'dept' => 'surgery',
+            'price' => 2000,
+            'ins_price' => 2000,
+            'center_type' => 'fixed',
+            'center_val' => 500,
+            'center_share' => 500,
+            'default_dr_fee' => 800,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // The doctor's own per-service rate overrides the service's default.
+        $doctor->syncServiceFees([['service_id' => $serviceId, 'fee' => 950]]);
+
+        $bookingId = Str::ulid()->toString();
+        DB::table('bookings')->insert([
+            'id' => $bookingId,
+            'doctor_id' => $doctor->id,
+            'patient_name' => 'مريض تأمين',
+            'file_no' => 'T004',
+            'dept' => 'surgery',
+            'service_id' => $serviceId,
+            'service_name' => 'استئصال المياه البيضاء',
+            'pay_method' => 'insurance',
+            'price' => 2000,
+            'paid_amount' => 0,
+            'ins_amount' => 2000,
+            'pay_status' => 'paid',
+            'visit_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
+
+        $this->assertEquals(950.0, $result['total_claims']);
     }
 }

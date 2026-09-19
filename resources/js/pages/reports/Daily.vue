@@ -47,7 +47,7 @@ const totalRevenue = computed(() => deptRows.visibleRows.value.reduce((s, r) => 
 const totalCases   = computed(() => deptRows.visibleRows.value.reduce((s, r) => s + Number(r.cases), 0));
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG');
+    return Number(n).toLocaleString('en-US');
 }
 </script>
 

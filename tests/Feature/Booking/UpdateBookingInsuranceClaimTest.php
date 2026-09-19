@@ -41,6 +41,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
             'file_no' => 'MRN-002',
             'patient_name' => 'أحمد سمير',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
             'visit_date' => '2026-04-20',
@@ -65,6 +66,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
         $response = $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
@@ -117,6 +119,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
@@ -164,6 +167,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
@@ -215,6 +219,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,
@@ -241,6 +246,7 @@ class UpdateBookingInsuranceClaimTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name,
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'ins_company_id' => $company->id,
             'price' => 500,

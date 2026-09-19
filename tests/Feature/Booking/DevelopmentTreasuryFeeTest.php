@@ -97,7 +97,7 @@ class DevelopmentTreasuryFeeTest extends TestCase
     public function test_creating_an_already_paid_cash_booking_also_posts_the_dev_fee(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'price' => 300, 'paid_amount' => 300,
             'pay_method' => 'cash', 'pay_status' => 'paid', 'status' => 'waiting',

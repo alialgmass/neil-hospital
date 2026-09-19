@@ -274,14 +274,14 @@ const eyeLabel: Record<string, string> = {
         <div class="stat-card" style="border-right-color: #0a4fa6">
             <p class="stat-lbl">إيراد الليزك اليوم</p>
             <p class="stat-val text-sm">
-                {{ revenue.toLocaleString('ar-EG') }}
+                {{ revenue.toLocaleString('en-US') }}
             </p>
             <p class="stat-sub">جنيه</p>
         </div>
         <div class="stat-card" style="border-right-color: #00b5a4">
             <p class="stat-lbl">مستلزمات مستخدمة</p>
             <p class="stat-val text-sm">
-                {{ supplyTotal.toLocaleString('ar-EG') }}
+                {{ supplyTotal.toLocaleString('en-US') }}
             </p>
         </div>
     </div>
@@ -365,7 +365,7 @@ const eyeLabel: Record<string, string> = {
             </template>
             <template #cell-supply_total="{ value }">
                 <span class="font-mono text-sm"
-                    >{{ Number(value).toLocaleString('ar-EG') }} ج.م</span
+                    >{{ Number(value).toLocaleString('en-US') }} ج.م</span
                 >
             </template>
             <template #actions="{ row }">

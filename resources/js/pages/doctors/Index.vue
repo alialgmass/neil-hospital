@@ -295,7 +295,7 @@ const feeTypeLabels: Record<string, string> = {
         <template #cell-fee_type="{ value }">{{ feeTypeLabels[value as string] ?? value }}</template>
         <template #cell-fee_value="{ value, row }">
             <span v-if="(row as Doctor).fee_type === 'percentage'">{{ value }}%</span>
-            <span v-else-if="(row as Doctor).fee_type === 'fixed'" class="font-mono">{{ Number(value).toLocaleString('ar-EG') }} ج.م</span>
+            <span v-else-if="(row as Doctor).fee_type === 'fixed'" class="font-mono">{{ Number(value).toLocaleString('en-US') }} ج.م</span>
             <span v-else class="text-hospital-text-2">—</span>
         </template>
         <template #cell-is_active="{ value }">

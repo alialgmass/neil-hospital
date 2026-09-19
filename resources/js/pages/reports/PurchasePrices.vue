@@ -35,7 +35,7 @@ const avgPrice = computed(() =>
 const totalQty = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.total_qty), 0));
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 function search() {

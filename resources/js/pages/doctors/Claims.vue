@@ -242,7 +242,7 @@ const feeTypeLabel: Record<string, string> = {
 
 function fmt(n: number) {
     return (
-        Number(n ?? 0).toLocaleString('ar-EG', { minimumFractionDigits: 2 }) +
+        Number(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) +
         ' ج.م'
     );
 }

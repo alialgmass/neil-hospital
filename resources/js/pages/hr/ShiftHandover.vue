@@ -55,7 +55,7 @@ function accept(id: string) {
     router.post(`/shift-handovers/${id}/accept`, {}, { preserveState: true })
 }
 
-function fmt(n: number) { return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 }) }
+function fmt(n: number) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) }
 
 // Add Modal
 const showAdd = ref(false)

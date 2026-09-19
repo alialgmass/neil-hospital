@@ -52,6 +52,7 @@ class EditCompletedBookingPermissionTest extends TestCase
             'file_no' => 'MRN-001',
             'patient_name' => 'محمد علي',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'price' => 150.00,
             'discount' => 0.00,
@@ -69,6 +70,7 @@ class EditCompletedBookingPermissionTest extends TestCase
         return array_merge([
             'patient_name' => 'اسم محدث',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'price' => 150,
             'discount' => 0,

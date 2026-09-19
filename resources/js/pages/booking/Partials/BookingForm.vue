@@ -339,7 +339,7 @@ function submit() {
                     <span class="bk-title bk-title-green">{{ deptExtraTitle }}</span>
                     <div class="bk-grid-2">
                         <div :class="showBeds && orRooms.length ? 'col-span-2' : ''">
-                            <EyeSideSelector v-model="form.eye_side" />
+                            <EyeSideSelector v-model="form.eye_side" :error="form.errors.eye_side" />
                         </div>
                         <div v-if="showBeds" :class="orRooms.length ? 'col-span-2' : ''">
                             <BedPicker

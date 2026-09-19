@@ -22,7 +22,7 @@ const props = defineProps<{
 }>();
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 const showHandover = ref(false);

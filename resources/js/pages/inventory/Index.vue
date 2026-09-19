@@ -129,7 +129,7 @@ function submit() {
 }
 
 function fmt(n: number) {
- return Number(n).toLocaleString('ar-EG') + ' ج.م'; 
+ return Number(n).toLocaleString('en-US') + ' ج.م'; 
 }
 
 function exportExcel() {
@@ -172,7 +172,7 @@ function exportExcel() {
             </div>
             <div>
                 <p class="text-[10px] font-bold text-t2 uppercase tracking-wider">قيمة المخزون</p>
-                <p class="text-xl font-bold text-s">{{ totalValue.toLocaleString('ar-EG', { maximumFractionDigits: 0 }) }}</p>
+                <p class="text-xl font-bold text-s">{{ totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</p>
             </div>
         </div>
         <div class="flex items-center gap-3 rounded-[var(--rl)] border border-br bg-sf p-4 shadow-[var(--sh)]">

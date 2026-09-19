@@ -41,6 +41,7 @@ class StoreBookingInsuranceClaimTest extends TestCase
         return array_merge([
             'patient_name' => 'أحمد سمير',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'service_id' => $this->service->id,
             'service_name' => $this->service->name,

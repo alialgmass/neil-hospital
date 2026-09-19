@@ -42,7 +42,7 @@ const totalIns = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.
 const deptCount = computed(() => new Set(visibleRows.value.map((r) => r.dept)).size);
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 function search() {

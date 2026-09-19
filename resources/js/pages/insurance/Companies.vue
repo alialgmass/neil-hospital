@@ -200,7 +200,7 @@ const tabs = [
             <StatCard
                 label="إجمالي المطالبات"
                 :value="
-                    stats.monthly_claims_total.toLocaleString('ar-EG') + ' ج'
+                    stats.monthly_claims_total.toLocaleString('en-US') + ' ج'
                 "
                 :icon="TrendingUp"
                 color="warning"

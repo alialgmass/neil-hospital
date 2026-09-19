@@ -131,7 +131,7 @@ const selectableDeptLabels = computed(() => {
 });
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG') + ' ج.م';
+    return Number(n).toLocaleString('en-US') + ' ج.م';
 }
 </script>
 

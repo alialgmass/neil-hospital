@@ -44,7 +44,7 @@ class DoctorClaimsEntitlementTest extends TestCase
     private function book(string $payMethod, float $price): Booking
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => $price,
             'pay_method' => $payMethod, 'pay_status' => 'unpaid', 'status' => 'waiting',

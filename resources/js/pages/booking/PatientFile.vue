@@ -269,7 +269,7 @@ function remainingAmount(b: Booking): number {
 }
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 function fmtDate(d: string) {
     return new Date(d).toLocaleDateString('ar-EG', {

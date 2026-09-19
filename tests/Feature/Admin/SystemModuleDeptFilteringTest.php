@@ -132,6 +132,7 @@ class SystemModuleDeptFilteringTest extends TestCase
         $response = $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض جديد',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => today()->toDateString(),
             'pay_method' => 'cash',
             'pay_status' => 'unpaid',

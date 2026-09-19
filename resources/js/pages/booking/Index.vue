@@ -482,7 +482,7 @@ const isDeleteModalOpen = computed({
                 {{ (row as Booking).doctor?.name ?? '—' }}
             </template>
             <template #cell-price="{ value }">
-                {{ Number(value).toLocaleString('ar-EG') }} ج.م
+                {{ Number(value).toLocaleString('en-US') }} ج.م
             </template>
             <template #cell-pay_status="{ value }">
                 <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
@@ -643,7 +643,7 @@ const isDeleteModalOpen = computed({
                 <p class="text-xs text-hospital-text-3">{{ payTarget.file_no }} — {{ payTarget.dept }}</p>
                 <div class="mt-2 flex items-center justify-between text-xs">
                     <span class="text-hospital-text-3">المبلغ المتبقي</span>
-                    <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('ar-EG') }} ج</span>
+                    <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('en-US') }} ج</span>
                 </div>
             </div>
 

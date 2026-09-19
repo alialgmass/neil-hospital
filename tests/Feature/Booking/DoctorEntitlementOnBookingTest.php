@@ -49,6 +49,7 @@ class DoctorEntitlementOnBookingTest extends TestCase
         return $this->actingAs($this->user)->post('/booking', array_merge([
             'patient_name' => 'محمد',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-05-10',
             'service_id' => $this->cataract->id,
             'service_name' => $this->cataract->name,

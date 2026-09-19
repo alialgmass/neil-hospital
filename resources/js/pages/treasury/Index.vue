@@ -211,7 +211,7 @@ function printPage() {
                     رصيد الخزنة الحالي
                 </p>
                 <p class="text-lg font-bold text-green-700">
-                    {{ balance.balance.toLocaleString('ar-EG') }}
+                    {{ balance.balance.toLocaleString('en-US') }}
                 </p>
                 <p class="text-xs text-green-500">جنيه</p>
             </div>
@@ -229,7 +229,7 @@ function printPage() {
                     إجمالي الإيرادات
                 </p>
                 <p class="text-lg font-bold text-blue-700">
-                    {{ balance.total_in.toLocaleString('ar-EG') }}
+                    {{ balance.total_in.toLocaleString('en-US') }}
                 </p>
                 <p class="text-xs text-blue-500">جنيه</p>
             </div>
@@ -245,7 +245,7 @@ function printPage() {
             <div>
                 <p class="text-xs font-medium text-red-600">إجمالي المصروفات</p>
                 <p class="text-lg font-bold text-red-700">
-                    {{ balance.total_out.toLocaleString('ar-EG') }}
+                    {{ balance.total_out.toLocaleString('en-US') }}
                 </p>
                 <p class="text-xs text-red-500">جنيه</p>
             </div>
@@ -264,7 +264,7 @@ function printPage() {
                     class="text-lg font-bold"
                     :class="todayNet >= 0 ? 'text-orange-700' : 'text-red-700'"
                 >
-                    {{ todayNet.toLocaleString('ar-EG') }}
+                    {{ todayNet.toLocaleString('en-US') }}
                 </p>
                 <p class="text-xs text-orange-500">جنيه</p>
             </div>
@@ -384,7 +384,7 @@ function printPage() {
                             : 'font-mono text-hospital-danger'
                     "
                 >
-                    {{ Number(value).toLocaleString('ar-EG') }} ج.م
+                    {{ Number(value).toLocaleString('en-US') }} ج.م
                 </span>
             </template>
             <template #cell-source="{ value, row }">
@@ -430,14 +430,14 @@ function printPage() {
             style="background: linear-gradient(135deg, #072e63, #0a4fa6)"
         >
             <span
-                >إجمالي الوارد: {{ totalIn.toLocaleString('ar-EG') }} ج.م</span
+                >إجمالي الوارد: {{ totalIn.toLocaleString('en-US') }} ج.م</span
             >
             <span
-                >إجمالي الصادر: {{ totalOut.toLocaleString('ar-EG') }} ج.م</span
+                >إجمالي الصادر: {{ totalOut.toLocaleString('en-US') }} ج.م</span
             >
             <span class="mr-auto"
                 >الرصيد:
-                {{ (totalIn - totalOut).toLocaleString('ar-EG') }} ج.م</span
+                {{ (totalIn - totalOut).toLocaleString('en-US') }} ج.م</span
             >
         </div>
     </div>

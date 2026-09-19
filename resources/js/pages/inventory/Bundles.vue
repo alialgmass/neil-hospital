@@ -131,7 +131,7 @@ const itemsSubtotal = computed(() =>
 )
 
 function formatMoney(val: number) {
-    return Number(val).toLocaleString('ar-EG', { minimumFractionDigits: 2 })
+    return Number(val).toLocaleString('en-US', { minimumFractionDigits: 2 })
 }
 </script>
 

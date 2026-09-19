@@ -73,7 +73,7 @@ class DoctorEntitlementAccountingTest extends TestCase
     private function createInsuranceBooking(): Booking
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض', 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
@@ -85,7 +85,7 @@ class DoctorEntitlementAccountingTest extends TestCase
     private function editBooking(Booking $booking, array $overrides): void
     {
         $this->actingAs($this->user)->put("/booking/{$booking->id}", array_merge([
-            'patient_name' => $booking->patient_name, 'dept' => 'clinic', 'visit_date' => '2026-05-10',
+            'patient_name' => $booking->patient_name, 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->omar->id, 'price' => 5000, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',

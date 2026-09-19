@@ -66,7 +66,7 @@ const visibleTotals = computed(() => visibleRows.value.reduce((acc, r) => ({
 }), { base_salary: 0, allowances: 0, overtime_pay: 0, deductions: 0, net_salary: 0, paid_count: 0, draft_count: 0 }));
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 const statusClass: Record<string, string> = {

@@ -54,7 +54,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
     public function test_insurance_doctor_fee_posts_cash_and_never_touches_doctor_payable(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
@@ -81,7 +81,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
     public function test_resaving_the_booking_unchanged_does_not_duplicate_the_cash_payment(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
@@ -90,7 +90,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $booking = Booking::latest('id')->first();
 
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
-            'patient_name' => $booking->patient_name, 'dept' => 'labs', 'visit_date' => '2026-05-10',
+            'patient_name' => $booking->patient_name, 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
@@ -106,7 +106,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
     public function test_cancelling_the_booking_reverses_the_cash_payment(): void
     {
         $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'visit_date' => '2026-05-10',
+            'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
