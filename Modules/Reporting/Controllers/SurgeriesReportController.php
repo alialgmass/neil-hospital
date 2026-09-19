@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Admin\Enums\SystemModule;
 
 class SurgeriesReportController extends Controller
 {
@@ -22,6 +23,7 @@ class SurgeriesReportController extends Controller
             ->when($from, fn ($q) => $q->whereDate('surgeries.scheduled_at', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('surgeries.scheduled_at', '<=', $to))
             ->when($dept, fn ($q) => $q->where('surgeries.dept', $dept))
+            ->whereIn('surgeries.dept', SystemModule::enabledDeptValues())
             ->whereNotIn('bookings.status', ['cancelled'])
             ->select([
                 'bookings.file_no',

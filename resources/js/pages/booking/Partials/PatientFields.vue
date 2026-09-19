@@ -6,6 +6,7 @@ interface Props {
         patient_phone: string;
         patient_age: string;
         gender: string;
+        kinship_degree: string;
         visit_date: string;
         visit_time: string;
     };
@@ -101,6 +102,24 @@ function update(field: keyof Props['modelValue'], value: string) {
                 </select>
                 <p v-if="errors.gender" class="mt-1 text-xs text-hospital-danger">
                     {{ errors.gender }}
+                </p>
+            </div>
+            <div>
+                <label class="bk-label">درجة القرابة</label>
+                <select
+                    :value="modelValue.kinship_degree"
+                    class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.kinship_degree }"
+                    @change="update('kinship_degree', ($event.target as HTMLSelectElement).value)"
+                >
+                    <option value="">— لا يوجد —</option>
+                    <option value="father">الوالد</option>
+                    <option value="mother">الوالدة</option>
+                    <option value="son">الابن</option>
+                    <option value="companion">مرافق</option>
+                </select>
+                <p v-if="errors.kinship_degree" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.kinship_degree }}
                 </p>
             </div>
             <div>

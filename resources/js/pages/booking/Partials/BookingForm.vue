@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import type { DepartmentOption } from '@/types';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
 import BookingSummary from './BookingSummary.vue';
@@ -19,6 +20,8 @@ interface Service {
     name: string;
     dept: string;
     price: number;
+    one_eye_price: number | null;
+    both_eyes_price: number | null;
     ins_price: number;
 }
 
@@ -26,11 +29,13 @@ interface Doctor {
     id: string;
     name: string;
     is_active: boolean;
+    departments?: string[] | null;
 }
 
 interface InsuranceCompany {
     id: string;
     name: string;
+    coverage_pct: number;
 }
 
 interface PriceListItem {
@@ -84,13 +89,7 @@ const emit = defineEmits<{
     (e: 'cancel'): void;
 }>();
 
-const deptOptions = [
-    { value: 'clinic', label: 'العيادة', icon: '🏥', cap: 'فحص عام' },
-    { value: 'labs', label: 'الفحوصات', icon: '🔬', cap: 'تحاليل وأشعة' },
-    { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
-    { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
-    { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
-];
+const page = usePage<{ departments?: DepartmentOption[] }>();
 
 const form = useForm({
     patient_name: (props.booking?.patient_name as string) ?? '',
@@ -98,6 +97,7 @@ const form = useForm({
     patient_age: (props.booking?.patient_age as string) ?? '',
     national_id: (props.booking?.national_id as string) ?? '',
     gender: (props.booking?.gender as string) ?? '',
+    kinship_degree: (props.booking?.kinship_degree as string) ?? '',
     dept: (props.booking?.dept as string) ?? 'clinic',
     service_id: (props.booking?.service_id as string) ?? '',
     service_name: (props.booking?.service_name as string) ?? '',
@@ -128,12 +128,8 @@ const showBeds = computed(
 const showAnalysis = computed(
     () => form.dept === 'surgery' || form.dept === 'lasik',
 );
-const showEyeSide = computed(
-    () =>
-        form.dept === 'surgery' ||
-        form.dept === 'lasik' ||
-        form.dept === 'laser',
-);
+// Eye laterality applies to every clinical department once one is selected.
+const showEyeSide = computed(() => !!form.dept);
 
 const deptExtraTitle = computed(() => {
     if (form.dept === 'surgery') {
@@ -148,11 +144,19 @@ return 'بيانات جلسة الليزك';
 return 'بيانات جلسة الليزر';
 }
 
-    return '';
+    if (form.dept === 'pentacam') {
+return 'بيانات فحص البنتكام';
+}
+
+    return 'بيانات الفحص';
 });
 
 const filteredServices = computed(() =>
     props.services.filter((s) => s.dept === form.dept),
+);
+
+const filteredDoctors = computed(() =>
+    props.doctors.filter((d) => !d.departments || d.departments.length === 0 || d.departments.includes(form.dept)),
 );
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
@@ -180,7 +184,7 @@ const selectedDoctorName = computed(
 );
 
 const selectedDeptLabel = computed(
-    () => deptOptions.find((d) => d.value === form.dept)?.label ?? '—',
+    () => (page.props.departments ?? []).find((d) => d.value === form.dept)?.label ?? '—',
 );
 
 const showInvoicePreview = computed(
@@ -206,14 +210,44 @@ return;
             : '0';
     } else if (isInsurance.value) {
         form.price = String(service.ins_price ?? service.price);
-        form.ins_amount = '0';
+        // No dedicated price list for this company — fall back to its general coverage rate.
+        const company = props.insuranceCompanies.find((c) => c.id === form.ins_company_id);
+        form.ins_amount = company
+            ? String(Math.round((Number(form.price) * company.coverage_pct) / 100 * 100) / 100)
+            : '0';
     } else {
-        form.price = String(service.price);
+        form.price = String(eyeSidePrice(service));
         form.ins_amount = '0';
     }
 }
 
+// Preview price only — the server always recomputes from the service + eye side.
+function eyeSidePrice(service: Service): number {
+    const oneEye = service.one_eye_price ?? service.price;
+
+    if (form.eye_side === 'OU') {
+        return (
+            service.both_eyes_price ??
+            (oneEye != null ? oneEye * 2 : service.price)
+        );
+    }
+
+    return oneEye ?? service.price;
+}
+
+function eyePrice() {
+    const service = props.services.find((s) => s.id === form.service_id);
+
+    if (!service || isInsurance.value) {
+        return;
+    }
+
+    form.price = String(eyeSidePrice(service));
+    form.ins_amount = '0';
+}
+
 watch(() => form.service_id, recalcPrice);
+watch(() => form.eye_side, eyePrice);
 watch(() => form.pay_method, () => {
     if (!form.service_id) {
         return;
@@ -250,6 +284,7 @@ function submit() {
                         patient_phone: form.patient_phone,
                         patient_age: form.patient_age,
                         gender: form.gender,
+                        kinship_degree: form.kinship_degree,
                         visit_date: form.visit_date,
                         visit_time: form.visit_time,
                     }"
@@ -260,7 +295,7 @@ function submit() {
                 <ServiceSelect
                     :model-value="{ service_id: form.service_id, doctor_id: form.doctor_id }"
                     :services="filteredServices"
-                    :doctors="doctors"
+                    :doctors="filteredDoctors"
                     :is-edit-mode="!isCreating"
                     :errors="form.errors"
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"

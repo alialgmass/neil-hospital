@@ -77,7 +77,7 @@ function submitOpen() {
 
 const statusColors: Record<string, string> = {
     open:         'bg-hospital-success/10 text-hospital-success',
-    closed:       'bg-hospital-muted/20 text-hospital-muted',
+    closed:       'bg-hospital-muted/20 text-hospital-text-3',
     handed_over:  'bg-hospital-primary/10 text-hospital-primary',
 };
 const statusLabels: Record<string, string> = {
@@ -138,7 +138,7 @@ function closeShift(id: string) {
         <template #cell-status="{ value }">
             <span
                 class="rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="statusColors[value as string] ?? 'bg-hospital-muted/20 text-hospital-muted'"
+                :class="statusColors[value as string] ?? 'bg-hospital-muted/20 text-hospital-text-3'"
             >
                 {{ statusLabels[value as string] ?? value }}
             </span>
@@ -158,7 +158,7 @@ function closeShift(id: string) {
                 >
                     <XCircle class="h-3.5 w-3.5" /> إغلاق
                 </button>
-                <span v-else class="text-xs text-hospital-muted">
+                <span v-else class="text-xs text-hospital-text-3">
                     <CheckCircle class="inline h-3.5 w-3.5" />
                 </span>
             </div>

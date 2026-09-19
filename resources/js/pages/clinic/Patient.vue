@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Printer, ChevronLeft } from 'lucide-vue-next';
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import { usePrint } from '@/composables/usePrint';
 
@@ -40,16 +40,36 @@ interface Booking {
     visit_date: string;
     status: string;
     pay_status: string;
+    eye_side?: string;
     doctor?: { id: string; name: string };
     clinic_sheet?: ClinicSheet | null;
+}
+
+interface ReferralService {
+    id: string;
+    name: string;
+    dept: string;
+    one_eye_price?: string | number | null;
+    both_eyes_price?: string | number | null;
 }
 
 const props = defineProps<{
     booking: Booking;
     history: HistoryItem[];
+    referral_services: ReferralService[];
 }>();
 
 const { print } = usePrint();
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const referralOptions: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
+};
+const availableReferralOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(referralOptions).filter(([key]) => moduleStatus[key] !== false));
+});
 
 const form = reactive<Record<string, string | number | null>>({
     booking_id:        props.booking.id,
@@ -73,13 +93,102 @@ function saveSheet() {
     saving.value = true;
     router.post(`/clinic/${props.booking.id}/sheet`, form as unknown as Record<string, string>, {
         onFinish: () => {
- saving.value = false; 
+ saving.value = false;
 },
     });
 }
 
+// ── Patient routing (triage) ──
+const routingTarget = ref('');
+const routingServiceId = ref('');
+const routingEye = ref(props.booking.eye_side ?? '');
+const createFollowUp = ref(true);
+const routing = ref(false);
+
+const routingOptions = computed(() =>
+    Object.fromEntries(Object.entries(availableReferralOptions.value).filter(([key]) => key !== props.booking.dept)),
+);
+
+const eyeOptions: Record<string, string> = {
+    OD: 'العين اليمنى', OS: 'العين اليسرى', OU: 'كلتا العينين',
+};
+
+/** Services of the chosen destination only — a service can't cross departments. */
+const routingServices = computed(() =>
+    props.referral_services.filter((s) => s.dept === routingTarget.value),
+);
+
+const operationDepts = ['surgery', 'lasik', 'laser'];
+
+/** Clear a service that no longer belongs to the newly chosen destination. */
+function onRoutingTargetChange() {
+    if (!routingServices.value.some((s) => s.id === routingServiceId.value)) {
+        routingServiceId.value = '';
+    }
+}
+
+/** Operations are priced per eye, so the side is mandatory for them. */
+const eyeRequired = computed(
+    () => !!routingServiceId.value && operationDepts.includes(routingTarget.value),
+);
+
+const canRoute = computed(
+    () => !!routingTarget.value && !routing.value && (!eyeRequired.value || !!routingEye.value),
+);
+
+/**
+ * Mirrors the server-side pricing rule (ServicePricingService): both-eyes
+ * price when OU, one-eye price otherwise — shown so the doctor sees what the
+ * referral will cost before creating the follow-up booking.
+ */
+const routingPrice = computed<number | null>(() => {
+    const service = routingServices.value.find((s) => s.id === routingServiceId.value);
+
+    if (!service) {
+        return null;
+    }
+
+    const oneEye = service.one_eye_price != null ? Number(service.one_eye_price) : null;
+
+    if (routingEye.value === 'OU') {
+        return service.both_eyes_price != null
+            ? Number(service.both_eyes_price)
+            : oneEye != null ? oneEye * 2 : null;
+    }
+
+    return oneEye;
+});
+
+function routePatient() {
+    if (!routingTarget.value) {
+        return;
+    }
+
+    routing.value = true;
+    router.post(
+        `/clinic/${props.booking.id}/refer`,
+        {
+            referral_to: routingTarget.value,
+            create_follow_up: createFollowUp.value,
+            service_id: routingServiceId.value || null,
+            eye_side: routingEye.value || null,
+        },
+        {
+            onSuccess: () => {
+                form.referral_to = routingTarget.value;
+                routingTarget.value = '';
+                routingServiceId.value = '';
+                routingEye.value = props.booking.eye_side ?? '';
+            },
+            onFinish: () => {
+                routing.value = false;
+            },
+        },
+    );
+}
+
 const deptLabels: Record<string, string> = {
-    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر',
+    clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
 };
 </script>
 
@@ -204,10 +313,7 @@ const deptLabels: Record<string, string> = {
                         <label class="mb-1 block text-xs font-medium text-hospital-text-2">إحالة إلى</label>
                         <select v-model="form.referral_to" class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
                             <option value="">— بدون إحالة —</option>
-                            <option value="labs">الفحوصات</option>
-                            <option value="surgery">العمليات</option>
-                            <option value="lasik">الليزك</option>
-                            <option value="laser">الليزر</option>
+                            <option v-for="(label, key) in availableReferralOptions" :key="key" :value="key">{{ label }}</option>
                         </select>
                     </div>
                     <div>
@@ -226,6 +332,64 @@ const deptLabels: Record<string, string> = {
                     </button>
                 </div>
             </form>
+
+            <!-- Patient Routing (Triage) -->
+            <div class="mt-6 rounded-lg border border-hospital-border bg-hospital-bg p-4">
+                <h4 class="mb-1 font-bold text-hospital-text">توجيه المريض</h4>
+                <p class="mb-3 text-xs text-hospital-text-3">
+                    وجّه المريض إلى الوجهة التالية بعد الكشف — يُرحَّل التشخيص وحدة الإبصار وضغط العين مع الحجز الجديد
+                    <span v-if="form.referral_to">
+                        — الوجهة الحالية: <strong>{{ availableReferralOptions[form.referral_to as string] ?? form.referral_to }}</strong>
+                    </span>
+                </p>
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">الوجهة</label>
+                        <select v-model="routingTarget" class="rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="onRoutingTargetChange">
+                            <option value="">— اختر وجهة —</option>
+                            <option v-for="(label, key) in routingOptions" :key="key" :value="key">{{ label }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">الخدمة</label>
+                        <select
+                            v-model="routingServiceId"
+                            :disabled="!routingTarget || routingServices.length === 0"
+                            class="rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none disabled:opacity-60"
+                        >
+                            <option value="">— بدون خدمة —</option>
+                            <option v-for="s in routingServices" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                        <p v-if="routingTarget && routingServices.length === 0" class="mt-1 text-xs text-hospital-text-3">
+                            لا توجد خدمات مفعّلة في هذا القسم
+                        </p>
+                    </div>
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">
+                            العين <span v-if="eyeRequired" class="text-hospital-danger">*</span>
+                        </label>
+                        <select v-model="routingEye" class="rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
+                            <option value="">— غير محدد —</option>
+                            <option v-for="(label, key) in eyeOptions" :key="key" :value="key">{{ label }}</option>
+                        </select>
+                    </div>
+                    <div v-if="routingPrice !== null" class="pb-2 text-xs text-hospital-text-2">
+                        السعر: <strong class="text-hospital-primary">{{ routingPrice }}</strong>
+                    </div>
+                    <label class="flex items-center gap-2 text-xs text-hospital-text-2">
+                        <input v-model="createFollowUp" type="checkbox" class="rounded border-hospital-border" />
+                        إنشاء حجز متابعة تلقائيًا لنفس اليوم
+                    </label>
+                    <button
+                        type="button"
+                        :disabled="!canRoute"
+                        class="rounded-lg bg-hospital-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        @click="routePatient"
+                    >
+                        {{ routing ? 'جارٍ التوجيه…' : 'توجيه' }}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </template>

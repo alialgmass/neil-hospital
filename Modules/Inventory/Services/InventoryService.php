@@ -2,6 +2,7 @@
 
 namespace Modules\Inventory\Services;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Inventory\Enums\InvoiceStatus;
@@ -18,6 +19,21 @@ class InventoryService
      */
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
+        return $this->query($filters)
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    /**
+     * All inventory items matching the filters (no pagination) — used by Excel export.
+     */
+    public function all(array $filters = []): Collection
+    {
+        return $this->query($filters)->get();
+    }
+
+    private function query(array $filters = []): Builder
+    {
         return InventoryItem::query()
             ->with('supplier:id,name')
             ->when($filters['search'] ?? null, function ($q, $v) {
@@ -28,9 +44,7 @@ class InventoryService
             })
             ->when($filters['category'] ?? null, fn ($q, $v) => $q->where('category', $v))
             ->when($filters['low_stock'] ?? null, fn ($q) => $q->whereColumn('quantity', '<=', 'min_quantity')->where('min_quantity', '>', 0))
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
+            ->orderBy('name');
     }
 
     public function categories(): Collection

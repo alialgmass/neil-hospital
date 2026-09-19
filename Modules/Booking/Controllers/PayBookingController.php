@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostDevelopmentFeeAction;
 use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
@@ -15,6 +16,7 @@ class PayBookingController extends Controller
 {
     public function __construct(
         private readonly AutoPostBookingPaymentAction $autoPostAction,
+        private readonly AutoPostDevelopmentFeeAction $autoPostDevelopmentFee,
         private readonly AutoPostDoctorDuesAction $autoPostDoctorDues,
         private readonly DoctorClaimsService $doctorClaimsService,
     ) {}
@@ -25,7 +27,7 @@ class PayBookingController extends Controller
 
         $data = $request->validate([
             'paid_amount' => ['required', 'numeric', 'min:0.01'],
-            'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['required', 'in:cash,card,transfer,insurance,contract'],
         ], [
             'price.required' => 'سعر الحجز مطلوب.',
             'price.numeric' => 'سعر الحجز يجب أن يكون رقماً.',
@@ -55,6 +57,7 @@ class PayBookingController extends Controller
         $booking = $booking->fresh();
 
         $this->autoPostAction->execute($booking, $paymentAmount);
+        $this->autoPostDevelopmentFee->execute($booking);
 
         if ($booking->doctor_id) {
             $doctor = Doctor::find($booking->doctor_id);
@@ -62,13 +65,20 @@ class PayBookingController extends Controller
             if ($doctor) {
                 $drShare = $this->doctorClaimsService->computeShareForPayment($doctor, $booking, $paymentAmount, $isFirstPayment);
 
-                if ($drShare > 0) {
+                // Any outstanding debt on the doctor (from prior unpaid
+                // bookings — see CreateBookingAction::recordDoctorDebtIfUnpaid)
+                // is settled out of this share before it's posted as dues.
+                $settled = $drShare > 0 ? $doctor->settleDebt($drShare) : 0.0;
+                $netShare = $drShare - $settled;
+
+                if ($netShare > 0) {
                     $this->autoPostDoctorDues->execute(
                         dept: $booking->dept,
-                        amount: $drShare,
+                        amount: $netShare,
                         doctorName: $doctor->name,
                         reference: $booking->file_no,
                         date: $booking->visit_date->toDateString(),
+                        idempotencyKey: "doctor_dues:{$booking->file_no}:{$newPaidTotal}",
                     );
                 }
             }

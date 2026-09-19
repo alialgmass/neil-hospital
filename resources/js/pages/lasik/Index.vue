@@ -75,33 +75,48 @@ interface Bundle {
 const props = defineProps<{
     surgeries: Paginator;
     orRooms: OrRoom[];
-    inventoryItems: { id: string; name: string; code: string; sell_price: number; quantity: number }[];
     bundles: Bundle[];
     doctors: { id: string; name: string }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
     filters: { status?: string };
     revenue: number;
+    prefill?: {
+        booking_id: string;
+        dept: string;
+        eye: string | null;
+        service_id: string | null;
+    } | null;
 }>();
 
 /* ── Stats ── */
 const totalToday = computed(() => props.surgeries.total);
-const completedToday = computed(() =>
-    props.surgeries.data.filter((s) => s.status === 'completed').length,
+const completedToday = computed(
+    () => props.surgeries.data.filter((s) => s.status === 'completed').length,
 );
 const supplyTotal = computed(() =>
-    props.surgeries.data.reduce((sum, s) => sum + Number(s.supply_total ?? 0), 0),
+    props.surgeries.data.reduce(
+        (sum, s) => sum + Number(s.supply_total ?? 0),
+        0,
+    ),
 );
 
 /* ── Filter ── */
 const statusFilter = ref(props.filters.status ?? '');
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 watch(statusFilter, () => {
-    if (filterTimeout) clearTimeout(filterTimeout);
+    if (filterTimeout) {
+        clearTimeout(filterTimeout);
+    }
+
     filterTimeout = setTimeout(applyFilters, 300);
 });
 function applyFilters() {
-    router.get('/lasik', { status: statusFilter.value || undefined }, { preserveState: true });
+    router.get(
+        '/lasik',
+        { status: statusFilter.value || undefined },
+        { preserveState: true },
+    );
 }
 function goToPage(page: number) {
     router.get(
@@ -115,7 +130,8 @@ function goToPage(page: number) {
 const activeCase = ref<Surgery | null>(null);
 
 function openCase(partial: { id: string }) {
-    activeCase.value = props.surgeries.data.find((s) => s.id === partial.id) ?? null;
+    activeCase.value =
+        props.surgeries.data.find((s) => s.id === partial.id) ?? null;
 }
 
 function closeCase() {
@@ -123,7 +139,10 @@ function closeCase() {
 }
 
 function updateStatus(newStatus: string) {
-    if (!activeCase.value) return;
+    if (!activeCase.value) {
+        return;
+    }
+
     router.patch(
         `/lasik/${activeCase.value.id}/status`,
         { status: newStatus },
@@ -132,6 +151,7 @@ function updateStatus(newStatus: string) {
                 if (activeCase.value) {
                     activeCase.value.status = newStatus as Surgery['status'];
                 }
+
                 toast.success('تم تحديث حالة الجلسة');
             },
         },
@@ -139,7 +159,7 @@ function updateStatus(newStatus: string) {
 }
 
 /* ── Modals ── */
-const showSchedule = ref(false);
+const showSchedule = ref(!!props.prefill);
 const showReport = ref(false);
 const reportSurgeryId = ref('');
 const showSupplies = ref(false);
@@ -155,15 +175,22 @@ function openSupplies(id: string) {
 }
 
 function submitSupplies(items: any[]) {
-    if (!activeCase.value) return;
-
-    const validItems = items.filter(item => item.name && item.qty > 0);
-    if (validItems.length === 0) {
-        toast.error('يرجى إضافة صنف واحد على الأقل');
+    if (!activeCase.value) {
         return;
     }
 
-    const newTotal = validItems.reduce((sum, item) => sum + (item.qty * item.unit_cost), 0);
+    const validItems = items.filter((item) => item.name && item.qty > 0);
+
+    if (validItems.length === 0) {
+        toast.error('يرجى إضافة صنف واحد على الأقل');
+
+        return;
+    }
+
+    const newTotal = validItems.reduce(
+        (sum, item) => sum + item.qty * item.unit_cost,
+        0,
+    );
     const prevSupplies = activeCase.value.supplies_used ?? [];
     const optimisticSupplies = [...prevSupplies, ...validItems];
 
@@ -173,12 +200,18 @@ function submitSupplies(items: any[]) {
         {
             onSuccess: (page) => {
                 if (page.props.flash?.surgery) {
-                    activeCase.value!.supplies_used = page.props.flash.surgery.supplies_used;
-                    activeCase.value!.supply_total = page.props.flash.surgery.supply_total;
+                    activeCase.value!.supplies_used =
+                        page.props.flash.surgery.supplies_used;
+                    activeCase.value!.supply_total =
+                        page.props.flash.surgery.supply_total;
                 } else {
                     activeCase.value!.supplies_used = optimisticSupplies;
-                    activeCase.value!.supply_total = (parseFloat(String(activeCase.value.supply_total)) + newTotal).toFixed(2);
+                    activeCase.value!.supply_total = (
+                        parseFloat(String(activeCase.value.supply_total)) +
+                        newTotal
+                    ).toFixed(2);
                 }
+
                 toast.success('تم حفظ المستلزمات بنجاح');
             },
             onError: () => {
@@ -189,17 +222,20 @@ function submitSupplies(items: any[]) {
     );
 }
 
-function submitReport(data: { op_report: string; post_op_notes: string; complications: string }) {
-    if (!activeCase.value) return;
-    router.patch(
-        `/lasik/${activeCase.value.id}/report`,
-        data,
-        {
-            onSuccess: () => {
-                toast.success('تم حفظ التقرير بنجاح');
-            },
+function submitReport(data: {
+    op_report: string;
+    post_op_notes: string;
+    complications: string;
+}) {
+    if (!activeCase.value) {
+        return;
+    }
+
+    router.patch(`/lasik/${activeCase.value.id}/report`, data, {
+        onSuccess: () => {
+            toast.success('تم حفظ التقرير بنجاح');
         },
-    );
+    });
 }
 
 /* ── Table ── */
@@ -215,7 +251,11 @@ const columns = [
     { key: 'supply_total', label: 'المستلزمات' },
 ];
 
-const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: 'كلاهما' };
+const eyeLabel: Record<string, string> = {
+    OD: 'يمنى',
+    OS: 'يسرى',
+    OU: 'كلاهما',
+};
 </script>
 
 <template>
@@ -233,12 +273,16 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
         </div>
         <div class="stat-card" style="border-right-color: #0a4fa6">
             <p class="stat-lbl">إيراد الليزك اليوم</p>
-            <p class="stat-val text-sm">{{ revenue.toLocaleString('ar-EG') }}</p>
+            <p class="stat-val text-sm">
+                {{ revenue.toLocaleString('ar-EG') }}
+            </p>
             <p class="stat-sub">جنيه</p>
         </div>
         <div class="stat-card" style="border-right-color: #00b5a4">
             <p class="stat-lbl">مستلزمات مستخدمة</p>
-            <p class="stat-val text-sm">{{ supplyTotal.toLocaleString('ar-EG') }}</p>
+            <p class="stat-val text-sm">
+                {{ supplyTotal.toLocaleString('ar-EG') }}
+            </p>
         </div>
     </div>
 
@@ -257,7 +301,11 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
     <div class="sect-card">
         <div class="sect-card-hd">
             <p class="sect-card-title">جدول جلسات الليزك</p>
-            <select v-model="statusFilter" class="filter-select" @change="applyFilters">
+            <select
+                v-model="statusFilter"
+                class="filter-select"
+                @change="applyFilters"
+            >
                 <option value="">جميع الحالات</option>
                 <option value="scheduled">مجدولة</option>
                 <option value="prep">تحضير</option>
@@ -277,7 +325,11 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
             @page="goToPage"
         >
             <template #cell-scheduled_at="{ value }">
-                {{ value ? (value as string).replace('T', ' ').slice(0, 16) : '—' }}
+                {{
+                    value
+                        ? (value as string).replace('T', ' ').slice(0, 16)
+                        : '—'
+                }}
             </template>
             <template #cell-file_no="{ row }">
                 {{ (row as Surgery).booking?.file_no ?? '—' }}
@@ -295,18 +347,26 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
                 <span
                     v-if="value"
                     class="inline-flex h-6 w-6 items-center justify-center rounded bg-purple-50 text-xs font-bold text-[#7B2FA6]"
-                >{{ value }}</span>
+                    >{{ value }}</span
+                >
                 <span v-else class="text-hospital-text-2">—</span>
             </template>
             <template #cell-status="{ value }">
                 <Badge
                     :variant="
-                        value as 'scheduled' | 'prep' | 'in_progress' | 'completed' | 'cancelled'
+                        value as
+                            | 'scheduled'
+                            | 'prep'
+                            | 'in_progress'
+                            | 'completed'
+                            | 'cancelled'
                     "
                 />
             </template>
             <template #cell-supply_total="{ value }">
-                <span class="font-mono text-sm">{{ Number(value).toLocaleString('ar-EG') }} ج.م</span>
+                <span class="font-mono text-sm"
+                    >{{ Number(value).toLocaleString('ar-EG') }} ج.م</span
+                >
             </template>
             <template #actions="{ row }">
                 <div class="flex gap-1">
@@ -331,7 +391,7 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
     <CasePanel
         v-if="activeCase"
         :surgery="activeCase"
-        :inventory-items="inventoryItems"
+        :dept="dept"
         @close="closeCase"
         @open-report="openReport"
         @open-supplies="openSupplies"
@@ -347,6 +407,7 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
         :doctors="doctors"
         :bookings="bookings"
         :dept="dept"
+        :prefill="prefill"
         @success="toast.success('تم جدولة جلسة الليزك بنجاح')"
     />
 
@@ -362,7 +423,6 @@ const eyeLabel: Record<string, string> = { OD: 'يمنى', OS: 'يسرى', OU: '
     <SuppliesModal
         v-model="showSupplies"
         :surgery-id="suppliesSurgeryId"
-        :inventory-items="inventoryItems"
         :bundles="bundles"
         :dept="dept"
         @success="toast.success('تم حفظ المستلزمات بنجاح')"

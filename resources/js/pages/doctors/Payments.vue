@@ -126,7 +126,7 @@ function fmt(n: number) {
             {{ (row as DoctorPayment).doctor?.name ?? '—' }}
         </template>
         <template #cell-period="{ row }">
-            <span class="text-xs text-hospital-muted">
+            <span class="text-xs text-hospital-text-3">
                 {{ (row as DoctorPayment).period_from }} — {{ (row as DoctorPayment).period_to }}
             </span>
         </template>

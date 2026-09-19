@@ -4,6 +4,7 @@ namespace Modules\Booking\DTOs;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Enums\KinshipDegree;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
@@ -18,6 +19,7 @@ readonly class BookingData
         public ?int $patientAge = null,
         public ?string $nationalId = null,
         public ?string $gender = null,
+        public ?KinshipDegree $kinshipDegree = null,
         public ?string $serviceId = null,
         public ?string $serviceName = null,
         public ?string $doctorId = null,
@@ -47,6 +49,7 @@ readonly class BookingData
             patientAge: isset($data['patient_age']) ? (int) $data['patient_age'] : null,
             nationalId: $data['national_id'] ?? null,
             gender: $data['gender'] ?? null,
+            kinshipDegree: isset($data['kinship_degree']) ? ($data['kinship_degree'] instanceof KinshipDegree ? $data['kinship_degree'] : KinshipDegree::from($data['kinship_degree'])) : null,
             serviceId: $data['service_id'] ?? null,
             serviceName: $data['service_name'] ?? null,
             doctorId: $data['doctor_id'] ?? null,

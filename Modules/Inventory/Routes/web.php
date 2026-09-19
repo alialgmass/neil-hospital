@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Admin\Controllers\ModuleImportActionController;
 use Modules\Inventory\Controllers\InventoryController;
 use Modules\Inventory\Controllers\PurchaseInvoiceController;
 use Modules\Inventory\Controllers\PurchaseReturnController;
@@ -18,6 +19,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/export', [InventoryController::class, 'export'])
+            ->middleware('can:inventory.view')
+            ->name('export');
+
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'inventory')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'inventory')
+            ->middleware('can:inventory.write')
+            ->name('import');
+
         Route::post('/', [InventoryController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
@@ -33,6 +48,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'suppliers')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'suppliers')
+            ->middleware('can:inventory.write')
+            ->name('import');
+
         Route::post('/', [SupplierController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
@@ -40,6 +65,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [SupplierController::class, 'update'])
             ->middleware('can:inventory.write')
             ->name('update');
+
+        Route::post('/{id}/pay', [SupplierController::class, 'pay'])
+            ->middleware('can:inventory.write')
+            ->name('pay');
     });
 
     // Purchase invoices
@@ -48,9 +77,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.view')
             ->name('index');
 
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'purchases')
+            ->middleware('can:inventory.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'purchases')
+            ->middleware('can:inventory.write')
+            ->name('import');
+
+        Route::get('/items/search', [PurchaseInvoiceController::class, 'searchItems'])
+            ->middleware('can:inventory.view')
+            ->name('items.search');
+
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
             ->middleware('can:inventory.write')
             ->name('store');
+
+        Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])
+            ->middleware('can:purchases.edit')
+            ->name('update');
+
+        Route::delete('/{id}', [PurchaseInvoiceController::class, 'destroy'])
+            ->middleware('can:purchases.delete')
+            ->name('destroy');
     });
 
     // Supply Bundles (بنود المستلزمات)

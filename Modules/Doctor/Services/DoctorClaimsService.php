@@ -2,11 +2,14 @@
 
 namespace Modules\Doctor\Services;
 
+use App\Enums\Department;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Models\DoctorEntitlement;
 use Modules\Doctor\Models\DoctorPayment;
 
 class DoctorClaimsService
@@ -31,11 +34,21 @@ class DoctorClaimsService
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
             ->get();
 
+        // Insurance / contract bookings are settled through a persisted
+        // doctor entitlement — take its amount and never re-compute a share
+        // for them (that would double-count).
+        $entitlements = DB::table('doctor_entitlements')
+            ->where('doctor_id', $doctorId)
+            ->whereIn('status', ['pending', 'settled'])
+            ->pluck('amount', 'booking_id');
+
         $rows = [];
         $totalDrShare = 0.0;
 
         foreach ($bookings as $booking) {
-            $drShare = $this->computeDrShare($doctor, $booking);
+            $drShare = $entitlements->has($booking->id)
+                ? (float) $entitlements[$booking->id]
+                : $this->computeDrShare($doctor, $booking);
             $totalDrShare += $drShare;
 
             $row = [
@@ -79,11 +92,31 @@ class DoctorClaimsService
             return 0.0;
         }
 
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($booking->dept === Department::Pentacam) {
+            return 0.0;
+        }
+
+        // Insurance / contract bookings that carry a persisted entitlement accrue
+        // the doctor's share up front through it, not per cash payment. Bookings
+        // with no entitlement (e.g. created before this feature, or no fee
+        // configured) keep the legacy payment-time accrual unchanged.
+        if ($booking->pay_method->isThirdParty()
+            && DoctorEntitlement::where('booking_id', $booking->id)->exists()) {
+            return 0.0;
+        }
+
+        // Development-treasury fee is deducted from the price BEFORE the
+        // doctor's share is computed (cash bookings only, first payment
+        // only — the fee itself is posted once per booking regardless of
+        // installments, see AutoPostDevelopmentFeeAction).
+        $netAmount = $this->netPaymentBase($booking, $paymentAmount, $isFirstPayment);
+
         $dept = $booking->dept->value;
         $deptFee = $doctor->dept_fees[$dept] ?? null;
 
         if ($deptFee && ! in_array($dept, ['surgery', 'lasik'], true)) {
-            return $this->computeFeeEntryShareForPayment($deptFee, $paymentAmount, $isFirstPayment);
+            return $this->computeFeeEntryShareForPayment($deptFee, $netAmount, $isFirstPayment);
         }
 
         if (in_array($dept, ['surgery', 'lasik'], true)) {
@@ -91,14 +124,50 @@ class DoctorClaimsService
                 return $isFirstPayment ? $this->insuranceSurgeryFixedFee($booking) : 0.0;
             }
 
-            return $this->surgeryShareForPayment($booking, $paymentAmount, $isFirstPayment);
+            return $this->surgeryShareForPayment($booking, $netAmount, $isFirstPayment);
+        }
+
+        // Laser strategy (fixed hospital revenue): the doctor gets whatever is
+        // left after the hospital's fixed cut for this service, not a
+        // percentage/fixed fee of their own. Deducted on the first payment
+        // only, mirroring the surgery/lasik supply deduction above.
+        if ($dept === Department::Laser->value) {
+            $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id);
+
+            if ($fixedRevenue !== null) {
+                return $isFirstPayment ? max(0, round($netAmount - $fixedRevenue, 2)) : max(0, $netAmount);
+            }
         }
 
         return match ($doctor->fee_type) {
-            FeeType::Percentage => round($paymentAmount * ((float) $doctor->fee_value / 100), 2),
+            FeeType::Percentage => round($netAmount * ((float) $doctor->fee_value / 100), 2),
             FeeType::Fixed => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
             default => 0.0,
         };
+    }
+
+    /**
+     * Resolve the booking's service dev_treasury_fee and subtract it once
+     * from the amount used as the doctor-share calculation base — cash
+     * bookings only, and only on the first payment (the fee is a single
+     * fixed deduction per booking, not per installment).
+     */
+    private function netPaymentBase(Booking $booking, float $amount, bool $isFirstPayment): float
+    {
+        if (! $isFirstPayment || $booking->pay_method !== PayMethod::Cash) {
+            return $amount;
+        }
+
+        return max(0, $amount - $this->resolveDevFee($booking->service_id));
+    }
+
+    private function resolveDevFee(?string $serviceId): float
+    {
+        if ($serviceId === null) {
+            return 0.0;
+        }
+
+        return (float) (Service::whereKey($serviceId)->value('dev_treasury_fee') ?? 0);
     }
 
     private function computeFeeEntryShareForPayment(array $deptFee, float $paymentAmount, bool $isFirstPayment): float
@@ -114,7 +183,8 @@ class DoctorClaimsService
 
     /**
      * Surgery/Lasik strategy: supply cost is deducted from the first payment only;
-     * subsequent installments go to the doctor in full.
+     * subsequent installments go to the doctor in full. $paymentAmount has already
+     * had the dev-treasury fee netted out (first payment, cash only) by the caller.
      */
     private function surgeryShareForPayment(Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
@@ -129,6 +199,27 @@ class DoctorClaimsService
         return max(0, $paymentAmount - $supplyTotal);
     }
 
+    /**
+     * A Laser service's fixed hospital-revenue cut, when the admin has
+     * configured the service's center as a flat amount rather than a
+     * percentage. Returns null when the service isn't configured this way,
+     * so callers fall back to the doctor's own fee_type/fee_value.
+     */
+    private function resolveLaserFixedRevenue(?string $serviceId): ?float
+    {
+        if ($serviceId === null) {
+            return null;
+        }
+
+        $service = DB::table('services')->where('id', $serviceId)->first(['center_type', 'center_val']);
+
+        if (! $service || $service->center_type !== 'fixed') {
+            return null;
+        }
+
+        return (float) $service->center_val;
+    }
+
     private function insuranceSurgeryFixedFee(Booking $booking): float
     {
         return (float) DB::table('services')
@@ -137,28 +228,44 @@ class DoctorClaimsService
             ->value('dr_share') ?? 0.0;
     }
 
-    private function computeDrShare(Doctor $doctor, object $booking): float
+    public function computeDrShare(Doctor $doctor, object $booking): float
     {
+        $dept = $booking->dept;
+
+        // Pentacam never generates a doctor fee, regardless of fee configuration.
+        if ($dept === Department::Pentacam->value) {
+            return 0.0;
+        }
+
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
-        $dept = $booking->dept;
+
+        // Development-treasury fee is deducted from the price BEFORE the
+        // doctor's share is computed (cash bookings only — see
+        // AutoPostDevelopmentFeeAction). Fixed/flat fee amounts are
+        // unaffected since they don't derive from $paid.
+        $netPaid = $booking->pay_method === 'cash'
+            ? max(0, $paid - $this->resolveDevFee($booking->service_id ?? null))
+            : $paid;
 
         // Per-department fee override takes priority
         $deptFee = $doctor->dept_fees[$dept] ?? null;
 
         if ($deptFee && ! in_array($dept, ['surgery', 'lasik'])) {
-            return $this->computeFromFeeEntry($deptFee, $paid);
+            return $this->computeFromFeeEntry($deptFee, $netPaid);
         }
 
         return match (true) {
-            // Surgery/Lasik: dr_share = paid − supply_total
-            in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $paid),
-
             // Insurance surgery: dr_share = fixed fee from service definition (stored as center_val)
             $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik']) => $this->computeInsuranceSurgeryShare($booking),
 
-            // Clinic, Labs, Laser: dr_share = paid − center_share (from service definition)
-            default => $this->computeServiceShare($doctor, $paid, $insAmount),
+            // Surgery/Lasik: dr_share = net paid − supply_total
+            in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $netPaid),
+
+            // Clinic, Labs, Laser: dr_share = f(net paid) per doctor fee_type
+            // (Laser falls back to a fixed-hospital-revenue split when the
+            // service is configured that way — see resolveLaserFixedRevenue()).
+            default => $this->computeServiceShare($doctor, $netPaid, $insAmount, $dept, $booking->service_id ?? null),
         };
     }
 
@@ -209,8 +316,16 @@ class DoctorClaimsService
      * Clinic/Labs/Laser strategy: dr_share = paid − center_share.
      * center_share derived from service definition (pct or fixed).
      */
-    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount): float
+    private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount, ?string $dept = null, ?string $serviceId = null): float
     {
+        if ($dept === Department::Laser->value) {
+            $fixedRevenue = $this->resolveLaserFixedRevenue($serviceId);
+
+            if ($fixedRevenue !== null) {
+                return max(0, round($paid - $fixedRevenue, 2));
+            }
+        }
+
         if ($doctor->fee_type === FeeType::Percentage) {
             return round($paid * ($doctor->fee_value / 100), 2);
         }
@@ -230,7 +345,12 @@ class DoctorClaimsService
         $alreadyPaid = (float) $paymentRecords->sum('amount');
 
         return [
-            'doctor' => ['id' => $doctor->id, 'name' => $doctor->name, 'fee_type' => $doctor->fee_type->value],
+            'doctor' => [
+                'id' => $doctor->id,
+                'name' => $doctor->name,
+                'fee_type' => $doctor->fee_type->value,
+                'debt_balance' => (float) $doctor->doctor_debt_balance,
+            ],
             'period_from' => $from,
             'period_to' => $to,
             'total_claims' => $total,

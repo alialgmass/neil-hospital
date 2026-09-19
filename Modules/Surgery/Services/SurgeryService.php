@@ -17,6 +17,7 @@ use Modules\Surgery\Models\OrBed;
 use Modules\Surgery\Models\OrRoom;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\Repositories\Contracts\SurgeryRepositoryInterface;
+use Modules\Surgery\States\CompletedState;
 use Modules\Surgery\States\InProgressState;
 use Modules\Surgery\States\PrepState;
 use Modules\Surgery\States\ScheduledState;
@@ -80,6 +81,11 @@ class SurgeryService
         }
     }
 
+    public function markBedAvailable(int $bedId): void
+    {
+        OrBed::whereKey($bedId)->update(['status' => 'available']);
+    }
+
     public function isBedAvailable(int $bedId, string $scheduledAt, ?string $excludeSurgeryId = null): bool
     {
         return ! Surgery::where('or_bed_id', $bedId)
@@ -126,13 +132,26 @@ class SurgeryService
             ->get();
     }
 
-    /** OR rooms with each bed's active surgery (any dept) so cross-dept occupancy is visible. */
+    /**
+     * OR rooms with each bed's active surgery (any dept) so cross-dept occupancy is visible.
+     * A case finished today stays visible with a "completed" status instead of vanishing,
+     * but an active case on the same bed always takes priority.
+     */
     public function getOrRoomsWithBedStatus(string $dept, string $date): Collection
     {
-        return OrRoom::with(['beds' => function ($q) {
+        return OrRoom::with(['beds' => function ($q) use ($date) {
             $q->orderBy('bed_number')
-                ->with(['surgery' => function ($sq) {
-                    $sq->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name])
+                ->with(['surgery' => function ($sq) use ($date) {
+                    $sq->where(function ($statusQuery) use ($date) {
+                        $statusQuery->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name])
+                            ->orWhere(function ($completedQuery) use ($date) {
+                                $completedQuery->where('status', CompletedState::$name)
+                                    ->whereDate('ended_at', $date);
+                            });
+                    })
+                        ->orderByRaw('CASE status WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', [
+                            InProgressState::$name, PrepState::$name, ScheduledState::$name,
+                        ])
                         ->with(['booking', 'surgeon']);
                 }]);
         }])->orderBy('name')->get();

@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { PlusCircle, UserCheck, Percent, DollarSign, Pencil } from 'lucide-vue-next';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { PlusCircle, UserCheck, Percent, DollarSign, Pencil, Trash2 } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import type { DepartmentOption } from '@/types';
+import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
 type FeeType = 'percentage' | 'fixed' | 'insurance';
 
 interface DeptFeeEntry {
     fee_type: FeeType;
     fee_value: number;
+}
+
+interface DoctorServiceEntry {
+    id: string;
+    name: string;
+    pivot: { fee: number | string };
 }
 
 interface Doctor {
@@ -22,17 +31,27 @@ interface Doctor {
     fee_type: FeeType;
     fee_value: number;
     dept_fees: Record<string, DeptFeeEntry> | null;
+    departments: string[] | null;
+    services?: DoctorServiceEntry[];
     is_active: boolean;
+}
+
+interface ServiceOption {
+    id: string;
+    name: string;
+    dept: string;
 }
 
 const props = defineProps<{
     doctors: { data: Doctor[]; current_page: number; last_page: number; total: number };
+    services: ServiceOption[];
     filters: { search?: string };
 }>();
 
 const columns = [
     { key: 'name',      label: 'الاسم',      sortable: true },
     { key: 'specialty', label: 'التخصص' },
+    { key: 'departments', label: 'الأقسام' },
     { key: 'phone',     label: 'الهاتف' },
     { key: 'fee_type',  label: 'الحساب الافتراضي' },
     { key: 'fee_value', label: 'القيمة' },
@@ -40,13 +59,21 @@ const columns = [
     { key: '_actions',  label: '' },
 ];
 
-const depts: { key: string; label: string }[] = [
-    { key: 'clinic',   label: 'العيادة' },
-    { key: 'surgery',  label: 'العمليات' },
-    { key: 'lasik',    label: 'الليزك' },
-    { key: 'laser',    label: 'الليزر' },
-    { key: 'labs',     label: 'الفحوصات' },
-];
+const page = usePage<{ departments?: DepartmentOption[]; permissions?: string[] }>();
+
+// Selectable departments come from the shared `departments` prop
+// (App\Enums\Department), already filtered to enabled modules.
+const depts = computed<{ key: string; label: string }[]>(() =>
+    (page.props.departments ?? []).map((d) => ({ key: d.value, label: d.label })),
+);
+const deptLabel = (key: string): string =>
+    depts.value.find((d) => d.key === key)?.label ?? key;
+
+const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
+function can(permission: string): boolean {
+    return permissions.value.includes('*') || permissions.value.includes(permission);
+}
+const canDelete = computed(() => can('doctors.delete'));
 
 const activeCount = computed(() => props.doctors.data.filter((d) => d.is_active).length);
 const pctCount    = computed(() => props.doctors.data.filter((d) => d.fee_type === 'percentage').length);
@@ -64,14 +91,37 @@ function goToPage(page: number) {
 const showModal  = ref(false);
 const editingId  = ref<string | null>(null);
 
+/* ── Delete modal state ── */
+const showDeleteModal   = ref(false);
+const deletingDoctorId  = ref<string | null>(null);
+function confirmDelete(id: string) {
+    deletingDoctorId.value = id;
+    showDeleteModal.value = true;
+}
+
 type DeptOverride = { enabled: boolean; fee_type: FeeType; fee_value: number };
-const deptOverrides = reactive<Record<string, DeptOverride>>({
-    clinic:  { enabled: false, fee_type: 'percentage', fee_value: 40 },
-    surgery: { enabled: false, fee_type: 'percentage', fee_value: 60 },
-    lasik:   { enabled: false, fee_type: 'percentage', fee_value: 60 },
-    laser:   { enabled: false, fee_type: 'percentage', fee_value: 35 },
-    labs:    { enabled: false, fee_type: 'percentage', fee_value: 30 },
-});
+
+// Default fee per department when an override card is first enabled;
+// departments not listed here (e.g. pentacam) default to 0%.
+const deptOverrideDefaults: Record<string, { fee_type: FeeType; fee_value: number }> = {
+    clinic:  { fee_type: 'percentage', fee_value: 40 },
+    surgery: { fee_type: 'percentage', fee_value: 60 },
+    lasik:   { fee_type: 'percentage', fee_value: 60 },
+    laser:   { fee_type: 'percentage', fee_value: 35 },
+    labs:    { fee_type: 'percentage', fee_value: 30 },
+};
+function defaultOverride(key: string): DeptOverride {
+    const d = deptOverrideDefaults[key] ?? { fee_type: 'percentage' as FeeType, fee_value: 0 };
+
+    return { enabled: false, fee_type: d.fee_type, fee_value: d.fee_value };
+}
+
+const deptOverrides = reactive<Record<string, DeptOverride>>({});
+
+// dept_fees entries for departments not shown in the current modal (their
+// module is disabled). Carried through a save untouched so toggling a module
+// off never silently drops a doctor's fee for it.
+const preservedDeptFees = ref<Record<string, DeptFeeEntry>>({});
 
 const form = useForm({
     name:      '',
@@ -81,7 +131,16 @@ const form = useForm({
     fee_value: 40,
     is_active: true,
     dept_fees: {} as Record<string, DeptFeeEntry>,
+    departments: [] as string[],
+    services: [] as { service_id: string; fee: number }[],
 });
+
+function addServiceFee() {
+    form.services.push({ service_id: props.services[0]?.id ?? '', fee: 0 });
+}
+function removeServiceFee(index: number) {
+    form.services.splice(index, 1);
+}
 
 function openAdd() {
     editingId.value = null;
@@ -89,10 +148,27 @@ function openAdd() {
     form.fee_type  = 'percentage';
     form.fee_value = 40;
     form.is_active = true;
-    depts.forEach(({ key }) => {
-        deptOverrides[key] = { enabled: false, fee_type: 'percentage', fee_value: 40 };
+    form.departments = [];
+    form.services = [];
+    preservedDeptFees.value = {};
+    depts.value.forEach(({ key }) => {
+        deptOverrides[key] = defaultOverride(key);
     });
     showModal.value = true;
+}
+
+/** dept_fees keys whose department is not shown in the modal right now. */
+function splitHiddenDeptFees(deptFees: Record<string, DeptFeeEntry> | null): Record<string, DeptFeeEntry> {
+    const visible = new Set(depts.value.map(({ key }) => key));
+    const hidden: Record<string, DeptFeeEntry> = {};
+
+    for (const [key, entry] of Object.entries(deptFees ?? {})) {
+        if (!visible.has(key)) {
+            hidden[key] = entry;
+        }
+    }
+
+    return hidden;
 }
 
 function openEdit(doctor: Doctor) {
@@ -103,32 +179,45 @@ function openEdit(doctor: Doctor) {
     form.fee_type  = doctor.fee_type;
     form.fee_value = doctor.fee_value;
     form.is_active = doctor.is_active;
+    form.departments = doctor.departments ?? [];
+    form.services = (doctor.services ?? []).map((s) => ({
+        service_id: s.id,
+        fee: Number(s.pivot.fee),
+    }));
 
-    depts.forEach(({ key }) => {
+    preservedDeptFees.value = splitHiddenDeptFees(doctor.dept_fees);
+    depts.value.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
         deptOverrides[key] = existing
             ? { enabled: true, fee_type: existing.fee_type, fee_value: existing.fee_value }
-            : { enabled: false, fee_type: 'percentage', fee_value: 40 };
+            : defaultOverride(key);
     });
     showModal.value = true;
 }
 
 function buildDeptFees(): Record<string, DeptFeeEntry> {
-    const result: Record<string, DeptFeeEntry> = {};
-    for (const { key } of depts) {
-        if (deptOverrides[key].enabled) {
+    const result: Record<string, DeptFeeEntry> = { ...preservedDeptFees.value };
+
+    for (const { key } of depts.value) {
+        if (deptOverrides[key]?.enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
     }
+
     return result;
 }
 
 function submit() {
     form.dept_fees = buildDeptFees();
+
+    const onSuccess = () => {
+        showModal.value = false;
+    };
+
     if (editingId.value) {
-        form.put(`/doctors/${editingId.value}`, { onSuccess: () => { showModal.value = false; } });
+        form.put(`/doctors/${editingId.value}`, { onSuccess });
     } else {
-        form.post('/doctors', { onSuccess: () => { showModal.value = false; } });
+        form.post('/doctors', { onSuccess });
     }
 }
 
@@ -179,10 +268,15 @@ const feeTypeLabels: Record<string, string> = {
     <div class="mb-5 flex items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-bold text-hospital-text">إدارة الأطباء وصلاحياتهم</h2>
-            <p class="text-xs text-hospital-muted">تحديد نسبة أو قيمة حصة كل طبيب من الإيرادات</p>
+            <p class="text-xs text-hospital-text-3">تحديد نسبة أو قيمة حصة كل طبيب من الإيرادات</p>
         </div>
         <div class="flex items-center gap-2">
             <SearchBar v-model="search" placeholder="بحث بالاسم..." @update:model-value="applySearch" />
+            <ModuleImportButton
+                label="الأطباء"
+                templateUrl="/doctors/import-template"
+                importUrl="/doctors/import"
+            />
             <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openAdd">
                 <PlusCircle class="h-4 w-4" /> طبيب جديد
             </button>
@@ -190,6 +284,14 @@ const feeTypeLabels: Record<string, string> = {
     </div>
 
     <DataTable :columns="columns" :rows="doctors.data" :current-page="doctors.current_page" :last-page="doctors.last_page" :total="doctors.total" empty-text="لا يوجد أطباء" @page="goToPage">
+        <template #cell-departments="{ row }">
+            <span v-if="!(row as Doctor).departments?.length" class="text-xs text-hospital-text-2">كل الأقسام</span>
+            <div v-else class="flex flex-wrap gap-1">
+                <span v-for="key in (row as Doctor).departments" :key="key" class="rounded-full bg-hospital-primary-pale px-2 py-0.5 text-xs text-hospital-primary">
+                    {{ deptLabel(key) }}
+                </span>
+            </div>
+        </template>
         <template #cell-fee_type="{ value }">{{ feeTypeLabels[value as string] ?? value }}</template>
         <template #cell-fee_value="{ value, row }">
             <span v-if="(row as Doctor).fee_type === 'percentage'">{{ value }}%</span>
@@ -200,91 +302,134 @@ const feeTypeLabels: Record<string, string> = {
             <Badge :variant="value ? 'active' : 'inactive'" />
         </template>
         <template #cell-_actions="{ row }">
-            <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary" @click="openEdit(row as Doctor)">
-                <Pencil class="h-4 w-4" />
-            </button>
+            <div class="flex items-center gap-1">
+                <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary" @click="openEdit(row as Doctor)">
+                    <Pencil class="h-4 w-4" />
+                </button>
+                <button v-if="canDelete" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" title="حذف" @click="confirmDelete((row as Doctor).id)">
+                    <Trash2 class="h-4 w-4" />
+                </button>
+            </div>
         </template>
     </DataTable>
 
     <!-- Add / Edit Modal -->
     <Modal v-model="showModal" :title="editingId ? 'تعديل بيانات الطبيب' : 'إضافة طبيب جديد'" size="lg">
-        <form class="space-y-4" @submit.prevent="submit">
+        <form class="space-y-5" @submit.prevent="submit">
             <!-- Basic info -->
             <div>
-                <label class="mb-1 block text-sm font-medium">الاسم <span class="text-hospital-danger">*</span></label>
-                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
-                <p v-if="form.errors.name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.name }}</p>
+                <label class="form-label">الاسم <span class="text-hospital-danger">*</span></label>
+                <input v-model="form.name" type="text" placeholder="د. الاسم الكامل" class="input-field" />
+                <p v-if="form.errors.name" class="form-error">{{ form.errors.name }}</p>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium">التخصص</label>
-                    <input v-model="form.specialty" type="text" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                    <label class="form-label">التخصص</label>
+                    <input v-model="form.specialty" type="text" class="input-field" />
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium">الهاتف</label>
-                    <input v-model="form.phone" type="text" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                    <label class="form-label">الهاتف</label>
+                    <input v-model="form.phone" type="text" class="input-field" />
                 </div>
             </div>
 
             <!-- Default fee -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <p class="mb-3 text-xs font-bold text-hospital-primary">⚙️ الإعداد الافتراضي (لكل الأقسام)</p>
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-3 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">⚙️ الإعداد الافتراضي (لكل الأقسام)</p>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">نوع الحساب</label>
-                        <select v-model="form.fee_type" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
+                        <label class="form-label">نوع الحساب</label>
+                        <select v-model="form.fee_type" class="input-field">
                             <option value="percentage">نسبة مئوية %</option>
                             <option value="fixed">مبلغ ثابت لكل حالة</option>
                             <option value="insurance">تأمين صحي (صفر)</option>
                         </select>
                     </div>
                     <div v-if="form.fee_type !== 'insurance'">
-                        <label class="mb-1 block text-xs font-medium text-hospital-text-2">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
-                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="w-full rounded-lg border border-hospital-border bg-white px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
+                        <label class="form-label">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
+                        <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="input-field" />
                     </div>
                 </div>
             </div>
 
+            <!-- Departments the doctor works in -->
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-1 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">🏥 الأقسام التي يعمل بها الطبيب</p>
+                <p class="mb-3 mt-2 text-xs text-hospital-text-2">اترك الكل بدون تحديد ليظهر الطبيب في كل الأقسام، أو حدد الأقسام لحصر ظهوره فيها فقط عند إنشاء حجز.</p>
+                <div class="flex flex-wrap gap-2">
+                    <label v-for="dept in depts" :key="dept.key" class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-hospital-border bg-hospital-surface px-3 py-1.5 text-sm text-hospital-text has-[:checked]:border-hospital-primary has-[:checked]:bg-hospital-primary-pale">
+                        <input v-model="form.departments" type="checkbox" :value="dept.key" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
+                        {{ dept.label }}
+                    </label>
+                </div>
+            </div>
+
             <!-- Per-department overrides -->
-            <div class="rounded-lg border border-hospital-border bg-hospital-bg p-4">
-                <p class="mb-3 text-xs font-bold text-hospital-text-2">🔀 إعدادات خاصة بكل قسم (اختياري)</p>
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <p class="mb-3 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">🔀 إعدادات خاصة بكل قسم (اختياري)</p>
                 <div class="space-y-2">
-                    <div v-for="dept in depts" :key="dept.key" class="rounded-lg border border-hospital-border/60 bg-white p-3">
-                        <label class="mb-2 flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <div v-for="dept in depts" :key="dept.key" class="rounded-lg border border-hospital-border bg-hospital-surface p-3">
+                        <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-hospital-text">
                             <input v-model="deptOverrides[dept.key].enabled" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
                             {{ dept.label }}
                         </label>
-                        <div v-if="deptOverrides[dept.key].enabled" class="mt-2 grid grid-cols-2 gap-3">
+                        <div v-if="deptOverrides[dept.key].enabled" class="mt-3 grid grid-cols-2 gap-3">
                             <div>
-                                <label class="mb-1 block text-xs text-hospital-text-2">نوع الحساب</label>
-                                <select v-model="deptOverrides[dept.key].fee_type" class="w-full rounded-md border border-hospital-border bg-hospital-bg px-2 py-1.5 text-xs focus:border-hospital-primary focus:outline-none">
+                                <label class="form-label">نوع الحساب</label>
+                                <select v-model="deptOverrides[dept.key].fee_type" class="input-field">
                                     <option value="percentage">نسبة مئوية %</option>
                                     <option value="fixed">مبلغ ثابت</option>
                                     <option value="insurance">تأمين (صفر)</option>
                                 </select>
                             </div>
                             <div v-if="deptOverrides[dept.key].fee_type !== 'insurance'">
-                                <label class="mb-1 block text-xs text-hospital-text-2">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
-                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="w-full rounded-md border border-hospital-border bg-hospital-bg px-2 py-1.5 text-xs focus:border-hospital-primary focus:outline-none" />
+                                <label class="form-label">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
+                                <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="input-field" />
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Per-service doctor fees -->
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <div class="mb-3 flex items-center justify-between border-b border-hospital-border pb-2">
+                    <div>
+                        <p class="text-sm font-bold text-hospital-text">🩺 خدمات الطبيب وأتعابه</p>
+                        <p class="mt-1 text-xs text-hospital-text-2">أتعاب الطبيب لكل خدمة — تُستخدم لإنشاء مستحق الطبيب في حجوزات التأمين والتعاقد.</p>
+                    </div>
+                    <button type="button" class="shrink-0 rounded-md border border-hospital-border bg-hospital-surface px-2 py-1 text-xs text-hospital-text hover:bg-hospital-bg" @click="addServiceFee">+ إضافة خدمة</button>
+                </div>
+                <p v-if="!form.services.length" class="text-xs text-hospital-text-2">لا توجد خدمات مضافة.</p>
+                <div v-else class="space-y-2">
+                    <div v-for="(row, i) in form.services" :key="i" class="grid grid-cols-[1fr_120px_auto] items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface p-2">
+                        <select v-model="row.service_id" class="input-field">
+                            <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                        <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="الأتعاب (ج.م)" class="input-field" />
+                        <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceFee(i)">
+                            <Trash2 class="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+                <p v-if="form.errors.services" class="form-error">{{ form.errors.services }}</p>
+            </div>
+
             <!-- Status (edit only) -->
             <div v-if="editingId" class="flex items-center gap-2">
                 <input id="is_active" v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
-                <label for="is_active" class="text-sm font-medium">طبيب نشط</label>
+                <label for="is_active" class="text-sm font-medium text-hospital-text">طبيب نشط</label>
             </div>
 
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showModal = false">إلغاء</button>
-                <button type="submit" :disabled="form.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+            <div class="flex justify-end gap-2 border-t border-hospital-border pt-4">
+                <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
+                <button type="submit" :disabled="form.processing" class="btn-primary">
                     {{ editingId ? 'حفظ التعديلات' : 'إضافة الطبيب' }}
                 </button>
             </div>
         </form>
     </Modal>
+
+    <DeleteDoctorModal v-model="showDeleteModal" :doctor-id="deletingDoctorId" @success="deletingDoctorId = null" />
 </template>

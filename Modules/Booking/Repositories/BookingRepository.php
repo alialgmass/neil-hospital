@@ -3,11 +3,14 @@
 namespace Modules\Booking\Repositories;
 
 use App\Repositories\BaseRepository;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
+use Modules\Booking\States\BookingStatus;
 
 class BookingRepository extends BaseRepository implements BookingRepositoryInterface
 {
@@ -18,10 +21,32 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
 
     public function filterAndPaginate(BookingFilterData $filter): LengthAwarePaginator
     {
+        return $this->filterQuery($filter)->paginate($filter->perPage);
+    }
+
+    /**
+     * All bookings matching the given filters (no pagination) — used by Excel export.
+     *
+     * @return Collection<int, Booking>
+     */
+    public function filteredAll(BookingFilterData $filter): Collection
+    {
+        return $this->filterQuery($filter)->get();
+    }
+
+    private function filterQuery(BookingFilterData $filter): Builder
+    {
         $query = Booking::query()
             ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
             ->whereIn('dept', SystemModule::enabledDeptValues())
-            ->latest('visit_date');
+            ->whereIn('status', BookingStatus::visibleStatusNames())
+            ->orderByDesc('visit_date')
+            ->orderByDesc('created_at');
+
+        // Hide completed & cancelled from the default listing; user can see them via the status filter
+        if (! $filter->status) {
+            $query->whereNotIn('status', ['completed', 'completed_electronic', 'cancelled']);
+        }
 
         if ($filter->date) {
             $query->whereDate('visit_date', $filter->date);
@@ -58,7 +83,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             });
         }
 
-        return $query->paginate($filter->perPage);
+        return $query;
     }
 
     public function findOrFail(string $id): Booking
@@ -113,15 +138,28 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
             ->all();
     }
 
-    public function maxMrnSequence(int $year): int
+    public function maxFileSequence(): int
     {
+        // Supports new format P-{seq}-{last3} and legacy MRN-YYYY-{seq}.
+        // Parsed in PHP (rather than DB-specific SUBSTRING_INDEX/REGEXP SQL)
+        // so this works identically across MySQL and SQLite.
+        $max = Booking::where('file_no', 'like', 'P-%')
+            ->pluck('file_no')
+            ->map(fn (string $fileNo) => preg_match('/^P-(\d+)-/', $fileNo, $m) ? (int) $m[1] : 0)
+            ->max() ?? 0;
+
+        if ($max > 0) {
+            return $max;
+        }
+
+        // Fall back to legacy MRN sequence so numbering continues from where it left off
+        $year = now()->year;
         $prefix = "MRN-{$year}-";
 
-        $max = Booking::where('file_no', 'like', "{$prefix}%")
-            ->selectRaw('MAX(CAST(SUBSTRING(file_no, ?) AS UNSIGNED)) as seq', [strlen($prefix) + 1])
-            ->value('seq');
-
-        return (int) $max;
+        return (int) Booking::where('file_no', 'like', "{$prefix}%")
+            ->pluck('file_no')
+            ->map(fn (string $fileNo) => (int) substr($fileNo, strlen($prefix)))
+            ->max() ?? 0;
     }
 
     public function fileNoExists(string $fileNo): bool
