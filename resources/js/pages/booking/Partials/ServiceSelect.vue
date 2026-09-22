@@ -17,11 +17,13 @@ interface Props {
     services: Service[];
     doctors: Doctor[];
     isEditMode?: boolean;
+    hideService?: boolean;
     errors?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     isEditMode: false,
+    hideService: false,
     errors: () => ({}),
 });
 
@@ -38,7 +40,7 @@ function update(field: keyof Props['modelValue'], value: string) {
     <div class="bk-section">
         <span class="bk-title bk-title-teal">{{ isEditMode ? 'الخدمة والدفع' : 'الخدمة' }}</span>
         <div class="bk-grid-2">
-            <div>
+            <div v-if="!hideService">
                 <label class="bk-label">الخدمة</label>
                 <select
                     :value="modelValue.service_id"

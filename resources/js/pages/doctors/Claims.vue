@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     Calculator,
     CreditCard,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, watch } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
+import { formatDate } from '@/lib/date';
 
 interface DoctorSummary {
     doctor: {
@@ -82,6 +83,9 @@ const mounted = ref(false);
 onMounted(() => {
     mounted.value = true;
 });
+
+const hospitalName = usePage().props.settings.hospital_name;
+const hospitalSpecialty = usePage().props.settings.hospital_specialty;
 
 // ── Date filter ──
 const fromFilter = ref(props.filters.from ?? '');
@@ -1188,9 +1192,9 @@ function printInvoice() {
                 <div class="ph-logo">👁</div>
                 <div class="ph-hospital">
                     <div class="ph-hospital-name">
-                        مستشفى النور لطب وجراحة العيون
+                        {{ hospitalName }}
                     </div>
-                    <div class="ph-hospital-sub">Al-Nour Eye Hospital</div>
+                    <div class="ph-hospital-sub">{{ hospitalSpecialty }}</div>
                 </div>
                 <div class="ph-doc-info">
                     <div class="ph-doc-label">كشف مستحقات الطبيب</div>
@@ -1205,7 +1209,7 @@ function printInvoice() {
                     </div>
                     <div class="ph-doc-date">
                         تاريخ الطباعة:
-                        {{ new Date().toLocaleDateString('ar-EG') }}
+                        {{ formatDate(new Date()) }}
                     </div>
                 </div>
             </div>
@@ -1282,7 +1286,7 @@ function printInvoice() {
 
             <!-- Claims Detail Table -->
             <div class="ph-section-title">تفاصيل الحالات</div>
-            <table class="ph-table">
+            <table class="ph-table ph-cases-table">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -1337,52 +1341,27 @@ function printInvoice() {
                             class="ph-supply-row"
                         >
                             <td colspan="9" class="ph-supply-cell">
-                                <div class="ph-supply-label">
-                                    مستلزمات جراحية
-                                </div>
-                                <table class="ph-supply-table">
-                                    <thead>
-                                        <tr>
-                                            <th>البيان</th>
-                                            <th class="center">العدد</th>
-                                            <th class="num">سعر الوحدة</th>
-                                            <th class="num">الإجمالي</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr
-                                            v-for="(item, i) in row.supplies"
-                                            :key="i"
-                                        >
-                                            <td>{{ item.name }}</td>
-                                            <td class="center">
-                                                {{ item.qty }}
-                                            </td>
-                                            <td class="num">
-                                                {{ fmt(item.unit_cost) }}
-                                            </td>
-                                            <td class="num bold">
-                                                {{
-                                                    fmt(
-                                                        item.total ??
-                                                            item.qty *
-                                                                item.unit_cost,
-                                                    )
-                                                }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td colspan="3" class="bold">
-                                                إجمالي المستلزمات
-                                            </td>
-                                            <td class="num bold">
-                                                {{ fmt(row.supply_total ?? 0) }}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
+                                <span class="ph-supply-label">
+                                    مستلزمات جراحية:
+                                </span>
+                                <span class="ph-supply-items">
+                                    <span
+                                        v-for="(item, i) in row.supplies"
+                                        :key="i"
+                                        class="ph-supply-pill"
+                                    >
+                                        {{ item.name }} × {{ item.qty }} =
+                                        {{
+                                            fmt(
+                                                item.total ??
+                                                    item.qty * item.unit_cost,
+                                            )
+                                        }}
+                                    </span>
+                                    <span class="ph-supply-pill ph-supply-total">
+                                        إجمالي: {{ fmt(row.supply_total ?? 0) }}
+                                    </span>
+                                </span>
                             </td>
                         </tr>
                     </template>
@@ -1447,8 +1426,8 @@ function printInvoice() {
             </div>
 
             <div class="ph-footer">
-                مستشفى النور لطب وجراحة العيون &nbsp;|&nbsp; طُبع بتاريخ
-                {{ new Date().toLocaleDateString('ar-EG') }}
+                {{ hospitalName }} {{ hospitalSpecialty }} &nbsp;|&nbsp; طُبع بتاريخ
+                {{ formatDate(new Date()) }}
             </div>
         </div>
     </Teleport>
@@ -1619,8 +1598,13 @@ function printInvoice() {
     }
 
     /* ── Tables ── */
+    /* table-layout: fixed keeps the table within the printable page width
+       regardless of cell content length (e.g. a long service/patient name)
+       — without it, a single long word can force the table wider than the
+       page and push the last column(s) off the printed edge entirely. */
     .ph-table {
         width: 100%;
+        table-layout: fixed;
         border-collapse: collapse;
         font-size: 10.5px;
         margin-bottom: 6px;
@@ -1628,10 +1612,14 @@ function printInvoice() {
     .ph-table th {
         background: #e8f1fb;
         color: #072e63;
-        padding: 6px 8px;
+        padding: 6px 6px;
         text-align: right;
         font-weight: 700;
+        font-size: 10px;
+        line-height: 1.3;
+        white-space: normal;
         border: 1px solid #c8d8f0;
+        overflow-wrap: break-word;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -1639,6 +1627,46 @@ function printInvoice() {
         padding: 5px 8px;
         border: 1px solid #dde4ef;
         vertical-align: middle;
+        overflow-wrap: break-word;
+    }
+    /* Explicit column widths for the 9-column case-details table only —
+       the payments table above also uses .ph-table but has a different
+       column count, so it must not inherit these nth-child widths. */
+    .ph-cases-table th:nth-child(1),
+    .ph-cases-table td:nth-child(1) {
+        width: 3%;
+    }
+    .ph-cases-table th:nth-child(2),
+    .ph-cases-table td:nth-child(2) {
+        width: 11%;
+    }
+    .ph-cases-table th:nth-child(3),
+    .ph-cases-table td:nth-child(3) {
+        width: 12%;
+    }
+    .ph-cases-table th:nth-child(4),
+    .ph-cases-table td:nth-child(4) {
+        width: 14%;
+    }
+    .ph-cases-table th:nth-child(5),
+    .ph-cases-table td:nth-child(5) {
+        width: 9%;
+    }
+    .ph-cases-table th:nth-child(6),
+    .ph-cases-table td:nth-child(6) {
+        width: 18%;
+    }
+    .ph-cases-table th:nth-child(7),
+    .ph-cases-table td:nth-child(7) {
+        width: 11%;
+    }
+    .ph-cases-table th:nth-child(8),
+    .ph-cases-table td:nth-child(8) {
+        width: 11%;
+    }
+    .ph-cases-table th:nth-child(9),
+    .ph-cases-table td:nth-child(9) {
+        width: 11%;
     }
     .ph-table tbody tr:nth-child(even) td {
         background: #f8fafd;
@@ -1647,71 +1675,40 @@ function printInvoice() {
         page-break-inside: avoid;
     }
 
-    /* supply sub-row */
+    /* supply sub-row — compact single-line pill layout to save paper */
     .ph-supply-row td {
         background: #fffbeb !important;
     }
     .ph-supply-cell {
-        padding: 6px 14px 8px !important;
-        font-size: 10px;
+        padding: 3px 14px !important;
+        font-size: 9.5px;
+        line-height: 1.6;
     }
     .ph-supply-label {
         font-weight: 800;
         color: #b45309;
-        font-size: 10px;
-        margin-bottom: 5px;
+        margin-left: 4px;
     }
-
-    /* supply mini-table */
-    .ph-supply-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 10px;
+    .ph-supply-items {
+        display: inline;
     }
-    .ph-supply-table th {
-        background: #fef3c7;
-        color: #92400e;
-        padding: 4px 8px;
-        text-align: right;
-        font-weight: 700;
+    .ph-supply-pill {
+        display: inline-block;
+        margin: 1px 3px 1px 0;
+        padding: 1px 6px;
         border: 1px solid #f59e0b;
+        border-radius: 3px;
+        background: #fef3c7;
+        color: #78350f;
+        font-family: monospace;
+        white-space: nowrap;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
-    .ph-supply-table th.num {
-        text-align: left;
-        direction: ltr;
-    }
-    .ph-supply-table th.center {
-        text-align: center;
-    }
-    .ph-supply-table td {
-        padding: 4px 8px;
-        border: 1px solid #fde68a;
-        color: #78350f;
-        vertical-align: middle;
-    }
-    .ph-supply-table td.num {
-        text-align: left;
-        direction: ltr;
-        font-family: monospace;
-    }
-    .ph-supply-table td.center {
-        text-align: center;
-    }
-    .ph-supply-table td.bold {
+    .ph-supply-total {
         font-weight: 700;
-    }
-    .ph-supply-table tbody tr:nth-child(even) td {
-        background: #fffdf0;
-    }
-    .ph-supply-table tfoot td {
         background: #fde68a;
         color: #92400e;
-        font-weight: 700;
-        border: 1px solid #f59e0b;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
     }
 
     /* tfoot */

@@ -135,6 +135,18 @@ function resetClaimFilters() {
     filterClaims();
 }
 
+const exportMonth = ref(new Date().toISOString().slice(0, 7));
+
+function exportClaimsForMonth() {
+    const params = new URLSearchParams({ month: exportMonth.value });
+
+    if (claimFilterState.value.company_id) {
+        params.set('company_id', claimFilterState.value.company_id);
+    }
+
+    window.location.href = `/insurance/claims/export?${params.toString()}`;
+}
+
 const claimStatusOptions = Object.entries(claimStatusLabels);
 const deptOptions: Record<string, string> = {
     clinic: 'العيادة',
@@ -472,13 +484,27 @@ const tabs = [
                     <h3 class="text-sm font-semibold text-hospital-text">
                         فلترة المطالبات
                     </h3>
-                    <button
-                        class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
-                        @click="showClaimModal = true"
-                    >
-                        <Plus class="h-4 w-4" />
-                        مطالبة جديدة
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <input
+                            v-model="exportMonth"
+                            type="month"
+                            class="rounded-lg border border-hospital-border bg-white px-2.5 py-1.5 text-xs"
+                        />
+                        <button
+                            class="flex items-center gap-2 rounded-lg border border-hospital-border px-3 py-2 text-sm font-medium text-hospital-text hover:bg-hospital-bg"
+                            @click="exportClaimsForMonth"
+                        >
+                            <FileText class="h-4 w-4" />
+                            تصدير الشهر
+                        </button>
+                        <button
+                            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
+                            @click="showClaimModal = true"
+                        >
+                            <Plus class="h-4 w-4" />
+                            مطالبة جديدة
+                        </button>
+                    </div>
                 </div>
 
                 <div

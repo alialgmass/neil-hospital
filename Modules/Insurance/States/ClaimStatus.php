@@ -18,7 +18,7 @@ abstract class ClaimStatus extends State
      * @var array<string, string>
      */
     private const STATUS_LABELS = [
-        'draft' => 'مسودة',
+        'draft' => 'غير مسددة',
         'submitted' => 'مُرسلة',
         'approved' => 'معتمدة',
         'rejected' => 'مرفوضة',

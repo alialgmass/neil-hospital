@@ -3,7 +3,9 @@
 namespace Modules\Booking\Controllers;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -123,6 +125,38 @@ class BookingController extends Controller
         return Inertia::render('booking/Barcode', [
             'booking' => $booking->load(['doctor:id,name']),
         ]);
+    }
+
+    public function searchPatients(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->query('q', ''));
+
+        if ($term === '') {
+            return response()->json([]);
+        }
+
+        $matches = Booking::query()
+            ->where('patient_name', 'like', "%{$term}%")
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get(['file_no', 'patient_name', 'national_id', 'patient_phone', 'patient_age', 'gender', 'kinship_degree']);
+
+        $patients = $matches
+            ->unique(fn (Booking $b) => $b->national_id ?: $b->file_no)
+            ->take(10)
+            ->map(fn (Booking $b) => [
+                'file_no' => $b->file_no,
+                'patient_name' => $b->patient_name,
+                'national_id' => $b->national_id,
+                'patient_phone' => $b->patient_phone,
+                'patient_age' => $b->patient_age,
+                'gender' => $b->gender,
+                'kinship_degree' => $b->kinship_degree?->value,
+            ])
+            ->values();
+
+        return response()->json($patients);
     }
 
     public function patientFile(string $fileNo): Response

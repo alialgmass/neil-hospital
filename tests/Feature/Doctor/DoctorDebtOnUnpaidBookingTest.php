@@ -64,15 +64,16 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
     }
 
     /**
-     * Regression test: an insurance-fee-type doctor was still getting debt
-     * recorded on an unpaid cash booking, but DoctorClaimsService::
-     * computeShareForPayment() always returns 0 for them — so the debt could
-     * never be settled back no matter how much got paid later. It has to be
-     * excluded at the point debt is incurred, not just at settlement time.
+     * Business rule (confirmed): an insurance-fee-type doctor is treated
+     * exactly like a fixed-fee doctor on CASH bookings — they earn their
+     * flat fee_value as a per-case commission and can incur debt on an
+     * unpaid cash booking the same as any other doctor. Only their
+     * insurance/contract-paid bookings are settled separately, through a
+     * persisted DoctorEntitlement (see DoctorClaimsService).
      */
-    public function test_insurance_fee_type_doctor_never_incurs_debt_even_on_an_unpaid_cash_booking(): void
+    public function test_insurance_fee_type_doctor_incurs_debt_on_an_unpaid_cash_booking_like_any_doctor(): void
     {
-        $insuranceDoctor = Doctor::create(['name' => 'د. تأمين', 'fee_type' => 'insurance', 'fee_value' => 0]);
+        $insuranceDoctor = Doctor::create(['name' => 'د. تأمين', 'fee_type' => 'insurance', 'fee_value' => 400]);
 
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض بلا دفع', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
@@ -82,7 +83,9 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
             'pay_method' => 'cash', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
-        $this->assertEquals(0.0, (float) $insuranceDoctor->fresh()->doctor_debt_balance);
+        // Debt = price (1000) - dev_treasury_fee (50) = 950, same rule as
+        // any other cash doctor — not the doctor's fee_value, and not 0.
+        $this->assertEquals(950.0, (float) $insuranceDoctor->fresh()->doctor_debt_balance);
     }
 
     public function test_fully_paid_booking_creates_no_debt(): void

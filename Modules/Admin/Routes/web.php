@@ -51,6 +51,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [SettingsController::class, 'update'])
             ->middleware('can:settings.manage')
             ->name('update');
+
+        Route::post('/logo', [SettingsController::class, 'updateLogo'])
+            ->middleware('can:settings.manage')
+            ->name('logo');
     });
 
     // Roles & permissions

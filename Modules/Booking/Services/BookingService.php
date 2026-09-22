@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Services;
 
+use App\Enums\Department;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Modules\Booking\DTOs\BookingData;
@@ -56,7 +57,7 @@ class BookingService
     {
         $fileNo = $this->mrnGenerator->generate($data->nationalId);
 
-        return $this->bookingRepository->create([
+        $booking = $this->bookingRepository->create([
             'file_no' => $fileNo,
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
@@ -84,6 +85,32 @@ class BookingService
             'analysis_notes' => $data->analysisNotes,
             'created_by' => $createdBy,
         ]);
+
+        $this->syncServices($booking, $data);
+
+        return $booking;
+    }
+
+    /**
+     * Persists the multi-service line items for departments that allow
+     * selecting more than one service per booking (currently: Labs).
+     * No-op when the request only carried a single service.
+     */
+    private function syncServices(Booking $booking, BookingData $data): void
+    {
+        if (empty($data->services) && $data->dept !== Department::Labs) {
+            return;
+        }
+
+        $booking->services()->delete();
+
+        foreach ($data->services as $line) {
+            $booking->services()->create([
+                'service_id' => $line['service_id'],
+                'service_name' => $line['service_name'],
+                'price' => $line['price'],
+            ]);
+        }
     }
 
     public function update(string $id, BookingData $data): Booking
@@ -93,7 +120,7 @@ class BookingService
             ? PayStatus::Paid
             : ($data->paidAmount > 0 ? PayStatus::Partial : PayStatus::Unpaid);
 
-        return $this->bookingRepository->update($id, [
+        $booking = $this->bookingRepository->update($id, [
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
             'patient_age' => $data->patientAge,
@@ -119,6 +146,10 @@ class BookingService
             'analysis_type' => $data->analysisType,
             'analysis_notes' => $data->analysisNotes,
         ]);
+
+        $this->syncServices($booking, $data);
+
+        return $booking;
     }
 
     public function getArchive(array $filters = [], int $perPage = 30): LengthAwarePaginator

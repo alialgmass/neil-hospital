@@ -3,9 +3,13 @@
 namespace Modules\Admin\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Setting extends Model
+class Setting extends Model implements HasMedia
 {
+    use InteractsWithMedia;
+
     protected $fillable = ['key', 'value', 'group'];
 
     /**
@@ -33,5 +37,20 @@ class Setting extends Model
     public function scopeGroup($query, string $group)
     {
         return $query->where('group', $group);
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('logo')->singleFile();
+    }
+
+    /**
+     * URL of the uploaded hospital logo, or null if none has been set.
+     */
+    public static function logoUrl(): ?string
+    {
+        $setting = static::firstOrCreate(['key' => 'hospital_logo'], ['group' => 'hospital']);
+
+        return $setting->getFirstMediaUrl('logo') ?: null;
     }
 }

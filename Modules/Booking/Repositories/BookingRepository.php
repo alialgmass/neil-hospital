@@ -37,7 +37,7 @@ class BookingRepository extends BaseRepository implements BookingRepositoryInter
     private function filterQuery(BookingFilterData $filter): Builder
     {
         $query = Booking::query()
-            ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id'])
+            ->with(['doctor:id,name', 'insuranceCompany:id,name', 'surgery:id,booking_id,or_bed_id', 'services'])
             ->whereIn('dept', SystemModule::enabledDeptValues())
             ->whereIn('status', BookingStatus::visibleStatusNames())
             ->orderByDesc('visit_date')

@@ -37,6 +37,8 @@ readonly class BookingData
         public ?EyeSide $eyeSide = null,
         public ?string $analysisType = null,
         public ?string $analysisNotes = null,
+        /** @var array<int, array{service_id: string, service_name: string, price: float}> */
+        public array $services = [],
     ) {}
 
     public static function fromArray(array $data): self
@@ -67,6 +69,7 @@ readonly class BookingData
             eyeSide: isset($data['eye_side']) ? ($data['eye_side'] instanceof EyeSide ? $data['eye_side'] : EyeSide::from($data['eye_side'])) : null,
             analysisType: $data['analysis_type'] ?? null,
             analysisNotes: $data['analysis_notes'] ?? null,
+            services: $data['services'] ?? [],
         );
     }
 }

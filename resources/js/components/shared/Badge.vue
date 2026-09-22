@@ -77,7 +77,7 @@ const variantConfig: Record<
     inactive: { classes: 'bg-hospital-text-3 text-white', defaultLabel: 'معطل' },
     draft: {
         classes: 'bg-hospital-text-2 text-white',
-        defaultLabel: 'مسودة',
+        defaultLabel: 'غير مسددة',
     },
     info: {
         classes: 'bg-hospital-primary text-white',

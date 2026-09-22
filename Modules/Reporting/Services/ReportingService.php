@@ -5,7 +5,6 @@ namespace Modules\Reporting\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Admin\Enums\SystemModule;
-use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\States\ClaimStatus;
@@ -91,9 +90,7 @@ class ReportingService
                 $insAmount = (float) $doctorBookings->sum('ins_amount');
                 $netBilled = $totalBilled - $insAmount;
 
-                $doctorClaim = $doctor->fee_type === FeeType::Insurance
-                    ? 0.0
-                    : (float) $doctorBookings->sum(fn ($booking) => $this->doctorClaimsService->computeDrShare($doctor, $booking));
+                $doctorClaim = (float) $doctorBookings->sum(fn ($booking) => $this->doctorClaimsService->computeDrShare($doctor, $booking));
 
                 return (object) [
                     'doctor_id' => $doctor->id,

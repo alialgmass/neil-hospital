@@ -22,6 +22,12 @@ interface PageProps {
         warning: string | null;
         info: string | null;
     };
+    settings: {
+        hospital_name: string;
+        hospital_specialty: string;
+        hospital_logo_url: string | null;
+    };
+    [key: string]: unknown;
 }
 
 const page = usePage<PageProps>();
@@ -29,6 +35,9 @@ const user = computed(() => page.props.auth?.user);
 const userName = computed(() => user.value?.name ?? 'المستخدم');
 const userRole = computed(() => user.value?.role ?? 'مسؤول');
 const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
+const hospitalName = computed(() => page.props.settings?.hospital_name ?? 'مستشفى النور');
+const hospitalSpecialty = computed(() => page.props.settings?.hospital_specialty ?? 'طب وجراحة العيون');
+const hospitalLogoUrl = computed(() => page.props.settings?.hospital_logo_url ?? null);
 
 function showFlash(flash: PageProps['flash']) {
     if (flash.success) toast.success(flash.success);
@@ -51,16 +60,17 @@ watch(() => page.props.flash, showFlash, { deep: true });
 
             <!-- Sidebar Logo Area -->
             <div class="sidebar-logo flex items-center gap-2.5 px-4 py-[18px] border-b border-white/8 z-10">
-                <div class="logo-icon flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] bg-hospital-accent">
-                    <svg width="20" height="14" viewBox="0 0 20 14" fill="none">
+                <div class="logo-icon flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-[9px] bg-hospital-accent">
+                    <img v-if="hospitalLogoUrl" :src="hospitalLogoUrl" alt="" class="h-full w-full object-cover" />
+                    <svg v-else width="20" height="14" viewBox="0 0 20 14" fill="none">
                         <path d="M10 0C6 0 2.7 2.3 1 5c1.7 2.7 5 5 9 5s7.3-2.3 9-5C17.3 2.3 14 0 10 0z" fill="rgba(255,255,255,0.25)"/>
                         <circle cx="10" cy="5" r="3" fill="rgba(255,255,255,0.6)"/>
                         <circle cx="10" cy="5" r="1.5" fill="#00B5A4"/>
                     </svg>
                 </div>
                 <div class="leading-[1.2]">
-                    <p class="logo-name font-bold text-white text-sm">مستشفى النور</p>
-                    <p class="logo-sub text-[10px] text-white/45">طب وجراحة العيون</p>
+                    <p class="logo-name font-bold text-white text-sm">{{ hospitalName }}</p>
+                    <p class="logo-sub text-[10px] text-white/45">{{ hospitalSpecialty }}</p>
                 </div>
             </div>
 

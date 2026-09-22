@@ -4,11 +4,16 @@ namespace Modules\Insurance\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 use Modules\Insurance\Actions\DeleteInsuranceClaimAction;
 use Modules\Insurance\Actions\UpdateInsuranceClaimAction;
+use Modules\Insurance\Exports\InsuranceClaimsExport;
 use Modules\Insurance\Http\Requests\StoreInsuranceClaimRequest;
 use Modules\Insurance\Http\Requests\UpdateInsuranceClaimRequest;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\Services\InsuranceService;
 use Modules\Insurance\States\DraftState;
 
 class InsuranceClaimController extends Controller
@@ -16,7 +21,23 @@ class InsuranceClaimController extends Controller
     public function __construct(
         private readonly UpdateInsuranceClaimAction $updateAction,
         private readonly DeleteInsuranceClaimAction $deleteAction,
+        private readonly InsuranceService $insuranceService,
     ) {}
+
+    public function export(Request $request)
+    {
+        $month = $request->input('month', now()->format('Y-m'));
+        $from = Carbon::parse($month.'-01')->startOfMonth()->toDateString();
+        $to = Carbon::parse($month.'-01')->endOfMonth()->toDateString();
+
+        $claims = $this->insuranceService->getClaimsForExport([
+            'company_id' => $request->input('company_id'),
+            'from' => $from,
+            'to' => $to,
+        ]);
+
+        return Excel::download(new InsuranceClaimsExport($claims), "insurance-claims-{$month}.xlsx");
+    }
 
     public function store(StoreInsuranceClaimRequest $request): RedirectResponse
     {

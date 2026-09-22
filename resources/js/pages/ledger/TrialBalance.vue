@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { AlertTriangle, CheckCircle2, Printer, Scale, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { formatDate } from '@/lib/date';
 
 interface TrialRow {
     code: string;
@@ -59,12 +60,15 @@ function printPage() {
     window.print();
 }
 
-const printedAt = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+const printedAt = formatDate(new Date());
+const hospitalName = usePage().props.settings.hospital_name;
+const hospitalSpecialty = usePage().props.settings.hospital_specialty;
 
 function balanceSideLabel(row: TrialRow): string {
     const isNaturalPositive = row.balance >= 0;
     const naturalSideIsDebit = row.nature === 'debit';
     const isDebitBalance = isNaturalPositive ? naturalSideIsDebit : !naturalSideIsDebit;
+
     return isDebitBalance ? 'مدين' : 'دائن';
 }
 
@@ -72,6 +76,7 @@ function balanceSideClass(row: TrialRow): string {
     const isNaturalPositive = row.balance >= 0;
     const naturalSideIsDebit = row.nature === 'debit';
     const isDebitBalance = isNaturalPositive ? naturalSideIsDebit : !naturalSideIsDebit;
+
     return isDebitBalance ? 'text-hospital-primary' : 'text-hospital-success';
 }
 </script>
@@ -106,8 +111,8 @@ function balanceSideClass(row: TrialRow): string {
 
         <!-- Print-only letterhead -->
         <div class="hidden border-b-2 border-hospital-primary pb-3 text-center print:block">
-            <h1 class="text-xl font-bold text-hospital-primary">مستشفى النور</h1>
-            <p class="text-xs text-hospital-text-2">طب وجراحة العيون — المنيا، مصر</p>
+            <h1 class="text-xl font-bold text-hospital-primary">{{ hospitalName }}</h1>
+            <p class="text-xs text-hospital-text-2">{{ hospitalSpecialty }} — المنيا، مصر</p>
             <p class="mt-2 text-sm font-semibold text-hospital-text">ميزان المراجعة</p>
             <p class="text-xs text-hospital-text-2">
                 <span v-if="fromFilter || toFilter">الفترة من {{ fromFilter || '—' }} إلى {{ toFilter || '—' }}</span>

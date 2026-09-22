@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount, ref } from 'vue';
+
 interface Props {
     modelValue: {
         patient_name: string;
@@ -13,6 +15,16 @@ interface Props {
     errors?: Record<string, string>;
 }
 
+interface PatientMatch {
+    file_no: string;
+    patient_name: string;
+    national_id: string | null;
+    patient_phone: string | null;
+    patient_age: number | null;
+    gender: string | null;
+    kinship_degree: string | null;
+}
+
 const props = withDefaults(defineProps<Props>(), {
     errors: () => ({}),
 });
@@ -24,13 +36,62 @@ const emit = defineEmits<{
 function update(field: keyof Props['modelValue'], value: string) {
     emit('update:modelValue', { ...props.modelValue, [field]: value });
 }
+
+const patientResults = ref<PatientMatch[]>([]);
+const patientDropdownOpen = ref(false);
+let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+function onPatientNameInput(value: string) {
+    update('patient_name', value);
+
+    clearTimeout(debounceTimer);
+
+    if (!value.trim()) {
+        patientResults.value = [];
+        patientDropdownOpen.value = false;
+
+        return;
+    }
+
+    debounceTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(`/booking/patients/search?q=${encodeURIComponent(value)}`, {
+                headers: { Accept: 'application/json' },
+            });
+            patientResults.value = res.ok ? await res.json() : [];
+            patientDropdownOpen.value = patientResults.value.length > 0;
+        } catch {
+            patientResults.value = [];
+        }
+    }, 300);
+}
+
+function selectPatient(patient: PatientMatch) {
+    emit('update:modelValue', {
+        ...props.modelValue,
+        patient_name: patient.patient_name,
+        national_id: patient.national_id ?? props.modelValue.national_id,
+        patient_phone: patient.patient_phone ?? props.modelValue.patient_phone,
+        patient_age: patient.patient_age ? String(patient.patient_age) : props.modelValue.patient_age,
+        gender: patient.gender ?? props.modelValue.gender,
+    });
+    patientDropdownOpen.value = false;
+}
+
+function closePatientDropdown() {
+    setTimeout(() => {
+        patientDropdownOpen.value = false;
+    }, 150);
+}
+
+onBeforeUnmount(() => clearTimeout(debounceTimer));
 </script>
 
 <template>
     <div class="bk-section">
         <span class="bk-title bk-title-blue">بيانات المريض</span>
         <div class="bk-grid-2">
-            <div class="col-span-2">
+            <div class="relative col-span-2">
                 <label class="bk-label">اسم المريض *</label>
                 <input
                     :value="modelValue.patient_name"
@@ -38,11 +99,35 @@ function update(field: keyof Props['modelValue'], value: string) {
                     placeholder="الاسم الكامل للمريض"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.patient_name }"
-                    @input="update('patient_name', ($event.target as HTMLInputElement).value)"
+                    autocomplete="off"
+                    @input="onPatientNameInput(($event.target as HTMLInputElement).value)"
+                    @focus="patientDropdownOpen = patientResults.length > 0"
+                    @blur="closePatientDropdown"
                 />
                 <p v-if="errors.patient_name" class="mt-1 text-xs text-hospital-danger">
                     {{ errors.patient_name }}
                 </p>
+                <ul
+                    v-if="patientDropdownOpen && patientResults.length > 0"
+                    class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-hospital-border bg-white shadow-lg"
+                >
+                    <li
+                        v-for="patient in patientResults"
+                        :key="patient.file_no"
+                        class="cursor-pointer px-3 py-2 text-xs hover:bg-hospital-bg"
+                        @mousedown.prevent="selectPatient(patient)"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-hospital-text">{{ patient.patient_name }}</span>
+                            <span class="font-mono text-hospital-text-3">{{ patient.file_no }}</span>
+                        </div>
+                        <div v-if="patient.patient_phone || patient.national_id" class="mt-0.5 text-hospital-text-3">
+                            <span v-if="patient.patient_phone">{{ patient.patient_phone }}</span>
+                            <span v-if="patient.patient_phone && patient.national_id"> — </span>
+                            <span v-if="patient.national_id">{{ patient.national_id }}</span>
+                        </div>
+                    </li>
+                </ul>
             </div>
             <div>
                 <label class="bk-label">الرقم القومي</label>

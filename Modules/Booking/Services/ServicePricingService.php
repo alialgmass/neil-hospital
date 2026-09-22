@@ -62,4 +62,36 @@ class ServicePricingService
 
         return $this->resolveEyePrice($service, $eye) ?? $fallback;
     }
+
+    /**
+     * Sum the prices of several services (used by multi-service bookings,
+     * e.g. the Labs department). Services with no configured price and no
+     * fallback contribute 0 to the total.
+     *
+     * @param  array<int, string>  $serviceIds
+     * @return array<int, array{service_id: string, service_name: string, price: float}>
+     */
+    public function priceForMany(array $serviceIds, ?string $eyeSide): array
+    {
+        $services = Service::whereIn('id', $serviceIds)->get()->keyBy('id');
+        $eye = $eyeSide ? EyeSide::tryFrom($eyeSide) : null;
+
+        return collect($serviceIds)
+            ->map(function (string $serviceId) use ($services, $eye) {
+                $service = $services->get($serviceId);
+
+                if (! $service) {
+                    return null;
+                }
+
+                return [
+                    'service_id' => $service->id,
+                    'service_name' => $service->name,
+                    'price' => $this->resolveEyePrice($service, $eye) ?? 0.0,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
 }

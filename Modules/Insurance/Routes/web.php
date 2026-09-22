@@ -11,6 +11,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('can:insurance.view')->group(function () {
             Route::get('/', [InsuranceCompanyController::class, 'index'])->name('index');
             Route::get('/price-lists', [PriceListController::class, 'index'])->name('price-lists.index');
+            Route::get('/claims/export', [InsuranceClaimController::class, 'export'])->name('claims.export');
         });
 
         Route::middleware('can:insurance.write')->group(function () {

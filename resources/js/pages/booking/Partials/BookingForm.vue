@@ -101,6 +101,9 @@ const form = useForm({
     dept: (props.booking?.dept as string) ?? 'clinic',
     service_id: (props.booking?.service_id as string) ?? '',
     service_name: (props.booking?.service_name as string) ?? '',
+    service_ids: ((props.booking?.services as { service_id: string }[] | undefined) ?? [])
+        .map((s) => s.service_id)
+        .filter(Boolean),
     doctor_id: (props.booking?.doctor_id as string) ?? '',
     ins_company_id: (props.booking?.ins_company_id as string) ?? '',
     visit_date:
@@ -154,6 +157,36 @@ return 'بيانات فحص البنتكام';
 const filteredServices = computed(() =>
     props.services.filter((s) => s.dept === form.dept),
 );
+
+const isLabs = computed(() => form.dept === 'labs');
+
+function addLabService() {
+    form.service_ids = [...form.service_ids, ''];
+}
+function removeLabService(index: number) {
+    form.service_ids = form.service_ids.filter((_, i) => i !== index);
+}
+function recalcLabsPrice() {
+    const total = form.service_ids.reduce((sum, id) => {
+        const service = props.services.find((s) => s.id === id);
+
+        return sum + (service ? eyeSidePrice(service) : 0);
+    }, 0);
+
+    form.price = String(total);
+    form.ins_amount = '0';
+    form.service_name = form.service_ids
+        .map((id) => props.services.find((s) => s.id === id)?.name)
+        .filter(Boolean)
+        .join('، ');
+}
+
+watch(() => form.service_ids, recalcLabsPrice, { deep: true });
+watch(isLabs, (labs) => {
+    if (labs && form.service_ids.length === 0) {
+        form.service_ids = [''];
+    }
+});
 
 const filteredDoctors = computed(() =>
     props.doctors.filter((d) => !d.departments || d.departments.length === 0 || d.departments.includes(form.dept)),
@@ -247,7 +280,15 @@ function eyePrice() {
 }
 
 watch(() => form.service_id, recalcPrice);
-watch(() => form.eye_side, eyePrice);
+watch(() => form.eye_side, () => {
+    if (isLabs.value) {
+        recalcLabsPrice();
+
+        return;
+    }
+
+    eyePrice();
+});
 watch(() => form.pay_method, () => {
     if (!form.service_id) {
         return;
@@ -297,9 +338,46 @@ function submit() {
                     :services="filteredServices"
                     :doctors="filteredDoctors"
                     :is-edit-mode="!isCreating"
+                    :hide-service="isLabs"
                     :errors="form.errors"
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"
                 />
+
+                <div v-if="isLabs" class="bk-section">
+                    <span class="bk-title bk-title-teal">خدمات الفحوصات (يمكن اختيار أكثر من خدمة)</span>
+                    <div class="space-y-2">
+                        <div v-for="(serviceId, index) in form.service_ids" :key="index" class="flex items-center gap-2">
+                            <select
+                                :value="serviceId"
+                                class="bk-input flex-1"
+                                @change="form.service_ids[index] = ($event.target as HTMLSelectElement).value"
+                            >
+                                <option value="">— اختر الخدمة —</option>
+                                <option v-for="svc in filteredServices" :key="svc.id" :value="svc.id">
+                                    {{ svc.name }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="shrink-0 rounded-lg border border-hospital-border px-2 py-2 text-xs text-hospital-danger hover:bg-hospital-danger/10"
+                                :disabled="form.service_ids.length <= 1"
+                                @click="removeLabService(index)"
+                            >
+                                حذف
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-dashed border-hospital-primary px-3 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary/5"
+                            @click="addLabService"
+                        >
+                            + إضافة خدمة
+                        </button>
+                        <p v-if="form.errors.service_ids" class="mt-1 text-xs text-hospital-danger">
+                            {{ form.errors.service_ids }}
+                        </p>
+                    </div>
+                </div>
 
                 <PaymentFields
                     :model-value="{

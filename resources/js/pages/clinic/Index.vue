@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Eye, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
+import { FileText, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import booking from '@/routes/booking';
 import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface Booking {
@@ -150,13 +151,22 @@ function goToPage(page: number) {
             <span v-else class="text-xs text-hospital-text-3">—</span>
         </template>
         <template #actions="{ row }">
-            <Link
-                :href="`/clinic/${(row as Booking).id}`"
-                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
-            >
-                <Eye class="h-3.5 w-3.5" />
-                فتح الملف
-            </Link>
+            <div class="flex items-center gap-1">
+                <Link
+                    :href="`/clinic/${(row as Booking).id}`"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
+                >
+                    <Stethoscope class="h-3.5 w-3.5" />
+                    تسجيل الكشف
+                </Link>
+                <a
+                    :href="booking.patientFile((row as Booking).file_no).url"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
+                >
+                    <FileText class="h-3.5 w-3.5" />
+                    فتح الملف
+                </a>
+            </div>
         </template>
     </DataTable>
 </template>

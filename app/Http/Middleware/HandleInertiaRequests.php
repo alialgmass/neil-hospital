@@ -56,7 +56,8 @@ class HandleInertiaRequests extends Middleware
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
                 'hospital_name' => Setting::getValue('hospital_name', config('app.name', 'مستشفى النور')),
-                'hospital_specialty' => 'طب وجراحة العيون',
+                'hospital_specialty' => Setting::getValue('hospital_specialty', 'طب وجراحة العيون'),
+                'hospital_logo_url' => Setting::logoUrl(),
             ],
             // Alerts for notification bell
             'alerts' => $user ? (new AlertService)->getAlerts() : [],

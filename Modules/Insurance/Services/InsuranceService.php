@@ -120,6 +120,22 @@ class InsuranceService
             ->withQueryString();
     }
 
+    /**
+     * Same filters as getClaimsList(), without pagination — used for exports.
+     */
+    public function getClaimsForExport(array $filters = []): Collection
+    {
+        return InsuranceClaim::with(['company:id,name', 'service:id,name', 'booking:id,doctor_id,dept'])
+            ->when($filters['company_id'] ?? null, fn ($q, $v) => $q->where('insurance_company_id', $v))
+            ->when($filters['service_id'] ?? null, fn ($q, $v) => $q->where('service_id', $v))
+            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('claim_date', '>=', $v))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('claim_date', '<=', $v))
+            ->orderByDesc('claim_date')
+            ->orderByDesc('created_at')
+            ->get();
+    }
+
     public function getMonthlyClaimsStats(): array
     {
         $thisMonth = now()->startOfMonth();

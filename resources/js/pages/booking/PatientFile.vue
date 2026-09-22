@@ -18,6 +18,7 @@ import { computed, ref } from 'vue';
 import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { formatDate } from '@/lib/date';
 import EyeSideSelector from '@/pages/booking/Partials/EyeSideSelector.vue';
 import { archive } from '@/routes';
 import booking from '@/routes/booking';
@@ -246,7 +247,7 @@ const genderLabels: Record<string, string> = {
 };
 
 const claimStatusLabels: Record<string, string> = {
-    draft: 'مسودة',
+    draft: 'غير مسددة',
     submitted: 'مُرسلة',
     approved: 'معتمدة',
     rejected: 'مرفوضة',
@@ -272,11 +273,7 @@ function fmt(n: number) {
     return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 function fmtDate(d: string) {
-    return new Date(d).toLocaleDateString('ar-EG', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
+    return formatDate(d);
 }
 function isImage(mime: string): boolean {
     return mime.startsWith('image/');

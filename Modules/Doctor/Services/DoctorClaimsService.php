@@ -28,6 +28,8 @@ class DoctorClaimsService
             ->whereNotIn('status', ['cancelled'])
             ->when($from, fn ($q) => $q->whereDate('visit_date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('visit_date', '<=', $to))
+            ->orderByDesc('visit_date')
+            ->orderByDesc('created_at')
             ->get();
 
         // Insurance / contract bookings are settled through a persisted
@@ -107,11 +109,11 @@ class DoctorClaimsService
         $dept = $booking->dept->value;
         $deptFee = $doctor->dept_fees[$dept] ?? null;
 
-        if ($deptFee && ! in_array($dept, ['surgery', 'lasik'], true)) {
+        if ($deptFee && ! in_array($dept, ['surgery'], true)) {
             return $this->computeFeeEntryShareForPayment($deptFee, $netAmount, $isFirstPayment);
         }
 
-        if (in_array($dept, ['surgery', 'lasik'], true)) {
+        if (in_array($dept, ['surgery'], true)) {
             if ($booking->pay_method === PayMethod::Insurance) {
                 return $isFirstPayment ? $this->insuranceSurgeryFixedFee($doctor, $booking) : 0.0;
             }
@@ -123,7 +125,7 @@ class DoctorClaimsService
         // left after the hospital's fixed cut for this service, not a
         // percentage/fixed fee of their own. Deducted on the first payment
         // only, mirroring the surgery/lasik supply deduction above.
-        if ($dept === Department::Laser->value) {
+        if ($dept === Department::Laser->value || $dept === Department::Lasik->value) {
             $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id, $booking->eye_side);
 
             if ($fixedRevenue !== null) {
@@ -133,8 +135,7 @@ class DoctorClaimsService
 
         return match ($doctor->fee_type) {
             FeeType::Percentage => round($netAmount * ((float) $doctor->fee_value / 100), 2),
-            FeeType::Fixed => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
-            default => 0.0,
+            FeeType::Fixed, FeeType::Insurance => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
         };
     }
 
@@ -367,12 +368,15 @@ class DoctorClaimsService
             }
         }
 
-        if ($doctor->fee_type === FeeType::Percentage) {
-            return round($paid * ($doctor->fee_value / 100), 2);
-        }
-
-        // Fixed per-case fee
-        return (float) $doctor->fee_value;
+        // FeeType::Insurance doctors are paid their fee_value as a flat
+        // per-case amount on cash bookings, exactly like FeeType::Fixed —
+        // insurance/contract bookings never reach this branch at all (see
+        // calculateClaims(), which settles those through a persisted
+        // DoctorEntitlement instead and never calls computeDrShare for them).
+        return match ($doctor->fee_type) {
+            FeeType::Percentage => round($paid * ($doctor->fee_value / 100), 2),
+            FeeType::Fixed, FeeType::Insurance => (float) $doctor->fee_value,
+        };
     }
 
     private function buildClaimsResult(Doctor $doctor, ?string $from, ?string $to, float $total, array $rows): array
@@ -380,7 +384,7 @@ class DoctorClaimsService
         $paymentRecords = DoctorPayment::where('doctor_id', $doctor->id)
             ->when($from, fn ($q) => $q->whereDate('paid_at', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('paid_at', '<=', $to))
-            ->orderBy('paid_at')
+            ->orderByDesc('paid_at')
             ->get(['id', 'amount', 'paid_at', 'method', 'notes']);
 
         $alreadyPaid = (float) $paymentRecords->sum('amount');

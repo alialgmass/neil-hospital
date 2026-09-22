@@ -18,6 +18,7 @@ import DateFilter from '@/components/shared/DateFilter.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
 import StatCard from '@/components/shared/StatCard.vue';
+import { formatDate } from '@/lib/date';
 import BookingForm from './Partials/BookingForm.vue';
 
 interface Booking {
@@ -475,6 +476,9 @@ const isDeleteModalOpen = computed({
             :total="bookings.total"
             @page="goToPage"
         >
+            <template #cell-visit_date="{ value }">
+                {{ formatDate(value as string, { month: '2-digit', day: '2-digit', year: 'numeric' }) }}
+            </template>
             <template #cell-dept="{ value }">
                 {{ deptLabels[value as string] ?? value }}
             </template>

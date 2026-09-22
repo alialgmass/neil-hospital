@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { FlaskConical } from 'lucide-vue-next';
+import { FlaskConical, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
@@ -80,7 +80,7 @@ function submitResult() {
 
 const labTests = [
     'OCT (مقطعية)', 'OCT عصب بصري', 'توبوغرافيا', 'أنجيوغرافيا',
-    'سونار', 'مجال بصري', 'مقاس عدسة (A-Scan)', 'تصوير ملون', 'مقاس نظر أطفال',
+    'سونار', 'مجال بصري', 'مقاس عدسة (A-Scan)', 'B-Scan', 'تصوير ملون', 'مقاس نظر أطفال',
 ];
 
 const totalToday     = computed(() => props.queue.total);
@@ -130,9 +130,20 @@ const revenueToday   = computed(() =>
         <template #cell-patient="{ row }">{{ (row as Booking).patient_name }}</template>
         <template #cell-doctor="{ row }">{{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}</template>
         <template #cell-results="{ row }">
-            <span class="text-xs text-hospital-text-2">
-                {{ (row as Booking).diagnostic_results?.length ?? 0 }} فحص
-            </span>
+            <div v-if="(row as Booking).diagnostic_results?.length" class="flex flex-wrap items-center gap-1">
+                <a
+                    v-for="result in (row as Booking).diagnostic_results"
+                    :key="result.id"
+                    :href="`/labs/results/${result.id}/letter`"
+                    target="_blank"
+                    class="flex items-center gap-1 rounded bg-hospital-bg px-1.5 py-0.5 text-[11px] text-hospital-text-2 hover:bg-hospital-primary-pale hover:text-hospital-primary"
+                    :title="`طباعة خطاب ${result.test_name}`"
+                >
+                    <Printer class="h-3 w-3" />
+                    {{ result.test_name }}
+                </a>
+            </div>
+            <span v-else class="text-xs text-hospital-text-3">—</span>
         </template>
         <template #cell-status="{ value }">
             <Badge :variant="(value as 'confirmed' | 'in_progress' | 'completed' | 'waiting')" />

@@ -39,7 +39,7 @@ export interface Claim {
 }
 
 export const claimStatusLabels: Record<string, string> = {
-    draft: 'مسودة',
+    draft: 'غير مسددة',
     submitted: 'مُرسلة',
     approved: 'معتمدة',
     rejected: 'مرفوضة',

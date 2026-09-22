@@ -86,6 +86,16 @@ class Booking extends Model implements HasMedia
         return $this->belongsTo(Service::class);
     }
 
+    /**
+     * Multiple selected services for departments that allow more than one
+     * service per booking (currently: Labs). Single-service departments
+     * keep using service_id/service_name on the booking row itself.
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(BookingService::class);
+    }
+
     public function insuranceCompany(): BelongsTo
     {
         return $this->belongsTo(InsuranceCompany::class, 'ins_company_id');

@@ -23,6 +23,7 @@ interface BookingStatusOption {
 
 const props = defineProps<{
     settings: Record<string, Setting>;
+    hospitalLogoUrl: string | null;
     systemModules: SystemModuleOption[];
     bookingStatuses: BookingStatusOption[];
 }>();
@@ -31,6 +32,39 @@ const form = ref<Record<string, string>>({});
 Object.values(props.settings).forEach((s) => {
     form.value[s.key] = s.value ?? '';
 });
+
+const logoPreview = ref<string | null>(props.hospitalLogoUrl);
+const logoFile = ref<File | null>(null);
+const uploadingLogo = ref(false);
+
+function onLogoSelected(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null;
+    logoFile.value = file;
+
+    if (file) {
+        logoPreview.value = URL.createObjectURL(file);
+    }
+}
+
+function uploadLogo() {
+    if (!logoFile.value) {
+        return;
+    }
+
+    uploadingLogo.value = true;
+    router.post(
+        '/settings/logo',
+        { logo: logoFile.value },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => {
+                uploadingLogo.value = false;
+                logoFile.value = null;
+            },
+        },
+    );
+}
 
 function moduleKey(module: string): string {
     return `module_enabled_${module}`;
@@ -98,6 +132,24 @@ function toggleBookingStatus(status: string): void {
         <div class="settings-section">
             <div class="settings-title">🏥 بيانات المستشفى</div>
             <div class="settings-grid">
+                <div class="fg col-span-2">
+                    <label>شعار المستشفى</label>
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-hospital-border bg-hospital-bg">
+                            <img v-if="logoPreview" :src="logoPreview" alt="" class="h-full w-full object-cover" />
+                            <span v-else class="text-xs text-hospital-text-3">لا يوجد</span>
+                        </div>
+                        <input type="file" accept="image/*" class="s-input" @change="onLogoSelected" />
+                        <button
+                            type="button"
+                            class="rounded-lg bg-hospital-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+                            :disabled="!logoFile || uploadingLogo"
+                            @click="uploadLogo"
+                        >
+                            رفع الشعار
+                        </button>
+                    </div>
+                </div>
                 <div class="fg col-span-2">
                     <label>اسم المستشفى</label>
                     <input v-model="form['hospital_name']" type="text" class="s-input" placeholder="مستشفى النور" />
