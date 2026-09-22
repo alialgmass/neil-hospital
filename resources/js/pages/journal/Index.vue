@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { BookOpen, Printer, Trash2, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Account {
     id: string;
@@ -85,11 +86,8 @@ const sourceBadge: Record<string, { label: string; classes: string }> = {
 };
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
+const canWrite = computed(() => can('journal.write'));
 const canDelete = computed(() => can('journal.delete'));
 
 function isDeletable(entry: JournalEntry): boolean {
@@ -143,6 +141,10 @@ const form = useForm({
 });
 
 function submit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     form.post('/journal', {
         onSuccess: () => {
             form.reset();
@@ -163,6 +165,10 @@ function printPage() {
 const confirmingDeleteId = ref<string | null>(null);
 
 function confirmDelete(entry: JournalEntry) {
+    if (!canDelete.value) {
+        return;
+    }
+
     confirmingDeleteId.value = entry.id;
 }
 
@@ -296,7 +302,12 @@ function fmt(n: number) {
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" class="btn-secondary" @click="clearForm">مسح</button>
-                    <button type="submit" :disabled="form.processing" class="btn-primary">
+                    <button
+                        type="submit"
+                        :disabled="form.processing || !canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                        class="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                         {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ القيد' }}
                     </button>
                 </div>
@@ -413,12 +424,11 @@ function fmt(n: number) {
             </template>
             <template #actions="{ row }">
                 <button
-                    v-if="canDelete"
                     type="button"
                     class="rounded p-1.5 text-t3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                    :class="isDeletable(row as JournalEntry) ? 'hover:bg-dp hover:text-d' : ''"
-                    :disabled="!isDeletable(row as JournalEntry)"
-                    :title="isDeletable(row as JournalEntry) ? 'حذف' : 'يُحذف من شاشته الأصلية أو معكوس بالفعل'"
+                    :class="canDelete && isDeletable(row as JournalEntry) ? 'hover:bg-dp hover:text-d' : ''"
+                    :disabled="!canDelete || !isDeletable(row as JournalEntry)"
+                    :title="!canDelete ? NO_PERMISSION_TITLE : isDeletable(row as JournalEntry) ? 'حذف' : 'يُحذف من شاشته الأصلية أو معكوس بالفعل'"
                     @click="confirmDelete(row as JournalEntry)"
                 >
                     <Trash2 class="h-4 w-4" />

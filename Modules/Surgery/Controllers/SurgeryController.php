@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\Models\Booking;
@@ -145,27 +146,34 @@ class SurgeryController extends Controller
         return back()->with('success', 'تم تسجيل تقرير العملية.');
     }
 
-    public function supplies(RecordSuppliesRequest $request): RedirectResponse
+    /**
+     * Bulk-record supplies (individual items + bundles) for one case.
+     * All-or-nothing: bundle stock permits / journal entries and the
+     * supplies_used update roll back together if anything fails.
+     */
+    public function supplies(RecordSuppliesRequest $request, string $id): RedirectResponse
     {
-        $dept = request()->segment(1, 'surgery');
-        $allItems = $request->input('items', []);
+        $dept = $request->dept()->value;
+        $validated = $request->validated();
 
-        foreach ($request->input('bundles', []) as $bundleReq) {
-            $allItems[] = $this->bundleAction->process(
-                $bundleReq['bundle_id'],
-                max(1, (int) ($bundleReq['qty'] ?? 1)),
-                $dept,
-                $bundleReq['selected_items'] ?? [],
-                $request->surgery_id,
-            );
-        }
+        $surgery = DB::transaction(function () use ($validated, $dept, $id) {
+            $allItems = $validated['items'] ?? [];
 
-        $data = SuppliesUsedData::fromArray([
-            'surgery_id' => $request->surgery_id,
-            'items' => $allItems,
-        ]);
+            foreach ($validated['bundles'] ?? [] as $bundleReq) {
+                $allItems[] = $this->bundleAction->process(
+                    $bundleReq['bundle_id'],
+                    max(1, (int) ($bundleReq['qty'] ?? 1)),
+                    $dept,
+                    $bundleReq['selected_items'] ?? [],
+                    $id,
+                );
+            }
 
-        $surgery = $this->suppliesAction->execute($data);
+            return $this->suppliesAction->execute(SuppliesUsedData::fromArray([
+                'surgery_id' => $id,
+                'items' => $allItems,
+            ]));
+        });
 
         session()->flash('surgery.supplies_used', $surgery->supplies_used);
         session()->flash('surgery.supply_total', $surgery->supply_total);

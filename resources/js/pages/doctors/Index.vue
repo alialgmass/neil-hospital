@@ -7,6 +7,7 @@ import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import type { DepartmentOption } from '@/types';
 import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
@@ -69,10 +70,8 @@ const depts = computed<{ key: string; label: string }[]>(() =>
 const deptLabel = (key: string): string =>
     depts.value.find((d) => d.key === key)?.label ?? key;
 
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
+const canWrite = computed(() => can('doctors.write'));
 const canDelete = computed(() => can('doctors.delete'));
 
 const activeCount = computed(() => props.doctors.data.filter((d) => d.is_active).length);
@@ -95,6 +94,10 @@ const editingId  = ref<string | null>(null);
 const showDeleteModal   = ref(false);
 const deletingDoctorId  = ref<string | null>(null);
 function confirmDelete(id: string) {
+    if (!canDelete.value) {
+        return;
+    }
+
     deletingDoctorId.value = id;
     showDeleteModal.value = true;
 }
@@ -143,6 +146,10 @@ function removeServiceFee(index: number) {
 }
 
 function openAdd() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingId.value = null;
     form.reset();
     form.fee_type  = 'percentage';
@@ -172,6 +179,10 @@ function splitHiddenDeptFees(deptFees: Record<string, DeptFeeEntry> | null): Rec
 }
 
 function openEdit(doctor: Doctor) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingId.value = doctor.id;
     form.name      = doctor.name;
     form.specialty = doctor.specialty ?? '';
@@ -273,11 +284,12 @@ const feeTypeLabels: Record<string, string> = {
         <div class="flex items-center gap-2">
             <SearchBar v-model="search" placeholder="بحث بالاسم..." @update:model-value="applySearch" />
             <ModuleImportButton
+                permission="doctors.write"
                 label="الأطباء"
                 templateUrl="/doctors/import-template"
                 importUrl="/doctors/import"
             />
-            <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="openAdd">
+            <button class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE" @click="openAdd">
                 <PlusCircle class="h-4 w-4" /> طبيب جديد
             </button>
         </div>
@@ -303,10 +315,10 @@ const feeTypeLabels: Record<string, string> = {
         </template>
         <template #cell-_actions="{ row }">
             <div class="flex items-center gap-1">
-                <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary" @click="openEdit(row as Doctor)">
+                <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-bg hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-40" :disabled="!canWrite" :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE" @click="openEdit(row as Doctor)">
                     <Pencil class="h-4 w-4" />
                 </button>
-                <button v-if="canDelete" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" title="حذف" @click="confirmDelete((row as Doctor).id)">
+                <button class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40" :disabled="!canDelete" :title="canDelete ? 'حذف' : NO_PERMISSION_TITLE" @click="confirmDelete((row as Doctor).id)">
                     <Trash2 class="h-4 w-4" />
                 </button>
             </div>

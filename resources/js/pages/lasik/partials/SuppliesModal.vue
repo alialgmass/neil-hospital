@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { toast } from 'vue-sonner';
 import Modal from '@/components/shared/Modal.vue';
 import SearchableSelect from '@/components/shared/SearchableSelect.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import { useSupplyRows } from '@/composables/useSupplyRows';
+import lasikRoutes from '@/routes/lasik';
+import surgeryRoutes from '@/routes/surgery';
 
 interface BundleItem {
     inventory_item_id: string | null;
@@ -18,13 +23,6 @@ interface Bundle {
     items: BundleItem[];
 }
 
-interface SupplyItem {
-    inventory_item_id: string;
-    name: string;
-    qty: number;
-    unit_cost: number;
-}
-
 const props = defineProps<{
     modelValue: boolean;
     surgeryId: string;
@@ -37,9 +35,19 @@ const emit = defineEmits<{
     success: [];
 }>();
 
-const items = ref<SupplyItem[]>([
-    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-]);
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
+
+const supplyRows = useSupplyRows();
+const {
+    rows: items,
+    total: itemsTotal,
+    generalErrors,
+    rowError,
+    addRow,
+    removeRow,
+    onSelected,
+} = supplyRows;
 const submitting = ref(false);
 
 // Bundle expansion state
@@ -64,9 +72,6 @@ const expandedBundleName = ref('');
 
 const selectedBundles = ref<SelectedBundle[]>([]);
 
-const itemsTotal = computed(() =>
-    items.value.reduce((sum, i) => sum + i.qty * i.unit_cost, 0),
-);
 const bundlesTotal = computed(() =>
     selectedBundles.value.reduce((sum, b) => sum + b.bundle_total, 0),
 );
@@ -128,9 +133,7 @@ watch(
     () => props.modelValue,
     (open) => {
         if (open) {
-            items.value = [
-                { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-            ];
+            supplyRows.reset();
             selectedBundles.value = [];
             newBundlePick.value = '';
             expandedBundleItems.value = [];
@@ -138,21 +141,31 @@ watch(
     },
 );
 
-function addRow() {
-    items.value.push({ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 });
-}
-
-function removeRow(idx: number) {
-    items.value.splice(idx, 1);
-}
-
 function submit() {
+    if (!canWrite.value || submitting.value) {
+        return;
+    }
+
+    const submittedRows = [...supplyRows.pendingRows.value];
+
+    if (submittedRows.length === 0 && selectedBundles.value.length === 0) {
+        toast.error('يرجى إضافة صنف أو بند واحد على الأقل');
+
+        return;
+    }
+
+    if (!supplyRows.validate()) {
+        return;
+    }
+
+    const route = props.dept === 'lasik' ? lasikRoutes.supplies : surgeryRoutes.supplies;
+
     submitting.value = true;
     router.post(
-        `/${props.dept}/${props.surgeryId}/supplies`,
+        route(props.surgeryId).url,
         {
             surgery_id: props.surgeryId,
-            items: items.value.filter((i) => i.inventory_item_id),
+            items: supplyRows.payload(submittedRows),
             bundles: selectedBundles.value.map((b) => ({
                 bundle_id: b.bundle_id,
                 qty: 1,
@@ -163,6 +176,9 @@ function submit() {
             onSuccess: () => {
                 emit('update:modelValue', false);
                 emit('success');
+            },
+            onError: (errors) => {
+                supplyRows.applyServerErrors(errors, submittedRows);
             },
             onFinish: () => {
                 submitting.value = false;
@@ -333,22 +349,14 @@ function close() {
             >
                 أصناف فردية
             </div>
-            <div
-                v-for="(item, idx) in items"
-                :key="idx"
-                class="grid grid-cols-12 items-center gap-2"
-            >
+            <template v-for="(item, idx) in items" :key="item.uid">
+            <div class="grid grid-cols-12 items-center gap-2">
                 <div class="col-span-5">
                     <SearchableSelect
                         v-model="item.name"
                         :endpoint="`/${dept}/items/search`"
                         placeholder="ابحث عن صنف بالاسم أو الكود..."
-                        @select="
-                            (matched) => {
-                                item.inventory_item_id = matched.id;
-                                item.unit_cost = matched.sell_price ?? 0;
-                            }
-                        "
+                        @select="(matched) => onSelected(idx, matched)"
                     />
                 </div>
 
@@ -358,6 +366,7 @@ function close() {
                     min="1"
                     placeholder="الكمية"
                     class="field-input col-span-2"
+                    :class="{ 'border-hospital-danger': rowError(item.uid) }"
                 />
 
                 <input
@@ -367,6 +376,7 @@ function close() {
                     step="0.01"
                     placeholder="السعر"
                     class="field-input col-span-3"
+                    :class="{ 'border-hospital-danger': rowError(item.uid) }"
                 />
 
                 <span
@@ -378,11 +388,16 @@ function close() {
                 <button
                     type="button"
                     class="col-span-1 flex h-9 w-9 items-center justify-center rounded-lg text-lg text-hospital-danger hover:bg-red-50"
+                    title="حذف السطر"
                     @click="removeRow(idx)"
                 >
                     ×
                 </button>
             </div>
+            <p v-if="rowError(item.uid)" class="text-xs text-hospital-danger">
+                {{ rowError(item.uid) }}
+            </p>
+            </template>
 
             <button
                 type="button"
@@ -391,6 +406,13 @@ function close() {
             >
                 + إضافة صنف
             </button>
+            <p
+                v-for="message in generalErrors"
+                :key="message"
+                class="text-xs text-hospital-danger"
+            >
+                {{ message }}
+            </p>
 
             <div
                 class="flex items-center justify-between border-t border-hospital-border pt-3"
@@ -408,8 +430,9 @@ function close() {
                     </button>
                     <button
                         type="button"
-                        :disabled="submitting"
-                        class="rounded-lg bg-[#7B2FA6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#6A2890] disabled:opacity-60"
+                        :disabled="submitting || !canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                        class="rounded-lg bg-[#7B2FA6] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#6A2890] disabled:cursor-not-allowed disabled:opacity-60"
                         @click="submit"
                     >
                         تسجيل

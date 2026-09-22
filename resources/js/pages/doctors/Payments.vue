@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { PlusCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Doctor {
     id: string;
@@ -31,6 +32,10 @@ const props = defineProps<{
     doctors: Doctor[];
     filters: { doctor_id?: string; from?: string; to?: string };
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canPay = computed(() => can('drpayments.write'));
 
 const columns = [
     { key: 'paid_at',     label: 'تاريخ الدفع', sortable: true },
@@ -73,6 +78,10 @@ const addForm = useForm({
     notes:       '',
 });
 function submitAdd() {
+    if (!canPay.value) {
+        return;
+    }
+
     addForm.post('/dr-claims/pay', {
         onSuccess: () => {
  showAdd.value = false; addForm.reset(); 
@@ -105,8 +114,10 @@ function fmt(n: number) {
             <input v-model="fromFilter" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters" />
             <input v-model="toFilter" type="date" class="rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" @change="applyFilters" />
             <button
-                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 transition-colors"
-                @click="showAdd = true"
+                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                @click="canPay && (showAdd = true)"
+                :disabled="!canPay"
+                :title="canPay ? undefined : NO_PERMISSION_TITLE"
             >
                 <PlusCircle class="h-4 w-4" /> تسجيل دفعة
             </button>
@@ -181,7 +192,7 @@ function fmt(n: number) {
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">تسجيل</button>
+                <button type="submit" :disabled="addForm.processing || !canPay" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed" :title="canPay ? undefined : NO_PERMISSION_TITLE">تسجيل</button>
             </div>
         </form>
     </Modal>

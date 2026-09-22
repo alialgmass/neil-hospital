@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { PlusCircle, CheckCircle, XCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Doctor {
     id: string;
@@ -32,6 +33,10 @@ const props = defineProps<{
     doctors: Doctor[];
     filters: { doctor_id?: string; date?: string };
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('doctors.write'));
 
 const columns = [
     { key: 'shift_date',  label: 'التاريخ', sortable: true },
@@ -68,6 +73,10 @@ const openForm = useForm({
     notes:      '',
 });
 function submitOpen() {
+    if (!canWrite.value) {
+        return;
+    }
+
     openForm.post('/doctor-shifts', {
         onSuccess: () => {
  showOpen.value = false; openForm.reset(); 
@@ -89,6 +98,10 @@ function fmt(n: number) {
 }
 
 function closeShift(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     router.patch(`/doctor-shifts/${id}/close`, {}, { preserveState: false });
 }
 </script>
@@ -115,8 +128,10 @@ function closeShift(id: string) {
                 @change="applyFilters"
             />
             <button
-                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 transition-colors"
-                @click="showOpen = true"
+                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                @click="canWrite && (showOpen = true)"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
             >
                 <PlusCircle class="h-4 w-4" /> فتح وردية
             </button>
@@ -153,8 +168,10 @@ function closeShift(id: string) {
             <div class="flex items-center gap-1.5">
                 <button
                     v-if="(row as DoctorShift).status === 'open'"
-                    class="flex items-center gap-1 rounded px-2 py-1 text-xs text-hospital-danger hover:bg-hospital-danger/10 transition-colors"
+                    class="flex items-center gap-1 rounded px-2 py-1 text-xs text-hospital-danger hover:bg-hospital-danger/10 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     @click="closeShift((row as DoctorShift).id)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <XCircle class="h-3.5 w-3.5" /> إغلاق
                 </button>
@@ -186,7 +203,7 @@ function closeShift(id: string) {
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showOpen = false">إلغاء</button>
-                <button type="submit" :disabled="openForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">فتح</button>
+                <button type="submit" :disabled="openForm.processing || !canWrite" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed" :title="canWrite ? undefined : NO_PERMISSION_TITLE">فتح</button>
             </div>
         </form>
     </Modal>

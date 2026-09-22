@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3'
 import { FileText, Plus, Trash2 } from 'lucide-vue-next'
+import { computed, watch } from 'vue'
 import Modal from '@/components/shared/Modal.vue'
-
-interface Company { id: string; name: string; coverage_pct: number }
-interface ServiceItem { id: string; name: string; dept: string; price: number; ins_price: number }
+import priceListRoutes from '@/routes/insurance/price-lists'
+import type { PriceList, PriceListCompany, PriceListService, PriceListType } from './types'
 
 const props = defineProps<{
     modelValue: boolean
-    companies: Company[]
-    services: ServiceItem[]
+    companies: PriceListCompany[]
+    services: PriceListService[]
+    /** When set, the modal edits this list instead of creating a new one. */
+    priceList?: PriceList | null
 }>()
 
 const emit = defineEmits<{
@@ -17,15 +19,56 @@ const emit = defineEmits<{
     (e: 'success'): void
 }>()
 
+const isEdit = computed(() => !!props.priceList)
+
 const form = useForm({
     name: '',
-    type: 'insurance' as 'cash' | 'insurance' | 'vip' | 'special',
+    type: 'insurance' as PriceListType,
     ins_company_id: '',
-    ins_coverage: 80,
+    ins_coverage: 80 as number | null,
     discount_pct: 0,
     notes: '',
+    is_active: true,
     items: [] as { service_id: string; price: number }[],
 })
+
+// Prefill from the list being edited every time the modal opens.
+watch(
+    () => props.modelValue,
+    (open) => {
+        if (!open) {
+            return
+        }
+
+        form.clearErrors()
+
+        if (props.priceList) {
+            const pl = props.priceList
+            form.name = pl.name
+            form.type = pl.type
+            form.ins_company_id = pl.ins_company_id ?? ''
+            form.ins_coverage = pl.ins_coverage ?? null
+            form.discount_pct = pl.discount_pct ?? 0
+            form.notes = pl.notes ?? ''
+            form.is_active = pl.is_active
+            form.items = pl.items.map((item) => ({ service_id: item.service_id, price: item.price }))
+        } else {
+            form.reset()
+        }
+    },
+    { immediate: true },
+)
+
+/** Services already used by another row — a service may appear only once per list. */
+function isTakenElsewhere(serviceId: string, idx: number): boolean {
+    return form.items.some((item, i) => i !== idx && item.service_id === serviceId)
+}
+
+function itemError(idx: number): string | undefined {
+    const errors = form.errors as Record<string, string | undefined>
+
+    return errors[`items.${idx}.service_id`] ?? errors[`items.${idx}.price`]
+}
 
 function addRow() {
     form.items.push({ service_id: '', price: 0 })
@@ -39,8 +82,8 @@ function onServiceSelect(idx: number) {
     const svc = props.services.find((s) => s.id === form.items[idx].service_id)
 
     if (svc) {
- form.items[idx].price = svc.ins_price || svc.price 
-}
+        form.items[idx].price = svc.ins_price || svc.price
+    }
 }
 
 function close() {
@@ -50,16 +93,24 @@ function close() {
 }
 
 function submit() {
-    form.post('/insurance/price-lists', {
+    const options = {
+        preserveScroll: true,
         onSuccess: () => {
- close(); emit('success') 
-},
-    })
+            close()
+            emit('success')
+        },
+    }
+
+    if (props.priceList) {
+        form.submit(priceListRoutes.update(props.priceList.id), options)
+    } else {
+        form.submit(priceListRoutes.store(), options)
+    }
 }
 </script>
 
 <template>
-    <Modal :model-value="modelValue" title="إنشاء قائمة أسعار" size="lg" @update:model-value="emit('update:modelValue', $event)" @close="close">
+    <Modal :model-value="modelValue" :title="isEdit ? 'تعديل قائمة أسعار' : 'إنشاء قائمة أسعار'" size="lg" @update:model-value="emit('update:modelValue', $event)" @close="close">
         <form class="space-y-4" @submit.prevent="submit">
             <!-- Basic Info -->
             <div class="form-section">
@@ -75,21 +126,31 @@ function submit() {
                 <div class="grid grid-cols-2 gap-3">
                     <div class="fg">
                         <label>نوع القائمة</label>
-                        <select v-model="form.type" class="fi">
+                        <select v-model="form.type" :class="['fi', form.errors.type && 'fi-err']">
                             <option value="cash">نقدي</option>
                             <option value="insurance">تأمين</option>
                             <option value="vip">VIP</option>
                             <option value="special">خاص</option>
                         </select>
+                        <p v-if="form.errors.type" class="form-err-msg">{{ form.errors.type }}</p>
                     </div>
                     <div class="fg">
                         <label>نسبة الخصم %</label>
                         <div class="relative">
-                            <input v-model.number="form.discount_pct" class="fi pl-7" type="number" min="0" max="100" step="0.01" />
+                            <input v-model.number="form.discount_pct" :class="['fi pl-7', form.errors.discount_pct && 'fi-err']" type="number" min="0" max="100" step="0.01" />
                             <span class="pct-badge text-hospital-text-3">%</span>
                         </div>
+                        <p v-if="form.errors.discount_pct" class="form-err-msg">{{ form.errors.discount_pct }}</p>
                     </div>
                 </div>
+                <div class="fg">
+                    <label>ملاحظات</label>
+                    <textarea v-model="form.notes" class="fi" rows="2" />
+                </div>
+                <label v-if="isEdit" class="flex cursor-pointer items-center gap-2 text-sm text-hospital-text">
+                    <input v-model="form.is_active" type="checkbox" />
+                    القائمة نشطة (تُستخدم في الحجوزات الجديدة)
+                </label>
             </div>
 
             <!-- Insurance fields -->
@@ -98,17 +159,19 @@ function submit() {
                 <div class="grid grid-cols-2 gap-3">
                     <div class="fg col-span-2">
                         <label>شركة التأمين</label>
-                        <select v-model="form.ins_company_id" class="fi">
+                        <select v-model="form.ins_company_id" :class="['fi', form.errors.ins_company_id && 'fi-err']">
                             <option value="">— اختر شركة —</option>
                             <option v-for="co in companies" :key="co.id" :value="co.id">{{ co.name }}</option>
                         </select>
+                        <p v-if="form.errors.ins_company_id" class="form-err-msg">{{ form.errors.ins_company_id }}</p>
                     </div>
                     <div class="fg">
                         <label>نسبة التغطية %</label>
                         <div class="relative">
-                            <input v-model.number="form.ins_coverage" class="fi pl-7" type="number" min="0" max="100" step="0.01" />
+                            <input v-model.number="form.ins_coverage" :class="['fi pl-7', form.errors.ins_coverage && 'fi-err']" type="number" min="0" max="100" step="0.01" />
                             <span class="pct-badge text-hospital-primary">%</span>
                         </div>
+                        <p v-if="form.errors.ins_coverage" class="form-err-msg">{{ form.errors.ins_coverage }}</p>
                     </div>
                 </div>
             </div>
@@ -141,35 +204,53 @@ function submit() {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-hospital-border">
-                            <tr v-for="(item, idx) in form.items" :key="idx" class="bg-white">
-                                <td class="px-3 py-2">
-                                    <select v-model="item.service_id" class="fi" @change="onServiceSelect(idx)">
-                                        <option value="">— اختر خدمة —</option>
-                                        <option v-for="svc in services" :key="svc.id" :value="svc.id">{{ svc.name }}</option>
-                                    </select>
-                                </td>
-                                <td class="px-3 py-2">
-                                    <input v-model.number="item.price" class="fi text-center tabular-nums" type="number" min="0" step="0.01" placeholder="0.00" />
-                                </td>
-                                <td class="px-3 py-2 text-center">
-                                    <button
-                                        type="button"
-                                        class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                                        @click="removeRow(idx)"
-                                    >
-                                        <Trash2 class="h-4 w-4" />
-                                    </button>
-                                </td>
-                            </tr>
+                            <template v-for="(item, idx) in form.items" :key="idx">
+                                <tr class="bg-white">
+                                    <td class="px-3 py-2">
+                                        <select v-model="item.service_id" :class="['fi', itemError(idx) && 'fi-err']" @change="onServiceSelect(idx)">
+                                            <option value="">— اختر خدمة —</option>
+                                            <option
+                                                v-for="svc in services"
+                                                :key="svc.id"
+                                                :value="svc.id"
+                                                :disabled="isTakenElsewhere(svc.id, idx)"
+                                            >
+                                                {{ svc.name }}
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <input v-model.number="item.price" :class="['fi text-center tabular-nums', itemError(idx) && 'fi-err']" type="number" min="0" step="0.01" placeholder="0.00" />
+                                    </td>
+                                    <td class="px-3 py-2 text-center">
+                                        <button
+                                            type="button"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                                            title="حذف الخدمة من القائمة"
+                                            @click="removeRow(idx)"
+                                        >
+                                            <Trash2 class="h-4 w-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="itemError(idx)">
+                                    <td colspan="3" class="px-3 pb-2">
+                                        <p class="form-err-msg">{{ itemError(idx) }}</p>
+                                    </td>
+                                </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>
+                <p v-if="isEdit" class="mt-2 text-[11px] text-hospital-text-3">
+                    التعديل يؤثر على الحجوزات الجديدة فقط — الحجوزات والمطالبات السابقة محفوظة بأسعارها.
+                </p>
             </div>
 
             <div class="form-footer">
                 <button type="button" class="fbtn-secondary" @click="close">إلغاء</button>
                 <button type="submit" class="fbtn-primary" :disabled="form.processing">
-                    {{ form.processing ? 'جارٍ الحفظ...' : 'إنشاء القائمة' }}
+                    {{ form.processing ? 'جارٍ الحفظ...' : isEdit ? 'حفظ التعديلات' : 'إنشاء القائمة' }}
                 </button>
             </div>
         </form>

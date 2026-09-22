@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     Briefcase,
     PlusCircle,
@@ -11,10 +11,12 @@ import { computed, ref } from 'vue';
 import ManagePermissionsModal from '@/components/hr/ManagePermissionsModal.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Role {
     id: number;
     name: string;
+    label: string;
 }
 
 interface Employee {
@@ -65,20 +67,14 @@ const props = defineProps<{
     };
     next_employee_no: string;
     roles: Role[];
-    permissions_by_module: Record<string, { name: string }[]>;
+    permissions_by_module: Record<
+        string,
+        { name: string; label: string; group: string; group_label: string }[]
+    >;
 }>();
 
 // ── Permissions (for gating the "manage permissions" button) ──
-const page = usePage<{ permissions?: string[] }>();
-const currentUserPermissions = computed<string[]>(
-    () => (page.props.permissions as string[]) ?? [],
-);
-function can(permission: string): boolean {
-    return (
-        currentUserPermissions.value.includes('*') ||
-        currentUserPermissions.value.includes(permission)
-    );
-}
+const { can } = usePermissions();
 const canManageHr = computed(() => can('hr.manage'));
 
 const deptOptions = computed(() => props.dept_options);
@@ -155,6 +151,10 @@ const addForm = useForm({
     notes: '',
 });
 function submitAdd() {
+    if (!canManageHr.value) {
+        return;
+    }
+
     addForm.post('/employees', {
         onSuccess: () => {
             showAdd.value = false;
@@ -185,6 +185,10 @@ const editForm = useForm({
     notes: '',
 });
 function openEdit(e: Employee) {
+    if (!canManageHr.value) {
+        return;
+    }
+
     editingId.value = e.id;
     editForm.name = e.name;
     editForm.national_id = e.national_id ?? '';
@@ -328,13 +332,16 @@ function savePermissions(selected: string[]) {
         </div>
         <div class="flex items-center gap-2">
             <ModuleImportButton
+                permission="hr.manage"
                 label="الموظفون"
                 templateUrl="/employees/import-template"
                 importUrl="/employees/import"
             />
             <button
-                class="btn-primary flex items-center gap-1.5"
-                @click="showAdd = true"
+                class="btn-primary flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canManageHr"
+                :title="canManageHr ? undefined : NO_PERMISSION_TITLE"
+                @click="canManageHr && (showAdd = true)"
             >
                 <PlusCircle class="h-4 w-4" />
                 موظف جديد
@@ -432,7 +439,9 @@ function savePermissions(selected: string[]) {
                     </td>
                     <td class="px-4 py-3">
                         <button
-                            class="rounded-lg border border-br px-3 py-1 text-xs text-t2 transition-colors hover:border-p/40 hover:bg-pp hover:text-p"
+                            class="rounded-lg border border-br px-3 py-1 text-xs text-t2 transition-colors hover:border-p/40 hover:bg-pp hover:text-p disabled:cursor-not-allowed disabled:opacity-40"
+                            :disabled="!canManageHr"
+                            :title="canManageHr ? undefined : NO_PERMISSION_TITLE"
                             @click="openEdit(e)"
                         >
                             تعديل
@@ -568,7 +577,7 @@ function savePermissions(selected: string[]) {
                             :key="role.id"
                             :value="role.name"
                         >
-                            {{ role.name }}
+                            {{ role.label }}
                         </option>
                     </select>
                     <p v-if="addForm.errors.role" class="form-error">
@@ -833,7 +842,7 @@ function savePermissions(selected: string[]) {
                     <select v-model="editForm.role" class="input-field">
                         <option value="">— بدون تغيير —</option>
                         <option v-for="r in roles" :key="r.id" :value="r.name">
-                            {{ r.name }}
+                            {{ r.label }}
                         </option>
                     </select>
                     <p v-if="editForm.errors.role" class="form-error">

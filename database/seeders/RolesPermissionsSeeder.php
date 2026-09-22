@@ -10,7 +10,7 @@ use Spatie\Permission\PermissionRegistrar;
 class RolesPermissionsSeeder extends Seeder
 {
     /** All system permissions (from spec §6). */
-    private const PERMISSIONS = [
+    public const PERMISSIONS = [
         'dashboard',
         'booking.view',
         'booking.create',
@@ -51,6 +51,7 @@ class RolesPermissionsSeeder extends Seeder
         'purchases.delete',
         'insurance.view',
         'insurance.write',
+        'insurance.price_lists.edit',
         'hr.view',
         'hr.manage',
         'users.manage',

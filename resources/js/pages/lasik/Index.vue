@@ -5,6 +5,9 @@ import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
+import lasikRoutes from '@/routes/lasik';
 import BedsGrid from './partials/BedsGrid.vue';
 import CasePanel from './partials/CasePanel.vue';
 import ReportModal from './partials/ReportModal.vue';
@@ -126,6 +129,10 @@ function goToPage(page: number) {
     );
 }
 
+/* ── Permissions ── */
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
+
 /* ── Active case ── */
 const activeCase = ref<Surgery | null>(null);
 
@@ -139,6 +146,10 @@ function closeCase() {
 }
 
 function updateStatus(newStatus: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!activeCase.value) {
         return;
     }
@@ -165,24 +176,44 @@ const reportSurgeryId = ref('');
 const showSupplies = ref(false);
 const suppliesSurgeryId = ref('');
 
+function openSchedule() {
+    if (!canWrite.value) {
+        return;
+    }
+
+    showSchedule.value = true;
+}
+
 function openReport(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     reportSurgeryId.value = id;
     showReport.value = true;
 }
 function openSupplies(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     suppliesSurgeryId.value = id;
     showSupplies.value = true;
 }
 
-function submitSupplies(items: any[]) {
-    if (!activeCase.value) {
+function submitSupplies(
+    validItems: SupplyPayloadItem[],
+    done: (errors: Record<string, string> | null) => void = () => {},
+) {
+    if (!activeCase.value || !canWrite.value) {
+        done({});
+
         return;
     }
 
-    const validItems = items.filter((item) => item.name && item.qty > 0);
-
     if (validItems.length === 0) {
         toast.error('يرجى إضافة صنف واحد على الأقل');
+        done({});
 
         return;
     }
@@ -194,9 +225,10 @@ function submitSupplies(items: any[]) {
     const prevSupplies = activeCase.value.supplies_used ?? [];
     const optimisticSupplies = [...prevSupplies, ...validItems];
 
+    // Bulk add: all rows in one atomic request (merged/validated server-side).
     router.post(
-        `/lasik/${activeCase.value.id}/supplies`,
-        { supplies: validItems },
+        lasikRoutes.supplies(activeCase.value.id).url,
+        { surgery_id: activeCase.value.id, items: validItems },
         {
             onSuccess: (page) => {
                 if (page.props.flash?.surgery) {
@@ -212,11 +244,13 @@ function submitSupplies(items: any[]) {
                     ).toFixed(2);
                 }
 
-                toast.success('تم حفظ المستلزمات بنجاح');
+                done(null);
+                toast.success(`تم تسجيل ${validItems.length} من المستلزمات بنجاح`);
             },
-            onError: () => {
+            onError: (errors) => {
                 activeCase.value!.supplies_used = prevSupplies;
-                toast.error('فشل في حفظ المستلزمات. حاول مرة أخرى.');
+                done(errors);
+                toast.error(Object.values(errors)[0] ?? 'فشل في حفظ المستلزمات. حاول مرة أخرى.');
             },
         },
     );
@@ -227,11 +261,11 @@ function submitReport(data: {
     post_op_notes: string;
     complications: string;
 }) {
-    if (!activeCase.value) {
+    if (!activeCase.value || !canWrite.value) {
         return;
     }
 
-    router.patch(`/lasik/${activeCase.value.id}/report`, data, {
+    router.post(lasikRoutes.report(activeCase.value.id).url, data, {
         onSuccess: () => {
             toast.success('تم حفظ التقرير بنجاح');
         },
@@ -292,7 +326,7 @@ const eyeLabel: Record<string, string> = {
         :surgeries="surgeries.data"
         :dept="dept"
         @open-case="openCase"
-        @schedule-new="showSchedule = true"
+        @schedule-new="openSchedule"
         @open-report="openReport"
         @open-supplies="openSupplies"
     />
@@ -377,7 +411,9 @@ const eyeLabel: Record<string, string> = {
                         <ClipboardList class="h-3.5 w-3.5" /> عرض
                     </button>
                     <button
-                        class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#7B2FA6] hover:bg-purple-50"
+                        class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#7B2FA6] hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="!canWrite"
+                        :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE"
                         @click="openSupplies((row as Surgery).id)"
                     >
                         <Package class="h-3.5 w-3.5" /> مستلزمات

@@ -10,7 +10,7 @@ class UpdateServiceRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('admin.services') ?? false;
+        return $this->user()?->can('services.write') ?? false;
     }
 
     public function rules(): array

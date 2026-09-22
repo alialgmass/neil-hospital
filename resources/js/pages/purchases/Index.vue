@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import {
     AlertCircle,
     Edit3,
@@ -12,6 +12,7 @@ import { computed, ref } from 'vue';
 import ItemAutocomplete from '@/components/shared/ItemAutocomplete.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Supplier {
     id: string;
@@ -65,16 +66,8 @@ const props = defineProps<{
 }>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(
-    () => (page.props.permissions as string[]) ?? [],
-);
-function can(permission: string): boolean {
-    return (
-        permissions.value.includes('*') ||
-        permissions.value.includes(permission)
-    );
-}
+const { can } = usePermissions();
+const canCreate = computed(() => can('inventory.write'));
 const canEdit = computed(() => can('purchases.edit'));
 const canDelete = computed(() => can('purchases.delete'));
 
@@ -156,6 +149,10 @@ function removeItem(idx: number) {
 }
 
 function openAdd() {
+    if (!canCreate.value) {
+        return;
+    }
+
     editingId.value = null;
     formData.value = {
         invoice_no: props.next_invoice_no,
@@ -172,6 +169,10 @@ function openAdd() {
 }
 
 function openEdit(inv: PurchaseInvoice) {
+    if (!canEdit.value) {
+        return;
+    }
+
     editingId.value = inv.id;
     formData.value = {
         invoice_no: inv.invoice_no,
@@ -228,6 +229,10 @@ function submit() {
 const confirmingDeleteId = ref<string | null>(null);
 
 function confirmDelete(inv: PurchaseInvoice) {
+    if (!canDelete.value) {
+        return;
+    }
+
     confirmingDeleteId.value = inv.id;
 }
 
@@ -376,12 +381,15 @@ const statusConfig: Record<string, { label: string; class: string }> = {
         </div>
         <div class="flex items-end gap-2 self-end">
             <ModuleImportButton
+                permission="inventory.write"
                 label="المشتريات"
                 templateUrl="/purchases/import-template"
                 importUrl="/purchases/import"
             />
             <button
-                class="btn-primary flex items-center gap-1.5"
+                class="btn-primary flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canCreate"
+                :title="canCreate ? undefined : NO_PERMISSION_TITLE"
                 @click="openAdd"
             >
                 <PlusCircle class="h-4 w-4" />
@@ -433,7 +441,6 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                         الحالة
                     </th>
                     <th
-                        v-if="canEdit || canDelete"
                         class="px-4 py-3 text-right text-xs font-semibold text-t2"
                     >
                         إجراءات
@@ -480,22 +487,22 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                             {{ statusConfig[inv.status]?.label ?? inv.status }}
                         </span>
                     </td>
-                    <td v-if="canEdit || canDelete" class="px-4 py-3">
+                    <td class="px-4 py-3">
                         <div class="flex items-center gap-1">
                             <button
-                                v-if="canEdit"
                                 type="button"
-                                title="تعديل"
-                                class="rounded p-1.5 text-t3 transition-colors hover:bg-wp hover:text-w"
+                                :title="canEdit ? 'تعديل' : NO_PERMISSION_TITLE"
+                                :disabled="!canEdit"
+                                class="rounded p-1.5 text-t3 transition-colors hover:bg-wp hover:text-w disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                                 @click="openEdit(inv)"
                             >
                                 <Edit3 class="h-4 w-4" />
                             </button>
                             <button
-                                v-if="canDelete"
                                 type="button"
-                                title="حذف"
-                                class="rounded p-1.5 text-t3 transition-colors hover:bg-dp hover:text-d"
+                                :title="canDelete ? 'حذف' : NO_PERMISSION_TITLE"
+                                :disabled="!canDelete"
+                                class="rounded p-1.5 text-t3 transition-colors hover:bg-dp hover:text-d disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                                 @click="confirmDelete(inv)"
                             >
                                 <Trash2 class="h-4 w-4" />
@@ -506,7 +513,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 <tr v-if="invoices.data.length === 0">
                     <td
                         class="px-4 py-10 text-center text-t3"
-                        :colspan="canEdit || canDelete ? 8 : 7"
+                        :colspan="8"
                     >
                         لا توجد فواتير
                     </td>

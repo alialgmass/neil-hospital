@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { Printer, ChevronLeft } from 'lucide-vue-next';
 import { computed, reactive, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import { usePrint } from '@/composables/usePrint';
 import MedicationsTable from './Partials/MedicationsTable.vue';
 
@@ -276,6 +277,10 @@ const activeSection = ref<'medical' | 'nursing'>('medical');
 const saving = ref(false);
 
 function saveSheet() {
+    if (!canWrite.value) {
+        return;
+    }
+
     saving.value = true;
     router.post(`/clinic/${props.booking.id}/sheet`, form as unknown as Record<string, string>, {
         onFinish: () => {
@@ -318,8 +323,11 @@ const eyeRequired = computed(
     () => !!routingServiceId.value && operationDepts.includes(routingTarget.value),
 );
 
+const { can } = usePermissions();
+const canWrite = computed(() => can('clinic.write'));
+
 const canRoute = computed(
-    () => !!routingTarget.value && !routing.value && (!eyeRequired.value || !!routingEye.value),
+    () => canWrite.value && !!routingTarget.value && !routing.value && (!eyeRequired.value || !!routingEye.value),
 );
 
 /**
@@ -822,8 +830,9 @@ const deptLabels: Record<string, string> = {
                 <div class="flex justify-end">
                     <button
                         type="submit"
-                        :disabled="saving"
-                        class="rounded-lg bg-hospital-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-hospital-primary-light disabled:opacity-60 transition-colors"
+                        :disabled="saving || !canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                        class="rounded-lg bg-hospital-primary px-6 py-2.5 text-sm font-semibold text-white hover:bg-hospital-primary-light disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
                     >
                         {{ saving ? 'جارٍ الحفظ…' : 'حفظ الكشف الطبي' }}
                     </button>
@@ -880,7 +889,8 @@ const deptLabels: Record<string, string> = {
                     <button
                         type="button"
                         :disabled="!canRoute"
-                        class="rounded-lg bg-hospital-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                        class="rounded-lg bg-hospital-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 transition-opacity"
                         @click="routePatient"
                     >
                         {{ routing ? 'جارٍ التوجيه…' : 'توجيه' }}

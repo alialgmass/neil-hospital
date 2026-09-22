@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 defineOptions({ layout: AppLayout });
 
@@ -39,6 +40,10 @@ const props = defineProps<{
     filters: { search?: string; dept?: string; status?: string };
     revenueAccounts: RevenueAccount[];
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('services.write'));
 
 // ── Filters ──────────────────────────────────────────────────────────────────
 const filters = ref({ ...props.filters });
@@ -107,6 +112,10 @@ const form = useForm({
 });
 
 function openCreate() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingService.value = null;
     form.reset();
     form.dept = 'clinic';
@@ -121,6 +130,10 @@ function openCreate() {
 }
 
 function openEdit(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingService.value = svc;
     form.name = svc.name;
     form.dept = svc.dept;
@@ -145,6 +158,10 @@ function closeModal() {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (editingService.value) {
         form.put(`/services/${editingService.value.id}`, {
             onSuccess: () => {
@@ -175,6 +192,10 @@ const centerPreview = computed(() => {
 
 // ── Toggle status ─────────────────────────────────────────────────────────────
 function toggleStatus(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     const newStatus = svc.status === 'active' ? 'inactive' : 'active';
     router.patch(`/services/${svc.id}/status`, { status: newStatus }, {
         preserveScroll: true,
@@ -188,11 +209,19 @@ const deletingService = ref<Service | null>(null);
 const deleteForm = useForm({});
 
 function confirmDelete(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     deletingService.value = svc;
     showDeleteModal.value = true;
 }
 
 function deleteService() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!deletingService.value) {
         return;
     }
@@ -218,6 +247,10 @@ function onFileChange(e: Event) {
 }
 
 function submitImport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!importForm.file) {
         toast.error('يرجى اختيار ملف أولاً');
 
@@ -257,15 +290,19 @@ function fmt(n: number) {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <button
-                    class="flex items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface px-4 py-2 text-sm font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg hover:text-hospital-text"
-                    @click="showImportModal = true"
+                    class="flex items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface px-4 py-2 text-sm font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg hover:text-hospital-text disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showImportModal = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <FileSpreadsheet class="h-4 w-4 text-hospital-success" />
                     استيراد Excel
                 </button>
                 <button
-                    class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light"
+                    class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:cursor-not-allowed disabled:opacity-50"
                     @click="openCreate"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <span class="text-base leading-none">+</span> إضافة خدمة
                 </button>
@@ -353,25 +390,28 @@ function fmt(n: number) {
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
                                     <button
-                                        class="rounded p-1.5 transition-colors"
+                                        class="rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                         :class="svc.status === 'active' ? 'text-hospital-success hover:bg-hospital-success-pale' : 'text-hospital-text-3 hover:bg-hospital-bg'"
-                                        :title="svc.status === 'active' ? 'إيقاف الخدمة' : 'تفعيل الخدمة'"
+                                        :title="canWrite ? (svc.status === 'active' ? 'إيقاف الخدمة' : 'تفعيل الخدمة') : NO_PERMISSION_TITLE"
                                         @click="toggleStatus(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <ToggleRight v-if="svc.status === 'active'" class="h-5 w-5" />
                                         <ToggleLeft v-else class="h-5 w-5" />
                                     </button>
                                     <button
-                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                                        title="تعديل"
+                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE"
                                         @click="openEdit(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <Edit2 class="h-4 w-4" />
                                     </button>
                                     <button
-                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                                        title="حذف"
+                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="canWrite ? 'حذف' : NO_PERMISSION_TITLE"
                                         @click="confirmDelete(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <Trash2 class="h-4 w-4" />
                                     </button>
@@ -621,8 +661,9 @@ function fmt(n: number) {
                     </button>
                     <button
                         type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60"
+                        :disabled="form.processing || !canWrite"
+                        class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                     >
                         {{ form.processing ? 'جارٍ الحفظ...' : editingService ? 'حفظ التغييرات' : 'إضافة الخدمة' }}
                     </button>
@@ -671,8 +712,9 @@ function fmt(n: number) {
                     </button>
                     <button
                         type="submit"
-                        :disabled="importForm.processing || !importForm.file"
-                        class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                        :disabled="importForm.processing || !importForm.file || !canWrite"
+                        class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                     >
                         <Upload class="h-4 w-4" />
                         {{ importForm.processing ? 'جارٍ الاستيراد...' : 'استيراد' }}
@@ -701,9 +743,10 @@ function fmt(n: number) {
                 </button>
                 <button
                     type="button"
-                    :disabled="deleteForm.processing"
-                    class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60"
+                    :disabled="deleteForm.processing || !canWrite"
+                    class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                     @click="deleteService"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     {{ deleteForm.processing ? 'جارٍ الحذف...' : 'حذف الخدمة' }}
                 </button>

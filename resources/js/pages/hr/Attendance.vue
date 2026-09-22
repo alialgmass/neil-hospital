@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { computed } from 'vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 interface AttendanceRow {
     employee_id: string
@@ -27,6 +28,10 @@ const props = defineProps<{
     shifts: Shift[]
     filters: { date: string }
 }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('hr.manage'))
 
 const statusOptions = [
     { value: '', label: '— الحالة —' },
@@ -65,6 +70,10 @@ function markAll(status: string) {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return
+    }
+
     form.post('/attendance', { preserveState: true })
 }
 </script>
@@ -122,7 +131,7 @@ function submit() {
             <div class="flex items-center gap-2">
                 <button type="button" class="btn-secondary text-xs" @click="markAll('present')">تحضير الكل</button>
                 <button type="button" class="btn-secondary text-xs" @click="markAll('absent')">تغيب الكل</button>
-                <button type="submit" :disabled="form.processing" class="btn-primary">
+                <button type="submit" :disabled="form.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ الحضور' }}
                 </button>
             </div>
@@ -181,7 +190,7 @@ function submit() {
 
         <!-- Bottom save -->
         <div class="mt-4 flex justify-end">
-            <button type="submit" :disabled="form.processing" class="btn-primary px-8">
+            <button type="submit" :disabled="form.processing || !canWrite" class="btn-primary px-8 disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                 {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ الحضور ليوم ' + form.date }}
             </button>
         </div>

@@ -53,3 +53,39 @@ export const claimStatusVariants: Record<Claim['status'], string> = {
     rejected: 'danger',
     paid: 'paid',
 };
+
+export type PriceListType = 'cash' | 'insurance' | 'vip' | 'special';
+
+export interface PriceListCompany {
+    id: string;
+    name: string;
+    coverage_pct: number;
+}
+
+export interface PriceListService {
+    id: string;
+    name: string;
+    dept: string;
+    price: number;
+    ins_price: number;
+}
+
+export interface PriceListItem {
+    id: number;
+    service_id: string;
+    price: number;
+    service?: { id: string; name: string; dept: string };
+}
+
+export interface PriceList {
+    id: string;
+    name: string;
+    type: PriceListType;
+    ins_company_id?: string | null;
+    ins_coverage?: number | null;
+    discount_pct: number;
+    notes?: string | null;
+    is_active: boolean;
+    company?: PriceListCompany;
+    items: PriceListItem[];
+}

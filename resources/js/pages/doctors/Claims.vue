@@ -14,6 +14,7 @@ import {
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, watch } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import { formatDate } from '@/lib/date';
 
 interface DoctorSummary {
@@ -78,6 +79,10 @@ const props = defineProps<{
     claims: Claims | null;
     filters: { doctor_id?: string; from?: string; to?: string };
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canPay = computed(() => can('drpayments.write'));
 
 const mounted = ref(false);
 onMounted(() => {
@@ -187,6 +192,10 @@ const payForm = useForm({
 });
 
 function openPay(summary?: DoctorSummary) {
+    if (!canPay.value) {
+        return;
+    }
+
     if (props.claims) {
         payForm.doctor_id = props.claims.doctor.id;
         payForm.amount = props.claims.net_due;
@@ -203,6 +212,10 @@ function openPay(summary?: DoctorSummary) {
 }
 
 function submitPay() {
+    if (!canPay.value) {
+        return;
+    }
+
     payForm.post('/dr-claims/pay', {
         preserveState: true,
         onSuccess: () => {
@@ -479,8 +492,10 @@ function printInvoice() {
                                 </button>
                                 <button
                                     v-if="s.net_due > 0"
-                                    class="rounded-[6px] bg-hospital-success px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-hospital-success/90"
+                                    class="rounded-[6px] bg-hospital-success px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-hospital-success/90 disabled:cursor-not-allowed disabled:opacity-50"
                                     @click="openPay(s)"
+                                    :disabled="!canPay"
+                                    :title="canPay ? undefined : NO_PERMISSION_TITLE"
                                 >
                                     صرف
                                 </button>
@@ -876,8 +891,10 @@ function printInvoice() {
                         </button>
                         <button
                             v-if="claims.net_due > 0"
-                            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white hover:bg-hospital-success/90"
+                            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white hover:bg-hospital-success/90 disabled:cursor-not-allowed disabled:opacity-50"
                             @click="openPay()"
+                            :disabled="!canPay"
+                            :title="canPay ? undefined : NO_PERMISSION_TITLE"
                         >
                             <CreditCard class="h-4 w-4" />
                             تسجيل دفعة ({{ fmt(claims.net_due) }})
@@ -1175,8 +1192,9 @@ function printInvoice() {
                 </button>
                 <button
                     type="submit"
-                    :disabled="payForm.processing"
-                    class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    :disabled="payForm.processing || !canPay"
+                    class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    :title="canPay ? undefined : NO_PERMISSION_TITLE"
                 >
                     تسجيل الدفعة
                 </button>

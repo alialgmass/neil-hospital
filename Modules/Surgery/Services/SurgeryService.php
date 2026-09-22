@@ -4,6 +4,7 @@ namespace Modules\Surgery\Services;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\States\ConfirmedState as BookingConfirmedState;
 use Modules\Booking\States\WaitingState as BookingWaitingState;
@@ -104,17 +105,17 @@ class SurgeryService
 
     public function recordSupplies(SuppliesUsedData $data): Surgery
     {
-        $surgery = Surgery::findOrFail($data->surgeryId);
-        $existing = $surgery->supplies_used ?? [];
-        $newItems = $data->items;
+        return DB::transaction(function () use ($data) {
+            // Row lock: concurrent saves on the same case must not lose each other's lines.
+            $surgery = Surgery::whereKey($data->surgeryId)->lockForUpdate()->firstOrFail();
+            $merged = array_merge($surgery->supplies_used ?? [], $data->items);
+            $total = array_sum(array_map(fn ($item) => (float) ($item['total'] ?? 0), $merged));
 
-        $merged = array_merge($existing, $newItems);
-        $total = array_sum(array_map(fn ($item) => (float) ($item['total'] ?? 0), $merged));
-
-        return $this->surgeryRepository->update($data->surgeryId, [
-            'supplies_used' => $merged,
-            'supply_total' => $total,
-        ]);
+            return $this->surgeryRepository->update($data->surgeryId, [
+                'supplies_used' => $merged,
+                'supply_total' => $total,
+            ]);
+        });
     }
 
     /** Bookings that have no active surgery row yet (for the scheduling dropdown). */

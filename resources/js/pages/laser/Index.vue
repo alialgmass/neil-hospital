@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Surgery {
     id: string;
@@ -37,6 +38,10 @@ const props = defineProps<{
         service_id: string | null;
     } | null;
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('laser.write'));
 
 const columns = [
     { key: 'scheduled_at', label: 'الموعد', sortable: true },
@@ -104,6 +109,10 @@ const scheduleForm = useForm({
     pre_op_notes: '',
 });
 function submitSchedule() {
+    if (!canWrite.value) {
+        return;
+    }
+
     scheduleForm.post('/laser', {
         onSuccess: () => {
             showSchedule.value = false;
@@ -133,11 +142,19 @@ const reportForm = useForm({
     complications: '',
 });
 function openReport(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     reportTarget.value = id;
     reportForm.reset();
     showReport.value = true;
 }
 function submitReport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     reportForm.post(`/laser/${reportTarget.value}/report`, {
         onSuccess: () => {
             showReport.value = false;
@@ -198,8 +215,10 @@ const laserProcedures = [
                     <option value="cancelled">ملغاة</option>
                 </select>
                 <button
-                    class="flex items-center gap-1.5 rounded-lg bg-[#1A8C5B] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#167a4e]"
-                    @click="showSchedule = true"
+                    class="flex items-center gap-1.5 rounded-lg bg-[#1A8C5B] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#167a4e] disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showSchedule = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <CalendarPlus class="h-3.5 w-3.5" />
                     جدولة ليزر
@@ -248,8 +267,10 @@ const laserProcedures = [
             </template>
             <template #actions="{ row }">
                 <button
-                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#1A8C5B] transition-colors hover:bg-green-50"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#1A8C5B] transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="openReport((row as Surgery).id)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <ClipboardList class="h-3.5 w-3.5" />
                     تقرير
@@ -357,8 +378,9 @@ const laserProcedures = [
                 </button>
                 <button
                     type="submit"
-                    :disabled="scheduleForm.processing"
-                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    :disabled="scheduleForm.processing || !canWrite"
+                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     جدولة
                 </button>
@@ -407,8 +429,9 @@ const laserProcedures = [
                 </button>
                 <button
                     type="submit"
-                    :disabled="reportForm.processing"
-                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                    :disabled="reportForm.processing || !canWrite"
+                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     حفظ
                 </button>

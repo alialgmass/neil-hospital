@@ -5,7 +5,7 @@ import { ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 
-interface Role { id: number; name: string }
+interface Role { id: number; name: string; label?: string }
 interface User {
     id: number;
     name: string;
@@ -14,7 +14,7 @@ interface User {
     created_at: string;
 }
 
-defineProps<{
+const props = defineProps<{
     users: { data: User[]; current_page: number; last_page: number; total: number };
     roles: Role[];
 }>();
@@ -38,10 +38,10 @@ function submit() {
 } }); 
 }
 
-const roleLabels: Record<string, string> = {
-    admin: 'مدير النظام', doctor: 'طبيب', receptionist: 'استقبال',
-    accountant: 'محاسب', nurse: 'ممرض/مساعد', warehouse: 'مخزن',
-};
+/** Translated role label (served by PermissionLabelService), falling back to the key. */
+function roleLabel(name: string): string {
+    return props.roles.find((role) => role.name === name)?.label ?? name;
+}
 
 function getRoleName(user: User): string {
     return user.roles[0]?.name ?? '—';
@@ -61,7 +61,7 @@ function getRoleName(user: User): string {
     <DataTable :columns="columns" :rows="users.data" :current-page="users.current_page" :last-page="users.last_page" :total="users.total" empty-text="لا يوجد مستخدمون" @page="goToPage">
         <template #cell-role="{ row }">
             <span class="rounded-full bg-hospital-primary/10 px-2 py-0.5 text-xs font-medium text-hospital-primary">
-                {{ roleLabels[getRoleName(row as User)] ?? getRoleName(row as User) }}
+                {{ roleLabel(getRoleName(row as User)) }}
             </span>
         </template>
         <template #cell-created_at="{ value }">
@@ -90,7 +90,7 @@ function getRoleName(user: User): string {
                 <label class="mb-1 block text-sm font-medium">الدور الوظيفي</label>
                 <select v-model="form.role" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
                     <option value="">— اختر الدور —</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.name">{{ roleLabels[role.name] ?? role.name }}</option>
+                    <option v-for="role in roles" :key="role.id" :value="role.name">{{ role.label ?? role.name }}</option>
                 </select>
                 <p v-if="form.errors.role" class="mt-1 text-xs text-hospital-danger">{{ form.errors.role }}</p>
             </div>

@@ -6,6 +6,7 @@ import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface DiagnosticResult {
@@ -64,7 +65,14 @@ const form = useForm({
     doctor_notes: '',
 });
 
+const { can } = usePermissions();
+const canWrite = computed(() => can('labs.write'));
+
 function openResult(bookingId: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     resultBooking.value = bookingId;
     form.reset();
     showResult.value = true;
@@ -153,7 +161,9 @@ const revenueToday   = computed(() =>
         </template>
         <template #actions="{ row }">
             <button
-                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale"
+                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 @click="openResult((row as Booking).id)"
             >
                 <FlaskConical class="h-3.5 w-3.5" />

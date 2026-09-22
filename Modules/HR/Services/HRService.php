@@ -3,6 +3,7 @@
 namespace Modules\HR\Services;
 
 use App\Models\User;
+use App\Services\PermissionLabelService;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -29,6 +30,7 @@ class HRService
     public function __construct(
         private readonly SettingsService $settings,
         private readonly AutoPostPayrollAction $autoPostPayroll,
+        private readonly PermissionLabelService $permissionLabels,
     ) {}
     // ── Employees ──────────────────────────────────────────────────────────
 
@@ -63,7 +65,8 @@ class HRService
 
     public function getUserRoles(): Collection
     {
-        return Role::orderBy('name')->get(['id', 'name']);
+        return Role::orderBy('name')->get(['id', 'name'])
+            ->map(fn (Role $role) => $this->permissionLabels->describeRole($role));
     }
 
     public function nextEmployeeNo(): string
@@ -131,9 +134,9 @@ class HRService
      */
     public function getPermissionsByModule(): Collection
     {
-        return Permission::orderBy('name')
-            ->get(['name'])
-            ->groupBy(fn ($p) => explode('.', $p->name)[0]);
+        return $this->permissionLabels
+            ->describePermissions(Permission::orderBy('name')->get(['name']))
+            ->groupBy('group');
     }
 
     // ── Shifts ─────────────────────────────────────────────────────────────

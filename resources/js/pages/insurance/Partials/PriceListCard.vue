@@ -1,38 +1,18 @@
 <script setup lang="ts">
-import { router, usePage } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import {
     ChevronDown,
     ChevronUp,
     FileText,
     Pencil,
     Printer,
+    SquarePen,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
-
-interface PriceListItem {
-    id: number;
-    service_id: string;
-    price: number;
-    service?: { id: string; name: string; dept: string };
-}
-
-interface Company {
-    id: string;
-    name: string;
-    coverage_pct: number;
-}
-
-interface PriceList {
-    id: string;
-    name: string;
-    type: string;
-    ins_coverage?: number;
-    discount_pct: number;
-    is_active: boolean;
-    company?: Company;
-    items: PriceListItem[];
-}
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import priceListItemRoutes from '@/routes/insurance/price-lists/items';
+import type { PriceList, PriceListItem } from './types';
 
 defineProps<{
     list: PriceList;
@@ -41,6 +21,7 @@ defineProps<{
 
 const emit = defineEmits<{
     (e: 'toggle'): void;
+    (e: 'edit'): void;
 }>();
 
 const deptLabels: Record<string, string> = {
@@ -60,23 +41,30 @@ const typeConfig: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(
-    () => (page.props.permissions as string[]) ?? [],
-);
-function can(permission: string): boolean {
-    return (
-        permissions.value.includes('*') ||
-        permissions.value.includes(permission)
-    );
+const { can } = usePermissions();
+const canEditPriceList = computed(() => can('insurance.price_lists.edit'));
+
+function openEdit() {
+    if (!canEditPriceList.value) {
+        return;
+    }
+
+    emit('edit');
 }
-const canEditPrice = computed(() => can('insurance.write'));
+
+function printPage() {
+    window.print();
+}
 
 // ── Inline price edit ──
 const editingItemId = ref<number | null>(null);
 const editPrice = ref(0);
 
 function startEdit(item: PriceListItem) {
+    if (!canEditPriceList.value) {
+        return;
+    }
+
     editingItemId.value = item.id;
     editPrice.value = item.price;
 }
@@ -87,7 +75,7 @@ function cancelEdit() {
 
 function savePrice(item: PriceListItem) {
     router.put(
-        `/insurance/price-lists/items/${item.id}`,
+        priceListItemRoutes.update(item.id).url,
         { price: editPrice.value },
         {
             preserveScroll: true,
@@ -136,14 +124,31 @@ function savePrice(item: PriceListItem) {
                     تغطية {{ list.ins_coverage }}%
                 </span>
                 <span
+                    v-if="!list.is_active"
+                    class="rounded-lg bg-hospital-danger-pale px-2.5 py-0.5 text-xs font-bold text-hospital-danger"
+                >
+                    غير نشطة
+                </span>
+                <span
                     class="rounded-lg bg-gray-100 px-2.5 py-0.5 text-xs text-hospital-text-3"
                 >
                     {{ list.items.length }} خدمة
                 </span>
                 <button
+                    type="button"
+                    class="flex items-center gap-1 rounded-lg border border-hospital-border px-2.5 py-1 text-xs font-medium text-hospital-text-2 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="!canEditPriceList"
+                    :title="canEditPriceList ? 'تعديل القائمة' : NO_PERMISSION_TITLE"
+                    @click.stop="openEdit"
+                >
+                    <SquarePen class="h-3.5 w-3.5" />
+                    تعديل
+                </button>
+                <button
+                    type="button"
                     class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
                     title="طباعة"
-                    @click.stop="() => window.print()"
+                    @click.stop="printPage"
                 >
                     <Printer class="h-4 w-4" />
                 </button>
@@ -192,7 +197,7 @@ function savePrice(item: PriceListItem) {
                 <tbody class="divide-y divide-hospital-border">
                     <tr
                         v-for="item in list.items"
-                        :key="item.service_id"
+                        :key="item.id"
                         class="bg-white transition-colors hover:bg-hospital-primary/5"
                     >
                         <td class="px-5 py-3 font-medium text-hospital-text">
@@ -242,9 +247,10 @@ function savePrice(item: PriceListItem) {
                                     ></span
                                 >
                                 <button
-                                    v-if="canEditPrice"
-                                    class="rounded p-0.5 text-hospital-text-3 hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                                    title="تعديل السعر"
+                                    type="button"
+                                    class="rounded p-0.5 text-hospital-text-3 hover:bg-hospital-primary-pale hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                    :disabled="!canEditPriceList"
+                                    :title="canEditPriceList ? 'تعديل السعر' : NO_PERMISSION_TITLE"
                                     @click.stop="startEdit(item)"
                                 >
                                     <Pencil class="h-3 w-3" />

@@ -24,7 +24,7 @@ class PriceListItemUpdateTest extends TestCase
         parent::setUp();
 
         $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $role->givePermissionTo(Permission::firstOrCreate(['name' => 'insurance.write', 'guard_name' => 'web']));
+        $role->givePermissionTo(Permission::firstOrCreate(['name' => 'insurance.price_lists.edit', 'guard_name' => 'web']));
         $this->user = User::factory()->create();
         $this->user->assignRole($role);
     }
@@ -66,7 +66,7 @@ class PriceListItemUpdateTest extends TestCase
         $this->assertEquals(300.0, $before['base_price']);
     }
 
-    public function test_user_without_insurance_write_cannot_update_price(): void
+    public function test_user_without_price_list_edit_permission_cannot_update_price(): void
     {
         $company = InsuranceCompany::create(['name' => 'شركة ج', 'coverage_pct' => 80, 'disc_pct' => 0, 'status' => 'active']);
         $service = Service::create(['name' => 'كشف 3', 'dept' => 'clinic', 'price' => 200]);

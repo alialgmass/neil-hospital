@@ -3,9 +3,17 @@ import { ChevronDown, ChevronUp, Search } from 'lucide-vue-next';
 import { computed, reactive, ref, watch } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 
+interface PermissionOption {
+    name: string;
+    /** Translated label (lang/ar/permissions.php). */
+    label: string;
+    group: string;
+    group_label: string;
+}
+
 interface Props {
     modelValue: boolean;
-    permissionsByModule: Record<string, { name: string }[]>;
+    permissionsByModule: Record<string, PermissionOption[]>;
     /** Currently selected DIRECT permissions (not role-inherited). */
     selected: string[];
     /** Permissions inherited via the employee's current role — shown, not editable here. */
@@ -84,12 +92,14 @@ const filteredModules = computed(() => {
         return props.permissionsByModule;
     }
 
-    const result: Record<string, { name: string }[]> = {};
+    const result: Record<string, PermissionOption[]> = {};
 
     for (const [mod, perms] of Object.entries(props.permissionsByModule)) {
         const matches = perms.filter(
             (p) =>
                 p.name.toLowerCase().includes(term) ||
+                p.label.toLowerCase().includes(term) ||
+                p.group_label.toLowerCase().includes(term) ||
                 mod.toLowerCase().includes(term),
         );
 
@@ -102,6 +112,10 @@ const filteredModules = computed(() => {
 });
 
 const selectedCount = computed(() => localSelected.value.size);
+
+function moduleLabel(mod: string): string {
+    return props.permissionsByModule[mod]?.[0]?.group_label ?? mod;
+}
 
 function save() {
     emit('save', Array.from(localSelected.value));
@@ -134,7 +148,7 @@ function close() {
             <span
                 class="shrink-0 rounded-full bg-pp px-3 py-1 text-xs font-bold text-p"
             >
-                Permissions: {{ selectedCount }} selected
+                {{ selectedCount }} صلاحية محددة
             </span>
         </div>
 
@@ -149,7 +163,7 @@ function close() {
                     class="flex w-full items-center justify-between bg-sf2 px-3 py-2 text-right"
                     @click="toggleModule(mod)"
                 >
-                    <span class="text-xs font-bold text-t">{{ mod }}</span>
+                    <span class="text-xs font-bold text-t">{{ moduleLabel(mod) }}</span>
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] text-t3"
                             >{{ perms.length }} صلاحية</span
@@ -199,7 +213,7 @@ function close() {
                                 :disabled="isRoleGranted(p.name)"
                                 @change="toggle(p.name)"
                             />
-                            <span>{{ p.name }}</span>
+                            <span :title="p.name">{{ p.label }}</span>
                             <span
                                 v-if="isRoleGranted(p.name)"
                                 class="rounded bg-sf2 px-1 py-0.5 text-[9px] text-t3"

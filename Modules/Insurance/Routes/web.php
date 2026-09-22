@@ -14,6 +14,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/claims/export', [InsuranceClaimController::class, 'export'])->name('claims.export');
         });
 
+        Route::middleware('can:insurance.price_lists.edit')->group(function () {
+            Route::put('/price-lists/items/{item}', [PriceListController::class, 'updateItem'])->name('price-lists.items.update');
+            Route::put('/price-lists/{priceList}', [PriceListController::class, 'update'])->name('price-lists.update');
+        });
+
         Route::middleware('can:insurance.write')->group(function () {
             Route::get('/companies/import-template', [ModuleImportActionController::class, 'template'])->defaults('module', 'insurance')->name('import-template');
             Route::post('/companies/import', [ModuleImportActionController::class, 'import'])->defaults('module', 'insurance')->name('import');
@@ -25,7 +30,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{id}', [InsuranceCompanyController::class, 'destroy'])->name('destroy');
 
             Route::post('/price-lists', [PriceListController::class, 'store'])->name('price-lists.store');
-            Route::put('/price-lists/items/{item}', [PriceListController::class, 'updateItem'])->name('price-lists.items.update');
 
             Route::prefix('claims')->name('claims.')->group(function () {
                 Route::post('/', [InsuranceClaimController::class, 'store'])->name('store');

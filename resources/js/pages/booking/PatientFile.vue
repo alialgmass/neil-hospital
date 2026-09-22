@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import {
     User,
     Phone,
@@ -18,6 +18,7 @@ import { computed, ref } from 'vue';
 import FileNoBarcode from '@/components/booking/FileNoBarcode.vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import { formatDate } from '@/lib/date';
 import EyeSideSelector from '@/pages/booking/Partials/EyeSideSelector.vue';
 import { archive } from '@/routes';
@@ -127,16 +128,7 @@ const props = defineProps<{
 const latestBooking = computed(() => props.bookings[0] ?? null);
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(
-    () => (page.props.permissions as string[]) ?? [],
-);
-function can(permission: string): boolean {
-    return (
-        permissions.value.includes('*') ||
-        permissions.value.includes(permission)
-    );
-}
+const { can } = usePermissions();
 const canTransfer = computed(() => can('transfer_medical_record'));
 
 // ── Transfer to Operation (Surgery/Lasik/Laser) ──
@@ -150,6 +142,10 @@ function canTransferBooking(b: Booking): boolean {
 }
 
 function openTransfer(b: Booking) {
+    if (!canTransfer.value) {
+        return;
+    }
+
     transferringBooking.value = b;
     const matchedService =
         props.transfer_services.find((s) => s.name === b.service_name) ??
@@ -456,10 +452,11 @@ function isImage(mime: string): boolean {
                         fmtDate(booking.visit_date)
                     }}</span>
                     <button
-                        v-if="canTransfer && canTransferBooking(booking)"
+                        v-if="canTransferBooking(booking)"
                         type="button"
-                        class="flex items-center gap-1 rounded-lg border border-hospital-border px-2 py-1 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary/10"
-                        title="تحويل إلى عملية"
+                        class="flex items-center gap-1 rounded-lg border border-hospital-border px-2 py-1 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                        :disabled="!canTransfer"
+                        :title="canTransfer ? 'تحويل إلى عملية' : NO_PERMISSION_TITLE"
                         @click="openTransfer(booking)"
                     >
                         <ArrowLeftRight class="h-3.5 w-3.5" />

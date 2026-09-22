@@ -2,6 +2,9 @@
 import { X } from 'lucide-vue-next';
 import { onMounted, onUnmounted, ref, computed } from 'vue';
 import SearchableSelect from '@/components/shared/SearchableSelect.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
+import { useSupplyRows } from '@/composables/useSupplyRows';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -40,7 +43,11 @@ const emit = defineEmits<{
     openReport: [id: string];
     openSupplies: [id: string];
     updateStatus: [status: string];
-    submitSupplies: [items: SupplyUsedItem[]];
+    /** `done` receives validation errors (or null on success) so rows can be kept / cleared. */
+    submitSupplies: [
+        items: SupplyPayloadItem[],
+        done: (errors: Record<string, string> | null) => void,
+    ];
     submitReport: [
         data: {
             op_report: string;
@@ -51,9 +58,20 @@ const emit = defineEmits<{
 }>();
 
 const activeOverlayTab = ref<'supplies' | 'report' | 'status'>('supplies');
-const newSupplyItems = ref<SupplyUsedItem[]>([
-    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-]);
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
+
+const supplyRows = useSupplyRows();
+const {
+    rows: newSupplyItems,
+    total: newSuppliesTotal,
+    generalErrors: supplyGeneralErrors,
+    rowError: supplyRowError,
+    addRow: addNewSupplyRow,
+    removeRow: removeNewSupplyRow,
+    onSelected: onSupplySelected,
+} = supplyRows;
+const savingSupplies = ref(false);
 const reportForm = ref({ op_report: '', post_op_notes: '', complications: '' });
 
 const eyeLabel: Record<string, string> = {
@@ -101,48 +119,38 @@ const nextStatuses = computed(() => {
     return c ? (map[c] ?? []) : [];
 });
 
-const newSuppliesTotal = computed(() => {
-    return newSupplyItems.value.reduce(
-        (sum, item) => sum + item.qty * item.unit_cost,
-        0,
-    );
-});
-
-function addNewSupplyRow() {
-    newSupplyItems.value.push({
-        inventory_item_id: '',
-        name: '',
-        qty: 1,
-        unit_cost: 0,
-    });
-}
-
-function removeNewSupplyRow(idx: number) {
-    newSupplyItems.value.splice(idx, 1);
-
-    if (newSupplyItems.value.length === 0) {
-        addNewSupplyRow();
-    }
-}
-
 function clearSupplyRows() {
-    newSupplyItems.value = [
-        { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-    ];
+    supplyRows.reset();
 }
 
 function submitOverlaySupplies() {
-    const validItems = newSupplyItems.value.filter(
-        (item) => item.name && item.qty > 0,
-    );
-
-    if (validItems.length > 0) {
-        emit('submitSupplies', validItems);
-        clearSupplyRows();
+    if (!canWrite.value || savingSupplies.value) {
+        return;
     }
+
+    const submittedRows = [...supplyRows.pendingRows.value];
+
+    if (submittedRows.length === 0 || !supplyRows.validate()) {
+        return;
+    }
+
+    savingSupplies.value = true;
+    emit('submitSupplies', supplyRows.payload(submittedRows), (errors) => {
+        savingSupplies.value = false;
+
+        if (errors) {
+            supplyRows.applyServerErrors(errors, submittedRows);
+        } else {
+            clearSupplyRows();
+        }
+    });
 }
 
 function submitOverlayReport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     emit('submitReport', {
         op_report: reportForm.value.op_report,
         post_op_notes: reportForm.value.post_op_notes,
@@ -269,54 +277,73 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                 إضافة مستلزم عملية
                             </div>
                             <div class="p-4">
-                                <div
+                                <template
                                     v-for="(item, idx) in newSupplyItems"
-                                    :key="idx"
-                                    class="mb-2 grid grid-cols-12 items-center gap-2"
+                                    :key="item.uid"
                                 >
-                                    <div class="col-span-7">
-                                        <SearchableSelect
-                                            v-model="item.name"
-                                            :endpoint="`/${dept}/items/search`"
-                                            placeholder="ابحث عن صنف بالاسم أو الكود..."
-                                            @select="
-                                                (matched) => {
-                                                    item.inventory_item_id =
-                                                        matched.id;
-                                                    item.unit_cost =
-                                                        matched.sell_price ?? 0;
-                                                }
-                                            "
-                                        />
-                                    </div>
-                                    <input
-                                        v-model.number="item.qty"
-                                        type="number"
-                                        min="1"
-                                        placeholder="الكمية"
-                                        class="overlay-input col-span-2"
-                                    />
-                                    <input
-                                        v-model.number="item.unit_cost"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder="السعر"
-                                        class="overlay-input col-span-2"
-                                    />
-                                    <button
-                                        class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
-                                        @click="removeNewSupplyRow(idx)"
+                                    <div
+                                        class="mb-2 grid grid-cols-12 items-center gap-2"
                                     >
-                                        ×
-                                    </button>
-                                </div>
+                                        <div class="col-span-5">
+                                            <SearchableSelect
+                                                v-model="item.name"
+                                                :endpoint="`/${dept}/items/search`"
+                                                placeholder="ابحث عن صنف بالاسم أو الكود..."
+                                                @select="(matched) => onSupplySelected(idx, matched)"
+                                            />
+                                        </div>
+                                        <input
+                                            v-model.number="item.qty"
+                                            type="number"
+                                            min="1"
+                                            placeholder="الكمية"
+                                            class="overlay-input col-span-2"
+                                            :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        />
+                                        <input
+                                            v-model.number="item.unit_cost"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="السعر"
+                                            class="overlay-input col-span-2"
+                                            :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        />
+                                        <span
+                                            class="col-span-2 text-sm font-semibold tabular-nums"
+                                        >
+                                            {{ item.inventory_item_id ? (item.qty * item.unit_cost).toLocaleString('en-US') : '—' }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
+                                            title="حذف السطر"
+                                            @click="removeNewSupplyRow(idx)"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <p
+                                        v-if="supplyRowError(item.uid)"
+                                        class="-mt-1 mb-2 text-xs text-hospital-danger"
+                                    >
+                                        {{ supplyRowError(item.uid) }}
+                                    </p>
+                                </template>
                                 <button
+                                    type="button"
                                     class="mt-2 text-sm text-[#1A8C5B] hover:underline"
                                     @click="addNewSupplyRow"
                                 >
                                     + إضافة صنف آخر
                                 </button>
+                                <p
+                                    v-for="message in supplyGeneralErrors"
+                                    :key="message"
+                                    class="mt-2 text-xs text-hospital-danger"
+                                >
+                                    {{ message }}
+                                </p>
                                 <!-- Total preview -->
                                 <div
                                     v-if="newSuppliesTotal > 0"
@@ -342,10 +369,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                         مسح
                                     </button>
                                     <button
+                                        type="button"
                                         class="overlay-btn-green"
+                                        :disabled="!canWrite || savingSupplies"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                         @click="submitOverlaySupplies"
                                     >
-                                        حفظ المستلزمات ✓
+                                        {{ savingSupplies ? 'جارٍ الحفظ...' : 'إضافة الكل ✓' }}
                                     </button>
                                 </div>
                             </div>
@@ -497,6 +527,8 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     <button
                                         type="submit"
                                         class="overlay-btn-green"
+                                        :disabled="!canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                     >
                                         حفظ التقرير ✓
                                     </button>
@@ -575,8 +607,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     <button
                                         v-for="s in nextStatuses"
                                         :key="s.value"
-                                        class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                                        class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                         :style="{ background: s.color }"
+                                        :disabled="!canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                         @click="emit('updateStatus', s.value)"
                                     >
                                         {{ s.label }}
@@ -780,6 +814,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     font-family: inherit;
     font-weight: 600;
     transition: background 0.15s;
+}
+.overlay-btn-green:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 .overlay-btn-green:hover {
     background: #0f6040;

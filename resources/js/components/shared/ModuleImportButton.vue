@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useForm, usePage } from '@inertiajs/vue3';
 import { Download, Upload, CheckCircle2, XCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ImportUploadZone from '@/components/shared/ImportUploadZone.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 const props = defineProps<{
     /** Download-template URL (GET). */
@@ -12,7 +13,12 @@ const props = defineProps<{
     importUrl: string;
     /** Module label shown in the modal title. */
     label?: string;
+    /** Permission required to download the template / import (buttons disabled without it). */
+    permission?: string;
 }>();
+
+const { can } = usePermissions();
+const allowed = computed(() => !props.permission || can(props.permission));
 
 const showModal = ref(false);
 const importForm = useForm({ file: null as File | null });
@@ -20,10 +26,18 @@ const result = ref<{ created: number; updated: number; skipped: number } | null>
 const page = usePage<{ flash?: { importResult?: { created: number; updated: number; skipped: number } } }>();
 
 function downloadTemplate() {
+    if (!allowed.value) {
+        return;
+    }
+
     window.location.href = props.templateUrl;
 }
 
 function openModal() {
+    if (!allowed.value) {
+        return;
+    }
+
     result.value = null;
     importForm.reset();
     importForm.clearErrors();
@@ -55,7 +69,9 @@ function submitImport() {
     <div class="flex items-center gap-2">
         <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg border border-hospital-border bg-white px-3 py-2 text-xs font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg"
+            class="flex items-center gap-1.5 rounded-lg border border-hospital-border bg-white px-3 py-2 text-xs font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!allowed"
+            :title="allowed ? undefined : NO_PERMISSION_TITLE"
             @click="downloadTemplate"
         >
             <Download class="h-3.5 w-3.5" />
@@ -63,7 +79,9 @@ function submitImport() {
         </button>
         <button
             type="button"
-            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-3 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:opacity-90"
+            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-3 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!allowed"
+            :title="allowed ? undefined : NO_PERMISSION_TITLE"
             @click="openModal"
         >
             <Upload class="h-3.5 w-3.5" />

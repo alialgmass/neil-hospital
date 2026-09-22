@@ -18,6 +18,7 @@ import DateFilter from '@/components/shared/DateFilter.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
 import StatCard from '@/components/shared/StatCard.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import { formatDate } from '@/lib/date';
 import BookingForm from './Partials/BookingForm.vue';
 
@@ -82,11 +83,11 @@ const props = defineProps<Props>();
 
 // ── Permissions ──
 const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean>; bookingStatusVisibility?: Record<string, boolean> }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
 const canPay = computed(() => can('booking.pay'));
+const canCreate = computed(() => can('booking.create'));
+const canEdit = computed(() => can('booking.edit'));
+const canDelete = computed(() => can('booking.delete'));
 const canEditCompleted = computed(() => can('booking.edit_completed'));
 
 // ── State ──
@@ -118,6 +119,10 @@ return 0;
 });
 
 function openPay(booking: Booking) {
+    if (!canPay.value) {
+        return;
+    }
+
     payTarget.value = booking;
     payForm.price = String(booking.price ?? '0');
     payForm.paid_amount = String(payRemaining.value || '');
@@ -252,10 +257,18 @@ function goToPage(page: number) {
 }
 
 function confirmDelete(booking: Booking) {
+    if (!canDelete.value) {
+        return;
+    }
+
     deleteTarget.value = booking;
 }
 
 function updateBookingStatus(id: string, status: string) {
+    if (!canEdit.value) {
+        return;
+    }
+
     router.patch(`/booking/${id}/status`, { status }, {
         preserveScroll: true,
         onSuccess: () => toast.success('تم تحديث الحالة'),
@@ -335,6 +348,10 @@ function exportExcel() {
 }
 
 function openEditBooking(row: Booking) {
+    if (!canEdit.value || (row.status === 'completed' && !canEditCompleted.value)) {
+        return;
+    }
+
     const bedId = row.surgery?.or_bed_id;
     editBooking.value = {
         ...row,
@@ -448,8 +465,10 @@ const isDeleteModalOpen = computed({
 
         <button
             type="button"
-            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm"
-            @click="showCreateModal = true"
+            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            :disabled="!canCreate"
+            :title="canCreate ? undefined : NO_PERMISSION_TITLE"
+            @click="canCreate && (showCreateModal = true)"
         >
             <CalendarPlus class="h-3.5 w-3.5" />
             <span>حجز جديد</span>
@@ -503,7 +522,8 @@ const isDeleteModalOpen = computed({
                         'text-hospital-accent': (row as Booking).status === 'completed_electronic',
                         'text-hospital-danger': (row as Booking).status === 'cancelled',
                     }"
-                    :disabled="!bookingNextStates[(row as Booking).status]?.length"
+                    :disabled="!canEdit || !bookingNextStates[(row as Booking).status]?.length"
+                    :title="canEdit ? undefined : NO_PERMISSION_TITLE"
                     @change="updateBookingStatus((row as Booking).id, ($event.target as HTMLSelectElement).value)"
                 >
                     <option :value="(row as Booking).status" disabled>
@@ -522,10 +542,11 @@ const isDeleteModalOpen = computed({
                 <div class="flex items-center justify-end gap-2">
                     <!-- Pay button — only for users with booking.pay and not fully paid -->
                     <button
-                        v-if="canPay && (row as Booking).pay_status !== 'paid'"
+                        v-if="(row as Booking).pay_status !== 'paid'"
                         type="button"
-                        title="تسجيل دفعة"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-success-pale hover:text-hospital-success"
+                        :title="canPay ? 'تسجيل دفعة' : NO_PERMISSION_TITLE"
+                        :disabled="!canPay"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-success-pale hover:text-hospital-success disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         @click="openPay(row as Booking)"
                     >
                         <CreditCard class="h-4 w-4" />
@@ -548,17 +569,18 @@ const isDeleteModalOpen = computed({
                     </button>
                     <button
                         type="button"
-                        title="تعديل"
+                        :title="canEdit && ((row as Booking).status !== 'completed' || canEditCompleted) ? 'تعديل' : NO_PERMISSION_TITLE"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed' && !canEditCompleted"
+                        :disabled="!canEdit || ((row as Booking).status === 'completed' && !canEditCompleted)"
                         @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />
                     </button>
                     <button
                         type="button"
-                        title="حذف"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
+                        :title="canDelete ? 'حذف' : NO_PERMISSION_TITLE"
+                        :disabled="!canDelete"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />

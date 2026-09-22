@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3'
 import { ArrowLeftRight, CheckCircle, Clock, PlusCircle } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import Modal from '@/components/shared/Modal.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 interface Employee { id: string; name: string; dept: string }
 interface Shift { id: string; name: string; start_time: string; end_time: string }
@@ -25,6 +26,10 @@ const props = defineProps<{
     filters: { date?: string; shift_id?: string; status?: string }
     stats: { today: number; pending: number; accepted: number }
 }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('hr.manage'))
 
 const statusConfig: Record<string, { label: string; class: string }> = {
     pending: { label: 'معلق', class: 'bg-wp text-w' },
@@ -52,6 +57,10 @@ function goToPage(page: number) {
 }
 
 function accept(id: string) {
+    if (!canWrite.value) {
+        return
+    }
+
     router.post(`/shift-handovers/${id}/accept`, {}, { preserveState: true })
 }
 
@@ -69,6 +78,10 @@ const addForm = useForm({
     notes: '',
 })
 function submitAdd() {
+    if (!canWrite.value) {
+        return
+    }
+
     addForm.post('/shift-handovers', {
         onSuccess: () => { showAdd.value = false; addForm.reset() },
     })
@@ -128,7 +141,7 @@ function submitAdd() {
                 <option value="accepted">مقبول</option>
             </select>
         </div>
-        <button class="btn-primary flex items-center gap-1.5" @click="showAdd = true">
+        <button class="btn-primary flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showAdd = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
             <PlusCircle class="h-4 w-4" />
             تسليم وردية
         </button>
@@ -172,8 +185,8 @@ function submitAdd() {
                     </td>
                     <td class="px-4 py-3">
                         <button v-if="h.status === 'pending'"
-                            class="rounded-lg border border-br px-3 py-1 text-xs text-s hover:bg-sp hover:border-s/40 transition-colors"
-                            @click="accept(h.id)">
+                            class="rounded-lg border border-br px-3 py-1 text-xs text-s hover:bg-sp hover:border-s/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                            @click="accept(h.id)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                             قبول
                         </button>
                         <span v-else class="text-xs text-t3">—</span>
@@ -242,7 +255,7 @@ function submitAdd() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="btn-primary">
+                <button type="submit" :disabled="addForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ addForm.processing ? 'جارٍ الحفظ...' : 'تسجيل التسليم' }}
                 </button>
             </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowDownCircle,
     ArrowUpCircle,
@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface TreasuryEntry {
     id: string;
@@ -59,11 +60,8 @@ const columns = [
 ];
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[] }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
+const canWrite = computed(() => can('treasury.write'));
 const canEdit = computed(() => can('treasury.edit'));
 const canDelete = computed(() => can('treasury.delete'));
 
@@ -115,6 +113,10 @@ const form = useForm({
 });
 
 function openAdd() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingId.value = null;
     form.reset();
     form.date = new Date().toISOString().slice(0, 10);
@@ -122,6 +124,10 @@ function openAdd() {
 }
 
 function openEdit(entry: TreasuryEntry) {
+    if (!canEdit.value) {
+        return;
+    }
+
     editingId.value = entry.id;
     form.type = entry.type;
     form.description = entry.description;
@@ -156,6 +162,10 @@ function submit() {
 const confirmingDeleteId = ref<string | null>(null);
 
 function confirmDelete(entry: TreasuryEntry) {
+    if (!canDelete.value) {
+        return;
+    }
+
     confirmingDeleteId.value = entry.id;
 }
 
@@ -324,7 +334,9 @@ function printPage() {
             🔍 عرض
         </button>
         <button
-            class="flex items-center gap-1.5 rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
+            class="flex items-center gap-1.5 rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canWrite"
+            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
             @click="openAdd"
         >
             <PlusCircle class="h-4 w-4" /> قيد يدوي
@@ -399,23 +411,21 @@ function printPage() {
             <template #actions="{ row }">
                 <div class="flex items-center gap-1">
                     <button
-                        v-if="canEdit"
                         type="button"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                        :class="isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-warning-pale hover:text-hospital-warning' : ''"
-                        :disabled="!isEditable(row as TreasuryEntry)"
-                        :title="isEditable(row as TreasuryEntry) ? 'تعديل' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
+                        :class="canEdit && isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-warning-pale hover:text-hospital-warning' : ''"
+                        :disabled="!canEdit || !isEditable(row as TreasuryEntry)"
+                        :title="!canEdit ? NO_PERMISSION_TITLE : isEditable(row as TreasuryEntry) ? 'تعديل' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
                         @click="openEdit(row as TreasuryEntry)"
                     >
                         <Edit3 class="h-4 w-4" />
                     </button>
                     <button
-                        v-if="canDelete"
                         type="button"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
-                        :class="isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-danger-pale hover:text-hospital-danger' : ''"
-                        :disabled="!isEditable(row as TreasuryEntry)"
-                        :title="isEditable(row as TreasuryEntry) ? 'حذف' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
+                        :class="canDelete && isEditable(row as TreasuryEntry) ? 'hover:bg-hospital-danger-pale hover:text-hospital-danger' : ''"
+                        :disabled="!canDelete || !isEditable(row as TreasuryEntry)"
+                        :title="!canDelete ? NO_PERMISSION_TITLE : isEditable(row as TreasuryEntry) ? 'حذف' : 'يُعدَّل من شاشته الأصلية أو معكوسة بالفعل'"
                         @click="confirmDelete(row as TreasuryEntry)"
                     >
                         <Trash2 class="h-4 w-4" />

@@ -8,7 +8,7 @@ class UpdatePriceListItemRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('insurance.write') ?? false;
+        return $this->user()?->can('insurance.price_lists.edit') ?? false;
     }
 
     public function rules(): array

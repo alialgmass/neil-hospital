@@ -7,6 +7,9 @@ import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchableSelect from '@/components/shared/SearchableSelect.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import { useSupplyRows } from '@/composables/useSupplyRows';
+import surgeryRoutes from '@/routes/surgery';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -55,12 +58,6 @@ interface Paginator {
     total: number;
 }
 
-interface NewSupplyItem {
-    inventory_item_id: string;
-    name: string;
-    qty: number;
-    unit_cost: number;
-}
 
 interface BundleItem {
     inventory_item_id: string | null;
@@ -240,12 +237,22 @@ const overlayReportForm = useForm({
     complications: '',
 });
 
-const newSupplyItems = ref<NewSupplyItem[]>([
-    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-]);
-const newSuppliesTotal = computed(() =>
-    newSupplyItems.value.reduce((s, i) => s + i.qty * i.unit_cost, 0),
-);
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
+
+// ── Bulk "add supplies" rows ──
+const supplyRows = useSupplyRows();
+const {
+    rows: newSupplyItems,
+    total: newSuppliesTotal,
+    generalErrors: supplyGeneralErrors,
+    rowError: supplyRowError,
+    addRow: addNewSupplyRow,
+    removeRow: removeNewSupplyRow,
+    onSelected: onSupplySelected,
+} = supplyRows;
+const savingSupplies = ref(false);
 
 // Bundle selection
 const newBundlePick = ref('');
@@ -332,11 +339,13 @@ function openCase(
     surgery: Surgery,
     tab: 'supplies' | 'report' | 'status' = 'supplies',
 ) {
+    if (!canWrite.value) {
+        return;
+    }
+
     selectedCase.value = surgery;
     activeOverlayTab.value = tab;
-    newSupplyItems.value = [
-        { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-    ];
+    supplyRows.reset();
     newBundlePick.value = '';
     expandedBundleItems.value = [];
     selectedBundles.value = [];
@@ -349,25 +358,22 @@ function closeOverlay() {
     selectedCase.value = null;
 }
 
-function addNewSupplyRow() {
-    newSupplyItems.value.push({
-        inventory_item_id: '',
-        name: '',
-        qty: 1,
-        unit_cost: 0,
-    });
-}
-
-function removeNewSupplyRow(idx: number) {
-    newSupplyItems.value.splice(idx, 1);
+function resetSupplyForm() {
+    supplyRows.reset();
+    selectedBundles.value = [];
+    newBundlePick.value = '';
+    expandedBundleItems.value = [];
 }
 
 function submitOverlaySupplies() {
+    if (!canWrite.value || savingSupplies.value) {
+        return;
+    }
+
     const existing = (selectedCase.value!.supplies_used ??
         []) as SupplyUsedItem[];
-    const adding = newSupplyItems.value
-        .filter((i) => i.inventory_item_id !== '')
-        .map((i) => ({ ...i, total: i.qty * i.unit_cost }));
+    const submittedRows = [...supplyRows.pendingRows.value];
+    const adding = supplyRows.payload(submittedRows);
 
     if (adding.length === 0 && selectedBundles.value.length === 0) {
         toast.error('يرجى إضافة صنف أو بند واحد على الأقل');
@@ -375,18 +381,23 @@ function submitOverlaySupplies() {
         return;
     }
 
-    const newTotal =
-        adding.reduce(
-            (sum, item) => sum + (item.total ?? item.qty * item.unit_cost),
-            0,
-        ) + bundlesTotal.value;
+    if (!supplyRows.validate()) {
+        toast.error('راجع الأخطاء في الأصناف المحددة');
+
+        return;
+    }
+
+    const newTotal = newSuppliesTotal.value + bundlesTotal.value;
     const optimisticSupplies = [...existing, ...adding];
+    const addedCount = adding.length + selectedBundles.value.length;
+
+    savingSupplies.value = true;
 
     router.post(
-        `/surgery/${selectedCase.value!.id}/supplies`,
+        surgeryRoutes.supplies(selectedCase.value!.id).url,
         {
             surgery_id: selectedCase.value!.id,
-            items: adding as any,
+            items: adding,
             bundles: selectedBundles.value.map((b) => ({
                 bundle_id: b.bundle_id,
                 qty: 1,
@@ -408,22 +419,26 @@ function submitOverlaySupplies() {
                     ).toFixed(2);
                 }
 
-                newSupplyItems.value = [
-                    { inventory_item_id: '', name: '', qty: 1, unit_cost: 0 },
-                ];
-                newBundlePick.value = '';
-                selectedBundles.value = [];
-                toast.success('تم تسجيل المستلزمات بنجاح');
+                resetSupplyForm();
+                toast.success(`تم تسجيل ${addedCount} من المستلزمات بنجاح`);
             },
-            onError: () => {
+            onError: (errors) => {
                 selectedCase.value!.supplies_used = existing;
-                toast.error('فشل في حفظ المستلزمات. حاول مرة أخرى.');
+                supplyRows.applyServerErrors(errors, submittedRows);
+                toast.error(Object.values(errors)[0] ?? 'فشل في حفظ المستلزمات. حاول مرة أخرى.');
+            },
+            onFinish: () => {
+                savingSupplies.value = false;
             },
         },
     );
 }
 
 function submitOverlayReport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     overlayReportForm.post(`/surgery/${selectedCase.value!.id}/report`, {
         onSuccess: () => toast.success('تم حفظ التقرير بنجاح'),
     });
@@ -454,6 +469,10 @@ const nextStatuses = computed(() => {
 });
 
 function updateStatus(newStatus: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     router.patch(
         `/surgery/${selectedCase.value!.id}/status`,
         { status: newStatus },
@@ -498,6 +517,10 @@ function getBedLabel(bedId: number): string {
 }
 
 function submitSchedule() {
+    if (!canWrite.value) {
+        return;
+    }
+
     scheduleForm.post('/surgery', {
         onSuccess: () => {
             showSchedule.value = false;
@@ -605,8 +628,10 @@ if (props.prefill) {
                 <option value="cancelled">ملغاة</option>
             </select>
             <button
-                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-hospital-primary/90"
-                @click="showSchedule = true"
+                class="flex items-center gap-1.5 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-hospital-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                @click="canWrite && (showSchedule = true)"
             >
                 <CalendarPlus class="h-4 w-4" />
                 جدولة عملية
@@ -702,18 +727,24 @@ if (props.prefill) {
                 <div class="mt-2 flex gap-1.5" @click.stop>
                     <button
                         class="bed-action-btn"
+                        :disabled="!canWrite"
+                        :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE"
                         @click="openCase(item.surgery!, 'supplies')"
                     >
                         💊 مستلزمات
                     </button>
                     <button
                         class="bed-action-btn"
+                        :disabled="!canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                         @click="openCase(item.surgery!, 'report')"
                     >
                         📋 تقرير
                     </button>
                     <button
                         class="bed-action-btn"
+                        :disabled="!canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                         @click="openCase(item.surgery!, 'status')"
                     >
                         ⚡ حالة
@@ -794,13 +825,17 @@ if (props.prefill) {
         <template #actions="{ row }">
             <div class="flex items-center gap-1">
                 <button
-                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-accent transition-colors hover:bg-hospital-accent/10"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-accent transition-colors hover:bg-hospital-accent/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="!canWrite"
+                    :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE"
                     @click="openCase(row as Surgery, 'supplies')"
                 >
                     💊 مستلزمات
                 </button>
                 <button
-                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary-pale"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary-pale disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                     @click="openCase(row as Surgery, 'report')"
                 >
                     📋 تقرير
@@ -1093,56 +1128,79 @@ if (props.prefill) {
                             <div
                                 class="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase"
                             >
-                                أصناف فردية
+                                أصناف فردية — اختر عدة أصناف ثم احفظها مرة واحدة
                             </div>
                             <div
-                                v-for="(item, idx) in newSupplyItems"
-                                :key="idx"
-                                class="mb-2 grid grid-cols-12 items-center gap-2"
+                                class="mb-1 grid grid-cols-12 gap-2 text-[11px] font-semibold text-gray-400"
                             >
-                                <div class="col-span-7">
-                                    <SearchableSelect
-                                        v-model="item.name"
-                                        :endpoint="`/${dept}/items/search`"
-                                        placeholder="ابحث عن صنف بالاسم أو الكود..."
-                                        @select="
-                                            (matched) => {
-                                                item.inventory_item_id =
-                                                    matched.id;
-                                                item.unit_cost =
-                                                    matched.sell_price ?? 0;
-                                            }
-                                        "
-                                    />
-                                </div>
-                                <input
-                                    v-model.number="item.qty"
-                                    type="number"
-                                    min="1"
-                                    placeholder="الكمية"
-                                    class="overlay-input col-span-2"
-                                />
-                                <input
-                                    v-model.number="item.unit_cost"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="السعر"
-                                    class="overlay-input col-span-2"
-                                />
-                                <button
-                                    class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
-                                    @click="removeNewSupplyRow(idx)"
-                                >
-                                    ×
-                                </button>
+                                <span class="col-span-5">الصنف</span>
+                                <span class="col-span-2">الكمية</span>
+                                <span class="col-span-2">السعر</span>
+                                <span class="col-span-2">الإجمالي</span>
                             </div>
+                            <template
+                                v-for="(item, idx) in newSupplyItems"
+                                :key="item.uid"
+                            >
+                                <div class="mb-2 grid grid-cols-12 items-center gap-2">
+                                    <div class="col-span-5">
+                                        <SearchableSelect
+                                            v-model="item.name"
+                                            :endpoint="`/${dept}/items/search`"
+                                            placeholder="ابحث عن صنف بالاسم أو الكود..."
+                                            @select="(matched) => onSupplySelected(idx, matched)"
+                                        />
+                                    </div>
+                                    <input
+                                        v-model.number="item.qty"
+                                        type="number"
+                                        min="1"
+                                        placeholder="الكمية"
+                                        class="overlay-input col-span-2"
+                                        :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                    />
+                                    <input
+                                        v-model.number="item.unit_cost"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="السعر"
+                                        class="overlay-input col-span-2"
+                                        :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                    />
+                                    <span class="col-span-2 text-sm font-semibold tabular-nums text-hospital-text">
+                                        {{ item.inventory_item_id ? (item.qty * item.unit_cost).toLocaleString('en-US') : '—' }}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
+                                        title="حذف السطر"
+                                        @click="removeNewSupplyRow(idx)"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                <p
+                                    v-if="supplyRowError(item.uid)"
+                                    class="-mt-1 mb-2 text-xs text-hospital-danger"
+                                >
+                                    {{ supplyRowError(item.uid) }}
+                                </p>
+                            </template>
                             <button
+                                type="button"
                                 class="mt-1 text-sm text-[#1A8C5B] hover:underline"
                                 @click="addNewSupplyRow"
                             >
                                 + إضافة صنف فردي
                             </button>
+                            <p
+                                v-for="message in supplyGeneralErrors"
+                                :key="message"
+                                class="mt-2 text-xs text-hospital-danger"
+                            >
+                                {{ message }}
+                            </p>
 
                             <!-- Total preview -->
                             <div
@@ -1161,28 +1219,20 @@ if (props.prefill) {
                             </div>
                             <div class="mt-3 flex justify-end gap-2">
                                 <button
+                                    type="button"
                                     class="overlay-btn-grey"
-                                    @click="
-                                        newSupplyItems = [
-                                            {
-                                                inventory_item_id: '',
-                                                name: '',
-                                                qty: 1,
-                                                unit_cost: 0,
-                                            },
-                                        ];
-                                        selectedBundles = [];
-                                        newBundlePick = '';
-                                        expandedBundleItems = [];
-                                    "
+                                    @click="resetSupplyForm"
                                 >
                                     مسح
                                 </button>
                                 <button
+                                    type="button"
                                     class="overlay-btn-green"
+                                    :disabled="!canWrite || savingSupplies"
+                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                     @click="submitOverlaySupplies"
                                 >
-                                    حفظ المستلزمات ✓
+                                    {{ savingSupplies ? 'جارٍ الحفظ...' : 'إضافة الكل ✓' }}
                                 </button>
                             </div>
                         </div>
@@ -1336,7 +1386,8 @@ if (props.prefill) {
                                 </button>
                                 <button
                                     type="submit"
-                                    :disabled="overlayReportForm.processing"
+                                    :disabled="overlayReportForm.processing || !canWrite"
+                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                     class="overlay-btn-green"
                                 >
                                     حفظ التقرير ✓
@@ -1419,8 +1470,10 @@ if (props.prefill) {
                                 <button
                                     v-for="s in nextStatuses"
                                     :key="s.value"
-                                    class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                                    class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                     :style="{ background: s.color }"
+                                    :disabled="!canWrite"
+                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                     @click="updateStatus(s.value)"
                                 >
                                     {{ s.label }}
@@ -1616,7 +1669,7 @@ if (props.prefill) {
                 </button>
                 <button
                     type="submit"
-                    :disabled="scheduleForm.processing"
+                    :disabled="scheduleForm.processing || !canWrite"
                     class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
                 >
                     جدولة
@@ -1703,6 +1756,10 @@ if (props.prefill) {
 }
 .bed-action-btn:hover {
     background: rgba(255, 255, 255, 0.35);
+}
+.bed-action-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
 }
 .bed-card-empty {
     padding: 20px 12px;
@@ -1866,6 +1923,10 @@ if (props.prefill) {
 }
 .overlay-btn-green:hover {
     background: #0f6040;
+}
+.overlay-btn-green:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 .overlay-btn-grey {
     padding: 8px 20px;

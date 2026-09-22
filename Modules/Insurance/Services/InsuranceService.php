@@ -84,9 +84,14 @@ class InsuranceService
         return $this->repository->createPriceList($data, $items);
     }
 
+    public function updatePriceList(PriceList $priceList, array $data, array $items): PriceList
+    {
+        return $this->repository->updatePriceList($priceList, $data, $items);
+    }
+
     public function allPriceLists(int $perPage = 20): LengthAwarePaginator
     {
-        return PriceList::with('company')
+        return PriceList::with(['company', 'items.service:id,name,dept'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
     }

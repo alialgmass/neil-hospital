@@ -57,11 +57,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [ChartOfAccountsController::class, 'store'])
-            ->middleware('can:journal.write')
+            ->middleware('can:accounting.write')
             ->name('store');
 
         Route::put('/{id}', [ChartOfAccountsController::class, 'update'])
-            ->middleware('can:journal.write')
+            ->middleware('can:accounting.write')
             ->name('update');
     });
 

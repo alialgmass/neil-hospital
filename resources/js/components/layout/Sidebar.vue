@@ -43,6 +43,7 @@ import {
     Package,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { usePermissions } from '@/composables/usePermissions';
 
 interface NavEntry {
     title: string;
@@ -59,12 +60,9 @@ interface NavGroup {
 }
 
 const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 const moduleStatus = computed<Record<string, boolean>>(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
 
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
 
 function moduleEnabled(module: string): boolean {
     return moduleStatus.value[module] !== false;

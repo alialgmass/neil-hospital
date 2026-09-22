@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { AlertTriangle, Edit2, Package, PlusCircle, ShoppingCart, TrendingDown } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Supplier { id: string; name: string }
 interface InventoryItem {
@@ -33,6 +34,10 @@ const props = defineProps<{
     openOrdersCount: number;
     filters: { search?: string; category?: string; low_stock?: string };
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('inventory.write'));
 
 const categoryTabs = [
     { label: 'كل الأصناف', value: '' },
@@ -93,12 +98,20 @@ const form = useForm({
 });
 
 function openCreate() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingItem.value = null;
     form.reset();
     showModal.value = true;
 }
 
 function openEdit(item: InventoryItem) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingItem.value = item;
     form.name         = item.name;
     form.code         = item.code ?? '';
@@ -121,6 +134,10 @@ function closeModal() {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (editingItem.value) {
         form.put(`/inventory/${editingItem.value.id}`, { onSuccess: closeModal });
     } else {
@@ -219,11 +236,12 @@ function exportExcel() {
         </div>
         <div class="flex items-center gap-2">
             <ModuleImportButton
+                permission="inventory.write"
                 label="المخزون"
                 templateUrl="/inventory/import-template"
                 importUrl="/inventory/import"
             />
-            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all" @click="openCreate">
+            <button class="flex items-center gap-1.5 rounded-lg bg-p px-4 py-2 text-sm font-medium text-white hover:bg-pl shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50" @click="openCreate" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                 <PlusCircle class="h-4 w-4" /> صنف جديد
             </button>
         </div>
@@ -261,9 +279,10 @@ function exportExcel() {
             <template #cell-supplier="{ row }">{{ (row as InventoryItem).supplier?.name ?? '—' }}</template>
             <template #actions="{ row }">
                 <button
-                    class="rounded p-1.5 text-t3 transition-colors hover:bg-hospital-primary-pale hover:text-p"
-                    title="تعديل"
+                    class="rounded p-1.5 text-t3 transition-colors hover:bg-hospital-primary-pale hover:text-p disabled:cursor-not-allowed disabled:opacity-50"
+                    :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE"
                     @click="openEdit(row as InventoryItem)"
+                    :disabled="!canWrite"
                 >
                     <Edit2 class="h-4 w-4" />
                 </button>
@@ -333,7 +352,7 @@ function exportExcel() {
             </div>
             <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                 <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
-                <button type="submit" :disabled="form.processing" class="btn-primary">
+                <button type="submit" :disabled="form.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ form.processing ? 'جارٍ الحفظ...' : editingItem ? 'حفظ التغييرات' : 'إضافة الصنف' }}
                 </button>
             </div>

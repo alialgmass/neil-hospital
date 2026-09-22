@@ -7,14 +7,18 @@ import Modal from '@/components/shared/Modal.vue';
 
 defineOptions({ layout: AppLayout });
 
+interface Permission {
+    name: string;
+    label: string;
+    group: string;
+    group_label: string;
+}
+
 interface Role {
     id: number;
     name: string;
-    permissions: { name: string }[];
-}
-
-interface Permission {
-    name: string;
+    label: string;
+    permissions: Permission[];
 }
 
 const props = defineProps<{
@@ -22,93 +26,21 @@ const props = defineProps<{
     allPermissions: Permission[];
 }>();
 
-const roleLabels: Record<string, string> = {
-    admin:        'مدير النظام',
-    doctor:       'طبيب',
-    reception:    'استقبال',
-    accountant:   'محاسب',
-    nurse:        'ممرض / مساعد',
-    store_keeper: 'أمين المخزن',
-};
-
-const permissionLabels: Record<string, string> = {
-    'dashboard':           'لوحة التحكم',
-    'booking.view':        'عرض الحجوزات',
-    'booking.create':      'إنشاء حجوزات',
-    'booking.edit':        'تعديل الحجوزات',
-    'booking.delete':      'حذف الحجوزات',
-    'booking.pay':         'تسجيل المدفوعات',
-    'clinic.view':         'عرض العيادة',
-    'clinic.write':        'تسجيل الفحص السريري',
-    'labs.view':           'عرض الفحوصات',
-    'labs.write':          'تسجيل نتائج الفحوصات',
-    'surgery.view':        'عرض العمليات',
-    'surgery.write':       'تسجيل العمليات',
-    'lasik.view':          'عرض وحدة الليزك',
-    'lasik.write':         'تسجيل جلسات الليزك',
-    'laser.view':          'عرض الليزر',
-    'laser.write':         'تسجيل جلسات الليزر',
-    'treasury.view':       'عرض الخزنة',
-    'treasury.write':      'قيود الخزنة',
-    'journal.view':        'عرض القيود اليومية',
-    'journal.write':       'إضافة قيود يومية',
-    'reports.financial':   'التقارير المالية',
-    'reports.clinical':    'التقارير السريرية',
-    'doctors.view':        'عرض الأطباء',
-    'doctors.write':       'إدارة الأطباء',
-    'drpayments.view':     'عرض مستحقات الأطباء',
-    'drpayments.write':    'صرف مستحقات الأطباء',
-    'services.view':       'عرض الخدمات',
-    'services.write':      'إدارة الخدمات',
-    'inventory.view':      'عرض المخزن',
-    'inventory.write':     'إدارة المخزن',
-    'insurance.view':      'عرض التأمين',
-    'insurance.write':     'إدارة التأمين',
-    'hr.view':             'عرض الموارد البشرية',
-    'hr.manage':           'إدارة الموارد البشرية والرواتب',
-    'users.manage':        'إدارة المستخدمين',
-    'settings.manage':     'إدارة الإعدادات',
-    'hide_amounts':        'إخفاء المبالغ',
-};
-
-// Group permissions by prefix
+// Group permissions by module prefix — labels come translated from the server
+// (lang/ar/permissions.php via PermissionLabelService).
 const permissionGroups = computed(() => {
-    const groups: Record<string, string[]> = {};
+    const groups: Record<string, { label: string; permissions: Permission[] }> = {};
 
     for (const p of props.allPermissions) {
-        const group = p.name.split('.')[0];
+        if (!groups[p.group]) {
+            groups[p.group] = { label: p.group_label, permissions: [] };
+        }
 
-        if (!groups[group]) {
- groups[group] = []; 
-}
-
-        groups[group].push(p.name);
+        groups[p.group].permissions.push(p);
     }
 
     return groups;
 });
-
-const groupLabels: Record<string, string> = {
-    dashboard:  'لوحة التحكم',
-    booking:    'الحجوزات',
-    clinic:     'العيادة',
-    labs:       'الفحوصات',
-    surgery:    'العمليات',
-    lasik:      'الليزك',
-    laser:      'الليزر',
-    treasury:   'الخزنة',
-    journal:    'قيود اليومية',
-    reports:    'التقارير',
-    doctors:    'الأطباء',
-    drpayments: 'مستحقات الأطباء',
-    services:   'الخدمات',
-    inventory:  'المخزن',
-    insurance:  'التأمين',
-    hr:         'الموارد البشرية',
-    users:      'المستخدمون',
-    settings:   'الإعدادات',
-    hide_amounts: 'إخفاء المبالغ',
-};
 
 // Edit permissions for a role
 const editingRole  = ref<Role | null>(null);
@@ -157,7 +89,7 @@ function submitEdit() {
             <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
                 <div class="flex items-center gap-2">
                     <Shield class="h-4 w-4 text-hospital-primary" />
-                    <span class="font-semibold text-hospital-text">{{ roleLabels[role.name] ?? role.name }}</span>
+                    <span class="font-semibold text-hospital-text">{{ role.label }}</span>
                 </div>
                 <span class="text-xs text-hospital-text-3">{{ role.permissions.length }} صلاحية</span>
             </div>
@@ -170,7 +102,7 @@ function submitEdit() {
                         :key="perm.name"
                         class="rounded-full bg-hospital-primary/10 px-2 py-0.5 text-xs text-hospital-primary"
                     >
-                        {{ permissionLabels[perm.name] ?? perm.name }}
+                        {{ perm.label }}
                     </span>
                     <span v-if="role.permissions.length === 0" class="text-xs text-hospital-text-3">لا توجد صلاحيات</span>
                 </div>
@@ -191,42 +123,42 @@ function submitEdit() {
         <form class="space-y-4" @submit.prevent="submitEdit">
             <div class="flex items-center gap-2 rounded-lg border border-br bg-pp px-3 py-2">
                 <Shield class="h-4 w-4 text-p" />
-                <span class="text-sm font-medium text-pd">{{ roleLabels[editingRole.name] ?? editingRole.name }}</span>
+                <span class="text-sm font-medium text-pd">{{ editingRole.label }}</span>
                 <span class="mr-auto text-xs text-t3">{{ editForm.permissions.length }} صلاحية محددة</span>
             </div>
 
             <div
-                v-for="(perms, group) in permissionGroups"
+                v-for="(groupData, group) in permissionGroups"
                 :key="group"
                 class="overflow-hidden rounded-lg border border-br"
             >
                 <div class="border-b border-br bg-sf2 px-3 py-2">
-                    <p class="text-xs font-bold text-t">{{ groupLabels[group] ?? group }}</p>
+                    <p class="text-xs font-bold text-t">{{ groupData.label }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2 p-3">
                     <label
-                        v-for="perm in perms"
-                        :key="perm"
+                        v-for="perm in groupData.permissions"
+                        :key="perm.name"
                         class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all select-none"
-                        :class="editForm.permissions.includes(perm)
+                        :class="editForm.permissions.includes(perm.name)
                             ? 'border-p bg-pp text-pd shadow-sm'
                             : 'border-br text-t2 hover:border-p/40 hover:bg-pp/50'"
                     >
                         <span
                             class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors"
-                            :class="editForm.permissions.includes(perm) ? 'border-p bg-p' : 'border-t3'"
+                            :class="editForm.permissions.includes(perm.name) ? 'border-p bg-p' : 'border-t3'"
                         >
-                            <svg v-if="editForm.permissions.includes(perm)" class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10">
+                            <svg v-if="editForm.permissions.includes(perm.name)" class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10">
                                 <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </span>
                         <input
                             type="checkbox"
-                            :checked="editForm.permissions.includes(perm)"
+                            :checked="editForm.permissions.includes(perm.name)"
                             class="sr-only"
-                            @change="togglePermission(perm)"
+                            @change="togglePermission(perm.name)"
                         />
-                        {{ permissionLabels[perm] ?? perm }}
+                        <span :title="perm.name">{{ perm.label }}</span>
                     </label>
                 </div>
             </div>

@@ -14,6 +14,7 @@ import AppLayout from '@/components/layout/AppLayout.vue';
 import Badge from '@/components/shared/Badge.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
 import StatCard from '@/components/shared/StatCard.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import ClaimModal from './Partials/ClaimModal.vue';
 import ClaimStatusModal from './Partials/ClaimStatusModal.vue';
 import CompanyModal from './Partials/CompanyModal.vue';
@@ -46,15 +47,27 @@ const activeTab = ref<'companies' | 'pricelists' | 'contracts' | 'claims'>(
     'companies',
 );
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('insurance.write'));
+
 // Company modal
 const showCompanyModal = ref(false);
 const editingCompany = ref<Company | null>(null);
 
 function openCreate() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingCompany.value = null;
     showCompanyModal.value = true;
 }
 function openEdit(company: Company) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingCompany.value = company;
     showCompanyModal.value = true;
 }
@@ -64,6 +77,10 @@ const showDeleteModal = ref(false);
 const deletingCompanyId = ref<string | null>(null);
 
 function confirmDelete(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     deletingCompanyId.value = id;
     showDeleteModal.value = true;
 }
@@ -76,11 +93,19 @@ const showStatusModal = ref(false);
 const editingClaim = ref<Claim | null>(null);
 
 function openStatusModal(claim: Claim) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingClaim.value = claim;
     showStatusModal.value = true;
 }
 
 function deleteClaim(id: number) {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!confirm('هل تريد حذف هذه المطالبة؟')) {
         return;
     }
@@ -283,12 +308,15 @@ const tabs = [
                     </div>
                     <div class="flex items-center gap-2">
                         <ModuleImportButton
+                            permission="insurance.write"
                             label="شركات التأمين"
                             templateUrl="/insurance/companies/import-template"
                             importUrl="/insurance/companies/import"
                         />
                         <button
-                            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
+                            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                            :disabled="!canWrite"
+                            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                             @click="openCreate"
                         >
                             <Plus class="h-4 w-4" />
@@ -407,15 +435,17 @@ const tabs = [
                                         class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
                                     >
                                         <button
-                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                                            title="تعديل"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                            :disabled="!canWrite"
+                                            :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE"
                                             @click="openEdit(company)"
                                         >
                                             <Edit2 class="h-4 w-4" />
                                         </button>
                                         <button
-                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                                            title="حذف"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                            :disabled="!canWrite"
+                                            :title="canWrite ? 'حذف' : NO_PERMISSION_TITLE"
                                             @click="confirmDelete(company.id)"
                                         >
                                             <Trash2 class="h-4 w-4" />
@@ -498,8 +528,10 @@ const tabs = [
                             تصدير الشهر
                         </button>
                         <button
-                            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95"
-                            @click="showClaimModal = true"
+                            class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                            :disabled="!canWrite"
+                            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                            @click="canWrite && (showClaimModal = true)"
                         >
                             <Plus class="h-4 w-4" />
                             مطالبة جديدة
@@ -792,16 +824,18 @@ const tabs = [
                                         class="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
                                     >
                                         <button
-                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                                            title="تحديث الحالة"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                            :disabled="!canWrite"
+                                            :title="canWrite ? 'تحديث الحالة' : NO_PERMISSION_TITLE"
                                             @click="openStatusModal(claim)"
                                         >
                                             <Edit2 class="h-4 w-4" />
                                         </button>
                                         <button
                                             v-if="claim.status === 'draft'"
-                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                                            title="حذف"
+                                            class="rounded-lg p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                                            :disabled="!canWrite"
+                                            :title="canWrite ? 'حذف' : NO_PERMISSION_TITLE"
                                             @click="deleteClaim(claim.id)"
                                         >
                                             <Trash2 class="h-4 w-4" />
