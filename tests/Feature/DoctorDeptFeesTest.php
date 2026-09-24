@@ -53,19 +53,19 @@ class DoctorDeptFeesTest extends TestCase
             'fee_type' => 'percentage',
             'fee_value' => 40,
             'dept_fees' => [
-                'laser' => ['fee_type' => 'percentage', 'fee_value' => 25],
+                'clinic' => ['fee_type' => 'percentage', 'fee_value' => 25],
             ],
         ]);
 
-        // Simulate a laser booking
+        // Simulate a clinic booking
         $bookingId = Str::ulid()->toString();
         DB::table('bookings')->insert([
             'id' => $bookingId,
             'doctor_id' => $doctor->id,
             'patient_name' => 'مريض تست',
             'file_no' => 'T001',
-            'dept' => 'laser',
-            'service_name' => 'ليزر علاجي',
+            'dept' => 'clinic',
+            'service_name' => 'كشف عام',
             'price' => 1000,
             'paid_amount' => 1000,
             'ins_amount' => 0,
@@ -99,8 +99,8 @@ class DoctorDeptFeesTest extends TestCase
             'doctor_id' => $doctor->id,
             'patient_name' => 'مريض تست 2',
             'file_no' => 'T002',
-            'dept' => 'laser',
-            'service_name' => 'ليزر',
+            'dept' => 'labs',
+            'service_name' => 'تحليل',
             'price' => 1000,
             'paid_amount' => 1000,
             'ins_amount' => 0,
@@ -113,7 +113,50 @@ class DoctorDeptFeesTest extends TestCase
         $service = app(DoctorClaimsService::class);
         $result = $service->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
 
-        // No laser override → global 40% of 1000 = 400
+        // No labs override → global 40% of 1000 = 400
+        $this->assertEquals(400.0, $result['total_claims']);
+    }
+
+    /**
+     * Business rule: Surgery/Lasik/Laser/Pentacam each have their own
+     * dedicated fee strategy (supply-cost deduction, insurance fixed fee,
+     * fixed hospital revenue, or — for Pentacam — always zero), so a
+     * per-department fee override never applies to them even if legacy
+     * data still has one set — the doctor's global fee_type/fee_value (or
+     * the department's own strategy) is used instead.
+     */
+    public function test_dept_fee_override_is_ignored_for_laser(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. ليزر',
+            'fee_type' => 'percentage',
+            'fee_value' => 40,
+            'dept_fees' => [
+                'laser' => ['fee_type' => 'percentage', 'fee_value' => 25],
+            ],
+        ]);
+
+        $bookingId = Str::ulid()->toString();
+        DB::table('bookings')->insert([
+            'id' => $bookingId,
+            'doctor_id' => $doctor->id,
+            'patient_name' => 'مريض ليزر',
+            'file_no' => 'T005',
+            'dept' => 'laser',
+            'service_name' => 'ليزر علاجي',
+            'price' => 1000,
+            'paid_amount' => 1000,
+            'ins_amount' => 0,
+            'pay_status' => 'paid',
+            'visit_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
+
+        // The laser override (25%) is ignored — global 40% of 1000 = 400.
         $this->assertEquals(400.0, $result['total_claims']);
     }
 

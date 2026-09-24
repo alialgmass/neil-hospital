@@ -11,7 +11,7 @@ import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermission
 import type { DepartmentOption } from '@/types';
 import DeleteDoctorModal from './Partials/DeleteDoctorModal.vue';
 
-type FeeType = 'percentage' | 'fixed' | 'insurance';
+type FeeType = 'percentage' | 'fixed';
 
 interface DeptFeeEntry {
     fee_type: FeeType;
@@ -72,6 +72,14 @@ const depts = computed<{ key: string; label: string }[]>(() =>
 const deptLabel = (key: string): string =>
     depts.value.find((d) => d.key === key)?.label ?? key;
 
+// Surgery/Lasik/Laser/Pentacam each have their own dedicated fee strategy
+// (supply-cost deduction, insurance fixed fee, fixed hospital revenue, or —
+// for Pentacam — always zero) — a per-department fee override never applies
+// to them (see DoctorClaimsService), so the override section only offers
+// the departments it actually affects.
+const nonOverridableDepts = ['surgery', 'lasik', 'laser', 'pentacam'];
+const overridableDepts = computed(() => depts.value.filter((d) => !nonOverridableDepts.includes(d.key)));
+
 const { can } = usePermissions();
 const canWrite = computed(() => can('doctors.write'));
 const canDelete = computed(() => can('doctors.delete'));
@@ -106,14 +114,11 @@ function confirmDelete(id: string) {
 
 type DeptOverride = { enabled: boolean; fee_type: FeeType; fee_value: number };
 
-// Default fee per department when an override card is first enabled;
-// departments not listed here (e.g. pentacam) default to 0%.
+// Default fee per department when an override card is first enabled
+// (surgery/lasik/laser/pentacam aren't offered — see overridableDepts).
 const deptOverrideDefaults: Record<string, { fee_type: FeeType; fee_value: number }> = {
-    clinic:  { fee_type: 'percentage', fee_value: 40 },
-    surgery: { fee_type: 'percentage', fee_value: 60 },
-    lasik:   { fee_type: 'percentage', fee_value: 60 },
-    laser:   { fee_type: 'percentage', fee_value: 35 },
-    labs:    { fee_type: 'percentage', fee_value: 30 },
+    clinic: { fee_type: 'percentage', fee_value: 40 },
+    labs:   { fee_type: 'percentage', fee_value: 30 },
 };
 function defaultOverride(key: string): DeptOverride {
     const d = deptOverrideDefaults[key] ?? { fee_type: 'percentage' as FeeType, fee_value: 0 };
@@ -171,15 +176,15 @@ function openAdd() {
     form.services = [];
     form.delegation_services = [];
     preservedDeptFees.value = {};
-    depts.value.forEach(({ key }) => {
+    overridableDepts.value.forEach(({ key }) => {
         deptOverrides[key] = defaultOverride(key);
     });
     showModal.value = true;
 }
 
-/** dept_fees keys whose department is not shown in the modal right now. */
+/** dept_fees keys not offered by the override section right now (module disabled, or a non-overridable dept like surgery/pentacam). */
 function splitHiddenDeptFees(deptFees: Record<string, DeptFeeEntry> | null): Record<string, DeptFeeEntry> {
-    const visible = new Set(depts.value.map(({ key }) => key));
+    const visible = new Set(overridableDepts.value.map(({ key }) => key));
     const hidden: Record<string, DeptFeeEntry> = {};
 
     for (const [key, entry] of Object.entries(deptFees ?? {})) {
@@ -215,7 +220,7 @@ function openEdit(doctor: Doctor) {
     }));
 
     preservedDeptFees.value = splitHiddenDeptFees(doctor.dept_fees);
-    depts.value.forEach(({ key }) => {
+    overridableDepts.value.forEach(({ key }) => {
         const existing = doctor.dept_fees?.[key];
         deptOverrides[key] = existing
             ? { enabled: true, fee_type: existing.fee_type, fee_value: existing.fee_value }
@@ -227,7 +232,7 @@ function openEdit(doctor: Doctor) {
 function buildDeptFees(): Record<string, DeptFeeEntry> {
     const result: Record<string, DeptFeeEntry> = { ...preservedDeptFees.value };
 
-    for (const { key } of depts.value) {
+    for (const { key } of overridableDepts.value) {
         if (deptOverrides[key]?.enabled) {
             result[key] = { fee_type: deptOverrides[key].fee_type, fee_value: deptOverrides[key].fee_value };
         }
@@ -253,7 +258,6 @@ function submit() {
 const feeTypeLabels: Record<string, string> = {
     percentage: 'نسبة مئوية %',
     fixed:      'مبلغ ثابت',
-    insurance:  'تأمين صحي (صفر)',
 };
 </script>
 
@@ -373,10 +377,9 @@ const feeTypeLabels: Record<string, string> = {
                         <select v-model="form.fee_type" class="input-field">
                             <option value="percentage">نسبة مئوية %</option>
                             <option value="fixed">مبلغ ثابت لكل حالة</option>
-                            <option value="insurance">تأمين صحي (صفر)</option>
                         </select>
                     </div>
-                    <div v-if="form.fee_type !== 'insurance'">
+                    <div>
                         <label class="form-label">{{ form.fee_type === 'percentage' ? 'النسبة %' : 'المبلغ الثابت (ج.م)' }}</label>
                         <input v-model.number="form.fee_value" type="number" min="0" step="0.01" class="input-field" />
                     </div>
@@ -399,7 +402,7 @@ const feeTypeLabels: Record<string, string> = {
             <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
                 <p class="mb-3 border-b border-hospital-border pb-2 text-sm font-bold text-hospital-text">🔀 إعدادات خاصة بكل قسم (اختياري)</p>
                 <div class="space-y-2">
-                    <div v-for="dept in depts" :key="dept.key" class="rounded-lg border border-hospital-border bg-hospital-surface p-3">
+                    <div v-for="dept in overridableDepts" :key="dept.key" class="rounded-lg border border-hospital-border bg-hospital-surface p-3">
                         <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-hospital-text">
                             <input v-model="deptOverrides[dept.key].enabled" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
                             {{ dept.label }}
@@ -410,10 +413,9 @@ const feeTypeLabels: Record<string, string> = {
                                 <select v-model="deptOverrides[dept.key].fee_type" class="input-field">
                                     <option value="percentage">نسبة مئوية %</option>
                                     <option value="fixed">مبلغ ثابت</option>
-                                    <option value="insurance">تأمين (صفر)</option>
                                 </select>
                             </div>
-                            <div v-if="deptOverrides[dept.key].fee_type !== 'insurance'">
+                            <div>
                                 <label class="form-label">{{ deptOverrides[dept.key].fee_type === 'percentage' ? 'النسبة %' : 'المبلغ (ج.م)' }}</label>
                                 <input v-model.number="deptOverrides[dept.key].fee_value" type="number" min="0" step="0.01" class="input-field" />
                             </div>

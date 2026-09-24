@@ -84,17 +84,6 @@ class DoctorClaimsReportTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where('data.rows.0.doctor_claim', 40));
     }
 
-    public function test_insurance_fee_type_doctor_has_zero_claim(): void
-    {
-        $doctor = Doctor::create(['name' => 'د. تأمين', 'fee_type' => 'insurance', 'fee_value' => 0]);
-        $this->makeBooking('clinic', $doctor->id, 1000.00);
-
-        $response = $this->actingAs($this->user)->get('/reports/doctor-claims?from=2026-06-01&to=2026-06-30');
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->where('data.rows.0.doctor_claim', 0));
-    }
-
     public function test_rows_are_sorted_by_most_recent_activity_first(): void
     {
         $older = Doctor::create(['name' => 'د. قديم', 'fee_type' => 'percentage', 'fee_value' => 10]);

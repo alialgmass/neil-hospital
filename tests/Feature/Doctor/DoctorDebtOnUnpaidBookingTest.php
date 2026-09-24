@@ -63,31 +63,6 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
         $this->assertEquals(950.0, (float) $this->doctor->fresh()->doctor_debt_balance);
     }
 
-    /**
-     * Business rule (confirmed): an insurance-fee-type doctor is treated
-     * exactly like a fixed-fee doctor on CASH bookings — they earn their
-     * flat fee_value as a per-case commission and can incur debt on an
-     * unpaid cash booking the same as any other doctor. Only their
-     * insurance/contract-paid bookings are settled separately, through a
-     * persisted DoctorEntitlement (see DoctorClaimsService).
-     */
-    public function test_insurance_fee_type_doctor_incurs_debt_on_an_unpaid_cash_booking_like_any_doctor(): void
-    {
-        $insuranceDoctor = Doctor::create(['name' => 'د. تأمين', 'fee_type' => 'insurance', 'fee_value' => 400]);
-
-        $this->actingAs($this->user)->post('/booking', [
-            'patient_name' => 'مريض بلا دفع', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
-            'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $insuranceDoctor->id,
-            'price' => 1000, 'paid_amount' => 0,
-            'pay_method' => 'cash', 'pay_status' => 'unpaid', 'status' => 'waiting',
-        ])->assertRedirect();
-
-        // Debt = price (1000) - dev_treasury_fee (50) = 950, same rule as
-        // any other cash doctor — not the doctor's fee_value, and not 0.
-        $this->assertEquals(950.0, (float) $insuranceDoctor->fresh()->doctor_debt_balance);
-    }
-
     public function test_fully_paid_booking_creates_no_debt(): void
     {
         $this->actingAs($this->user)->post('/booking', [

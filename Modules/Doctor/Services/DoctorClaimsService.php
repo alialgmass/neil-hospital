@@ -198,7 +198,11 @@ class DoctorClaimsService
         $dept = $booking->dept->value;
         $deptFee = $doctor->dept_fees[$dept] ?? null;
 
-        if ($deptFee && ! in_array($dept, ['surgery'], true)) {
+        // Surgery/Lasik/Laser each have their own dedicated fee strategy
+        // below (supply-cost deduction, insurance fixed fee, fixed hospital
+        // revenue) — a per-department fee override never applies to them.
+        // Pentacam is excluded earlier (always 0, see the guard above).
+        if ($deptFee && ! in_array($dept, ['surgery', 'lasik', 'laser'], true)) {
             return $this->computeFeeEntryShareForPayment($deptFee, $netAmount, $isFirstPayment);
         }
 
@@ -224,7 +228,7 @@ class DoctorClaimsService
 
         return match ($doctor->fee_type) {
             FeeType::Percentage => round($netAmount * ((float) $doctor->fee_value / 100), 2),
-            FeeType::Fixed, FeeType::Insurance => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
+            FeeType::Fixed => $isFirstPayment ? (float) $doctor->fee_value : 0.0,
         };
     }
 
@@ -391,10 +395,12 @@ class DoctorClaimsService
             ? max(0, $paid - $this->resolveDevFee($booking->service_id ?? null))
             : $paid;
 
-        // Per-department fee override takes priority
+        // Per-department fee override takes priority — except Surgery/
+        // Lasik/Laser, which each have their own dedicated fee strategy
+        // below. Pentacam is excluded earlier (always 0, see the guard above).
         $deptFee = $doctor->dept_fees[$dept] ?? null;
 
-        if ($deptFee && ! in_array($dept, ['surgery', 'lasik'])) {
+        if ($deptFee && ! in_array($dept, ['surgery', 'lasik', 'laser'])) {
             return $this->computeFromFeeEntry($deptFee, $netPaid);
         }
 
@@ -467,14 +473,9 @@ class DoctorClaimsService
             }
         }
 
-        // FeeType::Insurance doctors are paid their fee_value as a flat
-        // per-case amount on cash bookings, exactly like FeeType::Fixed —
-        // insurance/contract bookings never reach this branch at all (see
-        // calculateClaims(), which settles those through a persisted
-        // DoctorEntitlement instead and never calls computeDrShare for them).
         return match ($doctor->fee_type) {
             FeeType::Percentage => round($paid * ($doctor->fee_value / 100), 2),
-            FeeType::Fixed, FeeType::Insurance => (float) $doctor->fee_value,
+            FeeType::Fixed => (float) $doctor->fee_value,
         };
     }
 
