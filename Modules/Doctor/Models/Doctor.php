@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
+use Modules\Doctor\Enums\DebtEntryType;
 use Modules\Doctor\Enums\FeeType;
 
 class Doctor extends Model
@@ -86,10 +87,32 @@ class Doctor extends Model
             $this->debtSettlements()->create([
                 'booking_id' => $bookingId,
                 'amount' => $settled,
+                'type' => DebtEntryType::Settled,
             ]);
         }
 
         return $settled;
+    }
+
+    /**
+     * Incur debt tied to a specific booking (a 0-payment write-off — see
+     * PayBookingController::writeOffAsDoctorDebt()) and record it, the
+     * 'incurred' counterpart of settleDebtForBooking(): without this ledger
+     * row DoctorClaimsService has no way to tell a written-off booking apart
+     * from a normal one and would still compute it a full share, when
+     * actually nothing is payable from it — the whole price became debt.
+     */
+    public function incurDebtForBooking(string $bookingId, float $amount): void
+    {
+        $this->incurDebt($amount);
+
+        if ($amount > 0) {
+            $this->debtSettlements()->create([
+                'booking_id' => $bookingId,
+                'amount' => round($amount, 2),
+                'type' => DebtEntryType::Incurred,
+            ]);
+        }
     }
 
     public function debtSettlements(): HasMany

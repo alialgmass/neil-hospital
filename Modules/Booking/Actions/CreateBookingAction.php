@@ -127,7 +127,7 @@ class CreateBookingAction
         $debt = max(0, (float) $booking->price - $devFee);
 
         if ($debt > 0) {
-            $doctor->incurDebt($debt);
+            $doctor->incurDebtForBooking($booking->id, $debt);
         }
     }
 }

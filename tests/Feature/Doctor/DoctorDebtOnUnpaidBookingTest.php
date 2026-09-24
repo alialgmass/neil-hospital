@@ -9,6 +9,7 @@ use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorClaimsService;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -61,6 +62,26 @@ class DoctorDebtOnUnpaidBookingTest extends TestCase
 
         // Debt = price (1000) - dev_treasury_fee (50) = 950.
         $this->assertEquals(950.0, (float) $this->doctor->fresh()->doctor_debt_balance);
+
+        $booking = Booking::latest('id')->first();
+        $this->assertDatabaseHas('doctor_debt_settlements', [
+            'doctor_id' => $this->doctor->id,
+            'booking_id' => $booking->id,
+            'amount' => 950,
+            'type' => 'incurred',
+        ]);
+
+        // The booking is still Unpaid (not closed via the 0-payment
+        // write-off) — it can still be paid normally later, so the claims
+        // report keeps computing its real share, not 0. Only a booking
+        // explicitly written off (Paid, nothing ever collected — see
+        // PayBookingControllerTest) shows debt_incurred and a 0 share.
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31');
+
+        // 40% of (price 1000 − dev fee 50) = 380.
+        $this->assertEquals(380.0, $result['rows'][0]['dr_share']);
+        $this->assertEquals(0.0, $result['rows'][0]['debt_incurred']);
     }
 
     public function test_fully_paid_booking_creates_no_debt(): void

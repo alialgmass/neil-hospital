@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
+use Modules\Doctor\Enums\DebtEntryType;
 use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
@@ -47,6 +48,18 @@ class DoctorClaimsService
         // keeps showing as still "مستحق" (see DoctorDebtSettlement).
         $debtSettled = DB::table('doctor_debt_settlements')
             ->where('doctor_id', $doctorId)
+            ->where('type', DebtEntryType::Settled->value)
+            ->select('booking_id', DB::raw('SUM(amount) as total'))
+            ->groupBy('booking_id')
+            ->pluck('total', 'booking_id');
+
+        // Bookings explicitly written off as doctor debt (a 0-payment pay
+        // action — see PayBookingController::writeOffAsDoctorDebt()): the
+        // whole price became a liability the doctor owes back, so nothing
+        // from it is newly payable — never computed a normal share.
+        $debtIncurred = DB::table('doctor_debt_settlements')
+            ->where('doctor_id', $doctorId)
+            ->where('type', DebtEntryType::Incurred->value)
             ->select('booking_id', DB::raw('SUM(amount) as total'))
             ->groupBy('booking_id')
             ->pluck('total', 'booking_id');
@@ -55,10 +68,22 @@ class DoctorClaimsService
         $totalDrShare = 0.0;
 
         foreach ($bookings as $booking) {
-            $grossShare = $entitlements->has($booking->id)
-                ? (float) $entitlements[$booking->id]
-                : $this->computeDrShare($doctor, $booking);
-            $settledFromBooking = min($grossShare, (float) ($debtSettled[$booking->id] ?? 0));
+            // Only a booking closed out via the 0-payment write-off is
+            // "written off" (pay_status Paid with nothing ever collected) —
+            // an ordinary still-open Unpaid booking with pending debt (see
+            // CreateBookingAction) can still be paid normally later, and a
+            // booking that started unpaid but was later paid in full has
+            // paid_amount > 0, so both keep computing a real share.
+            $writtenOff = $debtIncurred->has($booking->id)
+                && $booking->pay_status === 'paid'
+                && (float) $booking->paid_amount === 0.0;
+
+            $grossShare = $writtenOff
+                ? 0.0
+                : ($entitlements->has($booking->id)
+                    ? (float) $entitlements[$booking->id]
+                    : $this->computeDrShare($doctor, $booking));
+            $settledFromBooking = $writtenOff ? 0.0 : min($grossShare, (float) ($debtSettled[$booking->id] ?? 0));
             $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
             $totalDrShare += $drShare;
 
@@ -74,6 +99,7 @@ class DoctorClaimsService
                 'dr_share' => $drShare,
                 'gross_dr_share' => round($grossShare, 2),
                 'debt_settled' => round($settledFromBooking, 2),
+                'debt_incurred' => $writtenOff ? (float) $debtIncurred[$booking->id] : 0.0,
             ];
 
             if (in_array($booking->dept, ['surgery', 'lasik'])) {

@@ -133,11 +133,13 @@ function submitPay() {
 return;
 }
 
-payForm.patch(`/booking/${payTarget.value.id}/pay`, {
+    // The real outcome (success or rejection — e.g. an already-paid
+    // booking rejecting a 0 write-off) is shown from the backend's flash
+    // message by AppLayout globally; never assume success here.
+    payForm.patch(`/booking/${payTarget.value.id}/pay`, {
         onSuccess: () => {
             payTarget.value = null;
             payForm.reset();
-            toast.success('تم تسجيل الدفع بنجاح');
         },
     });
 }
@@ -716,7 +718,7 @@ const isDeleteModalOpen = computed({
             </button>
             <button
                 type="button"
-                :disabled="payForm.processing || !payForm.paid_amount"
+                :disabled="payForm.processing || payForm.paid_amount==null"
                 class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
                 @click="submitPay"
             >

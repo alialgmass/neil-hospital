@@ -48,6 +48,7 @@ interface ClaimRow {
     dr_share: number;
     gross_dr_share?: number;
     debt_settled?: number;
+    debt_incurred?: number;
     supplies?: SupplyItem[];
     supply_total?: number;
     role?: 'delegate' | 'anesthesia' | null;
@@ -767,6 +768,11 @@ function printInvoice() {
                                 >
                                     مستحق
                                 </th>
+                                <th
+                                    class="px-4 py-2.5 text-left text-xs font-semibold text-hospital-danger"
+                                >
+                                    دين
+                                </th>
                                 <th class="w-6 px-4 py-2.5" />
                             </tr>
                         </thead>
@@ -836,20 +842,23 @@ function printInvoice() {
                                         class="px-4 py-2.5 text-left font-mono text-xs font-semibold text-hospital-primary"
                                     >
                                         {{ fmt(row.dr_share) }}
+                                    </td>
+                                    <td class="px-4 py-2.5 text-left font-mono text-xs">
                                         <span
-                                            v-if="(row.debt_settled ?? 0) > 0"
-                                            class="block font-sans text-[9px] font-normal text-hospital-danger"
-                                            :title="
-                                                'من إجمالي ' +
-                                                fmt(row.gross_dr_share ?? 0) +
-                                                ' — خُصم ' +
-                                                fmt(row.debt_settled!) +
-                                                ' لسداد مديونية الطبيب'
-                                            "
+                                            v-if="(row.debt_incurred ?? 0) > 0"
+                                            class="font-semibold text-hospital-danger"
+                                            title="حجز بدفعة صفر — تحول كاملاً لدين على الطبيب"
                                         >
-                                            (خصم مديونية
-                                            {{ fmt(row.debt_settled!) }})
+                                            {{ fmt(row.debt_incurred!) }}
                                         </span>
+                                        <span
+                                            v-else-if="(row.debt_settled ?? 0) > 0"
+                                            class="font-semibold text-hospital-warning"
+                                            :title="'من إجمالي مستحق ' + fmt(row.gross_dr_share ?? 0) + ' — خُصم لسداد مديونية سابقة على الطبيب'"
+                                        >
+                                            − {{ fmt(row.debt_settled!) }}
+                                        </span>
+                                        <span v-else class="text-hospital-text-3">—</span>
                                     </td>
                                     <td class="px-4 py-2.5">
                                         <FileText
@@ -864,7 +873,7 @@ function printInvoice() {
                                     "
                                     class="border-b border-hospital-border/40 bg-amber-50/40"
                                 >
-                                    <td colspan="7" class="px-6 pt-1 pb-2.5">
+                                    <td colspan="8" class="px-6 pt-1 pb-2.5">
                                         <div class="flex items-start gap-2">
                                             <PackageOpen
                                                 class="mt-0.5 h-3.5 w-3.5 shrink-0 text-hospital-warning"
@@ -903,7 +912,7 @@ function printInvoice() {
                             </template>
                             <tr v-if="filteredRows.length === 0">
                                 <td
-                                    colspan="7"
+                                    colspan="8"
                                     class="p-10 text-center text-sm text-hospital-text-2"
                                 >
                                     {{
@@ -1099,16 +1108,35 @@ function printInvoice() {
                                 >
                             </div>
                             <div
-                                v-if="(selectedRow.debt_settled ?? 0) > 0"
-                                class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
+                                v-if="(selectedRow.debt_incurred ?? 0) > 0"
+                                class="rounded-lg border border-hospital-danger/40 bg-hospital-danger-pale/40 p-2 text-xs text-hospital-danger"
                             >
-                                <span class="text-hospital-danger"
-                                    >خصم مديونية الطبيب</span
-                                >
-                                <span class="font-mono text-hospital-danger"
-                                    >− {{ fmt(selectedRow.debt_settled!) }}</span
-                                >
+                                هذه الحالة سُجّلت بدفعة صفر — تم تحويل
+                                {{ fmt(selectedRow.debt_incurred!) }} كدين على
+                                الطبيب، ولم يُحصَّل أي مبلغ من المريض.
                             </div>
+                            <template v-if="(selectedRow.debt_settled ?? 0) > 0">
+                                <div
+                                    class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
+                                >
+                                    <span class="text-hospital-text-2"
+                                        >إجمالي مستحق الطبيب قبل الخصم</span
+                                    >
+                                    <span class="font-mono">{{
+                                        fmt(selectedRow.gross_dr_share ?? 0)
+                                    }}</span>
+                                </div>
+                                <div
+                                    class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
+                                >
+                                    <span class="text-hospital-danger"
+                                        >خصم مديونية الطبيب</span
+                                    >
+                                    <span class="font-mono text-hospital-danger"
+                                        >− {{ fmt(selectedRow.debt_settled!) }}</span
+                                    >
+                                </div>
+                            </template>
                             <div
                                 class="flex items-center justify-between pt-2 text-base font-bold text-hospital-primary"
                             >
@@ -1383,6 +1411,7 @@ function printInvoice() {
                         <th class="num">المدفوع</th>
                         <th class="num">مستلزمات</th>
                         <th class="num">مستحق الطبيب</th>
+                        <th class="num">دين</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1423,13 +1452,15 @@ function printInvoice() {
                             </td>
                             <td class="num primary bold">
                                 {{ fmt(row.dr_share) }}
-                                <span
-                                    v-if="(row.debt_settled ?? 0) > 0"
-                                    class="ph-debt-note"
-                                >
-                                    (خصم مديونية {{ fmt(row.debt_settled!) }}
-                                    من {{ fmt(row.gross_dr_share ?? 0) }})
-                                </span>
+                            </td>
+                            <td class="num" :class="(row.debt_incurred ?? 0) > 0 ? 'bold' : 'muted'">
+                                <template v-if="(row.debt_incurred ?? 0) > 0">
+                                    {{ fmt(row.debt_incurred!) }}
+                                </template>
+                                <template v-else-if="(row.debt_settled ?? 0) > 0">
+                                    − {{ fmt(row.debt_settled!) }}
+                                </template>
+                                <template v-else>—</template>
                             </td>
                         </tr>
                         <!-- Supply sub-rows -->
@@ -1437,7 +1468,7 @@ function printInvoice() {
                             v-if="row.supplies && row.supplies.length > 0"
                             class="ph-supply-row"
                         >
-                            <td colspan="9" class="ph-supply-cell">
+                            <td colspan="10" class="ph-supply-cell">
                                 <span class="ph-supply-label">
                                     مستلزمات جراحية:
                                 </span>
@@ -1464,7 +1495,7 @@ function printInvoice() {
                     </template>
                     <tr v-if="claims.rows.length === 0">
                         <td
-                            colspan="9"
+                            colspan="10"
                             class="center muted"
                             style="padding: 16px"
                         >
@@ -1474,7 +1505,7 @@ function printInvoice() {
                 </tbody>
                 <tfoot>
                     <tr v-if="surgicalRows.length > 0" class="ph-tfoot-sub">
-                        <td colspan="8">إجمالي تكاليف المستلزمات الجراحية</td>
+                        <td colspan="9">إجمالي تكاليف المستلزمات الجراحية</td>
                         <td class="num orange bold">
                             {{
                                 fmt(
@@ -1487,19 +1518,19 @@ function printInvoice() {
                         </td>
                     </tr>
                     <tr class="ph-tfoot-sub">
-                        <td colspan="8">إجمالي مستحقات الطبيب</td>
+                        <td colspan="9">إجمالي مستحقات الطبيب</td>
                         <td class="num primary bold">
                             {{ fmt(claims.total_claims) }}
                         </td>
                     </tr>
                     <tr class="ph-tfoot-sub">
-                        <td colspan="8">إجمالي الدفعات المسددة</td>
+                        <td colspan="9">إجمالي الدفعات المسددة</td>
                         <td class="num green bold">
                             − {{ fmt(claims.paid_amount) }}
                         </td>
                     </tr>
                     <tr class="ph-tfoot-net">
-                        <td colspan="8" class="bold">الصافي المستحق للطبيب</td>
+                        <td colspan="9" class="bold">الصافي المستحق للطبيب</td>
                         <td class="num bold">{{ fmt(claims.net_due) }}</td>
                     </tr>
                 </tfoot>
@@ -1726,7 +1757,7 @@ function printInvoice() {
         vertical-align: middle;
         overflow-wrap: break-word;
     }
-    /* Explicit column widths for the 9-column case-details table only —
+    /* Explicit column widths for the 10-column case-details table only —
        the payments table above also uses .ph-table but has a different
        column count, so it must not inherit these nth-child widths. */
     .ph-cases-table th:nth-child(1),
@@ -1735,34 +1766,38 @@ function printInvoice() {
     }
     .ph-cases-table th:nth-child(2),
     .ph-cases-table td:nth-child(2) {
-        width: 11%;
+        width: 10%;
     }
     .ph-cases-table th:nth-child(3),
     .ph-cases-table td:nth-child(3) {
-        width: 12%;
+        width: 10%;
     }
     .ph-cases-table th:nth-child(4),
     .ph-cases-table td:nth-child(4) {
-        width: 14%;
+        width: 13%;
     }
     .ph-cases-table th:nth-child(5),
     .ph-cases-table td:nth-child(5) {
-        width: 9%;
+        width: 8%;
     }
     .ph-cases-table th:nth-child(6),
     .ph-cases-table td:nth-child(6) {
-        width: 18%;
+        width: 15%;
     }
     .ph-cases-table th:nth-child(7),
     .ph-cases-table td:nth-child(7) {
-        width: 11%;
+        width: 10%;
     }
     .ph-cases-table th:nth-child(8),
     .ph-cases-table td:nth-child(8) {
-        width: 11%;
+        width: 10%;
     }
     .ph-cases-table th:nth-child(9),
     .ph-cases-table td:nth-child(9) {
+        width: 10%;
+    }
+    .ph-cases-table th:nth-child(10),
+    .ph-cases-table td:nth-child(10) {
         width: 11%;
     }
     .ph-table tbody tr:nth-child(even) td {
@@ -1880,15 +1915,6 @@ function printInvoice() {
         font-weight: 700;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
-    }
-
-    /* debt-settlement note under a case's مستحق figure */
-    .ph-debt-note {
-        display: block;
-        font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
-        font-size: 8.5px;
-        font-weight: 400;
-        color: #d63b3b;
     }
 
     /* payment method badge */

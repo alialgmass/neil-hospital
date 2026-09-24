@@ -10,6 +10,7 @@ use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorClaimsService;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -165,6 +166,21 @@ class PayBookingTest extends TestCase
         // No cash/doctor-dues journal entries should be posted for a
         // write-off — nothing was actually collected or newly payable.
         $this->assertDatabaseMissing('journal_entries', ['reference' => $booking->file_no]);
+
+        $this->assertDatabaseHas('doctor_debt_settlements', [
+            'doctor_id' => $doctor->id,
+            'booking_id' => $booking->id,
+            'amount' => 1000,
+            'type' => 'incurred',
+        ]);
+
+        // The claims report must show this booking as 0 مستحق (written off),
+        // not a normal computed share — see DoctorClaimsService.
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($doctor->id, '2026-01-01', '2026-12-31');
+
+        $this->assertEquals(0.0, $result['rows'][0]['dr_share']);
+        $this->assertEquals(1000.0, $result['rows'][0]['debt_incurred']);
     }
 
     public function test_paying_zero_twice_never_incurs_the_debt_twice(): void
@@ -197,6 +213,42 @@ class PayBookingTest extends TestCase
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
             'paid_amount' => 0,
             'pay_method' => 'insurance',
+        ])->assertRedirect();
+
+        $this->assertEquals(0.0, (float) $doctor->fresh()->doctor_debt_balance);
+    }
+
+    public function test_paying_zero_on_a_partially_paid_booking_writes_off_only_the_remainder(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. عادل', 'fee_type' => 'fixed', 'fee_value' => 50, 'is_active' => true,
+        ]);
+        $booking = $this->createBooking([
+            'doctor_id' => $doctor->id, 'price' => 1000, 'paid_amount' => 400, 'pay_status' => 'partial',
+        ]);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('bookings', ['id' => $booking->id, 'pay_status' => 'paid']);
+        // Only the remaining 600 (1000 − 400 already paid) becomes debt.
+        $this->assertEquals(600.0, (float) $doctor->fresh()->doctor_debt_balance);
+    }
+
+    public function test_paying_zero_on_an_already_paid_booking_is_rejected(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. سامي', 'fee_type' => 'fixed', 'fee_value' => 50, 'is_active' => true,
+        ]);
+        $booking = $this->createBooking([
+            'doctor_id' => $doctor->id, 'price' => 1000, 'paid_amount' => 1000, 'pay_status' => 'paid',
+        ]);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
         ])->assertRedirect();
 
         $this->assertEquals(0.0, (float) $doctor->fresh()->doctor_debt_balance);

@@ -14,6 +14,7 @@ interface Row {
     net_billed: number;
     doctor_claim: number;
     center_share: number;
+    debt_balance?: number;
     last_visit: string;
 }
 
@@ -34,6 +35,7 @@ const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = u
 const totalClaim = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.doctor_claim), 0));
 const totalCases = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.cases), 0));
 const totalBilled = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.total_billed), 0));
+const totalDebt = computed(() => visibleRows.value.reduce((s, r) => s + Number(r.debt_balance ?? 0), 0));
 
 function fmt(n: number) {
     return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
@@ -58,7 +60,7 @@ function exportExcel() {
     </div>
 
     <!-- Stats -->
-    <div class="mb-5 grid grid-cols-3 gap-4">
+    <div class="mb-5 grid grid-cols-4 gap-4">
         <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-pp">
                 <Users class="h-5 w-5 text-p" />
@@ -85,6 +87,16 @@ function exportExcel() {
             <div>
                 <p class="text-xs text-t3">إجمالي المستحقات</p>
                 <p class="text-xl font-bold text-s">{{ fmt(totalClaim) }}</p>
+                <p class="text-xs text-t3">ج.م</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 rounded-xl border border-br bg-sf p-4 shadow-[var(--sh)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-hospital-danger-pale">
+                <Wallet class="h-5 w-5 text-hospital-danger" />
+            </div>
+            <div>
+                <p class="text-xs text-t3">ديون على الأطباء</p>
+                <p class="text-xl font-bold text-hospital-danger">{{ fmt(totalDebt) }}</p>
                 <p class="text-xs text-t3">ج.م</p>
             </div>
         </div>
@@ -133,6 +145,7 @@ function exportExcel() {
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">الصافي</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">مستحق الطبيب</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-t2">حصة المركز</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-t2">دين على الطبيب</th>
                     <th class="w-8 px-2 py-3 print:hidden" />
                 </tr>
             </thead>
@@ -146,6 +159,9 @@ function exportExcel() {
                     <td class="px-4 py-3 font-mono text-t2">{{ Number(row.net_billed).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono font-bold text-s">{{ Number(row.doctor_claim).toFixed(2) }} ج</td>
                     <td class="px-4 py-3 font-mono text-t2">{{ Number(row.center_share).toFixed(2) }} ج</td>
+                    <td class="px-4 py-3 font-mono" :class="(row.debt_balance ?? 0) > 0 ? 'font-bold text-hospital-danger' : 'text-t3'">
+                        {{ (row.debt_balance ?? 0) > 0 ? Number(row.debt_balance).toFixed(2) + ' ج' : '—' }}
+                    </td>
                     <td class="px-2 py-3 print:hidden">
                         <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
                             <X class="h-3.5 w-3.5" />
@@ -153,7 +169,7 @@ function exportExcel() {
                     </td>
                 </tr>
                 <tr v-if="visibleRows.length === 0">
-                    <td class="px-4 py-10 text-center text-t3" colspan="9">
+                    <td class="px-4 py-10 text-center text-t3" colspan="10">
                         {{ data.rows.length === 0 ? 'لا توجد بيانات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
                     </td>
                 </tr>
@@ -162,6 +178,7 @@ function exportExcel() {
                 <tr>
                     <td class="px-4 py-3 font-bold text-t" colspan="5">إجمالي المستحقات</td>
                     <td class="px-4 py-3 font-mono font-bold text-s">{{ fmt(totalClaim) }} ج</td>
+                    <td class="px-4 py-3 font-mono font-bold text-hospital-danger">{{ fmt(totalDebt) }} ج</td>
                     <td colspan="2" />
                 </tr>
             </tfoot>

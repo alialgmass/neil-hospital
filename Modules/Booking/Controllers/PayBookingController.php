@@ -116,13 +116,14 @@ class PayBookingController extends Controller
      * debt: their doctor fee already accrues independently through
      * SyncDoctorEntitlementAction regardless of patient payment.
      *
-     * Guarded to unpaid bookings only, so resubmitting a 0 payment on an
-     * already-closed booking can never incur the same debt twice.
+     * Works from Unpaid or Partial — whatever is still outstanding is what
+     * becomes debt. Guarded against an already-closed (Paid) booking, so
+     * resubmitting a 0 payment can never incur the same debt twice.
      */
     private function writeOffAsDoctorDebt(Booking $booking, string $payMethod): RedirectResponse
     {
-        if ($booking->pay_status !== PayStatus::Unpaid) {
-            return back()->with('error', 'لا يمكن تسجيل دفعة صفر — الحجز ليس في حالة غير مسدد.');
+        if ($booking->pay_status === PayStatus::Paid) {
+            return back()->with('error', 'لا يمكن تسجيل دفعة صفر — الحجز مسدد بالفعل.');
         }
 
         $booking->update([
@@ -141,7 +142,7 @@ class PayBookingController extends Controller
                 $debt = max(0.0, round($outstanding - $devFee, 2));
 
                 if ($debt > 0) {
-                    $doctor->incurDebt($debt);
+                    $doctor->incurDebtForBooking($booking->id, $debt);
                 }
             }
         }

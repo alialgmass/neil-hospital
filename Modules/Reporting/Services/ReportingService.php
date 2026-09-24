@@ -86,13 +86,24 @@ class ReportingService
         // showing as still "مستحق" (see DoctorDebtSettlement).
         $debtSettled = DB::table('doctor_debt_settlements')
             ->when($doctorId, fn ($q, $v) => $q->where('doctor_id', $v))
+            ->where('type', 'settled')
             ->select('doctor_id', 'booking_id', DB::raw('SUM(amount) as total'))
             ->groupBy('doctor_id', 'booking_id')
             ->get()
             ->keyBy(fn ($row) => "{$row->doctor_id}:{$row->booking_id}");
 
+        // Bookings explicitly written off as doctor debt (a 0-payment pay
+        // action — see PayBookingController::writeOffAsDoctorDebt()): the
+        // whole price became a liability the doctor owes back, so nothing
+        // from it is newly payable — never computed a normal share.
+        $debtIncurred = DB::table('doctor_debt_settlements')
+            ->when($doctorId, fn ($q, $v) => $q->where('doctor_id', $v))
+            ->where('type', 'incurred')
+            ->pluck('booking_id')
+            ->flip();
+
         $rows = $bookings->groupBy('doctor_id')
-            ->map(function ($doctorBookings, $doctorId) use ($doctors, $debtSettled) {
+            ->map(function ($doctorBookings, $doctorId) use ($doctors, $debtSettled, $debtIncurred) {
                 $doctor = $doctors->get($doctorId);
                 if (! $doctor) {
                     return null;
@@ -104,7 +115,15 @@ class ReportingService
 
                 // computeDrShare() already nets out any delegated/anesthesia
                 // amount for this booking (see DoctorClaimsService::delegatedTotal()).
-                $doctorClaim = (float) $doctorBookings->sum(function ($booking) use ($doctor, $debtSettled) {
+                $doctorClaim = (float) $doctorBookings->sum(function ($booking) use ($doctor, $debtSettled, $debtIncurred) {
+                    // Only a booking closed out via the 0-payment write-off
+                    // (Paid with nothing ever collected) is "written off" —
+                    // one that started unpaid but was later paid in full has
+                    // paid_amount > 0 and still keeps a real share.
+                    if ($debtIncurred->has($booking->id) && (float) $booking->paid_amount === 0.0) {
+                        return 0.0;
+                    }
+
                     $share = $this->doctorClaimsService->computeDrShare($doctor, $booking);
                     $settled = (float) ($debtSettled->get("{$doctor->id}:{$booking->id}")->total ?? 0);
 
@@ -121,6 +140,7 @@ class ReportingService
                     'net_billed' => $netBilled,
                     'doctor_claim' => round($doctorClaim, 2),
                     'center_share' => round($netBilled - $doctorClaim, 2),
+                    'debt_balance' => (float) $doctor->doctor_debt_balance,
                     'last_visit' => $doctorBookings->max('visit_date'),
                 ];
             })
@@ -181,6 +201,7 @@ class ReportingService
                 'net_billed' => 0.0,
                 'doctor_claim' => round($netAmount, 2),
                 'center_share' => 0.0,
+                'debt_balance' => (float) $doctor->doctor_debt_balance,
                 'last_visit' => $lastVisit,
             ]);
         }
