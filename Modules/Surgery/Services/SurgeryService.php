@@ -4,7 +4,9 @@ namespace Modules\Surgery\Services;
 
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Booking\States\ConfirmedState as BookingConfirmedState;
 use Modules\Booking\States\WaitingState as BookingWaitingState;
 use Modules\Doctor\Models\Doctor;
@@ -17,6 +19,7 @@ use Modules\Surgery\Models\OrBed;
 use Modules\Surgery\Models\OrRoom;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\Repositories\Contracts\SurgeryRepositoryInterface;
+use Modules\Surgery\States\CompletedState;
 use Modules\Surgery\States\InProgressState;
 use Modules\Surgery\States\PrepState;
 use Modules\Surgery\States\ScheduledState;
@@ -80,6 +83,11 @@ class SurgeryService
         }
     }
 
+    public function markBedAvailable(int $bedId): void
+    {
+        OrBed::whereKey($bedId)->update(['status' => 'available']);
+    }
+
     public function isBedAvailable(int $bedId, string $scheduledAt, ?string $excludeSurgeryId = null): bool
     {
         return ! Surgery::where('or_bed_id', $bedId)
@@ -98,17 +106,17 @@ class SurgeryService
 
     public function recordSupplies(SuppliesUsedData $data): Surgery
     {
-        $surgery = Surgery::findOrFail($data->surgeryId);
-        $existing = $surgery->supplies_used ?? [];
-        $newItems = $data->items;
+        return DB::transaction(function () use ($data) {
+            // Row lock: concurrent saves on the same case must not lose each other's lines.
+            $surgery = Surgery::whereKey($data->surgeryId)->lockForUpdate()->firstOrFail();
+            $merged = array_merge($surgery->supplies_used ?? [], $data->items);
+            $total = array_sum(array_map(fn ($item) => (float) ($item['total'] ?? 0), $merged));
 
-        $merged = array_merge($existing, $newItems);
-        $total = array_sum(array_map(fn ($item) => (float) ($item['total'] ?? 0), $merged));
-
-        return $this->surgeryRepository->update($data->surgeryId, [
-            'supplies_used' => $merged,
-            'supply_total' => $total,
-        ]);
+            return $this->surgeryRepository->update($data->surgeryId, [
+                'supplies_used' => $merged,
+                'supply_total' => $total,
+            ]);
+        });
     }
 
     /** Bookings that have no active surgery row yet (for the scheduling dropdown). */
@@ -126,13 +134,26 @@ class SurgeryService
             ->get();
     }
 
-    /** OR rooms with each bed's active surgery (any dept) so cross-dept occupancy is visible. */
+    /**
+     * OR rooms with each bed's active surgery (any dept) so cross-dept occupancy is visible.
+     * A case finished today stays visible with a "completed" status instead of vanishing,
+     * but an active case on the same bed always takes priority.
+     */
     public function getOrRoomsWithBedStatus(string $dept, string $date): Collection
     {
-        return OrRoom::with(['beds' => function ($q) {
+        return OrRoom::with(['beds' => function ($q) use ($date) {
             $q->orderBy('bed_number')
-                ->with(['surgery' => function ($sq) {
-                    $sq->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name])
+                ->with(['surgery' => function ($sq) use ($date) {
+                    $sq->where(function ($statusQuery) use ($date) {
+                        $statusQuery->whereIn('status', [ScheduledState::$name, PrepState::$name, InProgressState::$name])
+                            ->orWhere(function ($completedQuery) use ($date) {
+                                $completedQuery->where('status', CompletedState::$name)
+                                    ->whereDate('ended_at', $date);
+                            });
+                    })
+                        ->orderByRaw('CASE status WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', [
+                            InProgressState::$name, PrepState::$name, ScheduledState::$name,
+                        ])
                         ->with(['booking', 'surgeon']);
                 }]);
         }])->orderBy('name')->get();
@@ -179,9 +200,42 @@ class SurgeryService
             ]);
     }
 
+    /**
+     * Doctors for the delegation/anesthesia pickers, each with their own
+     * delegation fee per service (doctor_delegation_fees pivot) — separate
+     * from their normal insurance/contract fee (doctor_service), so a
+     * delegation/anesthesia line prices itself from the doctor's dedicated
+     * delegation rate rather than a generic default.
+     */
     public function getActiveDoctors(): Collection
     {
-        return Doctor::select('id', 'name')->orderBy('name')->get();
+        return Doctor::with('delegationServices:services.id,services.name')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function getAnesthesiologists(): Collection
+    {
+        return Doctor::with('delegationServices:services.id,services.name')
+            ->where('is_anesthesiologist', true)
+            ->where('is_active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Services for the delegation/anesthesia pickers on the schedule form —
+     * any active service in the department is a valid candidate for either
+     * role, priced from the doctor's own per-service fee (see getActiveDoctors()).
+     */
+    public function getDelegationServices(string $dept): Collection
+    {
+        return Service::where('dept', $dept)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'default_dr_fee']);
     }
 
     public function getActiveInventoryItems(): Collection

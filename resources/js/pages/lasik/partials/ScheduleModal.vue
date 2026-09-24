@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import Modal from '@/components/shared/Modal.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import DoctorDelegationPanel from '@/components/shared/DoctorDelegationPanel.vue';
+import Modal from '@/components/shared/Modal.vue';
 
 interface OrBed {
     id: number;
@@ -20,8 +21,20 @@ const props = defineProps<{
     modelValue: boolean;
     orRooms: OrRoom[];
     doctors: { id: string; name: string }[];
+    anesthesiologists: { id: string; name: string }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
+    prefill?: {
+        booking_id: string;
+        dept: string;
+        eye: string | null;
+        service_id: string | null;
+    } | null;
 }>();
 
 const emit = defineEmits<{
@@ -30,18 +43,32 @@ const emit = defineEmits<{
 }>();
 
 const form = useForm({
-    booking_id: '',
+    booking_id: props.prefill?.booking_id ?? '',
     dept: props.dept,
     or_bed_id: null as number | null,
     surgeon_id: '',
-    eye: '',
+    eye: props.prefill?.eye ?? '',
     procedure: '',
     anaesthesia: 'topical',
     pre_op_notes: '',
     scheduled_at: '',
+    delegations: [] as {
+        doctor_id: string;
+        role: 'delegate' | 'anesthesia';
+        service_id: string | null;
+        service_name: string;
+        amount: number;
+    }[],
 });
 
-const procedures = ['LASIK', 'SMILE', 'PRK', 'LASEK', 'Femto-LASIK', 'Trans PRK'];
+const procedures = [
+    'LASIK',
+    'SMILE',
+    'PRK',
+    'LASEK',
+    'Femto-LASIK',
+    'Trans PRK',
+];
 
 interface FlatBed {
     id: number;
@@ -54,24 +81,38 @@ const flatBeds = computed<FlatBed[]>(() => {
     let seq = 1;
     props.orRooms.forEach((room) => {
         room.beds.forEach((bed) => {
-            result.push({ id: bed.id, displayNumber: seq++, surgery: bed.surgery });
+            result.push({
+                id: bed.id,
+                displayNumber: seq++,
+                surgery: bed.surgery,
+            });
         });
     });
+
     return result;
 });
 
 const occupiedBedIds = computed(() =>
     flatBeds.value
-        .filter((b) => b.surgery && ['scheduled', 'prep', 'in_progress'].includes(b.surgery.status))
+        .filter(
+            (b) =>
+                b.surgery &&
+                ['scheduled', 'prep', 'in_progress'].includes(b.surgery.status),
+        )
         .map((b) => b.id),
 );
 
-const selectedDisplayNumber = computed(() =>
-    flatBeds.value.find((b) => b.id === form.or_bed_id)?.displayNumber ?? null,
+const selectedDisplayNumber = computed(
+    () =>
+        flatBeds.value.find((b) => b.id === form.or_bed_id)?.displayNumber ??
+        null,
 );
 
 function selectBed(bedId: number) {
-    if (occupiedBedIds.value.includes(bedId)) return;
+    if (occupiedBedIds.value.includes(bedId)) {
+        return;
+    }
+
     form.or_bed_id = form.or_bed_id === bedId ? null : bedId;
 }
 
@@ -91,7 +132,12 @@ function close() {
 </script>
 
 <template>
-    <Modal :model-value="modelValue" title="جدولة إجراء ليزك" size="lg" @update:model-value="close">
+    <Modal
+        :model-value="modelValue"
+        title="جدولة إجراء ليزك"
+        size="lg"
+        @update:model-value="close"
+    >
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-4">
                 <!-- Patient -->
@@ -103,7 +149,9 @@ function close() {
                             {{ b.file_no }} — {{ b.patient_name }}
                         </option>
                     </select>
-                    <p v-if="form.errors.booking_id" class="field-error">{{ form.errors.booking_id }}</p>
+                    <p v-if="form.errors.booking_id" class="field-error">
+                        {{ form.errors.booking_id }}
+                    </p>
                 </div>
 
                 <!-- Doctor -->
@@ -111,7 +159,13 @@ function close() {
                     <label class="field-label">الطبيب الجراح</label>
                     <select v-model="form.surgeon_id" class="field-input">
                         <option value="">— اختر الطبيب —</option>
-                        <option v-for="doc in doctors" :key="doc.id" :value="doc.id">{{ doc.name }}</option>
+                        <option
+                            v-for="doc in doctors"
+                            :key="doc.id"
+                            :value="doc.id"
+                        >
+                            {{ doc.name }}
+                        </option>
                     </select>
                 </div>
 
@@ -120,7 +174,9 @@ function close() {
                     <label class="field-label">الإجراء</label>
                     <select v-model="form.procedure" class="field-input">
                         <option value="">— اختر —</option>
-                        <option v-for="p in procedures" :key="p" :value="p">{{ p }}</option>
+                        <option v-for="p in procedures" :key="p" :value="p">
+                            {{ p }}
+                        </option>
                     </select>
                 </div>
 
@@ -150,7 +206,11 @@ function close() {
                 <!-- Scheduled at -->
                 <div>
                     <label class="field-label">موعد الإجراء</label>
-                    <input v-model="form.scheduled_at" type="datetime-local" class="field-input" />
+                    <input
+                        v-model="form.scheduled_at"
+                        type="datetime-local"
+                        class="field-input"
+                    />
                 </div>
             </div>
 
@@ -166,7 +226,10 @@ function close() {
                     <span class="beds-legend-item">
                         <span class="beds-dot beds-dot-selected" /> محدد
                     </span>
-                    <span v-if="selectedDisplayNumber" class="beds-selected-label ms-auto">
+                    <span
+                        v-if="selectedDisplayNumber"
+                        class="beds-selected-label ms-auto"
+                    >
                         ✓ سرير {{ selectedDisplayNumber }}
                     </span>
                 </div>
@@ -177,22 +240,43 @@ function close() {
                         type="button"
                         :class="[
                             'bed-btn',
-                            occupiedBedIds.includes(bed.id) ? 'bed-btn-busy' : 'bed-btn-free',
+                            occupiedBedIds.includes(bed.id)
+                                ? 'bed-btn-busy'
+                                : 'bed-btn-free',
                             form.or_bed_id === bed.id ? 'bed-btn-selected' : '',
                         ]"
-                        :title="occupiedBedIds.includes(bed.id) ? `سرير ${bed.displayNumber} مشغول` : `سرير ${bed.displayNumber}`"
+                        :title="
+                            occupiedBedIds.includes(bed.id)
+                                ? `سرير ${bed.displayNumber} مشغول`
+                                : `سرير ${bed.displayNumber}`
+                        "
                         @click="selectBed(bed.id)"
                     >
                         <span class="bed-btn-num">{{ bed.displayNumber }}</span>
-                        <span v-if="occupiedBedIds.includes(bed.id)" class="bed-busy-dot" />
+                        <span
+                            v-if="occupiedBedIds.includes(bed.id)"
+                            class="bed-busy-dot"
+                        />
                     </button>
                 </div>
             </div>
 
+            <!-- Delegate / anesthesia doctors -->
+            <DoctorDelegationPanel
+                v-model="form.delegations"
+                :doctors="doctors"
+                :anesthesiologists="anesthesiologists"
+                :services="delegationServices"
+            />
+
             <!-- Pre-op notes -->
             <div>
                 <label class="field-label">ملاحظات ما قبل الإجراء</label>
-                <textarea v-model="form.pre_op_notes" rows="3" class="field-input" />
+                <textarea
+                    v-model="form.pre_op_notes"
+                    rows="3"
+                    class="field-input"
+                />
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
@@ -206,7 +290,7 @@ function close() {
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="rounded-lg bg-[#7B2FA6] px-4 py-2 text-sm font-medium text-white disabled:opacity-60 hover:bg-[#6A2890]"
+                    class="rounded-lg bg-[#7B2FA6] px-4 py-2 text-sm font-medium text-white hover:bg-[#6A2890] disabled:opacity-60"
                 >
                     جدولة
                 </button>
@@ -239,7 +323,11 @@ function close() {
     border-color: #7b2fa6;
     box-shadow: 0 0 0 3px rgba(123, 47, 166, 0.1);
 }
-.field-error { font-size: 11px; color: var(--color-hospital-danger, #e74c3c); margin-top: 3px; }
+.field-error {
+    font-size: 11px;
+    color: var(--color-hospital-danger, #e74c3c);
+    margin-top: 3px;
+}
 
 /* Bed picker */
 .beds-panel {
@@ -262,47 +350,97 @@ function close() {
     padding-bottom: 8px;
     flex-wrap: wrap;
 }
-.beds-legend-item { display: flex; align-items: center; gap: 4px; }
+.beds-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
 .beds-dot {
     display: inline-block;
-    width: 11px; height: 11px;
+    width: 11px;
+    height: 11px;
     border-radius: 3px;
     border: 1.5px solid transparent;
 }
-.beds-dot-free     { background: #fff; border-color: #dde4ef; }
-.beds-dot-busy     { background: #fff0ee; border-color: #e74c3c; }
-.beds-dot-selected { background: #7b2fa6; border-color: #7b2fa6; }
-.beds-selected-label {
-    font-size: 10px; font-weight: 700;
-    background: #7b2fa6; color: #fff;
-    border-radius: 12px; padding: 2px 10px;
+.beds-dot-free {
+    background: #fff;
+    border-color: #dde4ef;
 }
-.beds-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.beds-dot-busy {
+    background: #fff0ee;
+    border-color: #e74c3c;
+}
+.beds-dot-selected {
+    background: #7b2fa6;
+    border-color: #7b2fa6;
+}
+.beds-selected-label {
+    font-size: 10px;
+    font-weight: 700;
+    background: #7b2fa6;
+    color: #fff;
+    border-radius: 12px;
+    padding: 2px 10px;
+}
+.beds-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
 .bed-btn {
-    width: 48px; height: 42px;
+    width: 48px;
+    height: 42px;
     border-radius: 8px;
     border: 1.5px solid #dde4ef;
     background: #fff;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.15s;
-    font-family: inherit; padding: 0;
-    position: relative; gap: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    padding: 0;
+    position: relative;
+    gap: 3px;
 }
-.bed-btn-num { font-size: 14px; font-weight: 800; color: #0d1f3c; line-height: 1; }
+.bed-btn-num {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0d1f3c;
+    line-height: 1;
+}
 .bed-btn-free:hover {
-    border-color: #7b2fa6; background: #f5eeff;
+    border-color: #7b2fa6;
+    background: #f5eeff;
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(123,47,166,0.18);
+    box-shadow: 0 4px 10px rgba(123, 47, 166, 0.18);
 }
-.bed-btn-free:hover .bed-btn-num { color: #7b2fa6; }
-.bed-btn-busy { background: #fff0ee; border-color: #e74c3c; cursor: not-allowed; opacity: 0.8; }
-.bed-btn-busy .bed-btn-num { color: #e74c3c; }
-.bed-busy-dot { width: 5px; height: 5px; border-radius: 50%; background: #e74c3c; }
+.bed-btn-free:hover .bed-btn-num {
+    color: #7b2fa6;
+}
+.bed-btn-busy {
+    background: #fff0ee;
+    border-color: #e74c3c;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+.bed-btn-busy .bed-btn-num {
+    color: #e74c3c;
+}
+.bed-busy-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #e74c3c;
+}
 .bed-btn-selected {
-    background: #7b2fa6 !important; border-color: #7b2fa6 !important;
+    background: #7b2fa6 !important;
+    border-color: #7b2fa6 !important;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(123,47,166,0.35);
+    box-shadow: 0 4px 12px rgba(123, 47, 166, 0.35);
 }
-.bed-btn-selected .bed-btn-num { color: #fff !important; }
+.bed-btn-selected .bed-btn-num {
+    color: #fff !important;
+}
 </style>

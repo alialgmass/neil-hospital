@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import DoctorDelegationRoleFields from '@/components/shared/DoctorDelegationRoleFields.vue';
+import SearchableSelect from '@/components/shared/SearchableSelect.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
+import { useSupplyRows } from '@/composables/useSupplyRows';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -10,9 +17,25 @@ interface SupplyUsedItem {
     total: number;
 }
 
+interface DelegationRow {
+    id: string;
+    doctor_id: string;
+    doctor: { id: string; name: string } | null;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+    status: 'pending' | 'settled' | 'void';
+}
+
 interface Surgery {
     id: string;
-    booking: { file_no: string; patient_name: string };
+    booking: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        doctor_delegations?: DelegationRow[];
+    };
     procedure: string;
     eye: 'OD' | 'OS' | 'OU' | null;
     surgeon: { id: string; name: string } | null;
@@ -29,17 +52,16 @@ interface Surgery {
     pre_op_notes?: string | null;
 }
 
-interface InventoryItem {
-    id: string;
-    name: string;
-    code: string;
-    quantity: number;
-    sell_price: number;
-}
-
 const props = defineProps<{
     surgery: Surgery;
-    inventoryItems: InventoryItem[];
+    dept: string;
+    doctors: { id: string; name: string; delegation_services?: { id: string; pivot: { fee: number | string } }[] }[];
+    anesthesiologists: { id: string; name: string; delegation_services?: { id: string; pivot: { fee: number | string } }[] }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
 }>();
 
 const emit = defineEmits<{
@@ -47,12 +69,90 @@ const emit = defineEmits<{
     openReport: [id: string];
     openSupplies: [id: string];
     updateStatus: [status: string];
-    submitSupplies: [items: SupplyUsedItem[]];
-    submitReport: [data: { op_report: string; post_op_notes: string; complications: string }];
+    /** `done` receives validation errors (or null on success) so rows can be kept / cleared. */
+    submitSupplies: [
+        items: SupplyPayloadItem[],
+        done: (errors: Record<string, string> | null) => void,
+    ];
+    submitReport: [
+        data: {
+            op_report: string;
+            post_op_notes: string;
+            complications: string;
+        },
+    ];
 }>();
 
-const activeOverlayTab = ref<'supplies' | 'report' | 'status'>('supplies');
-const newSupplyItems = ref<SupplyUsedItem[]>([{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }]);
+const activeOverlayTab = ref<'supplies' | 'report' | 'status' | 'delegation' | 'anesthesia'>('supplies');
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
+
+/* ── Delegate / anesthesia doctors ── */
+interface DelegationLine {
+    doctor_id: string;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+}
+
+const overlayDelegations = ref<DelegationLine[]>([]);
+const settledDelegations = ref<DelegationRow[]>([]);
+const savingDelegations = ref(false);
+
+function loadDelegations() {
+    const all = props.surgery.booking.doctor_delegations ?? [];
+    overlayDelegations.value = all
+        .filter((d) => d.status === 'pending')
+        .map((d) => ({
+            doctor_id: d.doctor_id,
+            role: d.role,
+            service_id: d.service_id,
+            service_name: d.service_name,
+            amount: Number(d.amount),
+        }));
+    settledDelegations.value = all.filter((d) => d.status === 'settled');
+}
+watch(() => props.surgery.id, loadDelegations, { immediate: true });
+
+const delegateLines = computed(() => overlayDelegations.value.filter((l) => l.role === 'delegate'));
+const anesthesiaLines = computed(() => overlayDelegations.value.filter((l) => l.role === 'anesthesia'));
+
+function updateOverlayDelegationRole(role: 'delegate' | 'anesthesia', lines: DelegationLine[]) {
+    overlayDelegations.value = [...overlayDelegations.value.filter((l) => l.role !== role), ...lines];
+}
+
+function submitOverlayDelegations() {
+    if (!canWrite.value || savingDelegations.value) {
+        return;
+    }
+
+    savingDelegations.value = true;
+
+    router.post(
+        `/${props.dept}/${props.surgery.id}/delegations`,
+        { delegations: overlayDelegations.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => toast.success('تم حفظ بيانات التفويض والتخدير'),
+            onFinish: () => {
+                savingDelegations.value = false;
+            },
+        },
+    );
+}
+
+const supplyRows = useSupplyRows();
+const {
+    rows: newSupplyItems,
+    total: newSuppliesTotal,
+    generalErrors: supplyGeneralErrors,
+    rowError: supplyRowError,
+    addRow: addNewSupplyRow,
+    removeRow: removeNewSupplyRow,
+    onSelected: onSupplySelected,
+} = supplyRows;
+const savingSupplies = ref(false);
 const reportForm = ref({ op_report: '', post_op_notes: '', complications: '' });
 
 const eyeLabel: Record<string, string> = {
@@ -79,7 +179,10 @@ const bedBg: Record<string, string> = {
 
 const nextStatuses = computed(() => {
     const c = props.surgery.status;
-    const map: Record<string, { value: string; label: string; color: string }[]> = {
+    const map: Record<
+        string,
+        { value: string; label: string; color: string }[]
+    > = {
         scheduled: [
             { value: 'prep', label: 'بدء التحضير', color: '#2980B9' },
             { value: 'cancelled', label: 'إلغاء', color: '#95A5A6' },
@@ -97,43 +200,38 @@ const nextStatuses = computed(() => {
     return c ? (map[c] ?? []) : [];
 });
 
-const newSuppliesTotal = computed(() => {
-    return newSupplyItems.value.reduce((sum, item) => sum + (item.qty * item.unit_cost), 0);
-});
-
-function selectNewSupplyItem(item: SupplyUsedItem, inventoryItemId: string) {
-    const inv = props.inventoryItems.find(i => i.id === inventoryItemId);
-    if (inv) {
-        item.inventory_item_id = inv.id;
-        item.name = inv.name;
-        item.unit_cost = inv.sell_price;
-    }
-}
-
-function addNewSupplyRow() {
-    newSupplyItems.value.push({ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 });
-}
-
-function removeNewSupplyRow(idx: number) {
-    newSupplyItems.value.splice(idx, 1);
-    if (newSupplyItems.value.length === 0) {
-        addNewSupplyRow();
-    }
-}
-
 function clearSupplyRows() {
-    newSupplyItems.value = [{ inventory_item_id: '', name: '', qty: 1, unit_cost: 0 }];
+    supplyRows.reset();
 }
 
 function submitOverlaySupplies() {
-    const validItems = newSupplyItems.value.filter(item => item.name && item.qty > 0);
-    if (validItems.length > 0) {
-        emit('submitSupplies', validItems);
-        clearSupplyRows();
+    if (!canWrite.value || savingSupplies.value) {
+        return;
     }
+
+    const submittedRows = [...supplyRows.pendingRows.value];
+
+    if (submittedRows.length === 0 || !supplyRows.validate()) {
+        return;
+    }
+
+    savingSupplies.value = true;
+    emit('submitSupplies', supplyRows.payload(submittedRows), (errors) => {
+        savingSupplies.value = false;
+
+        if (errors) {
+            supplyRows.applyServerErrors(errors, submittedRows);
+        } else {
+            clearSupplyRows();
+        }
+    });
 }
 
 function submitOverlayReport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     emit('submitReport', {
         op_report: reportForm.value.op_report,
         post_op_notes: reportForm.value.post_op_notes,
@@ -146,7 +244,9 @@ function clearReportForm() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') emit('close');
+    if (e.key === 'Escape') {
+        emit('close');
+    }
 }
 onMounted(() => document.addEventListener('keydown', onKeydown));
 onUnmounted(() => document.removeEventListener('keydown', onKeydown));
@@ -156,7 +256,6 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     <Teleport to="body">
         <div class="case-overlay-backdrop" @click.self="emit('close')">
             <div class="case-overlay-panel">
-
                 <!-- Sticky header -->
                 <div class="case-overlay-hdr">
                     <div>
@@ -165,110 +264,211 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                         </div>
                         <div class="text-[12px] opacity-75">
                             {{ surgery.procedure || 'عملية' }}
-                            <span v-if="surgery.bed_no"> — سرير {{ surgery.bed_no }}</span>
+                            <span v-if="surgery.bed_no">
+                                — سرير {{ surgery.bed_no }}</span
+                            >
                         </div>
                     </div>
-                    <button class="case-close-btn" @click="emit('close')">×</button>
+                    <button class="case-close-btn" @click="emit('close')">
+                        ×
+                    </button>
                 </div>
 
                 <!-- Patient summary bar -->
                 <div class="case-patient-bar">
-                    <span><strong>ملف:</strong> {{ surgery.booking?.file_no ?? '—' }}</span>
-                    <span><strong>الطبيب:</strong> {{ surgery.surgeon?.name ?? '—' }}</span>
-                    <span><strong>الحالة:</strong> {{ statusAr[surgery.status] }}</span>
-                    <span v-if="surgery.eye"><strong>العين:</strong> {{ eyeLabel[surgery.eye!] ?? surgery.eye }}</span>
-                    <span v-if="surgery.anaesthesia"><strong>التخدير:</strong> {{ surgery.anaesthesia }}</span>
+                    <span
+                        ><strong>ملف:</strong>
+                        {{ surgery.booking?.file_no ?? '—' }}</span
+                    >
+                    <span
+                        ><strong>الطبيب:</strong>
+                        {{ surgery.surgeon?.name ?? '—' }}</span
+                    >
+                    <span
+                        ><strong>الحالة:</strong>
+                        {{ statusAr[surgery.status] }}</span
+                    >
+                    <span v-if="surgery.eye"
+                        ><strong>العين:</strong>
+                        {{ eyeLabel[surgery.eye!] ?? surgery.eye }}</span
+                    >
+                    <span v-if="surgery.anaesthesia"
+                        ><strong>التخدير:</strong>
+                        {{ surgery.anaesthesia }}</span
+                    >
                     <span v-if="surgery.scheduled_at">
-                        <strong>الموعد:</strong> {{ surgery.scheduled_at.slice(0, 16).replace('T', ' ') }}
+                        <strong>الموعد:</strong>
+                        {{
+                            surgery.scheduled_at.slice(0, 16).replace('T', ' ')
+                        }}
                     </span>
                     <span>
                         <strong>المستلزمات:</strong>
-                        {{ Number(surgery.supply_total).toLocaleString('ar-EG') }} ج
+                        {{
+                            Number(surgery.supply_total).toLocaleString('en-US')
+                        }}
+                        ج
                     </span>
                 </div>
 
                 <!-- Tab bar -->
                 <div class="case-tab-bar">
                     <button
-                        :class="['case-tab', activeOverlayTab === 'supplies' ? 'case-tab-active' : '']"
+                        :class="[
+                            'case-tab',
+                            activeOverlayTab === 'supplies'
+                                ? 'case-tab-active'
+                                : '',
+                        ]"
                         @click="activeOverlayTab = 'supplies'"
-                    >مستلزمات العملية</button>
+                    >
+                        مستلزمات العملية
+                    </button>
                     <button
-                        :class="['case-tab', activeOverlayTab === 'report' ? 'case-tab-active' : '']"
+                        :class="[
+                            'case-tab',
+                            activeOverlayTab === 'report'
+                                ? 'case-tab-active'
+                                : '',
+                        ]"
                         @click="activeOverlayTab = 'report'"
-                    >تقرير العملية</button>
+                    >
+                        تقرير العملية
+                    </button>
                     <button
-                        :class="['case-tab', activeOverlayTab === 'status' ? 'case-tab-active' : '']"
+                        :class="[
+                            'case-tab',
+                            activeOverlayTab === 'status'
+                                ? 'case-tab-active'
+                                : '',
+                        ]"
                         @click="activeOverlayTab = 'status'"
-                    >تحديث الحالة</button>
+                    >
+                        تحديث الحالة
+                    </button>
+                    <button
+                        :class="['case-tab', activeOverlayTab === 'delegation' ? 'case-tab-active' : '']"
+                        @click="activeOverlayTab = 'delegation'"
+                    >
+                        تفويض دكتور
+                    </button>
+                    <button
+                        :class="['case-tab', activeOverlayTab === 'anesthesia' ? 'case-tab-active' : '']"
+                        @click="activeOverlayTab = 'anesthesia'"
+                    >
+                        دكتور التخدير
+                    </button>
                 </div>
 
                 <!-- Tab content -->
                 <div class="case-overlay-body">
-
                     <!-- ===== SUPPLIES TAB ===== -->
                     <div v-if="activeOverlayTab === 'supplies'">
                         <!-- Add supply form -->
                         <div class="overlay-card mb-4">
-                            <div class="overlay-card-hd">إضافة مستلزم عملية</div>
+                            <div class="overlay-card-hd">
+                                إضافة مستلزم عملية
+                            </div>
                             <div class="p-4">
-                                <div
+                                <template
                                     v-for="(item, idx) in newSupplyItems"
-                                    :key="idx"
-                                    class="mb-2 grid grid-cols-12 items-center gap-2"
+                                    :key="item.uid"
                                 >
-                                    <select
-                                        :value="item.inventory_item_id"
-                                        class="overlay-input col-span-5"
-                                        @change="selectNewSupplyItem(item, ($event.target as HTMLSelectElement).value)"
+                                    <div
+                                        class="mb-2 grid grid-cols-12 items-center gap-2"
                                     >
-                                        <option value="">— اختر من المخزن —</option>
-                                        <option v-for="inv in inventoryItems" :key="inv.id" :value="inv.id">
-                                            {{ inv.name }} ({{ inv.code }}) — {{ inv.quantity }} متوفر
-                                        </option>
-                                    </select>
-                                    <input
-                                        v-model="item.name"
-                                        type="text"
-                                        placeholder="الاسم"
-                                        class="overlay-input col-span-2"
-                                    />
-                                    <input
-                                        v-model.number="item.qty"
-                                        type="number"
-                                        min="1"
-                                        placeholder="الكمية"
-                                        class="overlay-input col-span-2"
-                                    />
-                                    <input
-                                        v-model.number="item.unit_cost"
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder="السعر"
-                                        class="overlay-input col-span-2"
-                                    />
-                                    <button
-                                        class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
-                                        @click="removeNewSupplyRow(idx)"
-                                    >×</button>
-                                </div>
-                                <button class="mt-2 text-sm text-[#1A8C5B] hover:underline" @click="addNewSupplyRow">
+                                        <div class="col-span-5">
+                                            <SearchableSelect
+                                                v-model="item.name"
+                                                :endpoint="`/${dept}/items/search`"
+                                                placeholder="ابحث عن صنف بالاسم أو الكود..."
+                                                @select="(matched) => onSupplySelected(idx, matched)"
+                                            />
+                                        </div>
+                                        <input
+                                            v-model.number="item.qty"
+                                            type="number"
+                                            min="1"
+                                            placeholder="الكمية"
+                                            class="overlay-input col-span-2"
+                                            :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        />
+                                        <input
+                                            v-model.number="item.unit_cost"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            placeholder="السعر"
+                                            class="overlay-input col-span-2"
+                                            :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        />
+                                        <span
+                                            class="col-span-2 text-sm font-semibold tabular-nums"
+                                        >
+                                            {{ item.inventory_item_id ? (item.qty * item.unit_cost).toLocaleString('en-US') : '—' }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            class="col-span-1 flex h-8 w-8 items-center justify-center rounded text-hospital-danger hover:bg-hospital-danger/10"
+                                            title="حذف السطر"
+                                            @click="removeNewSupplyRow(idx)"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <p
+                                        v-if="supplyRowError(item.uid)"
+                                        class="-mt-1 mb-2 text-xs text-hospital-danger"
+                                    >
+                                        {{ supplyRowError(item.uid) }}
+                                    </p>
+                                </template>
+                                <button
+                                    type="button"
+                                    class="mt-2 text-sm text-[#1A8C5B] hover:underline"
+                                    @click="addNewSupplyRow"
+                                >
                                     + إضافة صنف آخر
                                 </button>
+                                <p
+                                    v-for="message in supplyGeneralErrors"
+                                    :key="message"
+                                    class="mt-2 text-xs text-hospital-danger"
+                                >
+                                    {{ message }}
+                                </p>
                                 <!-- Total preview -->
-                                <div v-if="newSuppliesTotal > 0" class="overlay-total-preview">
+                                <div
+                                    v-if="newSuppliesTotal > 0"
+                                    class="overlay-total-preview"
+                                >
                                     الإجمالي المضاف:
-                                    <strong style="color:#1A8C5B;font-size:14px">
-                                        {{ newSuppliesTotal.toLocaleString('ar-EG') }} ج
+                                    <strong
+                                        style="color: #1a8c5b; font-size: 14px"
+                                    >
+                                        {{
+                                            newSuppliesTotal.toLocaleString(
+                                                'ar-EG',
+                                            )
+                                        }}
+                                        ج
                                     </strong>
                                 </div>
                                 <div class="mt-3 flex justify-end gap-2">
-                                    <button class="overlay-btn-grey" @click="clearSupplyRows">
+                                    <button
+                                        class="overlay-btn-grey"
+                                        @click="clearSupplyRows"
+                                    >
                                         مسح
                                     </button>
-                                    <button class="overlay-btn-green" @click="submitOverlaySupplies">
-                                        حفظ المستلزمات ✓
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green"
+                                        :disabled="!canWrite || savingSupplies"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                        @click="submitOverlaySupplies"
+                                    >
+                                        {{ savingSupplies ? 'جارٍ الحفظ...' : 'إضافة الكل ✓' }}
                                     </button>
                                 </div>
                             </div>
@@ -276,13 +476,27 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
 
                         <!-- Existing supplies table -->
                         <div class="overlay-card overflow-hidden">
-                            <div class="overlay-card-hd-green flex items-center justify-between">
+                            <div
+                                class="overlay-card-hd-green flex items-center justify-between"
+                            >
                                 <span>المستلزمات المضافة</span>
                                 <span class="text-xs font-normal opacity-80">
-                                    الإجمالي: {{ Number(surgery.supply_total).toLocaleString('ar-EG') }} ج
+                                    الإجمالي:
+                                    {{
+                                        Number(
+                                            surgery.supply_total,
+                                        ).toLocaleString('en-US')
+                                    }}
+                                    ج
                                 </span>
                             </div>
-                            <div v-if="surgery.supplies_used && surgery.supplies_used.length" class="overflow-x-auto">
+                            <div
+                                v-if="
+                                    surgery.supplies_used &&
+                                    surgery.supplies_used.length
+                                "
+                                class="overflow-x-auto"
+                            >
                                 <table class="supply-table">
                                     <thead>
                                         <tr>
@@ -294,25 +508,59 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr v-for="(s, i) in surgery.supplies_used" :key="i">
+                                        <tr
+                                            v-for="(
+                                                s, i
+                                            ) in surgery.supplies_used"
+                                            :key="i"
+                                        >
                                             <td>{{ i + 1 }}</td>
                                             <td>{{ s.name || '—' }}</td>
                                             <td>{{ s.qty }}</td>
-                                            <td>{{ Number(s.unit_cost).toLocaleString('ar-EG') }} ج</td>
-                                            <td class="font-semibold">{{ Number(s.total).toLocaleString('ar-EG') }} ج</td>
+                                            <td>
+                                                {{
+                                                    Number(
+                                                        s.unit_cost,
+                                                    ).toLocaleString('en-US')
+                                                }}
+                                                ج
+                                            </td>
+                                            <td class="font-semibold">
+                                                {{
+                                                    Number(
+                                                        s.total,
+                                                    ).toLocaleString('en-US')
+                                                }}
+                                                ج
+                                            </td>
                                         </tr>
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="4" class="text-right font-bold">الإجمالي الكلي</td>
-                                            <td class="font-bold text-[#1A8C5B]">
-                                                {{ Number(surgery.supply_total).toLocaleString('ar-EG') }} ج
+                                            <td
+                                                colspan="4"
+                                                class="text-right font-bold"
+                                            >
+                                                الإجمالي الكلي
+                                            </td>
+                                            <td
+                                                class="font-bold text-[#1A8C5B]"
+                                            >
+                                                {{
+                                                    Number(
+                                                        surgery.supply_total,
+                                                    ).toLocaleString('en-US')
+                                                }}
+                                                ج
                                             </td>
                                         </tr>
                                     </tfoot>
                                 </table>
                             </div>
-                            <div v-else class="p-6 text-center text-sm text-hospital-text-2">
+                            <div
+                                v-else
+                                class="p-6 text-center text-sm text-hospital-text-2"
+                            >
                                 لا توجد مستلزمات مسجلة بعد
                             </div>
                         </div>
@@ -322,9 +570,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                     <div v-if="activeOverlayTab === 'report'">
                         <div class="overlay-card">
                             <div class="overlay-card-hd">تقرير العملية</div>
-                            <form class="space-y-4 p-4" @submit.prevent="submitOverlayReport">
+                            <form
+                                class="space-y-4 p-4"
+                                @submit.prevent="submitOverlayReport"
+                            >
                                 <div>
-                                    <label class="overlay-label">تقرير العملية التفصيلي</label>
+                                    <label class="overlay-label"
+                                        >تقرير العملية التفصيلي</label
+                                    >
                                     <textarea
                                         v-model="reportForm.op_report"
                                         rows="5"
@@ -333,7 +586,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     />
                                 </div>
                                 <div>
-                                    <label class="overlay-label">ملاحظات ما بعد العملية</label>
+                                    <label class="overlay-label"
+                                        >ملاحظات ما بعد العملية</label
+                                    >
                                     <textarea
                                         v-model="reportForm.post_op_notes"
                                         rows="3"
@@ -342,7 +597,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     />
                                 </div>
                                 <div>
-                                    <label class="overlay-label">المضاعفات</label>
+                                    <label class="overlay-label"
+                                        >المضاعفات</label
+                                    >
                                     <textarea
                                         v-model="reportForm.complications"
                                         rows="2"
@@ -350,11 +607,22 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                         placeholder="إن وجدت..."
                                     />
                                 </div>
-                                <div class="flex justify-end gap-2 border-t border-hospital-border pt-3">
-                                    <button type="button" class="overlay-btn-grey" @click="clearReportForm">
+                                <div
+                                    class="flex justify-end gap-2 border-t border-hospital-border pt-3"
+                                >
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-grey"
+                                        @click="clearReportForm"
+                                    >
                                         مسح
                                     </button>
-                                    <button type="submit" class="overlay-btn-green">
+                                    <button
+                                        type="submit"
+                                        class="overlay-btn-green"
+                                        :disabled="!canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                    >
                                         حفظ التقرير ✓
                                     </button>
                                 </div>
@@ -364,18 +632,40 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                         <!-- Show existing report if exists -->
                         <div v-if="surgery.op_report" class="overlay-card mt-4">
                             <div class="overlay-card-hd">التقرير المحفوظ</div>
-                            <div class="space-y-3 p-4 text-sm text-hospital-text">
+                            <div
+                                class="space-y-3 p-4 text-sm text-hospital-text"
+                            >
                                 <div>
-                                    <p class="mb-1 font-semibold text-hospital-text-2">تقرير العملية:</p>
-                                    <p class="whitespace-pre-wrap">{{ surgery.op_report }}</p>
+                                    <p
+                                        class="mb-1 font-semibold text-hospital-text-2"
+                                    >
+                                        تقرير العملية:
+                                    </p>
+                                    <p class="whitespace-pre-wrap">
+                                        {{ surgery.op_report }}
+                                    </p>
                                 </div>
                                 <div v-if="surgery.post_op_notes">
-                                    <p class="mb-1 font-semibold text-hospital-text-2">ملاحظات ما بعد العملية:</p>
-                                    <p class="whitespace-pre-wrap">{{ surgery.post_op_notes }}</p>
+                                    <p
+                                        class="mb-1 font-semibold text-hospital-text-2"
+                                    >
+                                        ملاحظات ما بعد العملية:
+                                    </p>
+                                    <p class="whitespace-pre-wrap">
+                                        {{ surgery.post_op_notes }}
+                                    </p>
                                 </div>
                                 <div v-if="surgery.complications">
-                                    <p class="mb-1 font-semibold text-hospital-text-2">المضاعفات:</p>
-                                    <p class="whitespace-pre-wrap text-hospital-danger">{{ surgery.complications }}</p>
+                                    <p
+                                        class="mb-1 font-semibold text-hospital-text-2"
+                                    >
+                                        المضاعفات:
+                                    </p>
+                                    <p
+                                        class="whitespace-pre-wrap text-hospital-danger"
+                                    >
+                                        {{ surgery.complications }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -384,14 +674,23 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                     <!-- ===== STATUS TAB ===== -->
                     <div v-if="activeOverlayTab === 'status'">
                         <div class="overlay-card">
-                            <div class="overlay-card-hd">تحديث حالة العملية</div>
+                            <div class="overlay-card-hd">
+                                تحديث حالة العملية
+                            </div>
                             <div class="p-5">
                                 <!-- Current status -->
                                 <div class="mb-5 flex items-center gap-3">
-                                    <p class="text-sm font-medium text-hospital-text-2">الحالة الحالية:</p>
+                                    <p
+                                        class="text-sm font-medium text-hospital-text-2"
+                                    >
+                                        الحالة الحالية:
+                                    </p>
                                     <span
                                         class="rounded-full px-4 py-1 text-sm font-bold text-white"
-                                        :style="{ background: bedBg[surgery.status] ?? '#999' }"
+                                        :style="{
+                                            background:
+                                                bedBg[surgery.status] ?? '#999',
+                                        }"
                                     >
                                         {{ statusAr[surgery.status] }}
                                     </span>
@@ -401,8 +700,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     <button
                                         v-for="s in nextStatuses"
                                         :key="s.value"
-                                        class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                                        class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                         :style="{ background: s.color }"
+                                        :disabled="!canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                         @click="emit('updateStatus', s.value)"
                                     >
                                         {{ s.label }}
@@ -410,14 +711,98 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                 </div>
 
                                 <!-- Pre-op notes display -->
-                                <div v-if="surgery.pre_op_notes" class="mt-5 rounded-lg bg-hospital-bg p-3 text-sm">
-                                    <p class="mb-1 font-semibold text-hospital-text-2">ملاحظات ما قبل العملية:</p>
-                                    <p class="whitespace-pre-wrap text-hospital-text">{{ surgery.pre_op_notes }}</p>
+                                <div
+                                    v-if="surgery.pre_op_notes"
+                                    class="mt-5 rounded-lg bg-hospital-bg p-3 text-sm"
+                                >
+                                    <p
+                                        class="mb-1 font-semibold text-hospital-text-2"
+                                    >
+                                        ملاحظات ما قبل العملية:
+                                    </p>
+                                    <p
+                                        class="whitespace-pre-wrap text-hospital-text"
+                                    >
+                                        {{ surgery.pre_op_notes }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    <!-- ===== DELEGATION TAB ===== -->
+                    <div v-if="activeOverlayTab === 'delegation'">
+                        <div class="overlay-card mb-4">
+                            <div class="overlay-card-hd">تفويض دكتور آخر</div>
+                            <div class="p-4">
+                                <DoctorDelegationRoleFields
+                                    :model-value="delegateLines"
+                                    role="delegate"
+                                    :doctors="doctors"
+                                    :anesthesiologists="anesthesiologists"
+                                    :services="delegationServices"
+                                    @update:model-value="(lines) => updateOverlayDelegationRole('delegate', lines)"
+                                />
+                                <ul
+                                    v-if="settledDelegations.filter((d) => d.role === 'delegate').length"
+                                    class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                                >
+                                    <li v-for="d in settledDelegations.filter((x) => x.role === 'delegate')" :key="d.id">
+                                        ✓ {{ d.doctor?.name }} — {{ d.service_name }} —
+                                        {{ Number(d.amount).toLocaleString('ar-EG') }} ج (تم الدفع)
+                                    </li>
+                                </ul>
+                                <div class="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green"
+                                        :disabled="savingDelegations || !canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                        @click="submitOverlayDelegations"
+                                    >
+                                        حفظ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== ANESTHESIA TAB ===== -->
+                    <div v-if="activeOverlayTab === 'anesthesia'">
+                        <div class="overlay-card mb-4">
+                            <div class="overlay-card-hd">دكتور التخدير</div>
+                            <div class="p-4">
+                                <DoctorDelegationRoleFields
+                                    :model-value="anesthesiaLines"
+                                    role="anesthesia"
+                                    :doctors="doctors"
+                                    :anesthesiologists="anesthesiologists"
+                                    :services="delegationServices"
+                                    @update:model-value="(lines) => updateOverlayDelegationRole('anesthesia', lines)"
+                                />
+                                <ul
+                                    v-if="settledDelegations.filter((d) => d.role === 'anesthesia').length"
+                                    class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                                >
+                                    <li v-for="d in settledDelegations.filter((x) => x.role === 'anesthesia')" :key="d.id">
+                                        ✓ {{ d.doctor?.name }} — {{ d.service_name }} —
+                                        {{ Number(d.amount).toLocaleString('ar-EG') }} ج (تم الدفع)
+                                    </li>
+                                </ul>
+                                <div class="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green"
+                                        :disabled="savingDelegations || !canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                        @click="submitOverlayDelegations"
+                                    >
+                                        حفظ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -472,7 +857,9 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     flex-shrink: 0;
     transition: background 0.15s;
 }
-.case-close-btn:hover { background: rgba(255, 255, 255, 0.35); }
+.case-close-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
 
 /* ── Patient summary bar ── */
 .case-patient-bar {
@@ -485,7 +872,10 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     color: var(--color-hospital-text, #0d1f3c);
     border-bottom: 1px solid var(--color-hospital-border, #dde4ef);
 }
-.case-patient-bar strong { font-weight: 700; color: var(--color-hospital-text-2, #4a5878); }
+.case-patient-bar strong {
+    font-weight: 700;
+    color: var(--color-hospital-text-2, #4a5878);
+}
 
 /* ── Tab bar ── */
 .case-tab-bar {
@@ -506,11 +896,22 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     transition: all 0.15s;
     font-family: inherit;
 }
-.case-tab:hover { color: var(--color-hospital-primary, #0a4fa6); background: #f8fafc; }
-.case-tab-active { color: #27ae60; border-bottom-color: #27ae60; background: #f0faf5; }
+.case-tab:hover {
+    color: var(--color-hospital-primary, #0a4fa6);
+    background: #f8fafc;
+}
+.case-tab-active {
+    color: #27ae60;
+    border-bottom-color: #27ae60;
+    background: #f0faf5;
+}
 
 /* ── Tab body ── */
-.case-overlay-body { padding: 14px; overflow-y: auto; flex: 1; }
+.case-overlay-body {
+    padding: 14px;
+    overflow-y: auto;
+    flex: 1;
+}
 
 /* ── Cards ── */
 .overlay-card {
@@ -548,8 +949,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     background: #fff;
     direction: rtl;
 }
-.overlay-input:focus { outline: none; border-color: #1a8c5b; box-shadow: 0 0 0 3px rgba(26, 140, 91, 0.12); }
-.overlay-label { display: block; font-size: 12px; font-weight: 600; color: var(--color-hospital-text-2, #4a5878); margin-bottom: 5px; }
+.overlay-input:focus {
+    outline: none;
+    border-color: #1a8c5b;
+    box-shadow: 0 0 0 3px rgba(26, 140, 91, 0.12);
+}
+.overlay-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-hospital-text-2, #4a5878);
+    margin-bottom: 5px;
+}
 .overlay-total-preview {
     margin-top: 10px;
     background: #f0faf5;
@@ -571,7 +982,13 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     font-weight: 600;
     transition: background 0.15s;
 }
-.overlay-btn-green:hover { background: #0f6040; }
+.overlay-btn-green:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+.overlay-btn-green:hover {
+    background: #0f6040;
+}
 .overlay-btn-grey {
     padding: 8px 20px;
     background: #95a5a6;
@@ -583,10 +1000,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     font-family: inherit;
     transition: background 0.15s;
 }
-.overlay-btn-grey:hover { background: #7f8c8d; }
+.overlay-btn-grey:hover {
+    background: #7f8c8d;
+}
 
 /* ── Supplies table ── */
-.supply-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.supply-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
 .supply-table th {
     background: #f0faf5;
     padding: 8px 12px;
@@ -595,7 +1018,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     color: #1a8c5b;
     border-bottom: 1px solid #1a8c5b30;
 }
-.supply-table td { padding: 8px 12px; border-bottom: 1px solid var(--color-hospital-border, #dde4ef); }
-.supply-table tbody tr:hover { background: #f9fafb; }
-.supply-table tfoot td { background: #f0faf5; padding: 8px 12px; border-top: 2px solid #1a8c5b30; }
+.supply-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-hospital-border, #dde4ef);
+}
+.supply-table tbody tr:hover {
+    background: #f9fafb;
+}
+.supply-table tfoot td {
+    background: #f0faf5;
+    padding: 8px 12px;
+    border-top: 2px solid #1a8c5b30;
+}
 </style>

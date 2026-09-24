@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { PlusCircle, Pencil } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Account {
     id: string;
@@ -18,6 +19,10 @@ interface Account {
 const props = defineProps<{
     accounts: Account[];
 }>();
+
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('accounting.write'));
 
 const groupLabels: Record<string, string> = {
     assets:      'أصول',
@@ -50,8 +55,17 @@ const byGroup = computed(() => {
 // Parent accounts for selector
 const parentOptions = computed(() => props.accounts.filter(a => a.is_active));
 
+const groupTotal = computed(() => {
+    const totals: Record<string, number> = {};
+    groups.forEach(g => {
+        totals[g] = byGroup.value[g].reduce((sum, a) => sum + Number(a.balance), 0);
+    });
+
+    return totals;
+});
+
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 // Add form
@@ -64,6 +78,10 @@ const addForm = useForm({
     parent_id: '',
 });
 function submitAdd() {
+    if (!canWrite.value) {
+        return;
+    }
+
     addForm.post('/accounts', {
         onSuccess: () => {
  showAdd.value = false; addForm.reset(); 
@@ -82,6 +100,10 @@ const editForm   = useForm({
     is_active: true,
 });
 function openEdit(account: Account) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editTarget.value  = account;
     editForm.name      = account.name;
     editForm.group     = account.group;
@@ -91,6 +113,10 @@ function openEdit(account: Account) {
     showEdit.value = true;
 }
 function submitEdit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!editTarget.value) {
  return; 
 }
@@ -113,8 +139,10 @@ function submitEdit() {
             <p class="text-[10px] text-hospital-text-3">إدارة وتنظيم الهيكل المالي للمستشفى</p>
         </div>
         <button
-            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7.5px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm"
-            @click="showAdd = true"
+            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7.5px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+            @click="canWrite && (showAdd = true)"
+            :disabled="!canWrite"
+            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
         >
             <PlusCircle class="h-3.5 w-3.5" />
             <span>إضافة حساب</span>
@@ -130,9 +158,14 @@ function submitEdit() {
         >
             <div class="card-hd flex items-center justify-between border-b border-hospital-border bg-hospital-surface-2 px-4 py-3">
                 <h3 class="font-bold text-[13px] text-hospital-text">{{ groupLabels[group] }}</h3>
-                <span class="text-[10px] font-bold text-hospital-primary bg-hospital-primary-pale px-2 py-0.5 rounded-full uppercase">
-                    {{ byGroup[group].length }} حساب
-                </span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-mono font-bold" :class="groupTotal[group] >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
+                        {{ fmt(groupTotal[group]) }} ج.م
+                    </span>
+                    <span class="text-[10px] font-bold text-hospital-primary bg-hospital-primary-pale px-2 py-0.5 rounded-full uppercase">
+                        {{ byGroup[group].length }} حساب
+                    </span>
+                </div>
             </div>
 
             <div v-if="byGroup[group].length === 0" class="p-8 text-center text-[12px] text-hospital-text-3 italic">
@@ -192,8 +225,10 @@ function submitEdit() {
                             </td>
                             <td class="px-4 py-3 text-left">
                                 <button
-                                    class="rounded-[5px] border border-hospital-border p-1.5 text-hospital-text-3 hover:bg-hospital-primary-pale hover:text-hospital-primary hover:border-hospital-primary transition-all"
+                                    class="rounded-[5px] border border-hospital-border p-1.5 text-hospital-text-3 hover:bg-hospital-primary-pale hover:text-hospital-primary hover:border-hospital-primary transition-all disabled:cursor-not-allowed disabled:opacity-50"
                                     @click="openEdit(account)"
+                                    :disabled="!canWrite"
+                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                                 >
                                     <Pencil class="h-3.5 w-3.5" />
                                 </button>
@@ -242,7 +277,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">إضافة</button>
+                <button type="submit" :disabled="addForm.processing || !canWrite" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed" :title="canWrite ? undefined : NO_PERMISSION_TITLE">إضافة</button>
             </div>
         </form>
     </Modal>
@@ -282,7 +317,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showEdit = false">إلغاء</button>
-                <button type="submit" :disabled="editForm.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">حفظ</button>
+                <button type="submit" :disabled="editForm.processing || !canWrite" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed" :title="canWrite ? undefined : NO_PERMISSION_TITLE">حفظ</button>
             </div>
         </form>
     </Modal>

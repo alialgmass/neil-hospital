@@ -5,6 +5,7 @@ import {
     Edit3,
     Trash2,
     Printer,
+    Barcode,
     Search,
     X,
     CreditCard,
@@ -16,8 +17,9 @@ import DataTable from '@/components/shared/DataTable.vue';
 import DateFilter from '@/components/shared/DateFilter.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
-import SearchBar from '@/components/shared/SearchBar.vue';
 import StatCard from '@/components/shared/StatCard.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import { formatDate } from '@/lib/date';
 import BookingForm from './Partials/BookingForm.vue';
 
 interface Booking {
@@ -41,7 +43,7 @@ interface Booking {
     paid_amount: number;
     pay_method?: string;
     pay_status: 'unpaid' | 'partial' | 'paid';
-    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'completed_electronic' | 'cancelled';
     visit_note?: string;
     eye_side?: string;
     analysis_type?: string;
@@ -80,12 +82,13 @@ interface Props {
 const props = defineProps<Props>();
 
 // ── Permissions ──
-const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean>; bookingStatusVisibility?: Record<string, boolean> }>();
+const { can } = usePermissions();
 const canPay = computed(() => can('booking.pay'));
+const canCreate = computed(() => can('booking.create'));
+const canEdit = computed(() => can('booking.edit'));
+const canDelete = computed(() => can('booking.delete'));
+const canEditCompleted = computed(() => can('booking.edit_completed'));
 
 // ── State ──
 const showCreateModal = ref(false);
@@ -116,6 +119,10 @@ return 0;
 });
 
 function openPay(booking: Booking) {
+    if (!canPay.value) {
+        return;
+    }
+
     payTarget.value = booking;
     payForm.price = String(booking.price ?? '0');
     payForm.paid_amount = String(payRemaining.value || '');
@@ -126,11 +133,13 @@ function submitPay() {
 return;
 }
 
-payForm.patch(`/booking/${payTarget.value.id}/pay`, {
+    // The real outcome (success or rejection — e.g. an already-paid
+    // booking rejecting a 0 write-off) is shown from the backend's flash
+    // message by AppLayout globally; never assume success here.
+    payForm.patch(`/booking/${payTarget.value.id}/pay`, {
         onSuccess: () => {
             payTarget.value = null;
             payForm.reset();
-            toast.success('تم تسجيل الدفع بنجاح');
         },
     });
 }
@@ -157,6 +166,7 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
 
 const moduleStatus = computed(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
@@ -201,6 +211,11 @@ const allStatCards = [
         label: 'الليزر',
         color: 'danger' as const,
     },
+    {
+        key: 'pentacam',
+        label: 'البنتكام',
+        color: 'accent' as const,
+    },
 ];
 
 const statCards = computed(() =>
@@ -244,10 +259,18 @@ function goToPage(page: number) {
 }
 
 function confirmDelete(booking: Booking) {
+    if (!canDelete.value) {
+        return;
+    }
+
     deleteTarget.value = booking;
 }
 
 function updateBookingStatus(id: string, status: string) {
+    if (!canEdit.value) {
+        return;
+    }
+
     router.patch(`/booking/${id}/status`, { status }, {
         preserveScroll: true,
         onSuccess: () => toast.success('تم تحديث الحالة'),
@@ -255,7 +278,7 @@ function updateBookingStatus(id: string, status: string) {
 }
 
 // Mirrors BookingStatus::config() transition rules
-const bookingNextStates: Record<string, { value: string; label: string }[]> = {
+const bookingNextStatesAll: Record<string, { value: string; label: string }[]> = {
     waiting:     [{ value: 'confirmed', label: 'مؤكد' }, { value: 'cancelled', label: 'ملغي' }],
     confirmed:   [{ value: 'in_progress', label: 'جارٍ' }, { value: 'cancelled', label: 'ملغي' }],
     in_progress: [{ value: 'completed', label: 'مكتمل' }, { value: 'cancelled', label: 'ملغي' }],
@@ -268,8 +291,30 @@ const bookingStatusLabel: Record<string, string> = {
     confirmed: 'مؤكد',
     in_progress: 'جارٍ',
     completed: 'مكتمل',
+    completed_electronic: 'مكتمل - إلكتروني',
     cancelled: 'ملغي',
 };
+
+const bookingStatusVisibility = computed(
+    () => (page.props.bookingStatusVisibility as Record<string, boolean>) ?? {},
+);
+const isStatusVisible = (status: string): boolean => bookingStatusVisibility.value[status] !== false;
+
+const visibleStatusOptions = computed(() =>
+    Object.entries(bookingStatusLabel)
+        .filter(([key]) => isStatusVisible(key))
+        .map(([value, label]) => ({ value, label })),
+);
+
+const bookingNextStates = computed<Record<string, { value: string; label: string }[]>>(() => {
+    const map: Record<string, { value: string; label: string }[]> = {};
+
+    for (const [current, nexts] of Object.entries(bookingNextStatesAll)) {
+        map[current] = nexts.filter((n) => isStatusVisible(n.value));
+    }
+
+    return map;
+});
 
 function doDelete() {
     if (!deleteTarget.value) {
@@ -288,7 +333,27 @@ function printReceipt(id: string) {
     window.open(`/booking/${id}/receipt`, '_blank');
 }
 
+function printBarcode(id: string) {
+    window.open(`/booking/${id}/barcode`, '_blank');
+}
+
+function exportExcel() {
+    const params = new URLSearchParams({
+        date_from: dateFrom.value,
+        date_to: dateTo.value,
+        dept: selectedDept.value,
+        status: selectedStatus.value,
+        search: search.value,
+    }).toString();
+
+    window.location.href = `/booking/export${params ? '?' + params : ''}`;
+}
+
 function openEditBooking(row: Booking) {
+    if (!canEdit.value || (row.status === 'completed' && !canEditCompleted.value)) {
+        return;
+    }
+
     const bedId = row.surgery?.or_bed_id;
     editBooking.value = {
         ...row,
@@ -370,11 +435,13 @@ const isDeleteModalOpen = computed({
                     @change="applySearch"
                 >
                     <option value="">كل الحالات</option>
-                    <option value="waiting">انتظار</option>
-                    <option value="confirmed">مؤكد</option>
-                    <option value="in_progress">جارٍ</option>
-                    <option value="completed">مكتمل</option>
-                    <option value="cancelled">ملغي</option>
+                    <option
+                        v-for="opt in visibleStatusOptions"
+                        :key="opt.value"
+                        :value="opt.value"
+                    >
+                        {{ opt.label }}
+                    </option>
                 </select>
             </div>
 
@@ -400,8 +467,10 @@ const isDeleteModalOpen = computed({
 
         <button
             type="button"
-            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm"
-            @click="showCreateModal = true"
+            class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            :disabled="!canCreate"
+            :title="canCreate ? undefined : NO_PERMISSION_TITLE"
+            @click="canCreate && (showCreateModal = true)"
         >
             <CalendarPlus class="h-3.5 w-3.5" />
             <span>حجز جديد</span>
@@ -416,7 +485,7 @@ const isDeleteModalOpen = computed({
                 <p class="card-title text-[13px] font-bold text-hospital-text">{{ currentDeptLabel }}</p>
                 <p class="card-sub text-[10px] text-hospital-text-3">إجمالي الحجوزات: {{ bookings.total }}</p>
             </div>
-            <ExportBar @print="() => window.print()" />
+            <ExportBar @export="exportExcel" @print="() => window.print()" />
         </div>
 
         <!-- Table -->
@@ -428,6 +497,9 @@ const isDeleteModalOpen = computed({
             :total="bookings.total"
             @page="goToPage"
         >
+            <template #cell-visit_date="{ value }">
+                {{ formatDate(value as string, { month: '2-digit', day: '2-digit', year: 'numeric' }) }}
+            </template>
             <template #cell-dept="{ value }">
                 {{ deptLabels[value as string] ?? value }}
             </template>
@@ -435,7 +507,7 @@ const isDeleteModalOpen = computed({
                 {{ (row as Booking).doctor?.name ?? '—' }}
             </template>
             <template #cell-price="{ value }">
-                {{ Number(value).toLocaleString('ar-EG') }} ج.م
+                {{ Number(value).toLocaleString('en-US') }} ج.م
             </template>
             <template #cell-pay_status="{ value }">
                 <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
@@ -449,9 +521,11 @@ const isDeleteModalOpen = computed({
                         'text-hospital-primary': (row as Booking).status === 'confirmed',
                         'text-hospital-warning': (row as Booking).status === 'in_progress',
                         'text-hospital-success': (row as Booking).status === 'completed',
+                        'text-hospital-accent': (row as Booking).status === 'completed_electronic',
                         'text-hospital-danger': (row as Booking).status === 'cancelled',
                     }"
-                    :disabled="!bookingNextStates[(row as Booking).status]?.length"
+                    :disabled="!canEdit || !bookingNextStates[(row as Booking).status]?.length"
+                    :title="canEdit ? undefined : NO_PERMISSION_TITLE"
                     @change="updateBookingStatus((row as Booking).id, ($event.target as HTMLSelectElement).value)"
                 >
                     <option :value="(row as Booking).status" disabled>
@@ -470,10 +544,11 @@ const isDeleteModalOpen = computed({
                 <div class="flex items-center justify-end gap-2">
                     <!-- Pay button — only for users with booking.pay and not fully paid -->
                     <button
-                        v-if="canPay && (row as Booking).pay_status !== 'paid'"
+                        v-if="(row as Booking).pay_status !== 'paid'"
                         type="button"
-                        title="تسجيل دفعة"
-                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-success-pale hover:text-hospital-success"
+                        :title="canPay ? 'تسجيل دفعة' : NO_PERMISSION_TITLE"
+                        :disabled="!canPay"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-success-pale hover:text-hospital-success disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         @click="openPay(row as Booking)"
                     >
                         <CreditCard class="h-4 w-4" />
@@ -488,18 +563,26 @@ const isDeleteModalOpen = computed({
                     </button>
                     <button
                         type="button"
-                        title="تعديل"
+                        title="طباعة باركود"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-accent-pale hover:text-hospital-accent"
+                        @click="printBarcode((row as Booking).id)"
+                    >
+                        <Barcode class="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        :title="canEdit && ((row as Booking).status !== 'completed' || canEditCompleted) ? 'تعديل' : NO_PERMISSION_TITLE"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-warning-pale hover:text-hospital-warning disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
+                        :disabled="!canEdit || ((row as Booking).status === 'completed' && !canEditCompleted)"
                         @click="openEditBooking(row as Booking)"
                     >
                         <Edit3 class="h-4 w-4" />
                     </button>
                     <button
                         type="button"
-                        title="حذف"
+                        :title="canDelete ? 'حذف' : NO_PERMISSION_TITLE"
+                        :disabled="!canDelete"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-                        :disabled="(row as Booking).status === 'completed'"
                         @click="confirmDelete(row as Booking)"
                     >
                         <Trash2 class="h-4 w-4" />
@@ -588,7 +671,7 @@ const isDeleteModalOpen = computed({
                 <p class="text-xs text-hospital-text-3">{{ payTarget.file_no }} — {{ payTarget.dept }}</p>
                 <div class="mt-2 flex items-center justify-between text-xs">
                     <span class="text-hospital-text-3">المبلغ المتبقي</span>
-                    <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('ar-EG') }} ج</span>
+                    <span class="font-bold text-hospital-danger">{{ payRemaining.toLocaleString('en-US') }} ج</span>
                 </div>
             </div>
 
@@ -600,12 +683,15 @@ const isDeleteModalOpen = computed({
                     v-model="payForm.paid_amount"
                     type="number"
                     step="0.01"
-                    min="0.01"
+                    min="0"
                     :max="payRemaining"
                     class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
                     :class="{ 'border-hospital-danger': payForm.errors.paid_amount }"
                 />
                 <p v-if="payForm.errors.paid_amount" class="mt-1 text-xs text-hospital-danger">{{ payForm.errors.paid_amount }}</p>
+                <p v-if="Number(payForm.paid_amount) === 0" class="mt-1 text-xs text-hospital-warning">
+                    سيتم تسجيل الحجز كغير محصَّل، وتحويل المبلغ المستحق كدين على الطبيب.
+                </p>
             </div>
 
             <!-- Pay method -->
@@ -632,7 +718,7 @@ const isDeleteModalOpen = computed({
             </button>
             <button
                 type="button"
-                :disabled="payForm.processing || !payForm.paid_amount"
+                :disabled="payForm.processing || payForm.paid_amount==null"
                 class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
                 @click="submitPay"
             >

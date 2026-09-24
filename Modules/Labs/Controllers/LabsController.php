@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Labs\Actions\StoreLabResultAction;
 use Modules\Labs\Http\Requests\StoreLabResultRequest;
+use Modules\Labs\Models\DiagnosticResult;
 use Modules\Labs\Services\LabsService;
 
 class LabsController extends Controller
@@ -34,5 +35,15 @@ class LabsController extends Controller
         $this->storeResultAction->execute($bookingId, $request->validated(), $request->user()->id);
 
         return back()->with('success', 'تم تسجيل نتيجة الفحص بنجاح.');
+    }
+
+    public function referralLetter(string $resultId): Response
+    {
+        $result = DiagnosticResult::with(['booking:id,file_no,patient_name', 'technician:id,name'])
+            ->findOrFail($resultId);
+
+        return Inertia::render('labs/ReferralLetter', [
+            'result' => $result,
+        ]);
     }
 }

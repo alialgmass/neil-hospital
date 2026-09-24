@@ -38,7 +38,7 @@ defineProps<Props>();
             </div>
             <div class="pay-row">
                 <span class="pay-lbl">إجمالي المستحق</span>
-                <span class="pay-val pay-val-total">{{ netAmount.toLocaleString('ar-EG') }} ج</span>
+                <span class="pay-val pay-val-total">{{ netAmount.toLocaleString('en-US') }} ج</span>
             </div>
         </div>
     </div>

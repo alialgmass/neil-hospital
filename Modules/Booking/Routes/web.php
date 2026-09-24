@@ -10,6 +10,14 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
         ->middleware('can:booking.view')
         ->name('index');
 
+    Route::get('/export', [BookingController::class, 'export'])
+        ->middleware('can:booking.view')
+        ->name('export');
+
+    Route::get('/patients/search', [BookingController::class, 'searchPatients'])
+        ->middleware('can:booking.view')
+        ->name('patients.search');
+
     Route::post('/', [BookingController::class, 'store'])
         ->middleware('can:booking.create')
         ->name('store');
@@ -33,6 +41,10 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
     Route::get('/{id}/receipt', [BookingController::class, 'receipt'])
         ->middleware('can:booking.view')
         ->name('receipt');
+
+    Route::get('/{id}/barcode', [BookingController::class, 'barcode'])
+        ->middleware('can:booking.view')
+        ->name('barcode');
 
     Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
         ->middleware('can:booking.view')

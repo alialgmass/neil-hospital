@@ -10,11 +10,12 @@ use Spatie\Permission\PermissionRegistrar;
 class RolesPermissionsSeeder extends Seeder
 {
     /** All system permissions (from spec §6). */
-    private const PERMISSIONS = [
+    public const PERMISSIONS = [
         'dashboard',
         'booking.view',
         'booking.create',
         'booking.edit',
+        'booking.edit_completed',
         'booking.delete',
         'booking.pay',
         'clinic.view',
@@ -29,26 +30,34 @@ class RolesPermissionsSeeder extends Seeder
         'laser.write',
         'treasury.view',
         'treasury.write',
+        'treasury.edit',
+        'treasury.delete',
         'journal.view',
         'journal.write',
+        'journal.delete',
         'accounting.write',
         'reports.financial',
         'reports.clinical',
         'doctors.view',
         'doctors.write',
+        'doctors.delete',
         'drpayments.view',
         'drpayments.write',
         'services.view',
         'services.write',
         'inventory.view',
         'inventory.write',
+        'purchases.edit',
+        'purchases.delete',
         'insurance.view',
         'insurance.write',
+        'insurance.price_lists.edit',
         'hr.view',
         'hr.manage',
         'users.manage',
         'settings.manage',
         'hide_amounts',
+        'transfer_medical_record',
     ];
 
     /** Role → permission map (admin gets everything in run()). */
@@ -79,6 +88,7 @@ class RolesPermissionsSeeder extends Seeder
             'surgery.view',
             'lasik.view',
             'laser.view',
+            'transfer_medical_record',
         ],
         'accountant' => [
             'dashboard',

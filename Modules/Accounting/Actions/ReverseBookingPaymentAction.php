@@ -18,8 +18,13 @@ class ReverseBookingPaymentAction
     ) {}
 
     /**
-     * Reverse all accounting entries previously posted for a booking.
-     * Called when a booking is cancelled. No-ops gracefully if nothing was posted.
+     * Reverse all accounting entries previously posted for a booking:
+     * revenue entries AND any accrued doctor dues tied to it. Called when a
+     * booking is cancelled. No-ops gracefully if nothing was posted, and
+     * skips entries already reversed (idempotent — safe to call twice).
+     *
+     * Always reverses using the ORIGINAL entry's amount/accounts — never
+     * recalculates today's values.
      */
     public function execute(Booking $booking): void
     {
@@ -27,37 +32,45 @@ class ReverseBookingPaymentAction
         $reversalRef = 'REV-'.$booking->file_no;
         $note = "عكس قيد — إلغاء حجز: {$booking->file_no} — {$booking->patient_name}";
 
-        // 1. Reverse journal entries posted for this booking
+        // 1. Reverse revenue + doctor-dues journal entries posted for this booking
         $entries = JournalEntry::whereIn('source', [
             JournalSource::BOOKING->value,
             JournalSource::AUTO_BOOKING->value,
+            JournalSource::DOCTOR_SHIFT->value,
         ])
             ->where('reference', $booking->file_no)
+            ->whereNull('reversed_at')
             ->get();
 
         foreach ($entries as $entry) {
-            $this->journalService->record([
-                'date' => $today,
-                'description' => $note,
-                'debit_account_id' => $entry->credit_account_id, // swapped
-                'credit_account_id' => $entry->debit_account_id,  // swapped
-                'amount' => (float) $entry->amount,
-                'source' => JournalSource::REVERSAL,
-                'reference' => $reversalRef,
-                'cost_center' => $entry->cost_center,
-            ]);
+            $this->journalService->reverse(
+                entry: $entry,
+                reversalSource: JournalSource::REVERSAL,
+                reference: $reversalRef,
+                description: $note,
+                date: $today,
+            );
         }
 
-        // 2. Reverse treasury inflows linked to this booking (refund)
+        // 2. Reverse treasury inflows linked to this booking (refund) — only
+        // for entries not already reversed (idempotent double-cancel guard).
+        $alreadyRefunded = (float) TreasuryEntry::where('booking_id', $booking->id)
+            ->where('type', TreasuryType::Out->value)
+            ->where('source', JournalSource::REVERSAL->value)
+            ->sum('amount');
+
         $treasuryEntries = TreasuryEntry::where('booking_id', $booking->id)
             ->where('type', TreasuryType::In->value)
             ->get();
 
-        foreach ($treasuryEntries as $treasury) {
+        $totalIn = (float) $treasuryEntries->sum('amount');
+        $toRefund = round($totalIn - $alreadyRefunded, 2);
+
+        if ($toRefund > 0) {
             $this->treasuryService->record([
                 'type' => TreasuryType::Out,
                 'description' => "رد مبلغ — إلغاء حجز: {$booking->file_no} — {$booking->patient_name}",
-                'amount' => (float) $treasury->amount,
+                'amount' => $toRefund,
                 'date' => $today,
                 'source' => JournalSource::REVERSAL,
                 'booking_id' => $booking->id,

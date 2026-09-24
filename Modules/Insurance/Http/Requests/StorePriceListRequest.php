@@ -24,7 +24,7 @@ class StorePriceListRequest extends FormRequest
             'discount_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'notes' => ['nullable', 'string'],
             'items' => ['nullable', 'array'],
-            'items.*.service_id' => ['required', 'string', 'exists:services,id'],
+            'items.*.service_id' => ['required', 'string', 'distinct', 'exists:services,id'],
             'items.*.price' => ['required', 'numeric', 'min:0'],
         ];
     }

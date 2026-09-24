@@ -1,9 +1,12 @@
 <script setup lang="ts">
 interface Props {
     modelValue: string;
+    error?: string;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    error: '',
+});
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void;
@@ -22,7 +25,7 @@ function selectSide(value: string) {
 
 <template>
     <div>
-        <label class="bk-label">جهة العين</label>
+        <label class="bk-label">جهة العين <span class="text-hospital-danger">*</span></label>
         <div class="eye-side-row">
             <button
                 v-for="side in eyeSides"
@@ -34,6 +37,9 @@ function selectSide(value: string) {
                 {{ side.l }}
             </button>
         </div>
+        <p v-if="error" class="mt-1 text-xs text-hospital-danger">
+            {{ error }}
+        </p>
     </div>
 </template>
 

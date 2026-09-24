@@ -3,14 +3,19 @@
 namespace Modules\Accounting\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Models\PurchaseInvoice;
 
 class AutoPostPurchaseInvoiceAction
 {
-    public function __construct(private readonly JournalService $journalService) {}
+    public function __construct(
+        private readonly JournalService $journalService,
+        private readonly AccountResolver $accountResolver,
+    ) {}
 
     /**
      * Post when a purchase invoice is received.
@@ -26,16 +31,11 @@ class AutoPostPurchaseInvoiceAction
             return;
         }
 
-        $inventoryId = DB::table('accounts')->where('code', '1050')->value('id');
+        $inventoryId = $this->accountResolver->id(AccountCode::INVENTORY);
 
-        // Fully paid → debit cash; any credit remaining → debit suppliers
+        // Fully paid → credit cash; any credit remaining → credit suppliers
         $isCash = (float) $invoice->paid_amount >= $total;
-        $creditCode = $isCash ? '1010' : '2020';
-        $creditId = DB::table('accounts')->where('code', $creditCode)->value('id');
-
-        if (! $inventoryId || ! $creditId) {
-            return;
-        }
+        $creditId = $this->accountResolver->id($isCash ? AccountCode::CASH : AccountCode::SUPPLIER_PAYABLE);
 
         $supplierName = DB::table('suppliers')->where('id', $invoice->supplier_id)->value('name') ?? 'مورد';
 
@@ -47,6 +47,7 @@ class AutoPostPurchaseInvoiceAction
             'amount' => $total,
             'source' => JournalSource::PURCHASE,
             'reference' => $invoice->invoice_no,
+            'idempotency_key' => "purchase_invoice:{$invoice->id}",
             'cost_center' => CostCenter::Inventory,
         ]);
     }

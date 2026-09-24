@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -36,6 +37,10 @@ const props = defineProps<{
     invoices: Invoice[]
 }>()
 
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('inventory.write'))
+
 const showModal = ref(false)
 const selectedInvoice = ref<Invoice | null>(null)
 
@@ -61,6 +66,10 @@ function removeRow(index: number) {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return
+    }
+
     form.post('/purchase-returns', {
         onSuccess: () => {
             showModal.value = false
@@ -91,7 +100,7 @@ const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Numb
                 <div class="h-10 w-10 rounded-lg bg-orange-600 text-white flex items-center justify-center text-lg font-bold">ج</div>
                 <div>
                     <p class="text-xs font-medium text-orange-600">قيمة المردودات</p>
-                    <p class="text-2xl font-bold text-orange-700">{{ totalValue.toLocaleString('ar-EG') }}</p>
+                    <p class="text-2xl font-bold text-orange-700">{{ totalValue.toLocaleString('en-US') }}</p>
                     <p class="text-xs text-orange-500">جنيه</p>
                 </div>
             </div>
@@ -99,7 +108,7 @@ const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Numb
 
         <div class="mb-6 flex items-center justify-between">
             <h1 class="text-xl font-bold text-gray-800">سجل مردودات المشتريات</h1>
-            <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="showModal = true">+ تسجيل مرتجع</button>
+            <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showModal = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">+ تسجيل مرتجع</button>
         </div>
 
         <!-- Returns Table -->
@@ -164,7 +173,7 @@ const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Numb
 
                 <div class="flex justify-end gap-3">
                     <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
-                    <button type="submit" class="btn-danger" :disabled="form.processing || form.items.length === 0">
+                    <button type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-50" :disabled="form.processing || form.items.length === 0 || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                         {{ form.processing ? 'جارٍ الحفظ...' : 'تسجيل المرتجع' }}
                     </button>
                 </div>

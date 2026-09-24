@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { BookOpen, Printer, TrendingUp } from 'lucide-vue-next';
+import { BookOpen, Printer, Trash2, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Account {
     id: string;
@@ -21,6 +23,8 @@ interface JournalEntry {
     source: string;
     cost_center?: string;
     creator?: { name: string };
+    reversed_at?: string | null;
+    reversal_of_id?: string | null;
 }
 
 const props = defineProps<{
@@ -81,6 +85,15 @@ const sourceBadge: Record<string, { label: string; classes: string }> = {
     reversal:          { label: 'عكس قيد',             classes: 'bg-sf2 text-t2' },
 };
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('journal.write'));
+const canDelete = computed(() => can('journal.delete'));
+
+function isDeletable(entry: JournalEntry): boolean {
+    return entry.source === 'manual' && !entry.reversed_at && !entry.reversal_of_id;
+}
+
 const columns = [
     { key: 'date',           label: 'التاريخ',  sortable: true },
     { key: 'reference',      label: 'رقم القيد' },
@@ -128,6 +141,10 @@ const form = useForm({
 });
 
 function submit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     form.post('/journal', {
         onSuccess: () => {
             form.reset();
@@ -145,10 +162,31 @@ function printPage() {
     window.print();
 }
 
+const confirmingDeleteId = ref<string | null>(null);
+
+function confirmDelete(entry: JournalEntry) {
+    if (!canDelete.value) {
+        return;
+    }
+
+    confirmingDeleteId.value = entry.id;
+}
+
+function doDelete() {
+    if (!confirmingDeleteId.value) {
+        return;
+    }
+    router.delete(`/journal/${confirmingDeleteId.value}`, {
+        onFinish: () => {
+            confirmingDeleteId.value = null;
+        },
+    });
+}
+
 const pageTotal = computed(() => props.entries.data.reduce((s, e) => s + Number(e.amount), 0));
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 </script>
 
@@ -264,7 +302,12 @@ function fmt(n: number) {
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" class="btn-secondary" @click="clearForm">مسح</button>
-                    <button type="submit" :disabled="form.processing" class="btn-primary">
+                    <button
+                        type="submit"
+                        :disabled="form.processing || !canWrite"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                        class="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                         {{ form.processing ? 'جارٍ الحفظ...' : 'حفظ القيد' }}
                     </button>
                 </div>
@@ -347,6 +390,9 @@ function fmt(n: number) {
                 >
                     {{ sourceBadge[(row as JournalEntry).source]?.label ?? (row as JournalEntry).source }}
                 </span>
+                <span v-if="(row as JournalEntry).reversed_at" class="ms-1 rounded-full bg-sf2 px-1.5 py-0.5 text-[10px] font-bold text-t3">
+                    معكوس ↩
+                </span>
             </template>
             <template #cell-debit_account="{ row }">
                 <div class="flex items-center gap-1.5">
@@ -376,6 +422,18 @@ function fmt(n: number) {
             <template #cell-creator="{ row }">
                 <span class="text-t2">{{ (row as JournalEntry).creator?.name ?? '—' }}</span>
             </template>
+            <template #actions="{ row }">
+                <button
+                    type="button"
+                    class="rounded p-1.5 text-t3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+                    :class="canDelete && isDeletable(row as JournalEntry) ? 'hover:bg-dp hover:text-d' : ''"
+                    :disabled="!canDelete || !isDeletable(row as JournalEntry)"
+                    :title="!canDelete ? NO_PERMISSION_TITLE : isDeletable(row as JournalEntry) ? 'حذف' : 'يُحذف من شاشته الأصلية أو معكوس بالفعل'"
+                    @click="confirmDelete(row as JournalEntry)"
+                >
+                    <Trash2 class="h-4 w-4" />
+                </button>
+            </template>
         </DataTable>
 
         <!-- Totals Bar -->
@@ -384,4 +442,17 @@ function fmt(n: number) {
             <span class="font-normal opacity-80">هذه الصفحة: {{ fmt(pageTotal) }} ج.م</span>
         </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <Modal :model-value="confirmingDeleteId !== null" title="تأكيد الحذف" size="sm" @update:model-value="confirmingDeleteId = null">
+        <div class="space-y-4">
+            <p class="text-sm text-t2">
+                هل أنت متأكد من حذف هذا القيد؟ سيتم تسجيل قيد عكسي بنفس المبلغ للحفاظ على الأرشيف — لن يُحذف القيد الأصلي.
+            </p>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn-secondary" @click="confirmingDeleteId = null">إلغاء</button>
+                <button type="button" class="rounded-lg bg-d px-4 py-2 text-sm font-medium text-white hover:opacity-90" @click="doDelete">تأكيد الحذف</button>
+            </div>
+        </div>
+    </Modal>
 </template>

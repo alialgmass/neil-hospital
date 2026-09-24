@@ -2,9 +2,11 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Services\ServicePricingService;
 use Modules\Surgery\Services\SurgeryService;
 
 class StoreBookingRequest extends FormRequest
@@ -12,6 +14,48 @@ class StoreBookingRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->can('booking.create') ?? false;
+    }
+
+    /**
+     * The booking price is always derived server-side from the selected
+     * service's one-eye / both-eyes prices — the client-submitted price is
+     * not trusted.
+     *
+     * Labs bookings may select several services at once (service_ids); the
+     * price is then the sum of each service's price, and service_id/
+     * service_name are filled with the first/combined values purely for
+     * backward-compat display on screens that still read the single columns.
+     */
+    protected function prepareForValidation(): void
+    {
+        $serviceIds = array_filter((array) $this->input('service_ids', []));
+
+        if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
+            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'));
+
+            $this->merge([
+                'services' => $lines,
+                'price' => array_sum(array_column($lines, 'price')),
+                'service_id' => $lines[0]['service_id'] ?? null,
+                'service_name' => implode('، ', array_column($lines, 'service_name')),
+            ]);
+
+            return;
+        }
+
+        // Only Labs bookings persist multi-service line items — never trust a
+        // client-supplied `services` array for any other department.
+        $this->merge(['services' => []]);
+
+        $price = app(ServicePricingService::class)->priceFor(
+            $this->input('service_id'),
+            $this->input('eye_side'),
+            $this->input('price') !== null ? (float) $this->input('price') : null,
+        );
+
+        if ($price !== null) {
+            $this->merge(['price' => $price]);
+        }
     }
 
     public function rules(): array
@@ -22,18 +66,22 @@ class StoreBookingRequest extends FormRequest
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],
+            'kinship_degree' => ['nullable', Rule::in(array_column(KinshipDegree::cases(), 'value'))],
             'dept' => ['required', Rule::in(SystemModule::enabledDeptValues())],
-            'service_id' => ['nullable', 'exists:services,id'],
+            'service_id' => ['nullable', 'required_with:ins_company_id', 'required_if:pay_method,insurance', 'exists:services,id'],
             'service_name' => ['nullable', 'string', 'max:200'],
+            'service_ids' => ['nullable', 'array'],
+            'service_ids.*' => ['string', 'distinct', 'exists:services,id'],
+            'services' => ['nullable', 'array'],
             'doctor_id' => ['nullable', 'exists:doctors,id'],
-            'ins_company_id' => ['nullable', 'exists:insurance_companies,id'],
+            'ins_company_id' => ['nullable', 'required_if:pay_method,insurance', 'exists:insurance_companies,id'],
             'visit_date' => ['required', 'date'],
             'visit_time' => ['nullable', 'date_format:H:i'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'ins_amount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance,contract'],
             'pay_status' => ['nullable', 'in:unpaid,partial,paid'],
             'visit_note' => ['nullable', 'string', 'max:2000'],
             'bed_id' => [
@@ -49,7 +97,7 @@ class StoreBookingRequest extends FormRequest
                     }
                 },
             ],
-            'eye_side' => ['nullable', 'in:OD,OS,OU'],
+            'eye_side' => ['required', 'in:OD,OS,OU'],
             'analysis_type' => ['nullable', 'string', 'max:150'],
             'analysis_notes' => ['nullable', 'string', 'max:500'],
         ];
@@ -66,12 +114,16 @@ class StoreBookingRequest extends FormRequest
             'patient_age.max' => 'السن يجب ألا يتجاوز 150.',
             'national_id.max' => 'الرقم القومي يجب ألا يتجاوز 20 رقماً.',
             'gender.in' => 'الجنس غير صالح.',
+            'kinship_degree.in' => 'درجة القرابة غير صالحة.',
             'dept.required' => 'القسم مطلوب.',
             'dept.in' => 'القسم المحدد غير صالح.',
             'service_id.exists' => 'الخدمة المحددة غير موجودة.',
+            'service_id.required_with' => 'يجب تحديد الخدمة عند اختيار شركة تأمين.',
             'service_name.max' => 'اسم الخدمة يجب ألا يتجاوز 200 حرف.',
             'doctor_id.exists' => 'الطبيب المحدد غير موجود.',
             'ins_company_id.exists' => 'شركة التأمين المحددة غير موجودة.',
+            'ins_company_id.required_if' => 'شركة التأمين مطلوبة عند اختيار طريقة الدفع بالتأمين.',
+            'service_id.required_if' => 'الخدمة مطلوبة عند اختيار طريقة الدفع بالتأمين.',
             'visit_date.required' => 'تاريخ الزيارة مطلوب.',
             'visit_date.date' => 'تاريخ الزيارة غير صالح.',
             'visit_time.date_format' => 'وقت الزيارة يجب أن يكون بصيغة HH:MM.',
@@ -88,6 +140,7 @@ class StoreBookingRequest extends FormRequest
             'visit_note.max' => 'الملاحظات يجب ألا تتجاوز 2000 حرف.',
             'bed_id.required_if' => 'رقم السرير مطلوب لأقسام العمليات والليزك.',
             'bed_id.exists' => 'السرير المحدد غير موجود.',
+            'eye_side.required' => 'يجب تحديد جانب العين.',
             'eye_side.in' => 'جانب العين غير صالح.',
             'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',

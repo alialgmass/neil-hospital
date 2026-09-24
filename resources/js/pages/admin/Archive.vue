@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { FileText, FolderPlus, Grid, List, Paperclip, Trash2, Upload, X } from 'lucide-vue-next';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { Barcode, FileText, FolderPlus, Grid, List, Paperclip, Trash2, Upload, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
@@ -21,11 +21,12 @@ interface Booking {
     patient_name: string;
     patient_phone?: string;
     dept: string;
+    service_name?: string;
     visit_date: string;
     status: string;
     pay_status: string;
     price: number;
-    doctor_name?: string;
+    doctor?: { name: string };
     media_files: MediaFile[];
 }
 
@@ -48,18 +49,25 @@ const deptLabels: Record<string, string> = {
     laser:   'الليزر',
 };
 
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>();
+const availableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false));
+});
+
 const deptColors: Record<string, string> = {
-    clinic:  'bg-blue-100 text-blue-700',
-    labs:    'bg-purple-100 text-purple-700',
-    surgery: 'bg-red-100 text-red-700',
-    lasik:   'bg-teal-100 text-teal-700',
-    laser:   'bg-orange-100 text-orange-700',
+    clinic:  'bg-blue-600 text-white',
+    labs:    'bg-purple-600 text-white',
+    surgery: 'bg-red-600 text-white',
+    lasik:   'bg-teal-600 text-white',
+    laser:   'bg-orange-600 text-white',
 };
 
 const payStatusColors: Record<string, string> = {
-    paid:    'bg-green-100 text-green-700',
-    partial: 'bg-yellow-100 text-yellow-700',
-    unpaid:  'bg-red-100 text-red-700',
+    paid:    'bg-green-600 text-white',
+    partial: 'bg-yellow-600 text-white',
+    unpaid:  'bg-red-600 text-white',
 };
 
 const payStatusLabels: Record<string, string> = {
@@ -126,6 +134,7 @@ function submitUpload() {
         preserveScroll: true,
         onSuccess: () => {
             uploadForm.reset();
+
             if (fileInput.value) {
                 fileInput.value.value = '';
             }
@@ -141,12 +150,17 @@ function isImage(mime: string): boolean {
     return mime.startsWith('image/');
 }
 
+function printBarcode(id: string) {
+    window.open(`/booking/${id}/barcode`, '_blank');
+}
+
 function submitArchive() {
     form.post('/archive', {
         forceFormData: true,
         onSuccess: () => {
             showAddModal.value = false;
             form.reset();
+
             if (createFileInput.value) {
                 createFileInput.value.value = '';
             }
@@ -180,7 +194,7 @@ function goToPage(page: number) {
     <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h2 class="text-lg font-bold text-hospital-text">الأرشيف الطبي</h2>
-            <p class="text-xs text-hospital-muted">رفع وحفظ الصور والملفات الطبية لكل مريض</p>
+            <p class="text-xs text-hospital-text-3">رفع وحفظ الصور والملفات الطبية لكل مريض</p>
         </div>
         <div class="flex items-center gap-3">
             <span class="rounded-full bg-hospital-primary/10 px-3 py-1 text-sm font-medium text-hospital-primary">
@@ -210,7 +224,7 @@ function goToPage(page: number) {
                 @change="applyFilters"
             >
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
         </div>
         <div>
@@ -242,8 +256,8 @@ function goToPage(page: number) {
 
     <!-- Empty state -->
     <div v-if="bookings.data.length === 0" class="py-16 text-center">
-        <FileText class="mx-auto mb-3 h-12 w-12 text-hospital-muted/50" />
-        <p class="text-hospital-muted">لا توجد سجلات في الأرشيف</p>
+        <FileText class="mx-auto mb-3 h-12 w-12 text-hospital-text-3/50" />
+        <p class="text-hospital-text-3">لا توجد سجلات في الأرشيف</p>
     </div>
 
     <!-- Grid View -->
@@ -260,30 +274,41 @@ function goToPage(page: number) {
             <!-- Card Info -->
             <div class="flex flex-1 flex-col p-3">
                 <p class="truncate font-semibold text-hospital-text text-sm">{{ record.patient_name }}</p>
-                <p class="mt-0.5 text-xs text-hospital-muted">{{ record.file_no }}</p>
+                <p class="mt-0.5 text-xs text-hospital-text-3">{{ record.file_no }}</p>
+                <p v-if="record.patient_phone" class="mt-0.5 truncate text-xs text-hospital-text-3">{{ record.patient_phone }}</p>
+                <p v-if="record.service_name" class="mt-1 truncate text-xs font-medium text-hospital-text-2">{{ record.service_name }}</p>
                 <div class="mt-2 flex flex-wrap gap-1">
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="deptColors[record.dept] ?? 'bg-gray-100 text-gray-600'"
+                        :class="deptColors[record.dept] ?? 'bg-gray-500 text-white'"
                     >
                         {{ deptLabels[record.dept] ?? record.dept }}
                     </span>
                     <span
                         class="rounded-full px-2 py-0.5 text-xs font-medium"
-                        :class="payStatusColors[record.pay_status] ?? 'bg-gray-100 text-gray-600'"
+                        :class="payStatusColors[record.pay_status] ?? 'bg-gray-500 text-white'"
                     >
                         {{ payStatusLabels[record.pay_status] ?? record.pay_status }}
                     </span>
                 </div>
-                <p class="mt-2 text-xs text-hospital-muted">{{ record.visit_date }}</p>
-                <!-- Files button -->
-                <button
-                    class="mt-2 flex items-center gap-1.5 rounded-lg border border-hospital-border px-2 py-1 text-xs text-hospital-text-2 transition-colors hover:border-hospital-primary hover:text-hospital-primary"
-                    @click="openFilesModal(record)"
-                >
-                    <Paperclip class="h-3 w-3" />
-                    {{ record.media_files.length > 0 ? `${record.media_files.length} ملف` : 'رفع ملفات' }}
-                </button>
+                <p class="mt-2 text-xs text-hospital-text-3">{{ record.visit_date }}</p>
+                <!-- Files / barcode buttons -->
+                <div class="mt-2 flex items-center gap-1.5">
+                    <button
+                        class="flex flex-1 items-center gap-1.5 rounded-lg border border-hospital-border px-2 py-1 text-xs text-hospital-text-2 transition-colors hover:border-hospital-primary hover:text-hospital-primary"
+                        @click="openFilesModal(record)"
+                    >
+                        <Paperclip class="h-3 w-3" />
+                        {{ record.media_files.length > 0 ? `${record.media_files.length} ملف` : 'رفع ملفات' }}
+                    </button>
+                    <button
+                        title="طباعة باركود"
+                        class="rounded-lg border border-hospital-border p-1.5 text-hospital-text-2 transition-colors hover:border-hospital-accent hover:text-hospital-accent"
+                        @click="printBarcode(record.id)"
+                    >
+                        <Barcode class="h-3 w-3" />
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -296,6 +321,8 @@ function goToPage(page: number) {
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">رقم الملف</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">المريض</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">القسم</th>
+                    <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الخدمة</th>
+                    <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الهاتف</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">الطبيب</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">تاريخ الزيارة</th>
                     <th class="px-4 py-3 text-right font-semibold text-hospital-text-2">المبلغ</th>
@@ -312,26 +339,37 @@ function goToPage(page: number) {
                     </td>
                     <td class="px-4 py-3 font-medium text-hospital-text">{{ record.patient_name }}</td>
                     <td class="px-4 py-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="deptColors[record.dept] ?? 'bg-gray-100 text-gray-600'">
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="deptColors[record.dept] ?? 'bg-gray-500 text-white'">
                             {{ deptLabels[record.dept] ?? record.dept }}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor_name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.service_name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2" dir="ltr">{{ record.patient_phone ?? '—' }}</td>
+                    <td class="px-4 py-3 text-hospital-text-2">{{ record.doctor?.name ?? '—' }}</td>
                     <td class="px-4 py-3 text-hospital-text-2">{{ record.visit_date }}</td>
-                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('ar-EG') }} ج</td>
+                    <td class="px-4 py-3 font-mono text-hospital-text">{{ Number(record.price).toLocaleString('en-US') }} ج</td>
                     <td class="px-4 py-3">
-                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="payStatusColors[record.pay_status] ?? 'bg-gray-100 text-gray-600'">
+                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="payStatusColors[record.pay_status] ?? 'bg-gray-500 text-white'">
                             {{ payStatusLabels[record.pay_status] ?? record.pay_status }}
                         </span>
                     </td>
                     <td class="px-4 py-3">
-                        <button
-                            class="flex items-center gap-1 text-xs text-hospital-text-2 hover:text-hospital-primary"
-                            @click="openFilesModal(record)"
-                        >
-                            <Paperclip class="h-3.5 w-3.5" />
-                            {{ record.media_files.length > 0 ? record.media_files.length : '—' }}
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button
+                                class="flex items-center gap-1 text-xs text-hospital-text-2 hover:text-hospital-primary"
+                                @click="openFilesModal(record)"
+                            >
+                                <Paperclip class="h-3.5 w-3.5" />
+                                {{ record.media_files.length > 0 ? record.media_files.length : '—' }}
+                            </button>
+                            <button
+                                title="طباعة باركود"
+                                class="text-hospital-text-2 hover:text-hospital-accent"
+                                @click="printBarcode(record.id)"
+                            >
+                                <Barcode class="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     </td>
                 </tr>
             </tbody>
@@ -343,7 +381,7 @@ function goToPage(page: number) {
         <div v-if="activeBooking" class="space-y-4">
             <div>
                 <p class="font-semibold text-hospital-text">{{ activeBooking.patient_name }}</p>
-                <p class="text-xs text-hospital-muted">{{ activeBooking.file_no }} · {{ activeBooking.visit_date }}</p>
+                <p class="text-xs text-hospital-text-3">{{ activeBooking.file_no }} · {{ activeBooking.visit_date }}</p>
             </div>
 
             <!-- Existing files -->
@@ -359,14 +397,14 @@ function goToPage(page: number) {
                         <div class="h-10 w-10 shrink-0 overflow-hidden rounded">
                             <img v-if="isImage(file.mime)" :src="file.url" :alt="file.name" class="h-full w-full object-cover" />
                             <div v-else class="flex h-full w-full items-center justify-center bg-hospital-bg">
-                                <FileText class="h-5 w-5 text-hospital-muted" />
+                                <FileText class="h-5 w-5 text-hospital-text-3" />
                             </div>
                         </div>
                         <div class="min-w-0 flex-1">
                             <a :href="file.url" target="_blank" class="block truncate text-sm font-medium text-hospital-primary hover:underline">
                                 {{ file.name }}
                             </a>
-                            <p class="text-xs text-hospital-muted">{{ file.size }}</p>
+                            <p class="text-xs text-hospital-text-3">{{ file.size }}</p>
                         </div>
                         <button
                             class="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
@@ -380,8 +418,8 @@ function goToPage(page: number) {
             </div>
 
             <div v-else class="rounded-lg border border-dashed border-hospital-border py-6 text-center">
-                <Paperclip class="mx-auto mb-2 h-8 w-8 text-hospital-muted/40" />
-                <p class="text-sm text-hospital-muted">لا توجد ملفات مرفقة</p>
+                <Paperclip class="mx-auto mb-2 h-8 w-8 text-hospital-text-3/40" />
+                <p class="text-sm text-hospital-text-3">لا توجد ملفات مرفقة</p>
             </div>
 
             <!-- Upload new file -->
@@ -407,7 +445,7 @@ function goToPage(page: number) {
                         {{ uploadForm.processing ? 'جارٍ الرفع...' : 'رفع' }}
                     </button>
                 </form>
-                <p class="mt-1.5 text-xs text-hospital-muted">الأنواع المدعومة: صور، PDF، Word، Excel · الحد الأقصى 20 ميجا</p>
+                <p class="mt-1.5 text-xs text-hospital-text-3">الأنواع المدعومة: صور، PDF، Word، Excel · الحد الأقصى 20 ميجا</p>
             </div>
 
             <div class="flex justify-end border-t border-hospital-border pt-3">
@@ -457,7 +495,7 @@ function goToPage(page: number) {
                     <label class="form-label">القسم <span class="text-hospital-danger">*</span></label>
                     <select v-model="form.dept" class="input-field">
                         <option value="">— اختر القسم —</option>
-                        <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                        <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
                     </select>
                     <p v-if="form.errors.dept" class="form-error">{{ form.errors.dept }}</p>
                 </div>
@@ -521,7 +559,7 @@ function goToPage(page: number) {
                     class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-hospital-primary/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-hospital-primary"
                     @change="onCreateFilesChange"
                 />
-                <p class="mt-1 text-xs text-hospital-muted">صور، PDF، Word، Excel · الحد الأقصى 20 ميجا لكل ملف</p>
+                <p class="mt-1 text-xs text-hospital-text-3">صور، PDF، Word، Excel · الحد الأقصى 20 ميجا لكل ملف</p>
                 <p v-if="form.errors.files" class="form-error">{{ form.errors.files }}</p>
             </div>
 

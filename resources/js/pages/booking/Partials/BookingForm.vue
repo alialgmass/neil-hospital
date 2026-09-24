@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { useForm, usePage } from '@inertiajs/vue3';
+import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import type { DepartmentOption } from '@/types';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
 import BookingSummary from './BookingSummary.vue';
@@ -19,6 +20,8 @@ interface Service {
     name: string;
     dept: string;
     price: number;
+    one_eye_price: number | null;
+    both_eyes_price: number | null;
     ins_price: number;
 }
 
@@ -26,11 +29,13 @@ interface Doctor {
     id: string;
     name: string;
     is_active: boolean;
+    departments?: string[] | null;
 }
 
 interface InsuranceCompany {
     id: string;
     name: string;
+    coverage_pct: number;
 }
 
 interface PriceListItem {
@@ -84,13 +89,7 @@ const emit = defineEmits<{
     (e: 'cancel'): void;
 }>();
 
-const deptOptions = [
-    { value: 'clinic', label: 'العيادة', icon: '🏥', cap: 'فحص عام' },
-    { value: 'labs', label: 'الفحوصات', icon: '🔬', cap: 'تحاليل وأشعة' },
-    { value: 'laser', label: 'الليزر', icon: '💡', cap: 'ليزر علاجي' },
-    { value: 'lasik', label: 'الليزك', icon: '👁️', cap: 'تصحيح النظر' },
-    { value: 'surgery', label: 'العمليات', icon: '⚕️', cap: 'جراحة عيون' },
-];
+const page = usePage<{ departments?: DepartmentOption[] }>();
 
 const form = useForm({
     patient_name: (props.booking?.patient_name as string) ?? '',
@@ -98,9 +97,13 @@ const form = useForm({
     patient_age: (props.booking?.patient_age as string) ?? '',
     national_id: (props.booking?.national_id as string) ?? '',
     gender: (props.booking?.gender as string) ?? '',
+    kinship_degree: (props.booking?.kinship_degree as string) ?? '',
     dept: (props.booking?.dept as string) ?? 'clinic',
     service_id: (props.booking?.service_id as string) ?? '',
     service_name: (props.booking?.service_name as string) ?? '',
+    service_ids: ((props.booking?.services as { service_id: string }[] | undefined) ?? [])
+        .map((s) => s.service_id)
+        .filter(Boolean),
     doctor_id: (props.booking?.doctor_id as string) ?? '',
     ins_company_id: (props.booking?.ins_company_id as string) ?? '',
     visit_date:
@@ -128,12 +131,8 @@ const showBeds = computed(
 const showAnalysis = computed(
     () => form.dept === 'surgery' || form.dept === 'lasik',
 );
-const showEyeSide = computed(
-    () =>
-        form.dept === 'surgery' ||
-        form.dept === 'lasik' ||
-        form.dept === 'laser',
-);
+// Eye laterality applies to every clinical department once one is selected.
+const showEyeSide = computed(() => !!form.dept);
 
 const deptExtraTitle = computed(() => {
     if (form.dept === 'surgery') {
@@ -148,11 +147,49 @@ return 'بيانات جلسة الليزك';
 return 'بيانات جلسة الليزر';
 }
 
-    return '';
+    if (form.dept === 'pentacam') {
+return 'بيانات فحص البنتكام';
+}
+
+    return 'بيانات الفحص';
 });
 
 const filteredServices = computed(() =>
     props.services.filter((s) => s.dept === form.dept),
+);
+
+const isLabs = computed(() => form.dept === 'labs');
+
+function addLabService() {
+    form.service_ids = [...form.service_ids, ''];
+}
+function removeLabService(index: number) {
+    form.service_ids = form.service_ids.filter((_, i) => i !== index);
+}
+function recalcLabsPrice() {
+    const total = form.service_ids.reduce((sum, id) => {
+        const service = props.services.find((s) => s.id === id);
+
+        return sum + (service ? eyeSidePrice(service) : 0);
+    }, 0);
+
+    form.price = String(total);
+    form.ins_amount = '0';
+    form.service_name = form.service_ids
+        .map((id) => props.services.find((s) => s.id === id)?.name)
+        .filter(Boolean)
+        .join('، ');
+}
+
+watch(() => form.service_ids, recalcLabsPrice, { deep: true });
+watch(isLabs, (labs) => {
+    if (labs && form.service_ids.length === 0) {
+        form.service_ids = [''];
+    }
+});
+
+const filteredDoctors = computed(() =>
+    props.doctors.filter((d) => !d.departments || d.departments.length === 0 || d.departments.includes(form.dept)),
 );
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
@@ -180,7 +217,7 @@ const selectedDoctorName = computed(
 );
 
 const selectedDeptLabel = computed(
-    () => deptOptions.find((d) => d.value === form.dept)?.label ?? '—',
+    () => (page.props.departments ?? []).find((d) => d.value === form.dept)?.label ?? '—',
 );
 
 const showInvoicePreview = computed(
@@ -206,14 +243,52 @@ return;
             : '0';
     } else if (isInsurance.value) {
         form.price = String(service.ins_price ?? service.price);
-        form.ins_amount = '0';
+        // No dedicated price list for this company — fall back to its general coverage rate.
+        const company = props.insuranceCompanies.find((c) => c.id === form.ins_company_id);
+        form.ins_amount = company
+            ? String(Math.round((Number(form.price) * company.coverage_pct) / 100 * 100) / 100)
+            : '0';
     } else {
-        form.price = String(service.price);
+        form.price = String(eyeSidePrice(service));
         form.ins_amount = '0';
     }
 }
 
+// Preview price only — the server always recomputes from the service + eye side.
+function eyeSidePrice(service: Service): number {
+    const oneEye = service.one_eye_price ?? service.price;
+
+    if (form.eye_side === 'OU') {
+        return (
+            service.both_eyes_price ??
+            (oneEye != null ? oneEye * 2 : service.price)
+        );
+    }
+
+    return oneEye ?? service.price;
+}
+
+function eyePrice() {
+    const service = props.services.find((s) => s.id === form.service_id);
+
+    if (!service || isInsurance.value) {
+        return;
+    }
+
+    form.price = String(eyeSidePrice(service));
+    form.ins_amount = '0';
+}
+
 watch(() => form.service_id, recalcPrice);
+watch(() => form.eye_side, () => {
+    if (isLabs.value) {
+        recalcLabsPrice();
+
+        return;
+    }
+
+    eyePrice();
+});
 watch(() => form.pay_method, () => {
     if (!form.service_id) {
         return;
@@ -250,6 +325,7 @@ function submit() {
                         patient_phone: form.patient_phone,
                         patient_age: form.patient_age,
                         gender: form.gender,
+                        kinship_degree: form.kinship_degree,
                         visit_date: form.visit_date,
                         visit_time: form.visit_time,
                     }"
@@ -260,11 +336,48 @@ function submit() {
                 <ServiceSelect
                     :model-value="{ service_id: form.service_id, doctor_id: form.doctor_id }"
                     :services="filteredServices"
-                    :doctors="doctors"
+                    :doctors="filteredDoctors"
                     :is-edit-mode="!isCreating"
+                    :hide-service="isLabs"
                     :errors="form.errors"
                     @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"
                 />
+
+                <div v-if="isLabs" class="bk-section">
+                    <span class="bk-title bk-title-teal">خدمات الفحوصات (يمكن اختيار أكثر من خدمة)</span>
+                    <div class="space-y-2">
+                        <div v-for="(serviceId, index) in form.service_ids" :key="index" class="flex items-center gap-2">
+                            <select
+                                :value="serviceId"
+                                class="bk-input flex-1"
+                                @change="form.service_ids[index] = ($event.target as HTMLSelectElement).value"
+                            >
+                                <option value="">— اختر الخدمة —</option>
+                                <option v-for="svc in filteredServices" :key="svc.id" :value="svc.id">
+                                    {{ svc.name }}
+                                </option>
+                            </select>
+                            <button
+                                type="button"
+                                class="shrink-0 rounded-lg border border-hospital-border px-2 py-2 text-xs text-hospital-danger hover:bg-hospital-danger/10"
+                                :disabled="form.service_ids.length <= 1"
+                                @click="removeLabService(index)"
+                            >
+                                حذف
+                            </button>
+                        </div>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-dashed border-hospital-primary px-3 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary/5"
+                            @click="addLabService"
+                        >
+                            + إضافة خدمة
+                        </button>
+                        <p v-if="form.errors.service_ids" class="mt-1 text-xs text-hospital-danger">
+                            {{ form.errors.service_ids }}
+                        </p>
+                    </div>
+                </div>
 
                 <PaymentFields
                     :model-value="{
@@ -304,7 +417,7 @@ function submit() {
                     <span class="bk-title bk-title-green">{{ deptExtraTitle }}</span>
                     <div class="bk-grid-2">
                         <div :class="showBeds && orRooms.length ? 'col-span-2' : ''">
-                            <EyeSideSelector v-model="form.eye_side" />
+                            <EyeSideSelector v-model="form.eye_side" :error="form.errors.eye_side" />
                         </div>
                         <div v-if="showBeds" :class="orRooms.length ? 'col-span-2' : ''">
                             <BedPicker

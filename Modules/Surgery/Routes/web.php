@@ -20,6 +20,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:surgery.view')
             ->name('index');
 
+        Route::get('/items/search', [SurgeryController::class, 'searchItems'])
+            ->middleware('can:surgery.view')
+            ->name('items.search');
+
         Route::post('/', [SurgeryController::class, 'store'])
             ->middleware('can:surgery.write')
             ->name('store');
@@ -31,6 +35,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/supplies', [SurgeryController::class, 'supplies'])
             ->middleware('can:surgery.write')
             ->name('supplies');
+
+        Route::post('/{id}/delegations', [SurgeryController::class, 'delegations'])
+            ->middleware('can:surgery.write')
+            ->name('delegations');
 
         Route::patch('/{id}/status', [SurgeryController::class, 'updateStatus'])
             ->middleware('can:surgery.write')
@@ -43,6 +51,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:lasik.view')
             ->name('index');
 
+        Route::get('/items/search', [SurgeryController::class, 'searchItems'])
+            ->middleware('can:lasik.view')
+            ->name('items.search');
+
         Route::post('/', [SurgeryController::class, 'store'])
             ->middleware('can:lasik.write')
             ->name('store');
@@ -54,6 +66,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/supplies', [SurgeryController::class, 'supplies'])
             ->middleware('can:lasik.write')
             ->name('supplies');
+
+        Route::post('/{id}/delegations', [SurgeryController::class, 'delegations'])
+            ->middleware('can:lasik.write')
+            ->name('delegations');
 
         Route::patch('/{id}/status', [SurgeryController::class, 'updateStatus'])
             ->middleware('can:lasik.write')

@@ -4,6 +4,7 @@ namespace Modules\Booking\DTOs;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Enums\KinshipDegree;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
@@ -18,6 +19,7 @@ readonly class BookingData
         public ?int $patientAge = null,
         public ?string $nationalId = null,
         public ?string $gender = null,
+        public ?KinshipDegree $kinshipDegree = null,
         public ?string $serviceId = null,
         public ?string $serviceName = null,
         public ?string $doctorId = null,
@@ -35,6 +37,8 @@ readonly class BookingData
         public ?EyeSide $eyeSide = null,
         public ?string $analysisType = null,
         public ?string $analysisNotes = null,
+        /** @var array<int, array{service_id: string, service_name: string, price: float}> */
+        public array $services = [],
     ) {}
 
     public static function fromArray(array $data): self
@@ -47,6 +51,7 @@ readonly class BookingData
             patientAge: isset($data['patient_age']) ? (int) $data['patient_age'] : null,
             nationalId: $data['national_id'] ?? null,
             gender: $data['gender'] ?? null,
+            kinshipDegree: isset($data['kinship_degree']) ? ($data['kinship_degree'] instanceof KinshipDegree ? $data['kinship_degree'] : KinshipDegree::from($data['kinship_degree'])) : null,
             serviceId: $data['service_id'] ?? null,
             serviceName: $data['service_name'] ?? null,
             doctorId: $data['doctor_id'] ?? null,
@@ -64,6 +69,7 @@ readonly class BookingData
             eyeSide: isset($data['eye_side']) ? ($data['eye_side'] instanceof EyeSide ? $data['eye_side'] : EyeSide::from($data['eye_side'])) : null,
             analysisType: $data['analysis_type'] ?? null,
             analysisNotes: $data['analysis_notes'] ?? null,
+            services: $data['services'] ?? [],
         );
     }
 }

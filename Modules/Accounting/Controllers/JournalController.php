@@ -42,4 +42,17 @@ class JournalController extends Controller
 
         return back()->with('success', 'تم تسجيل القيد بنجاح.');
     }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $this->journalService->delete($id);
+
+        $this->activityLog->log(
+            action: 'journal_entry_deleted',
+            module: 'accounting',
+            recordId: $id,
+        );
+
+        return back()->with('success', 'تم حذف القيد (تم تسجيل قيد عكسي للحفاظ على الأرشيف).');
+    }
 }
