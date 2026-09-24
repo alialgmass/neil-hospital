@@ -14,12 +14,17 @@ class CreateDoctorAction
     public function execute(array $data): Doctor
     {
         $services = $data['services'] ?? null;
-        unset($data['services']);
+        $delegationServices = $data['delegation_services'] ?? null;
+        unset($data['services'], $data['delegation_services']);
 
         $doctor = Doctor::create($data);
 
         if ($services !== null) {
             $doctor->syncServiceFees($services);
+        }
+
+        if ($delegationServices !== null) {
+            $doctor->syncDelegationFees($delegationServices);
         }
 
         $this->activityLogService->log(

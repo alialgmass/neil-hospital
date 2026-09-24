@@ -681,12 +681,15 @@ const isDeleteModalOpen = computed({
                     v-model="payForm.paid_amount"
                     type="number"
                     step="0.01"
-                    min="0.01"
+                    min="0"
                     :max="payRemaining"
                     class="w-full rounded-lg border border-hospital-border bg-hospital-bg px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
                     :class="{ 'border-hospital-danger': payForm.errors.paid_amount }"
                 />
                 <p v-if="payForm.errors.paid_amount" class="mt-1 text-xs text-hospital-danger">{{ payForm.errors.paid_amount }}</p>
+                <p v-if="Number(payForm.paid_amount) === 0" class="mt-1 text-xs text-hospital-warning">
+                    سيتم تسجيل الحجز كغير محصَّل، وتحويل المبلغ المستحق كدين على الطبيب.
+                </p>
             </div>
 
             <!-- Pay method -->

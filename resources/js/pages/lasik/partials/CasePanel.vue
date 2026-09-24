@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { X } from 'lucide-vue-next';
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
+import { toast } from 'vue-sonner';
+import DoctorDelegationRoleFields from '@/components/shared/DoctorDelegationRoleFields.vue';
 import SearchableSelect from '@/components/shared/SearchableSelect.vue';
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
@@ -14,9 +17,25 @@ interface SupplyUsedItem {
     total: number;
 }
 
+interface DelegationRow {
+    id: string;
+    doctor_id: string;
+    doctor: { id: string; name: string } | null;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+    status: 'pending' | 'settled' | 'void';
+}
+
 interface Surgery {
     id: string;
-    booking: { file_no: string; patient_name: string };
+    booking: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        doctor_delegations?: DelegationRow[];
+    };
     procedure: string;
     eye: 'OD' | 'OS' | 'OU' | null;
     surgeon: { id: string; name: string } | null;
@@ -36,6 +55,13 @@ interface Surgery {
 const props = defineProps<{
     surgery: Surgery;
     dept: string;
+    doctors: { id: string; name: string; delegation_services?: { id: string; pivot: { fee: number | string } }[] }[];
+    anesthesiologists: { id: string; name: string; delegation_services?: { id: string; pivot: { fee: number | string } }[] }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
 }>();
 
 const emit = defineEmits<{
@@ -57,9 +83,64 @@ const emit = defineEmits<{
     ];
 }>();
 
-const activeOverlayTab = ref<'supplies' | 'report' | 'status'>('supplies');
+const activeOverlayTab = ref<'supplies' | 'report' | 'status' | 'delegation' | 'anesthesia'>('supplies');
 const { can } = usePermissions();
 const canWrite = computed(() => can(`${props.dept}.write`));
+
+/* ── Delegate / anesthesia doctors ── */
+interface DelegationLine {
+    doctor_id: string;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+}
+
+const overlayDelegations = ref<DelegationLine[]>([]);
+const settledDelegations = ref<DelegationRow[]>([]);
+const savingDelegations = ref(false);
+
+function loadDelegations() {
+    const all = props.surgery.booking.doctor_delegations ?? [];
+    overlayDelegations.value = all
+        .filter((d) => d.status === 'pending')
+        .map((d) => ({
+            doctor_id: d.doctor_id,
+            role: d.role,
+            service_id: d.service_id,
+            service_name: d.service_name,
+            amount: Number(d.amount),
+        }));
+    settledDelegations.value = all.filter((d) => d.status === 'settled');
+}
+watch(() => props.surgery.id, loadDelegations, { immediate: true });
+
+const delegateLines = computed(() => overlayDelegations.value.filter((l) => l.role === 'delegate'));
+const anesthesiaLines = computed(() => overlayDelegations.value.filter((l) => l.role === 'anesthesia'));
+
+function updateOverlayDelegationRole(role: 'delegate' | 'anesthesia', lines: DelegationLine[]) {
+    overlayDelegations.value = [...overlayDelegations.value.filter((l) => l.role !== role), ...lines];
+}
+
+function submitOverlayDelegations() {
+    if (!canWrite.value || savingDelegations.value) {
+        return;
+    }
+
+    savingDelegations.value = true;
+
+    router.post(
+        `/${props.dept}/${props.surgery.id}/delegations`,
+        { delegations: overlayDelegations.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => toast.success('تم حفظ بيانات التفويض والتخدير'),
+            onFinish: () => {
+                savingDelegations.value = false;
+            },
+        },
+    );
+}
 
 const supplyRows = useSupplyRows();
 const {
@@ -264,6 +345,18 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                         @click="activeOverlayTab = 'status'"
                     >
                         تحديث الحالة
+                    </button>
+                    <button
+                        :class="['case-tab', activeOverlayTab === 'delegation' ? 'case-tab-active' : '']"
+                        @click="activeOverlayTab = 'delegation'"
+                    >
+                        تفويض دكتور
+                    </button>
+                    <button
+                        :class="['case-tab', activeOverlayTab === 'anesthesia' ? 'case-tab-active' : '']"
+                        @click="activeOverlayTab = 'anesthesia'"
+                    >
+                        دكتور التخدير
                     </button>
                 </div>
 
@@ -632,6 +725,80 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     >
                                         {{ surgery.pre_op_notes }}
                                     </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== DELEGATION TAB ===== -->
+                    <div v-if="activeOverlayTab === 'delegation'">
+                        <div class="overlay-card mb-4">
+                            <div class="overlay-card-hd">تفويض دكتور آخر</div>
+                            <div class="p-4">
+                                <DoctorDelegationRoleFields
+                                    :model-value="delegateLines"
+                                    role="delegate"
+                                    :doctors="doctors"
+                                    :anesthesiologists="anesthesiologists"
+                                    :services="delegationServices"
+                                    @update:model-value="(lines) => updateOverlayDelegationRole('delegate', lines)"
+                                />
+                                <ul
+                                    v-if="settledDelegations.filter((d) => d.role === 'delegate').length"
+                                    class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                                >
+                                    <li v-for="d in settledDelegations.filter((x) => x.role === 'delegate')" :key="d.id">
+                                        ✓ {{ d.doctor?.name }} — {{ d.service_name }} —
+                                        {{ Number(d.amount).toLocaleString('ar-EG') }} ج (تم الدفع)
+                                    </li>
+                                </ul>
+                                <div class="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green"
+                                        :disabled="savingDelegations || !canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                        @click="submitOverlayDelegations"
+                                    >
+                                        حفظ
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== ANESTHESIA TAB ===== -->
+                    <div v-if="activeOverlayTab === 'anesthesia'">
+                        <div class="overlay-card mb-4">
+                            <div class="overlay-card-hd">دكتور التخدير</div>
+                            <div class="p-4">
+                                <DoctorDelegationRoleFields
+                                    :model-value="anesthesiaLines"
+                                    role="anesthesia"
+                                    :doctors="doctors"
+                                    :anesthesiologists="anesthesiologists"
+                                    :services="delegationServices"
+                                    @update:model-value="(lines) => updateOverlayDelegationRole('anesthesia', lines)"
+                                />
+                                <ul
+                                    v-if="settledDelegations.filter((d) => d.role === 'anesthesia').length"
+                                    class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                                >
+                                    <li v-for="d in settledDelegations.filter((x) => x.role === 'anesthesia')" :key="d.id">
+                                        ✓ {{ d.doctor?.name }} — {{ d.service_name }} —
+                                        {{ Number(d.amount).toLocaleString('ar-EG') }} ج (تم الدفع)
+                                    </li>
+                                </ul>
+                                <div class="mt-4 flex justify-end">
+                                    <button
+                                        type="button"
+                                        class="overlay-btn-green"
+                                        :disabled="savingDelegations || !canWrite"
+                                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                        @click="submitOverlayDelegations"
+                                    >
+                                        حفظ
+                                    </button>
                                 </div>
                             </div>
                         </div>

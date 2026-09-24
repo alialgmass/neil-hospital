@@ -26,6 +26,7 @@ class Doctor extends Model
         'departments',
         'user_id',
         'is_active',
+        'is_anesthesiologist',
         'notes',
         'doctor_debt_balance',
     ];
@@ -33,6 +34,7 @@ class Doctor extends Model
     protected $casts = [
         'fee_value' => 'decimal:2',
         'is_active' => 'boolean',
+        'is_anesthesiologist' => 'boolean',
         'fee_type' => FeeType::class,
         'dept_fees' => 'array',
         'departments' => 'array',
@@ -67,6 +69,32 @@ class Doctor extends Model
         }
 
         return round($settled, 2);
+    }
+
+    /**
+     * Settle debt out of a specific booking's computed share and record how
+     * much — doctor_debt_balance is a single running scalar with no history,
+     * so without this ledger row DoctorClaimsService has no way to know that
+     * part of this booking's share never became newly payable and would
+     * keep reporting it as still "مستحق" forever. See DoctorDebtSettlement.
+     */
+    public function settleDebtForBooking(string $bookingId, float $amount): float
+    {
+        $settled = $this->settleDebt($amount);
+
+        if ($settled > 0) {
+            $this->debtSettlements()->create([
+                'booking_id' => $bookingId,
+                'amount' => $settled,
+            ]);
+        }
+
+        return $settled;
+    }
+
+    public function debtSettlements(): HasMany
+    {
+        return $this->hasMany(DoctorDebtSettlement::class);
     }
 
     /**
@@ -134,6 +162,51 @@ class Doctor extends Model
         $serviceId = $service instanceof Service ? $service->id : $service;
 
         $pivot = $this->services()
+            ->where('services.id', $serviceId)
+            ->first()?->pivot;
+
+        return $pivot ? (float) $pivot->fee : null;
+    }
+
+    /**
+     * Services this doctor can be delegated/assigned-as-anesthesiologist for,
+     * with this doctor's fee for each one carried on the pivot. Deliberately
+     * separate from services()/doctor_service (insurance/contract fees) — a
+     * delegation price for a service is independent of this doctor's normal
+     * fee for that same service.
+     */
+    public function delegationServices(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'doctor_delegation_fees')
+            ->withPivot('fee')
+            ->withTimestamps();
+    }
+
+    /**
+     * Replace this doctor's delegation/anesthesia fee rows with the given set.
+     *
+     * @param  array<int, array{service_id: string, fee: numeric}>  $services
+     */
+    public function syncDelegationFees(array $services): void
+    {
+        $payload = [];
+
+        foreach ($services as $service) {
+            $payload[$service['service_id']] = ['fee' => (float) $service['fee']];
+        }
+
+        $this->delegationServices()->sync($payload);
+    }
+
+    /**
+     * The doctor's delegation/anesthesia fee for a specific service, or null
+     * when none has been set for this doctor.
+     */
+    public function delegationFeeForService(Service|string $service): ?float
+    {
+        $serviceId = $service instanceof Service ? $service->id : $service;
+
+        $pivot = $this->delegationServices()
             ->where('services.id', $serviceId)
             ->first()?->pivot;
 

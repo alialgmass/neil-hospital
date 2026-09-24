@@ -9,8 +9,10 @@ use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalService;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
+use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Enums\EntitlementSource;
 use Modules\Doctor\Enums\EntitlementStatus;
+use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
 
@@ -29,10 +31,17 @@ class SyncDoctorEntitlementAction
         private readonly AutoPostDoctorDuesAction $autoPostDoctorDues,
         private readonly AutoPostInsuranceDoctorCashPaymentAction $autoPostInsuranceDoctorCash,
         private readonly JournalService $journalService,
+        private readonly SyncDelegatedDoctorEntitlementAccrualAction $syncDelegatedAccrual,
     ) {}
 
     public function execute(Booking $booking): void
     {
+        // Delegated/anesthesia doctors accrue independently of the primary
+        // doctor's entitlement (see SyncDelegatedDoctorEntitlementAccrualAction),
+        // but their declared amount is always subtracted from the primary
+        // doctor's own share below.
+        $this->syncDelegatedAccrual->execute($booking);
+
         $existing = DoctorEntitlement::where('booking_id', $booking->id)->first();
 
         if ($existing && $existing->status === EntitlementStatus::Settled) {
@@ -52,6 +61,7 @@ class SyncDoctorEntitlementAction
         }
 
         $amount = $this->resolveFee($booking, $doctor);
+        $amount = $amount !== null ? max(0.0, round($amount - $this->delegatedTotal($booking->id), 2)) : null;
 
         if ($amount === null || $amount <= 0) {
             $this->clearPending($existing);
@@ -73,6 +83,18 @@ class SyncDoctorEntitlementAction
         );
 
         $this->syncAccrual($booking, $doctor, $amount, $source);
+    }
+
+    /**
+     * Sum of this booking's delegated/anesthesia doctors' declared fees —
+     * never paid twice to the primary doctor. See
+     * DoctorClaimsService::delegatedTotal() for the cash-flow counterpart.
+     */
+    private function delegatedTotal(string $bookingId): float
+    {
+        return (float) BookingDoctorDelegation::where('booking_id', $bookingId)
+            ->where('status', '!=', DelegationStatus::Void->value)
+            ->sum('amount');
     }
 
     /**

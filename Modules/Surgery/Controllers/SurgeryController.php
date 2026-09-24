@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\Models\Booking;
+use Modules\Doctor\Actions\SyncBookingDoctorDelegationsAction;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Surgery\Actions\ProcessBundleSupplyAction;
 use Modules\Surgery\Actions\RecordSuppliesUsedAction;
@@ -33,6 +35,8 @@ class SurgeryController extends Controller
         private readonly RecordSuppliesUsedAction $suppliesAction,
         private readonly UpdateSurgeryStatusAction $statusAction,
         private readonly ProcessBundleSupplyAction $bundleAction,
+        private readonly SyncBookingDoctorDelegationsAction $syncDelegations,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function index(): Response
@@ -56,6 +60,8 @@ class SurgeryController extends Controller
             'orRooms' => $this->surgeryService->getOrRoomsWithBedStatus($dept, $today),
             'bundles' => $this->surgeryService->getActiveBundles($dept),
             'doctors' => $this->surgeryService->getActiveDoctors(),
+            'anesthesiologists' => $this->surgeryService->getAnesthesiologists(),
+            'delegationServices' => $this->surgeryService->getDelegationServices($dept),
             'dept' => $dept,
             'filters' => ['status' => $status],
             'revenue' => $this->surgeryService->getTodayRevenue($dept),
@@ -179,6 +185,30 @@ class SurgeryController extends Controller
         session()->flash('surgery.supply_total', $surgery->supply_total);
 
         return back()->with('success', 'تم تسجيل المستلزمات المستخدمة.');
+    }
+
+    /**
+     * Replaces this case's delegated/anesthesia-doctor lines only — never
+     * touches the surgery's own fields (bed, procedure, status, ...), unlike
+     * store() which re-saves the whole schedule form.
+     */
+    public function delegations(string $id): RedirectResponse
+    {
+        $validated = request()->validate([
+            'delegations' => ['nullable', 'array'],
+            'delegations.*.doctor_id' => ['required', 'exists:doctors,id'],
+            'delegations.*.role' => ['required', 'in:delegate,anesthesia'],
+            'delegations.*.service_id' => ['nullable', 'exists:services,id'],
+            'delegations.*.service_name' => ['required', 'string', 'max:200'],
+            'delegations.*.amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $surgery = $this->surgeryService->findOrFail($id);
+
+        $this->syncDelegations->execute($surgery->booking, $validated['delegations'] ?? []);
+        $this->syncDoctorEntitlement->execute($surgery->booking);
+
+        return back()->with('success', 'تم حفظ بيانات التفويض والتخدير بنجاح.');
     }
 
     public function updateStatus(string $id): RedirectResponse

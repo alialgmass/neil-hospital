@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import DoctorDelegationPanel from '@/components/shared/DoctorDelegationPanel.vue';
 import Modal from '@/components/shared/Modal.vue';
 
 interface OrBed {
@@ -20,6 +21,12 @@ const props = defineProps<{
     modelValue: boolean;
     orRooms: OrRoom[];
     doctors: { id: string; name: string }[];
+    anesthesiologists: { id: string; name: string }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
     prefill?: {
@@ -45,6 +52,13 @@ const form = useForm({
     anaesthesia: 'topical',
     pre_op_notes: '',
     scheduled_at: '',
+    delegations: [] as {
+        doctor_id: string;
+        role: 'delegate' | 'anesthesia';
+        service_id: string | null;
+        service_name: string;
+        amount: number;
+    }[],
 });
 
 const procedures = [
@@ -246,6 +260,14 @@ function close() {
                     </button>
                 </div>
             </div>
+
+            <!-- Delegate / anesthesia doctors -->
+            <DoctorDelegationPanel
+                v-model="form.delegations"
+                :doctors="doctors"
+                :anesthesiologists="anesthesiologists"
+                :services="delegationServices"
+            />
 
             <!-- Pre-op notes -->
             <div>

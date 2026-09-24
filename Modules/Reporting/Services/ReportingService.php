@@ -5,6 +5,7 @@ namespace Modules\Reporting\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\States\ClaimStatus;
@@ -79,8 +80,19 @@ class ReportingService
 
         $doctors = Doctor::whereIn('id', $bookings->pluck('doctor_id')->unique())->get()->keyBy('id');
 
+        // Per (doctor, booking) debt already settled out of that doctor's
+        // share (see Doctor::settleDebtForBooking()) — netted out below so a
+        // booking whose share was diverted to pay down old debt never keeps
+        // showing as still "مستحق" (see DoctorDebtSettlement).
+        $debtSettled = DB::table('doctor_debt_settlements')
+            ->when($doctorId, fn ($q, $v) => $q->where('doctor_id', $v))
+            ->select('doctor_id', 'booking_id', DB::raw('SUM(amount) as total'))
+            ->groupBy('doctor_id', 'booking_id')
+            ->get()
+            ->keyBy(fn ($row) => "{$row->doctor_id}:{$row->booking_id}");
+
         $rows = $bookings->groupBy('doctor_id')
-            ->map(function ($doctorBookings, $doctorId) use ($doctors) {
+            ->map(function ($doctorBookings, $doctorId) use ($doctors, $debtSettled) {
                 $doctor = $doctors->get($doctorId);
                 if (! $doctor) {
                     return null;
@@ -90,7 +102,14 @@ class ReportingService
                 $insAmount = (float) $doctorBookings->sum('ins_amount');
                 $netBilled = $totalBilled - $insAmount;
 
-                $doctorClaim = (float) $doctorBookings->sum(fn ($booking) => $this->doctorClaimsService->computeDrShare($doctor, $booking));
+                // computeDrShare() already nets out any delegated/anesthesia
+                // amount for this booking (see DoctorClaimsService::delegatedTotal()).
+                $doctorClaim = (float) $doctorBookings->sum(function ($booking) use ($doctor, $debtSettled) {
+                    $share = $this->doctorClaimsService->computeDrShare($doctor, $booking);
+                    $settled = (float) ($debtSettled->get("{$doctor->id}:{$booking->id}")->total ?? 0);
+
+                    return max(0.0, round($share - $settled, 2));
+                });
 
                 return (object) [
                     'doctor_id' => $doctor->id,
@@ -106,9 +125,67 @@ class ReportingService
                 ];
             })
             ->filter()
-            ->sortByDesc('last_visit')
-            ->values()
-            ->toArray();
+            ->keyBy('doctor_id');
+
+        // Delegated/anesthesia dues: earned by a doctor who isn't
+        // bookings.doctor_id, so they never appear in the groupBy above.
+        // Merged into the same doctor's row when they also have primary
+        // bookings in the period, otherwise added as a claim-only row.
+        $delegationRows = DB::table('booking_doctor_delegations')
+            ->join('bookings', 'bookings.id', '=', 'booking_doctor_delegations.booking_id')
+            ->where('booking_doctor_delegations.status', '!=', DelegationStatus::Void->value)
+            ->whereBetween('bookings.visit_date', [$from, $to])
+            ->whereIn('bookings.dept', SystemModule::enabledDeptValues())
+            ->when($doctorId, fn ($q, $v) => $q->where('booking_doctor_delegations.doctor_id', $v))
+            ->select(
+                'booking_doctor_delegations.doctor_id',
+                'booking_doctor_delegations.booking_id',
+                'booking_doctor_delegations.amount',
+                'bookings.visit_date',
+            )
+            ->get()
+            ->groupBy('doctor_id');
+
+        foreach ($delegationRows as $delegateDoctorId => $lines) {
+            $doctor = Doctor::find($delegateDoctorId);
+
+            if (! $doctor) {
+                continue;
+            }
+
+            $netAmount = (float) $lines->sum(function ($line) use ($delegateDoctorId, $debtSettled) {
+                $settled = (float) ($debtSettled->get("{$delegateDoctorId}:{$line->booking_id}")->total ?? 0);
+
+                return max(0.0, round((float) $line->amount - $settled, 2));
+            });
+            $cases = $lines->pluck('booking_id')->unique()->count();
+            $lastVisit = $lines->max('visit_date');
+
+            $existing = $rows->get($delegateDoctorId);
+
+            if ($existing) {
+                $existing->cases += $cases;
+                $existing->doctor_claim = round($existing->doctor_claim + $netAmount, 2);
+                $existing->last_visit = max($existing->last_visit, $lastVisit);
+
+                continue;
+            }
+
+            $rows->put($delegateDoctorId, (object) [
+                'doctor_id' => $doctor->id,
+                'doctor_name' => $doctor->name,
+                'fee_type' => $doctor->fee_type->value,
+                'cases' => $cases,
+                'total_billed' => 0.0,
+                'ins_amount' => 0.0,
+                'net_billed' => 0.0,
+                'doctor_claim' => round($netAmount, 2),
+                'center_share' => 0.0,
+                'last_visit' => $lastVisit,
+            ]);
+        }
+
+        $rows = $rows->sortByDesc('last_visit')->values()->toArray();
 
         return compact('rows', 'from', 'to');
     }

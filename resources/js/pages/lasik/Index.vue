@@ -5,7 +5,10 @@ import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
-import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import {
+    NO_PERMISSION_TITLE,
+    usePermissions,
+} from '@/composables/usePermissions';
 import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
 import lasikRoutes from '@/routes/lasik';
 import BedsGrid from './partials/BedsGrid.vue';
@@ -22,9 +25,25 @@ interface SupplyUsedItem {
     total: number;
 }
 
+interface DelegationRow {
+    id: string;
+    doctor_id: string;
+    doctor: { id: string; name: string } | null;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+    status: 'pending' | 'settled' | 'void';
+}
+
 interface Surgery {
     id: string;
-    booking: { file_no: string; patient_name: string };
+    booking: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        doctor_delegations?: DelegationRow[];
+    };
     procedure: string;
     eye: 'OD' | 'OS' | 'OU' | null;
     surgeon: { id: string; name: string } | null;
@@ -80,6 +99,12 @@ const props = defineProps<{
     orRooms: OrRoom[];
     bundles: Bundle[];
     doctors: { id: string; name: string }[];
+    anesthesiologists: { id: string; name: string }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
     filters: { status?: string };
@@ -245,12 +270,17 @@ function submitSupplies(
                 }
 
                 done(null);
-                toast.success(`تم تسجيل ${validItems.length} من المستلزمات بنجاح`);
+                toast.success(
+                    `تم تسجيل ${validItems.length} من المستلزمات بنجاح`,
+                );
             },
             onError: (errors) => {
                 activeCase.value!.supplies_used = prevSupplies;
                 done(errors);
-                toast.error(Object.values(errors)[0] ?? 'فشل في حفظ المستلزمات. حاول مرة أخرى.');
+                toast.error(
+                    Object.values(errors)[0] ??
+                        'فشل في حفظ المستلزمات. حاول مرة أخرى.',
+                );
             },
         },
     );
@@ -413,7 +443,9 @@ const eyeLabel: Record<string, string> = {
                     <button
                         class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#7B2FA6] hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                         :disabled="!canWrite"
-                        :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE"
+                        :title="
+                            canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE
+                        "
                         @click="openSupplies((row as Surgery).id)"
                     >
                         <Package class="h-3.5 w-3.5" /> مستلزمات
@@ -428,6 +460,9 @@ const eyeLabel: Record<string, string> = {
         v-if="activeCase"
         :surgery="activeCase"
         :dept="dept"
+        :doctors="doctors"
+        :anesthesiologists="anesthesiologists"
+        :delegation-services="delegationServices"
         @close="closeCase"
         @open-report="openReport"
         @open-supplies="openSupplies"
@@ -441,6 +476,8 @@ const eyeLabel: Record<string, string> = {
         v-model="showSchedule"
         :or-rooms="orRooms"
         :doctors="doctors"
+        :anesthesiologists="anesthesiologists"
+        :delegation-services="delegationServices"
         :bookings="bookings"
         :dept="dept"
         :prefill="prefill"

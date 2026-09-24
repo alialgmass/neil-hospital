@@ -5,9 +5,14 @@ import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import DoctorDelegationPanel from '@/components/shared/DoctorDelegationPanel.vue';
+import DoctorDelegationRoleFields from '@/components/shared/DoctorDelegationRoleFields.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchableSelect from '@/components/shared/SearchableSelect.vue';
-import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import {
+    NO_PERMISSION_TITLE,
+    usePermissions,
+} from '@/composables/usePermissions';
 import { useSupplyRows } from '@/composables/useSupplyRows';
 import surgeryRoutes from '@/routes/surgery';
 
@@ -19,9 +24,25 @@ interface SupplyUsedItem {
     total: number;
 }
 
+interface DelegationRow {
+    id: string;
+    doctor_id: string;
+    doctor: { id: string; name: string } | null;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+    status: 'pending' | 'settled' | 'void';
+}
+
 interface Surgery {
     id: string;
-    booking: { file_no: string; patient_name: string };
+    booking: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        doctor_delegations?: DelegationRow[];
+    };
     procedure: string;
     eye: 'OD' | 'OS' | 'OU' | null;
     anaesthesia: string | null;
@@ -58,7 +79,6 @@ interface Paginator {
     total: number;
 }
 
-
 interface BundleItem {
     inventory_item_id: string | null;
     item_name: string;
@@ -79,6 +99,12 @@ const props = defineProps<{
     orRooms: OrRoom[];
     bundles: Bundle[];
     doctors: { id: string; name: string }[];
+    anesthesiologists: { id: string; name: string }[];
+    delegationServices: {
+        id: string;
+        name: string;
+        default_dr_fee: number | null;
+    }[];
     bookings: { id: string; file_no: string; patient_name: string }[];
     dept: string;
     filters: { status?: string };
@@ -229,13 +255,65 @@ const occupiedBedIds = computed(() => {
 
 /* ── Case overlay ── */
 const selectedCase = ref<Surgery | null>(null);
-const activeOverlayTab = ref<'supplies' | 'report' | 'status'>('supplies');
+const activeOverlayTab = ref<
+    'supplies' | 'report' | 'status' | 'delegation' | 'anesthesia'
+>('supplies');
 
 const overlayReportForm = useForm({
     op_report: '',
     post_op_notes: '',
     complications: '',
 });
+
+/* ── Delegate / anesthesia doctors ── */
+interface DelegationLine {
+    doctor_id: string;
+    role: 'delegate' | 'anesthesia';
+    service_id: string | null;
+    service_name: string;
+    amount: number;
+}
+
+const overlayDelegations = ref<DelegationLine[]>([]);
+const settledDelegations = ref<DelegationRow[]>([]);
+const savingDelegations = ref(false);
+
+const delegateLines = computed(() =>
+    overlayDelegations.value.filter((l) => l.role === 'delegate'),
+);
+const anesthesiaLines = computed(() =>
+    overlayDelegations.value.filter((l) => l.role === 'anesthesia'),
+);
+
+function updateOverlayDelegationRole(
+    role: 'delegate' | 'anesthesia',
+    lines: DelegationLine[],
+) {
+    overlayDelegations.value = [
+        ...overlayDelegations.value.filter((l) => l.role !== role),
+        ...lines,
+    ];
+}
+
+function submitOverlayDelegations() {
+    if (!canWrite.value || savingDelegations.value || !selectedCase.value) {
+        return;
+    }
+
+    savingDelegations.value = true;
+
+    router.post(
+        `/${props.dept}/${selectedCase.value.id}/delegations`,
+        { delegations: overlayDelegations.value },
+        {
+            preserveScroll: true,
+            onSuccess: () => toast.success('تم حفظ بيانات التفويض والتخدير'),
+            onFinish: () => {
+                savingDelegations.value = false;
+            },
+        },
+    );
+}
 
 // ── Permissions ──
 const { can } = usePermissions();
@@ -337,7 +415,7 @@ function removeBundleFromSelected(idx: number) {
 
 function openCase(
     surgery: Surgery,
-    tab: 'supplies' | 'report' | 'status' = 'supplies',
+    tab: 'supplies' | 'report' | 'status' | 'delegation' | 'anesthesia' = 'supplies',
 ) {
     if (!canWrite.value) {
         return;
@@ -352,6 +430,18 @@ function openCase(
     overlayReportForm.op_report = surgery.op_report ?? '';
     overlayReportForm.post_op_notes = surgery.post_op_notes ?? '';
     overlayReportForm.complications = surgery.complications ?? '';
+
+    const allDelegations = surgery.booking.doctor_delegations ?? [];
+    overlayDelegations.value = allDelegations
+        .filter((d) => d.status === 'pending')
+        .map((d) => ({
+            doctor_id: d.doctor_id,
+            role: d.role,
+            service_id: d.service_id,
+            service_name: d.service_name,
+            amount: Number(d.amount),
+        }));
+    settledDelegations.value = allDelegations.filter((d) => d.status === 'settled');
 }
 
 function closeOverlay() {
@@ -425,7 +515,10 @@ function submitOverlaySupplies() {
             onError: (errors) => {
                 selectedCase.value!.supplies_used = existing;
                 supplyRows.applyServerErrors(errors, submittedRows);
-                toast.error(Object.values(errors)[0] ?? 'فشل في حفظ المستلزمات. حاول مرة أخرى.');
+                toast.error(
+                    Object.values(errors)[0] ??
+                        'فشل في حفظ المستلزمات. حاول مرة أخرى.',
+                );
             },
             onFinish: () => {
                 savingSupplies.value = false;
@@ -500,6 +593,13 @@ const scheduleForm = useForm({
     anaesthesia: '',
     pre_op_notes: '',
     scheduled_at: '',
+    delegations: [] as {
+        doctor_id: string;
+        role: 'delegate' | 'anesthesia';
+        service_id: string | null;
+        service_name: string;
+        amount: number;
+    }[],
 });
 
 function selectOrBed(bedId: number) {
@@ -728,7 +828,9 @@ if (props.prefill) {
                     <button
                         class="bed-action-btn"
                         :disabled="!canWrite"
-                        :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE"
+                        :title="
+                            canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE
+                        "
                         @click="openCase(item.surgery!, 'supplies')"
                     >
                         💊 مستلزمات
@@ -939,6 +1041,28 @@ if (props.prefill) {
                 >
                     تحديث الحالة
                 </button>
+                <button
+                    :class="[
+                        'case-tab',
+                        activeOverlayTab === 'delegation'
+                            ? 'case-tab-active'
+                            : '',
+                    ]"
+                    @click="activeOverlayTab = 'delegation'"
+                >
+                    تفويض دكتور
+                </button>
+                <button
+                    :class="[
+                        'case-tab',
+                        activeOverlayTab === 'anesthesia'
+                            ? 'case-tab-active'
+                            : '',
+                    ]"
+                    @click="activeOverlayTab = 'anesthesia'"
+                >
+                    دكتور التخدير
+                </button>
             </div>
 
             <!-- ── Tab content ── -->
@@ -1142,13 +1266,21 @@ if (props.prefill) {
                                 v-for="(item, idx) in newSupplyItems"
                                 :key="item.uid"
                             >
-                                <div class="mb-2 grid grid-cols-12 items-center gap-2">
+                                <div
+                                    class="mb-2 grid grid-cols-12 items-center gap-2"
+                                >
                                     <div class="col-span-5">
                                         <SearchableSelect
                                             v-model="item.name"
                                             :endpoint="`/${dept}/items/search`"
                                             placeholder="ابحث عن صنف بالاسم أو الكود..."
-                                            @select="(matched) => onSupplySelected(idx, matched)"
+                                            @select="
+                                                (matched) =>
+                                                    onSupplySelected(
+                                                        idx,
+                                                        matched,
+                                                    )
+                                            "
                                         />
                                     </div>
                                     <input
@@ -1157,7 +1289,10 @@ if (props.prefill) {
                                         min="1"
                                         placeholder="الكمية"
                                         class="overlay-input col-span-2"
-                                        :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        :class="{
+                                            'border-hospital-danger':
+                                                supplyRowError(item.uid),
+                                        }"
                                     />
                                     <input
                                         v-model.number="item.unit_cost"
@@ -1166,10 +1301,21 @@ if (props.prefill) {
                                         step="0.01"
                                         placeholder="السعر"
                                         class="overlay-input col-span-2"
-                                        :class="{ 'border-hospital-danger': supplyRowError(item.uid) }"
+                                        :class="{
+                                            'border-hospital-danger':
+                                                supplyRowError(item.uid),
+                                        }"
                                     />
-                                    <span class="col-span-2 text-sm font-semibold tabular-nums text-hospital-text">
-                                        {{ item.inventory_item_id ? (item.qty * item.unit_cost).toLocaleString('en-US') : '—' }}
+                                    <span
+                                        class="col-span-2 text-sm font-semibold text-hospital-text tabular-nums"
+                                    >
+                                        {{
+                                            item.inventory_item_id
+                                                ? (
+                                                      item.qty * item.unit_cost
+                                                  ).toLocaleString('en-US')
+                                                : '—'
+                                        }}
                                     </span>
                                     <button
                                         type="button"
@@ -1229,10 +1375,18 @@ if (props.prefill) {
                                     type="button"
                                     class="overlay-btn-green"
                                     :disabled="!canWrite || savingSupplies"
-                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                    :title="
+                                        canWrite
+                                            ? undefined
+                                            : NO_PERMISSION_TITLE
+                                    "
                                     @click="submitOverlaySupplies"
                                 >
-                                    {{ savingSupplies ? 'جارٍ الحفظ...' : 'إضافة الكل ✓' }}
+                                    {{
+                                        savingSupplies
+                                            ? 'جارٍ الحفظ...'
+                                            : 'إضافة الكل ✓'
+                                    }}
                                 </button>
                             </div>
                         </div>
@@ -1386,8 +1540,15 @@ if (props.prefill) {
                                 </button>
                                 <button
                                     type="submit"
-                                    :disabled="overlayReportForm.processing || !canWrite"
-                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                    :disabled="
+                                        overlayReportForm.processing ||
+                                        !canWrite
+                                    "
+                                    :title="
+                                        canWrite
+                                            ? undefined
+                                            : NO_PERMISSION_TITLE
+                                    "
                                     class="overlay-btn-green"
                                 >
                                     حفظ التقرير ✓
@@ -1473,7 +1634,11 @@ if (props.prefill) {
                                     class="rounded-lg px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                     :style="{ background: s.color }"
                                     :disabled="!canWrite"
-                                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                                    :title="
+                                        canWrite
+                                            ? undefined
+                                            : NO_PERMISSION_TITLE
+                                    "
                                     @click="updateStatus(s.value)"
                                 >
                                     {{ s.label }}
@@ -1501,6 +1666,112 @@ if (props.prefill) {
                                 >
                                     {{ selectedCase.pre_op_notes }}
                                 </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== DELEGATION TAB ===== -->
+                <div v-if="activeOverlayTab === 'delegation'">
+                    <div class="overlay-card mb-4">
+                        <div class="overlay-card-hd">تفويض دكتور آخر</div>
+                        <div class="p-4">
+                            <DoctorDelegationRoleFields
+                                :model-value="delegateLines"
+                                role="delegate"
+                                :doctors="doctors"
+                                :anesthesiologists="anesthesiologists"
+                                :services="delegationServices"
+                                @update:model-value="
+                                    (lines) =>
+                                        updateOverlayDelegationRole(
+                                            'delegate',
+                                            lines,
+                                        )
+                                "
+                            />
+                            <ul
+                                v-if="
+                                    settledDelegations.filter(
+                                        (d) => d.role === 'delegate',
+                                    ).length
+                                "
+                                class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                            >
+                                <li
+                                    v-for="d in settledDelegations.filter(
+                                        (x) => x.role === 'delegate',
+                                    )"
+                                    :key="d.id"
+                                >
+                                    ✓ {{ d.doctor?.name }} —
+                                    {{ d.service_name }} —
+                                    {{ Number(d.amount).toLocaleString('ar-EG') }}
+                                    ج (تم الدفع)
+                                </li>
+                            </ul>
+                            <div class="mt-4 flex justify-end">
+                                <button
+                                    type="button"
+                                    :disabled="savingDelegations || !canWrite"
+                                    class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
+                                    @click="submitOverlayDelegations"
+                                >
+                                    حفظ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== ANESTHESIA TAB ===== -->
+                <div v-if="activeOverlayTab === 'anesthesia'">
+                    <div class="overlay-card mb-4">
+                        <div class="overlay-card-hd">دكتور التخدير</div>
+                        <div class="p-4">
+                            <DoctorDelegationRoleFields
+                                :model-value="anesthesiaLines"
+                                role="anesthesia"
+                                :doctors="doctors"
+                                :anesthesiologists="anesthesiologists"
+                                :services="delegationServices"
+                                @update:model-value="
+                                    (lines) =>
+                                        updateOverlayDelegationRole(
+                                            'anesthesia',
+                                            lines,
+                                        )
+                                "
+                            />
+                            <ul
+                                v-if="
+                                    settledDelegations.filter(
+                                        (d) => d.role === 'anesthesia',
+                                    ).length
+                                "
+                                class="mt-4 space-y-1 border-t border-hospital-border pt-3 text-xs text-hospital-text-2"
+                            >
+                                <li
+                                    v-for="d in settledDelegations.filter(
+                                        (x) => x.role === 'anesthesia',
+                                    )"
+                                    :key="d.id"
+                                >
+                                    ✓ {{ d.doctor?.name }} —
+                                    {{ d.service_name }} —
+                                    {{ Number(d.amount).toLocaleString('ar-EG') }}
+                                    ج (تم الدفع)
+                                </li>
+                            </ul>
+                            <div class="mt-4 flex justify-end">
+                                <button
+                                    type="button"
+                                    :disabled="savingDelegations || !canWrite"
+                                    class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:opacity-60"
+                                    @click="submitOverlayDelegations"
+                                >
+                                    حفظ
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1648,6 +1919,14 @@ if (props.prefill) {
                     </button>
                 </div>
             </div>
+
+            <!-- Delegate / anesthesia doctors -->
+            <DoctorDelegationPanel
+                v-model="scheduleForm.delegations"
+                :doctors="doctors"
+                :anesthesiologists="anesthesiologists"
+                :services="delegationServices"
+            />
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-hospital-text"

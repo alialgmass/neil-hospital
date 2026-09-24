@@ -142,4 +142,63 @@ class PayBookingTest extends TestCase
         $this->assertCount(1, $entries, 'Fixed doctor fee should only be posted once, on the first payment');
         $this->assertEquals(50.0, (float) $entries->first()->amount);
     }
+
+    public function test_paying_zero_on_a_cash_booking_writes_off_the_price_as_doctor_debt(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. منى', 'fee_type' => 'fixed', 'fee_value' => 50, 'is_active' => true,
+        ]);
+        $booking = $this->createBooking(['doctor_id' => $doctor->id, 'price' => 1000]);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'paid_amount' => 0,
+            'pay_status' => 'paid',
+        ]);
+        $this->assertEquals(1000.0, (float) $doctor->fresh()->doctor_debt_balance);
+
+        // No cash/doctor-dues journal entries should be posted for a
+        // write-off — nothing was actually collected or newly payable.
+        $this->assertDatabaseMissing('journal_entries', ['reference' => $booking->file_no]);
+    }
+
+    public function test_paying_zero_twice_never_incurs_the_debt_twice(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. هند', 'fee_type' => 'fixed', 'fee_value' => 50, 'is_active' => true,
+        ]);
+        $booking = $this->createBooking(['doctor_id' => $doctor->id, 'price' => 1000]);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
+        ])->assertRedirect();
+
+        $this->assertEquals(1000.0, (float) $doctor->fresh()->doctor_debt_balance);
+    }
+
+    public function test_paying_zero_on_an_insurance_booking_does_not_incur_doctor_debt(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. كريم', 'fee_type' => 'fixed', 'fee_value' => 50, 'is_active' => true,
+        ]);
+        $booking = $this->createBooking(['doctor_id' => $doctor->id, 'price' => 1000, 'pay_method' => 'insurance']);
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
+            'paid_amount' => 0,
+            'pay_method' => 'insurance',
+        ])->assertRedirect();
+
+        $this->assertEquals(0.0, (float) $doctor->fresh()->doctor_debt_balance);
+    }
 }

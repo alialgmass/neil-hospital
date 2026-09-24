@@ -43,11 +43,15 @@ interface ClaimRow {
     date: string;
     dept: string;
     service: string;
-    paid: number;
-    ins_amount: number;
+    paid: number | null;
+    ins_amount: number | null;
     dr_share: number;
+    gross_dr_share?: number;
+    debt_settled?: number;
     supplies?: SupplyItem[];
     supply_total?: number;
+    role?: 'delegate' | 'anesthesia' | null;
+    delegation_status?: 'pending' | 'settled' | null;
 }
 
 interface PaymentRecord {
@@ -256,6 +260,16 @@ const feeTypeLabel: Record<string, string> = {
     fixed: 'مبلغ ثابت',
     insurance: 'تأمين',
 };
+
+const roleLabel: Record<string, string> = {
+    delegate: 'تفويض',
+    anesthesia: 'تخدير',
+};
+
+/** Delegated/anesthesia rows carry no patient-payment figure — paid/ins_amount are null, not zero. */
+function fmtOrDash(n: number | null | undefined) {
+    return n === null || n === undefined ? '—' : fmt(n);
+}
 
 function fmt(n: number) {
     return (
@@ -769,10 +783,28 @@ function printInvoice() {
                                         {{ row.date }}
                                     </td>
                                     <td class="px-4 py-2.5">
-                                        <span
-                                            class="block text-xs font-medium"
-                                            >{{ row.patient_name }}</span
-                                        >
+                                        <div class="flex items-center gap-1.5">
+                                            <span
+                                                class="block text-xs font-medium"
+                                                >{{ row.patient_name }}</span
+                                            >
+                                            <span
+                                                v-if="row.role"
+                                                class="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
+                                                :class="
+                                                    row.role === 'anesthesia'
+                                                        ? 'bg-hospital-warning'
+                                                        : 'bg-hospital-primary'
+                                                "
+                                                :title="
+                                                    row.delegation_status === 'settled'
+                                                        ? 'تم الدفع'
+                                                        : 'مستحق'
+                                                "
+                                            >
+                                                {{ roleLabel[row.role] }}
+                                            </span>
+                                        </div>
                                         <span
                                             class="block font-mono text-[10px] text-hospital-text-3"
                                             >{{ row.file_no }}</span
@@ -784,7 +816,7 @@ function printInvoice() {
                                     <td
                                         class="px-4 py-2.5 text-left font-mono text-xs"
                                     >
-                                        {{ fmt(row.paid) }}
+                                        {{ fmtOrDash(row.paid) }}
                                     </td>
                                     <td
                                         class="px-4 py-2.5 text-left font-mono text-xs"
@@ -804,6 +836,20 @@ function printInvoice() {
                                         class="px-4 py-2.5 text-left font-mono text-xs font-semibold text-hospital-primary"
                                     >
                                         {{ fmt(row.dr_share) }}
+                                        <span
+                                            v-if="(row.debt_settled ?? 0) > 0"
+                                            class="block font-sans text-[9px] font-normal text-hospital-danger"
+                                            :title="
+                                                'من إجمالي ' +
+                                                fmt(row.gross_dr_share ?? 0) +
+                                                ' — خُصم ' +
+                                                fmt(row.debt_settled!) +
+                                                ' لسداد مديونية الطبيب'
+                                            "
+                                        >
+                                            (خصم مديونية
+                                            {{ fmt(row.debt_settled!) }})
+                                        </span>
                                     </td>
                                     <td class="px-4 py-2.5">
                                         <FileText
@@ -940,6 +986,16 @@ function printInvoice() {
                     </div>
 
                     <div class="space-y-3 p-5">
+                        <div
+                            v-if="selectedRow.role"
+                            class="rounded-lg border border-hospital-warning/40 bg-hospital-warning-pale/40 p-2 text-xs text-hospital-warning"
+                        >
+                            {{
+                                selectedRow.role === 'anesthesia'
+                                    ? 'مستحق تخدير — الحجز باسم طبيب آخر، وهذا المبلغ سعر هذا الطبيب كطبيب تخدير على هذه الحالة.'
+                                    : 'مستحق تفويض — الحجز باسم طبيب آخر، وهذا المبلغ سعر هذا الطبيب كطبيب مفوَّض على هذه الحالة.'
+                            }}
+                        </div>
                         <div class="grid grid-cols-2 gap-3 text-sm">
                             <div class="rounded-lg bg-hospital-bg p-3">
                                 <p class="text-xs text-hospital-text-2">
@@ -1027,7 +1083,7 @@ function printInvoice() {
                                     >المبلغ المدفوع من المريض</span
                                 >
                                 <span class="font-mono">{{
-                                    fmt(selectedRow.paid)
+                                    fmtOrDash(selectedRow.paid)
                                 }}</span>
                             </div>
                             <div
@@ -1040,6 +1096,17 @@ function printInvoice() {
                                 <span class="font-mono text-hospital-warning"
                                     >−
                                     {{ fmt(selectedRow.supply_total!) }}</span
+                                >
+                            </div>
+                            <div
+                                v-if="(selectedRow.debt_settled ?? 0) > 0"
+                                class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
+                            >
+                                <span class="text-hospital-danger"
+                                    >خصم مديونية الطبيب</span
+                                >
+                                <span class="font-mono text-hospital-danger"
+                                    >− {{ fmt(selectedRow.debt_settled!) }}</span
                                 >
                             </div>
                             <div
@@ -1327,14 +1394,19 @@ function printInvoice() {
                             <td class="center muted">{{ idx + 1 }}</td>
                             <td class="mono">{{ row.date }}</td>
                             <td class="mono muted">{{ row.file_no }}</td>
-                            <td class="bold">{{ row.patient_name }}</td>
+                            <td class="bold">
+                                {{ row.patient_name }}
+                                <span v-if="row.role" class="ph-role-badge">{{
+                                    roleLabel[row.role]
+                                }}</span>
+                            </td>
                             <td>
                                 <span class="ph-dept">{{
                                     deptLabels[row.dept] ?? row.dept
                                 }}</span>
                             </td>
                             <td class="muted">{{ row.service }}</td>
-                            <td class="num">{{ fmt(row.paid) }}</td>
+                            <td class="num">{{ fmtOrDash(row.paid) }}</td>
                             <td
                                 class="num"
                                 :class="
@@ -1351,6 +1423,13 @@ function printInvoice() {
                             </td>
                             <td class="num primary bold">
                                 {{ fmt(row.dr_share) }}
+                                <span
+                                    v-if="(row.debt_settled ?? 0) > 0"
+                                    class="ph-debt-note"
+                                >
+                                    (خصم مديونية {{ fmt(row.debt_settled!) }}
+                                    من {{ fmt(row.gross_dr_share ?? 0) }})
+                                </span>
                             </td>
                         </tr>
                         <!-- Supply sub-rows -->
@@ -1787,6 +1866,29 @@ function printInvoice() {
         font-weight: 600;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+
+    /* delegation/anesthesia role badge */
+    .ph-role-badge {
+        display: inline-block;
+        margin-right: 4px;
+        background: #b45309;
+        color: #fff;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 9px;
+        font-weight: 700;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* debt-settlement note under a case's مستحق figure */
+    .ph-debt-note {
+        display: block;
+        font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+        font-size: 8.5px;
+        font-weight: 400;
+        color: #d63b3b;
     }
 
     /* payment method badge */

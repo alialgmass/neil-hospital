@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\Service;
 use Modules\Booking\States\ConfirmedState as BookingConfirmedState;
 use Modules\Booking\States\WaitingState as BookingWaitingState;
 use Modules\Doctor\Models\Doctor;
@@ -199,9 +200,42 @@ class SurgeryService
             ]);
     }
 
+    /**
+     * Doctors for the delegation/anesthesia pickers, each with their own
+     * delegation fee per service (doctor_delegation_fees pivot) — separate
+     * from their normal insurance/contract fee (doctor_service), so a
+     * delegation/anesthesia line prices itself from the doctor's dedicated
+     * delegation rate rather than a generic default.
+     */
     public function getActiveDoctors(): Collection
     {
-        return Doctor::select('id', 'name')->orderBy('name')->get();
+        return Doctor::with('delegationServices:services.id,services.name')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function getAnesthesiologists(): Collection
+    {
+        return Doctor::with('delegationServices:services.id,services.name')
+            ->where('is_anesthesiologist', true)
+            ->where('is_active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Services for the delegation/anesthesia pickers on the schedule form —
+     * any active service in the department is a valid candidate for either
+     * role, priced from the doctor's own per-service fee (see getActiveDoctors()).
+     */
+    public function getDelegationServices(string $dept): Collection
+    {
+        return Service::where('dept', $dept)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'default_dr_fee']);
     }
 
     public function getActiveInventoryItems(): Collection

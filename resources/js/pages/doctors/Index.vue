@@ -34,7 +34,9 @@ interface Doctor {
     dept_fees: Record<string, DeptFeeEntry> | null;
     departments: string[] | null;
     services?: DoctorServiceEntry[];
+    delegation_services?: DoctorServiceEntry[];
     is_active: boolean;
+    is_anesthesiologist: boolean;
 }
 
 interface ServiceOption {
@@ -133,16 +135,25 @@ const form = useForm({
     fee_type:  'percentage' as FeeType,
     fee_value: 40,
     is_active: true,
+    is_anesthesiologist: false,
     dept_fees: {} as Record<string, DeptFeeEntry>,
     departments: [] as string[],
     services: [] as { service_id: string; fee: number }[],
+    delegation_services: [] as { service_id: string; fee: number }[],
 });
 
 function addServiceFee() {
     form.services.push({ service_id: props.services[0]?.id ?? '', fee: 0 });
 }
-function removeServiceFee(index: number) {
-    form.services.splice(index, 1);
+function addDelegationServiceFee() {
+    form.delegation_services.push({ service_id: props.services[0]?.id ?? '', fee: 0 });
+}
+function removeServiceRow(list: { service_id: string; fee: number }[], row: { service_id: string; fee: number }) {
+    const index = list.indexOf(row);
+
+    if (index !== -1) {
+        list.splice(index, 1);
+    }
 }
 
 function openAdd() {
@@ -155,8 +166,10 @@ function openAdd() {
     form.fee_type  = 'percentage';
     form.fee_value = 40;
     form.is_active = true;
+    form.is_anesthesiologist = false;
     form.departments = [];
     form.services = [];
+    form.delegation_services = [];
     preservedDeptFees.value = {};
     depts.value.forEach(({ key }) => {
         deptOverrides[key] = defaultOverride(key);
@@ -190,8 +203,13 @@ function openEdit(doctor: Doctor) {
     form.fee_type  = doctor.fee_type;
     form.fee_value = doctor.fee_value;
     form.is_active = doctor.is_active;
+    form.is_anesthesiologist = doctor.is_anesthesiologist;
     form.departments = doctor.departments ?? [];
     form.services = (doctor.services ?? []).map((s) => ({
+        service_id: s.id,
+        fee: Number(s.pivot.fee),
+    }));
+    form.delegation_services = (doctor.delegation_services ?? []).map((s) => ({
         service_id: s.id,
         fee: Number(s.pivot.fee),
     }));
@@ -420,12 +438,42 @@ const feeTypeLabels: Record<string, string> = {
                             <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
                         </select>
                         <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="الأتعاب (ج.م)" class="input-field" />
-                        <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceFee(i)">
+                        <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceRow(form.services, row)">
                             <Trash2 class="h-4 w-4" />
                         </button>
                     </div>
                 </div>
                 <p v-if="form.errors.services" class="form-error">{{ form.errors.services }}</p>
+            </div>
+
+            <!-- Delegation / anesthesia fees — separate from the insurance/contract fees above -->
+            <div class="rounded-xl border border-hospital-border bg-hospital-surface-2 p-4">
+                <div class="mb-3 flex items-center justify-between border-b border-hospital-border pb-2">
+                    <div>
+                        <p class="text-sm font-bold text-hospital-text">🤝 خدمات التفويض والتخدير وأسعارها</p>
+                        <p class="mt-1 text-xs text-hospital-text-2">سعر هذا الطبيب لكل خدمة عند تفويضه من طبيب آخر، أو عند إسناده كطبيب تخدير — مستقل تماماً عن أتعاب التأمين والتعاقد أعلاه. تُستخدم في شاشة العمليات/الليزك.</p>
+                    </div>
+                    <button type="button" class="shrink-0 rounded-md border border-hospital-border bg-hospital-surface px-2 py-1 text-xs text-hospital-text hover:bg-hospital-bg" @click="addDelegationServiceFee">+ إضافة خدمة</button>
+                </div>
+                <p v-if="!form.delegation_services.length" class="text-xs text-hospital-text-2">لا توجد خدمات مضافة.</p>
+                <div v-else class="space-y-2">
+                    <div v-for="(row, i) in form.delegation_services" :key="i" class="grid grid-cols-[1fr_120px_auto] items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface p-2">
+                        <select v-model="row.service_id" class="input-field">
+                            <option v-for="s in services" :key="s.id" :value="s.id">{{ s.name }}</option>
+                        </select>
+                        <input v-model.number="row.fee" type="number" min="0" step="0.01" placeholder="السعر (ج.م)" class="input-field" />
+                        <button type="button" class="rounded p-1 text-hospital-text-2 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="removeServiceRow(form.delegation_services, row)">
+                            <Trash2 class="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+                <p v-if="form.errors.delegation_services" class="form-error">{{ form.errors.delegation_services }}</p>
+            </div>
+
+            <!-- Anesthesiologist (filters the "دكتور التخدير" picker in العمليات/الليزك) -->
+            <div class="flex items-center gap-2">
+                <input id="is_anesthesiologist" v-model="form.is_anesthesiologist" type="checkbox" class="h-4 w-4 rounded border-hospital-border text-hospital-primary" />
+                <label for="is_anesthesiologist" class="text-sm font-medium text-hospital-text">طبيب تخدير</label>
             </div>
 
             <!-- Status (edit only) -->

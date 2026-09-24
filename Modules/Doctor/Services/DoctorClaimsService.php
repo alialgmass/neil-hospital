@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
+use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
@@ -40,13 +41,25 @@ class DoctorClaimsService
             ->whereIn('status', ['pending', 'settled'])
             ->pluck('amount', 'booking_id');
 
+        // Per-booking debt already settled out of this doctor's share (see
+        // Doctor::settleDebtForBooking()) — subtracted below so a booking
+        // whose share was silently diverted to pay down old debt never
+        // keeps showing as still "مستحق" (see DoctorDebtSettlement).
+        $debtSettled = DB::table('doctor_debt_settlements')
+            ->where('doctor_id', $doctorId)
+            ->select('booking_id', DB::raw('SUM(amount) as total'))
+            ->groupBy('booking_id')
+            ->pluck('total', 'booking_id');
+
         $rows = [];
         $totalDrShare = 0.0;
 
         foreach ($bookings as $booking) {
-            $drShare = $entitlements->has($booking->id)
+            $grossShare = $entitlements->has($booking->id)
                 ? (float) $entitlements[$booking->id]
                 : $this->computeDrShare($doctor, $booking);
+            $settledFromBooking = min($grossShare, (float) ($debtSettled[$booking->id] ?? 0));
+            $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
             $totalDrShare += $drShare;
 
             $row = [
@@ -59,6 +72,8 @@ class DoctorClaimsService
                 'paid' => (float) $booking->paid_amount,
                 'ins_amount' => (float) $booking->ins_amount,
                 'dr_share' => $drShare,
+                'gross_dr_share' => round($grossShare, 2),
+                'debt_settled' => round($settledFromBooking, 2),
             ];
 
             if (in_array($booking->dept, ['surgery', 'lasik'])) {
@@ -75,7 +90,66 @@ class DoctorClaimsService
             $rows[] = $row;
         }
 
+        // Delegated / anesthesia dues: this doctor earned these as a second
+        // party on someone else's booking (bookings.doctor_id != $doctorId),
+        // so they never appear in the loop above. The amount is a fixed,
+        // pre-declared fee per line — never recomputed from booking fields.
+        $delegationRows = DB::table('booking_doctor_delegations')
+            ->join('bookings', 'bookings.id', '=', 'booking_doctor_delegations.booking_id')
+            ->where('booking_doctor_delegations.doctor_id', $doctorId)
+            ->where('booking_doctor_delegations.status', '!=', DelegationStatus::Void->value)
+            ->when($from, fn ($q) => $q->whereDate('bookings.visit_date', '>=', $from))
+            ->when($to, fn ($q) => $q->whereDate('bookings.visit_date', '<=', $to))
+            ->orderByDesc('bookings.visit_date')
+            ->get([
+                'booking_doctor_delegations.booking_id',
+                'booking_doctor_delegations.role',
+                'booking_doctor_delegations.service_name',
+                'booking_doctor_delegations.amount',
+                'booking_doctor_delegations.status',
+                'bookings.file_no',
+                'bookings.patient_name',
+                'bookings.visit_date',
+                'bookings.dept',
+            ]);
+
+        foreach ($delegationRows as $delegation) {
+            $grossShare = (float) $delegation->amount;
+            $settledFromBooking = min($grossShare, (float) ($debtSettled[$delegation->booking_id] ?? 0));
+            $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
+            $totalDrShare += $drShare;
+
+            $rows[] = [
+                'booking_id' => $delegation->booking_id,
+                'file_no' => $delegation->file_no,
+                'patient_name' => $delegation->patient_name,
+                'date' => $delegation->visit_date,
+                'dept' => $delegation->dept,
+                'service' => $delegation->service_name,
+                'paid' => null,
+                'ins_amount' => null,
+                'dr_share' => $drShare,
+                'gross_dr_share' => round($grossShare, 2),
+                'debt_settled' => round($settledFromBooking, 2),
+                'role' => $delegation->role,
+                'delegation_status' => $delegation->status,
+            ];
+        }
+
         return $this->buildClaimsResult($doctor, $from, $to, $totalDrShare, $rows);
+    }
+
+    /**
+     * Sum of delegated/anesthesia doctors' declared fees for this booking —
+     * subtracted from the primary doctor's own share so the same fee is
+     * never paid twice (see computeDrShare() / computeShareForPayment()).
+     */
+    private function delegatedTotal(string $bookingId): float
+    {
+        return (float) DB::table('booking_doctor_delegations')
+            ->where('booking_id', $bookingId)
+            ->where('status', '!=', DelegationStatus::Void->value)
+            ->sum('amount');
     }
 
     /**
@@ -85,6 +159,21 @@ class DoctorClaimsService
      * surgery/lasik supply-deduction fees are prorated across each payment.
      */
     public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
+    {
+        $share = $this->doComputeShareForPayment($doctor, $booking, $paymentAmount, $isFirstPayment);
+
+        if (! $isFirstPayment) {
+            return $share;
+        }
+
+        // Whatever was delegated to another doctor (see
+        // SyncBookingDoctorDelegationsAction) is never paid to the primary
+        // doctor too — deducted from the first payment only, mirroring the
+        // supply-cost deduction in surgeryShareForPayment().
+        return max(0.0, round($share - $this->delegatedTotal($booking->id), 2));
+    }
+
+    private function doComputeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
         // Pentacam never generates a doctor fee, regardless of fee configuration.
         if ($booking->dept === Department::Pentacam) {
@@ -270,6 +359,16 @@ class DoctorClaimsService
     }
 
     public function computeDrShare(Doctor $doctor, object $booking): float
+    {
+        $share = $this->doComputeDrShare($doctor, $booking);
+
+        // Whatever was delegated to another doctor (see
+        // SyncBookingDoctorDelegationsAction) is never paid to the primary
+        // doctor too.
+        return max(0.0, round($share - $this->delegatedTotal($booking->id), 2));
+    }
+
+    private function doComputeDrShare(Doctor $doctor, object $booking): float
     {
         $dept = $booking->dept;
 
