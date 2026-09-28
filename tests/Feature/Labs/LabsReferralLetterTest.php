@@ -46,7 +46,12 @@ class LabsReferralLetterTest extends TestCase
         ]);
     }
 
-    public function test_b_scan_result_can_be_recorded(): void
+    /**
+     * Results are now recorded through the medical examination
+     * (see MedicalExaminationTest); the standalone endpoint is gone while
+     * previously recorded results keep their referral letters.
+     */
+    public function test_results_are_no_longer_recorded_outside_the_medical_examination(): void
     {
         $response = $this->actingAs($this->user)->post("/labs/{$this->booking->id}/results", [
             'test_name' => 'B-Scan',
@@ -54,12 +59,8 @@ class LabsReferralLetterTest extends TestCase
             'result_text' => 'Normal posterior segment.',
         ]);
 
-        $response->assertRedirect();
-        $this->assertDatabaseHas('diagnostic_results', [
-            'booking_id' => $this->booking->id,
-            'test_name' => 'B-Scan',
-            'eye' => 'OS',
-        ]);
+        $response->assertNotFound();
+        $this->assertDatabaseCount('diagnostic_results', 0);
     }
 
     public function test_referral_letter_page_renders_with_result_data(): void

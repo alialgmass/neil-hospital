@@ -3,11 +3,8 @@
 namespace Modules\Labs\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Labs\Actions\StoreLabResultAction;
-use Modules\Labs\Http\Requests\StoreLabResultRequest;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Labs\Services\LabsService;
 
@@ -15,7 +12,6 @@ class LabsController extends Controller
 {
     public function __construct(
         private readonly LabsService $labsService,
-        private readonly StoreLabResultAction $storeResultAction,
     ) {}
 
     public function index(): Response
@@ -28,13 +24,6 @@ class LabsController extends Controller
             'date' => $date,
             'filters' => ['search' => $search],
         ]);
-    }
-
-    public function storeResult(StoreLabResultRequest $request, string $bookingId): RedirectResponse
-    {
-        $this->storeResultAction->execute($bookingId, $request->validated(), $request->user()->id);
-
-        return back()->with('success', 'تم تسجيل نتيجة الفحص بنجاح.');
     }
 
     public function referralLetter(string $resultId): Response
