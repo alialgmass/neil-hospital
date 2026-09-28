@@ -8,6 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // MySQL DDL is not transactional: an earlier failed run of this (still
+        // unrecorded) migration may have left some of these tables behind.
+        // They can only come from that failed run, so they hold no data.
+        $this->dropTables();
+
         Schema::create('medical_examinations', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->foreignUlid('booking_id')->unique()->constrained('bookings')->cascadeOnDelete();
@@ -54,7 +59,7 @@ return new class extends Migration
 
         Schema::create('medical_examination_eyes', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations')->cascadeOnDelete();
+            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations', 'id', 'med_exam_eyes_exam_fk')->cascadeOnDelete();
             $table->string('eye', 2);
 
             // Visual acuity
@@ -92,13 +97,13 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique(['medical_examination_id', 'eye']);
+            $table->unique(['medical_examination_id', 'eye'], 'med_exam_eyes_exam_eye_unique');
         });
 
         Schema::create('medical_examination_diagnoses', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations')->cascadeOnDelete();
-            $table->foreignUlid('diagnosis_id')->constrained('diagnoses')->restrictOnDelete();
+            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations', 'id', 'med_exam_diag_exam_fk')->cascadeOnDelete();
+            $table->foreignUlid('diagnosis_id')->constrained('diagnoses', 'id', 'med_exam_diag_diagnosis_fk')->restrictOnDelete();
             $table->string('eye', 2)->nullable();
             $table->string('notes', 500)->nullable();
             $table->timestamps();
@@ -106,8 +111,8 @@ return new class extends Migration
 
         Schema::create('medical_examination_investigations', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations')->cascadeOnDelete();
-            $table->foreignUlid('service_id')->nullable()->constrained('services')->nullOnDelete();
+            $table->foreignUlid('medical_examination_id')->constrained('medical_examinations', 'id', 'med_exam_inv_exam_fk')->cascadeOnDelete();
+            $table->foreignUlid('service_id')->nullable()->constrained('services', 'id', 'med_exam_inv_service_fk')->nullOnDelete();
             $table->string('name', 150);
             $table->string('eye', 2)->nullable();
             $table->string('notes', 500)->nullable();
@@ -116,6 +121,11 @@ return new class extends Migration
     }
 
     public function down(): void
+    {
+        $this->dropTables();
+    }
+
+    private function dropTables(): void
     {
         Schema::dropIfExists('medical_examination_investigations');
         Schema::dropIfExists('medical_examination_diagnoses');
