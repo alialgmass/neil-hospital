@@ -2,6 +2,8 @@
 
 namespace Modules\Surgery\Actions;
 
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
@@ -15,6 +17,8 @@ use Modules\Surgery\Models\Surgery;
 
 class ProcessBundleSupplyAction
 {
+    private const MAX_ATTEMPTS = 3;
+
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly JournalService $journalService,
@@ -147,13 +151,7 @@ class ProcessBundleSupplyAction
 
     private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit
     {
-        $permit = StockPermit::create([
-            'permit_no' => $this->generatePermitNo(),
-            'type' => PermitType::Out,
-            'department' => $dept,
-            'reason' => "استخدام بند: {$bundle->name}",
-            'created_by' => auth()->id(),
-        ]);
+        $permit = $this->createPermitWithRetry($bundle, $dept);
 
         $hasSelection = ! empty($selectedMap);
 
@@ -181,11 +179,43 @@ class ProcessBundleSupplyAction
         return $permit;
     }
 
+    private function createPermitWithRetry(SupplyBundle $bundle, string $dept): StockPermit
+    {
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            try {
+                return StockPermit::create([
+                    'permit_no' => $this->generatePermitNo(),
+                    'type' => PermitType::Out,
+                    'department' => $dept,
+                    'reason' => "استخدام بند: {$bundle->name}",
+                    'created_by' => auth()->id(),
+                ]);
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt === self::MAX_ATTEMPTS || ! str_contains($e->getMessage(), 'permit_no')) {
+                    throw ValidationException::withMessages([
+                        'items' => 'تعذر إصدار رقم الإذن بسبب طلب متزامن، يرجى المحاولة مرة أخرى.',
+                    ]);
+                }
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'items' => 'تعذر إصدار رقم الإذن بسبب طلب متزامن، يرجى المحاولة مرة أخرى.',
+        ]);
+    }
+
     private function generatePermitNo(): string
     {
-        $last = StockPermit::where('type', PermitType::Out->value)->latest()->value('permit_no');
+        $prefix = 'OUT-'.date('Y').'-';
+
+        $last = StockPermit::where('type', PermitType::Out->value)
+            ->where('permit_no', 'like', $prefix.'%')
+            ->lockForUpdate()
+            ->orderByDesc('permit_no')
+            ->value('permit_no');
+
         $seq = $last ? ((int) substr($last, -5) + 1) : 1;
 
-        return 'OUT-'.date('Y').'-'.str_pad($seq, 5, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($seq, 5, '0', STR_PAD_LEFT);
     }
 }

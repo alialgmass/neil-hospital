@@ -272,6 +272,28 @@ class RecordSuppliesBulkTest extends TestCase
         $this->assertEquals(98, (float) $gloves->fresh()->quantity);
     }
 
+    public function test_multiple_bundles_in_one_request_get_distinct_permit_numbers(): void
+    {
+        $surgery = $this->makeSurgery();
+        $gloves = $this->makeItem('جوانتي', 5, 100);
+        $syringe = $this->makeItem('سرنجة', 3, 100);
+        $bundleA = $this->makeBundle($gloves);
+        $bundleB = $this->makeBundle($syringe);
+
+        $this->actingAs($this->userWithPermissions(['surgery.write']))
+            ->post("/surgery/{$surgery->id}/supplies", [
+                'bundles' => [
+                    ['bundle_id' => $bundleA->id, 'qty' => 1],
+                    ['bundle_id' => $bundleB->id, 'qty' => 1],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $permitNumbers = StockPermit::pluck('permit_no');
+        $this->assertCount(2, $permitNumbers);
+        $this->assertSame($permitNumbers->count(), $permitNumbers->unique()->count());
+    }
+
     public function test_user_without_write_permission_cannot_add_supplies(): void
     {
         $surgery = $this->makeSurgery();
