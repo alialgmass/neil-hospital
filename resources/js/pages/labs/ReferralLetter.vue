@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head, usePage } from '@inertiajs/vue3';
 import { formatDate } from '@/lib/date';
+import type { ExaminationOptions, ExaminationRecord } from '@/pages/clinic/Partials/examination';
+import ExaminationReportBody from '@/pages/clinic/Partials/ExaminationReportBody.vue';
 
 interface DiagnosticResult {
     id: string;
@@ -14,6 +16,9 @@ interface DiagnosticResult {
 
 defineProps<{
     result: DiagnosticResult;
+    /** The visit's medical examination, when one was recorded. */
+    examination: ExaminationRecord | null;
+    options: ExaminationOptions | null;
 }>();
 
 const eyePhrase: Record<string, string> = {
@@ -60,13 +65,18 @@ const hospitalName = usePage().props.settings.hospital_name;
             Thank you very much for referring your patient. {{ result.test_name }} of
             {{ result.eye ? eyePhrase[result.eye] : '' }} eye{{ result.eye === 'OU' ? 's' : '' }} revealed:
             <br /><br />
-            <span class="whitespace-pre-line">{{ result.result_text || '—' }}</span>
+            <span v-if="result.result_text || !examination" class="whitespace-pre-line">{{ result.result_text || '—' }}</span>
         </p>
+
+        <!-- Findings recorded in the visit's medical examination -->
+        <div v-if="examination && options" class="mb-10">
+            <ExaminationReportBody :examination="examination" :options="options" />
+        </div>
 
         <p class="mb-16 text-right">
             Sincerely,
             <br />
-            <strong>{{ result.technician?.name ?? '—' }}</strong>
+            <strong>{{ examination?.doctor?.name ?? result.technician?.name ?? '—' }}</strong>
         </p>
 
         <div class="mt-8 text-center print:hidden">
