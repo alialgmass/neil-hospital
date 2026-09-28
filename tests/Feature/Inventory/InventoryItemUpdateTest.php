@@ -45,6 +45,21 @@ class InventoryItemUpdateTest extends TestCase
         $this->assertEquals(9, $item->sell_price);
     }
 
+    public function test_accepts_milliliter_centimeter_and_ampoule_units(): void
+    {
+        $item = InventoryItem::create(['name' => 'بنج موضعي', 'quantity' => 10]);
+
+        foreach (['ml' => 'مللي', 'cm' => 'سم', 'ampoule' => 'أمبول'] as $unit => $label) {
+            $this->actingAs($this->user)
+                ->put("/inventory/{$item->id}", ['name' => 'بنج موضعي', 'unit' => $unit])
+                ->assertSessionHasNoErrors();
+
+            $item->refresh();
+            $this->assertSame($unit, $item->unit->value);
+            $this->assertSame($label, $item->unit_label);
+        }
+    }
+
     public function test_update_never_overwrites_quantity(): void
     {
         $item = InventoryItem::create(['name' => 'قفازات', 'quantity' => 42]);
