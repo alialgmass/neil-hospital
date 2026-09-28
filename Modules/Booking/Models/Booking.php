@@ -15,6 +15,7 @@ use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
 use Modules\Clinic\Models\ClinicSheet;
+use Modules\Clinic\Models\MedicalExamination;
 use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
@@ -120,6 +121,11 @@ class Booking extends Model implements HasMedia
     public function clinicSheet(): HasOne
     {
         return $this->hasOne(ClinicSheet::class);
+    }
+
+    public function medicalExamination(): HasOne
+    {
+        return $this->hasOne(MedicalExamination::class);
     }
 
     public function diagnosticResults(): HasMany

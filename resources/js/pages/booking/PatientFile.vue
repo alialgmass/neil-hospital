@@ -23,6 +23,7 @@ import { formatDate } from '@/lib/date';
 import EyeSideSelector from '@/pages/booking/Partials/EyeSideSelector.vue';
 import { archive } from '@/routes';
 import booking from '@/routes/booking';
+import examinations from '@/routes/examinations';
 
 interface Patient {
     name: string;
@@ -451,6 +452,13 @@ function isImage(mime: string): boolean {
                     <span class="text-xs text-hospital-text-3">{{
                         fmtDate(booking.visit_date)
                     }}</span>
+                    <a
+                        v-if="can('examinations.view')"
+                        :href="examinations.booking(booking.id).url"
+                        class="flex items-center gap-1 rounded-lg border border-hospital-border px-2 py-1 text-xs font-medium text-hospital-primary transition-colors hover:bg-hospital-primary/10"
+                    >
+                        الفحص الطبي
+                    </a>
                     <button
                         v-if="canTransferBooking(booking)"
                         type="button"

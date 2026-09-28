@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { FlaskConical, Printer } from 'lucide-vue-next';
+import { ClipboardList, FlaskConical, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import examinations from '@/routes/examinations';
 import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface DiagnosticResult {
@@ -27,6 +28,7 @@ interface Booking {
     pay_status: string;
     doctor?: { name: string };
     diagnostic_results: DiagnosticResult[];
+    medical_examination?: { id: string; status: 'draft' | 'finalized' } | null;
 }
 
 const props = defineProps<{
@@ -67,6 +69,15 @@ const form = useForm({
 
 const { can } = usePermissions();
 const canWrite = computed(() => can('labs.write'));
+const canViewExamination = computed(() => can('examinations.view'));
+
+function examinationLabel(booking: Booking): string {
+    if (!booking.medical_examination) {
+        return 'الفحص الطبي';
+    }
+
+    return booking.medical_examination.status === 'finalized' ? 'الفحص الطبي (معتمد)' : 'الفحص الطبي (مسودة)';
+}
 
 function openResult(bookingId: string) {
     if (!canWrite.value) {
@@ -160,6 +171,15 @@ const revenueToday   = computed(() =>
             <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
         </template>
         <template #actions="{ row }">
+            <a
+                v-if="canViewExamination"
+                :href="examinations.booking((row as Booking).id).url"
+                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium hover:bg-hospital-primary-pale"
+                :class="(row as Booking).medical_examination?.status === 'finalized' ? 'text-hospital-success' : 'text-hospital-primary'"
+            >
+                <ClipboardList class="h-3.5 w-3.5" />
+                {{ examinationLabel(row as Booking) }}
+            </a>
             <button
                 class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 :disabled="!canWrite"
