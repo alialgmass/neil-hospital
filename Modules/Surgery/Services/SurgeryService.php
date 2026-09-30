@@ -154,7 +154,7 @@ class SurgeryService
                         ->orderByRaw('CASE status WHEN ? THEN 0 WHEN ? THEN 1 WHEN ? THEN 2 ELSE 3 END', [
                             InProgressState::$name, PrepState::$name, ScheduledState::$name,
                         ])
-                        ->with(['booking', 'surgeon']);
+                        ->with(['booking.doctorDelegations.doctor', 'surgeon']);
                 }]);
         }])->orderBy('name')->get();
     }

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { toast } from 'vue-sonner';
 import DoctorDelegationPanel from '@/components/shared/DoctorDelegationPanel.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { delegationAmountError } from '@/utils/delegations';
 
 interface OrBed {
     id: number;
@@ -132,6 +134,14 @@ function selectBed(bedId: number) {
 }
 
 function submit() {
+    const amountError = delegationAmountError(form.delegations);
+
+    if (amountError) {
+        toast.error(amountError);
+
+        return;
+    }
+
     form.post(`/${props.dept}`, {
         onSuccess: () => {
             emit('update:modelValue', false);

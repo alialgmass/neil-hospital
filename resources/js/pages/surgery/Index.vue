@@ -15,6 +15,7 @@ import {
 } from '@/composables/usePermissions';
 import { useSupplyRows } from '@/composables/useSupplyRows';
 import surgeryRoutes from '@/routes/surgery';
+import { delegationAmountError } from '@/utils/delegations';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -243,6 +244,15 @@ const supplyTotal = computed(() =>
     props.surgeries.data.reduce((s, b) => s + Number(b.supply_total ?? 0), 0),
 );
 
+/** Patient name for the bed-card header — only our own dept's cases carry one. */
+function patientFor(surgery: Surgery | null): string | null {
+    if (!surgery || surgery.dept !== props.dept) {
+        return null;
+    }
+
+    return surgery.booking?.patient_name ?? null;
+}
+
 const occupiedBedIds = computed(() => {
     const ids: number[] = [];
     props.orRooms.forEach((room) => {
@@ -321,6 +331,14 @@ function updateOverlayDelegationRole(
 
 function submitOverlayDelegations() {
     if (!canWrite.value || savingDelegations.value || !selectedCase.value) {
+        return;
+    }
+
+    const amountError = delegationAmountError(overlayDelegations.value);
+
+    if (amountError) {
+        toast.error(amountError);
+
         return;
     }
 
@@ -645,6 +663,14 @@ function submitSchedule() {
         return;
     }
 
+    const amountError = delegationAmountError(scheduleForm.delegations);
+
+    if (amountError) {
+        toast.error(amountError);
+
+        return;
+    }
+
     scheduleForm.post('/surgery', {
         onSuccess: () => {
             showSchedule.value = false;
@@ -812,7 +838,21 @@ if (props.prefill) {
             "
         >
             <div class="bed-card-hd">
-                <span class="text-[13px] font-black">سرير {{ idx }}</span>
+                <div class="bed-card-hd-main">
+                    <span class="text-[13px] font-black">سرير {{ idx }}</span>
+                    <span
+                        v-if="patientFor(item.surgery)"
+                        class="bed-card-service"
+                        :title="patientFor(item.surgery) ?? ''"
+                        >{{ patientFor(item.surgery) }}</span
+                    >
+                    <span
+                        v-if="item.surgery?.booking?.service_name"
+                        class="bed-card-service"
+                        :title="item.surgery.booking.service_name"
+                        >{{ item.surgery.booking.service_name }}</span
+                    >
+                </div>
                 <span v-if="item.surgery" class="bed-status-badge">
                     {{
                         item.surgery.dept === dept
@@ -2032,11 +2072,28 @@ if (props.prefill) {
     justify-content: space-between;
     align-items: center;
 }
+.bed-card-hd-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.bed-card-service {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 6px;
+    border-radius: 8px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .bed-status-badge {
     font-size: 9px;
     background: rgba(255, 255, 255, 0.25);
     padding: 2px 8px;
     border-radius: 12px;
+    flex-shrink: 0;
 }
 .bed-card-body {
     padding: 10px 12px;

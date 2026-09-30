@@ -8,6 +8,7 @@ import SearchableSelect from '@/components/shared/SearchableSelect.vue';
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 import type { SupplyPayloadItem } from '@/composables/useSupplyRows';
 import { useSupplyRows } from '@/composables/useSupplyRows';
+import { delegationAmountError } from '@/utils/delegations';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
@@ -126,6 +127,14 @@ function updateOverlayDelegationRole(role: 'delegate' | 'anesthesia', lines: Del
 
 function submitOverlayDelegations() {
     if (!canWrite.value || savingDelegations.value) {
+        return;
+    }
+
+    const amountError = delegationAmountError(overlayDelegations.value);
+
+    if (amountError) {
+        toast.error(amountError);
+
         return;
     }
 

@@ -116,8 +116,19 @@ function applyLockedService(repriceAmount: boolean) {
 
     row.service_id = serviceId;
 
-    if (serviceId && section.doctor_id && (repriceAmount || serviceChanged || !row.amount)) {
-        row.amount = doctorFeeForService(serviceId) ?? 0;
+    const shouldReprice =
+        serviceId && section.doctor_id && (repriceAmount || serviceChanged || !row.amount);
+
+    if (shouldReprice) {
+        const fee = doctorFeeForService(serviceId);
+
+        // A doctor with no configured rate has `fee === null`. Never blank an
+        // amount the user already typed (or a saved one being re-opened) just
+        // because no rate exists — keep it and let the inline warning ask for
+        // a value, otherwise a filled-in form submits amount 0.
+        if (fee !== null || !row.amount) {
+            row.amount = fee ?? 0;
+        }
     }
 
     section.rows.splice(0, section.rows.length, row);
@@ -149,6 +160,12 @@ watch(
     },
 );
 
+/**
+ * A doctor with no amount is still a doctor the user picked, so the line is
+ * kept (amount 0) rather than dropped — the picker would otherwise look
+ * filled in while the submitted payload silently carried no delegation at
+ * all. The save button refuses such a line (see delegationAmountError).
+ */
 function buildLines(): DelegationLine[] {
     if (!section.doctor_id) {
         return [];
@@ -157,19 +174,17 @@ function buildLines(): DelegationLine[] {
     const lines: DelegationLine[] = [];
 
     if (props.lockService) {
-        const row = section.rows[0];
+        const row = section.rows[0] ?? { service_id: '', amount: null };
 
-        return row?.amount
-            ? [
-                  {
-                      doctor_id: section.doctor_id,
-                      role: props.role,
-                      service_id: lockedServiceId.value || null,
-                      service_name: props.bookingService?.name || 'خدمة الحجز',
-                      amount: row.amount,
-                  },
-              ]
-            : [];
+        return [
+            {
+                doctor_id: section.doctor_id,
+                role: props.role,
+                service_id: lockedServiceId.value || null,
+                service_name: props.bookingService?.name || 'خدمة الحجز',
+                amount: Number(row.amount ?? 0),
+            },
+        ];
     }
 
     for (const row of section.rows) {
@@ -192,6 +207,14 @@ function buildLines(): DelegationLine[] {
 }
 
 watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
+
+/** Doctor picked but no amount — surfaced inline so it can't be missed on save. */
+const amountMissing = computed(
+    () =>
+        props.lockService &&
+        Boolean(section.doctor_id) &&
+        Number(section.rows[0]?.amount ?? 0) <= 0,
+);
 </script>
 
 <template>
@@ -217,6 +240,10 @@ watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
                 class="field-input delegation-amount"
             />
         </div>
+
+        <p v-if="amountMissing" class="field-error">
+            لا يوجد بدل مسجّل لهذا الطبيب — أدخل المبلغ يدوياً قبل الحفظ.
+        </p>
 
         <div v-for="(row, index) in lockService ? [] : section.rows" :key="index" class="delegation-row">
             <select v-model="row.service_id" class="field-input" @change="onServiceChange(row)">
@@ -308,5 +335,9 @@ watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
     outline: none;
     border-color: #7b2fa6;
     box-shadow: 0 0 0 3px rgba(123, 47, 166, 0.1);
+}
+.field-error {
+    font-size: 11px;
+    color: #e74c3c;
 }
 </style>
