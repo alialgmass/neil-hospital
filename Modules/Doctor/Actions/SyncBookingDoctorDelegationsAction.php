@@ -35,6 +35,7 @@ class SyncBookingDoctorDelegationsAction
             ->delete();
 
         foreach ($lines as $line) {
+            $line = $this->withBookingService($booking, $line);
             $signature = $this->signature($line['doctor_id'], $line['role'], $line['service_id'] ?? null, (float) $line['amount']);
 
             if (in_array($signature, $settledSignatures, true)) {
@@ -51,6 +52,23 @@ class SyncBookingDoctorDelegationsAction
                 'status' => DelegationStatus::Pending,
             ]);
         }
+    }
+
+    /**
+     * Delegation and anesthesia are always on the booking's own service —
+     * whatever service the client sent is replaced with it. A booking with
+     * no service stores the line without one (the label is kept for display).
+     *
+     * @param  array{doctor_id: string, role: string, service_id: ?string, service_name: string, amount: float}  $line
+     * @return array{doctor_id: string, role: string, service_id: ?string, service_name: string, amount: float}
+     */
+    private function withBookingService(Booking $booking, array $line): array
+    {
+        return [
+            ...$line,
+            'service_id' => $booking->service_id,
+            'service_name' => $booking->service_name ?: $line['service_name'],
+        ];
     }
 
     private function signature(string $doctorId, string $role, ?string $serviceId, float $amount): string

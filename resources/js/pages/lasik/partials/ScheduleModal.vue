@@ -27,7 +27,13 @@ const props = defineProps<{
         name: string;
         default_dr_fee: number | null;
     }[];
-    bookings: { id: string; file_no: string; patient_name: string }[];
+    bookings: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        service_id?: string | null;
+        service_name?: string | null;
+    }[];
     dept: string;
     prefill?: {
         booking_id: string;
@@ -59,6 +65,15 @@ const form = useForm({
         service_name: string;
         amount: number;
     }[],
+});
+
+/** Delegation/anesthesia always run on the selected booking's own service. */
+const bookingService = computed(() => {
+    const booking = props.bookings.find((b) => b.id === form.booking_id);
+
+    return booking
+        ? { id: booking.service_id ?? null, name: booking.service_name ?? null }
+        : null;
 });
 
 const procedures = [
@@ -267,6 +282,8 @@ function close() {
                 :doctors="doctors"
                 :anesthesiologists="anesthesiologists"
                 :services="delegationServices"
+                :lock-service="true"
+                :booking-service="bookingService"
             />
 
             <!-- Pre-op notes -->

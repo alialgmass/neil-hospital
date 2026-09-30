@@ -129,7 +129,7 @@ class SurgeryService
         return Booking::where('dept', $dept)
             ->whereIn('status', [BookingWaitingState::$name, BookingConfirmedState::$name])
             ->whereNotIn('id', $scheduledIds)
-            ->select('id', 'file_no', 'patient_name')
+            ->select('id', 'file_no', 'patient_name', 'service_id', 'service_name')
             ->orderByDesc('visit_date')
             ->get();
     }

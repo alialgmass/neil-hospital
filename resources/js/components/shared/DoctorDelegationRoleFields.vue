@@ -27,6 +27,13 @@ const props = defineProps<{
     doctors: Doctor[];
     anesthesiologists: Doctor[];
     services: DelegationService[];
+    /**
+     * Lock delegation/anesthesia to the booking's own service: no service
+     * picker, a single line on `bookingService` (which may have no id/name
+     * when the booking itself has no service).
+     */
+    lockService?: boolean;
+    bookingService?: { id: string | null; name: string | null } | null;
 }>();
 
 const emit = defineEmits<{
@@ -48,6 +55,9 @@ function fromModelValue() {
 }
 
 const section = reactive(fromModelValue());
+
+const lockedServiceId = computed(() => props.bookingService?.id ?? '');
+const lockedServiceLabel = computed(() => props.bookingService?.name || 'لم تُحدَّد خدمة لهذا الحجز');
 
 const doctorOptions = computed(() =>
     props.role === 'anesthesia' && props.anesthesiologists.length ? props.anesthesiologists : props.doctors,
@@ -91,6 +101,35 @@ function doctorFeeForService(serviceId: string): number | null {
     return service?.default_dr_fee ?? null;
 }
 
+/**
+ * Locked to the booking's service: a single row on that service, priced from
+ * the selected doctor's fee (a manually typed amount is kept).
+ */
+function applyLockedService(repriceAmount: boolean) {
+    if (!props.lockService) {
+        return;
+    }
+
+    const serviceId = lockedServiceId.value;
+    const row = section.rows[0] ?? { service_id: '', amount: null };
+    const serviceChanged = row.service_id !== serviceId;
+
+    row.service_id = serviceId;
+
+    if (serviceId && section.doctor_id && (repriceAmount || serviceChanged || !row.amount)) {
+        row.amount = doctorFeeForService(serviceId) ?? 0;
+    }
+
+    section.rows.splice(0, section.rows.length, row);
+}
+
+// On mount keep any saved amount; re-price only when the booking (and so its service) changes.
+watch(
+    () => lockedServiceId.value,
+    (_serviceId, previousServiceId) => applyLockedService(previousServiceId !== undefined),
+    { immediate: true },
+);
+
 function onServiceChange(row: Row) {
     if (row.service_id && (row.amount === null || row.amount === 0)) {
         row.amount = doctorFeeForService(row.service_id) ?? 0;
@@ -116,6 +155,22 @@ function buildLines(): DelegationLine[] {
     }
 
     const lines: DelegationLine[] = [];
+
+    if (props.lockService) {
+        const row = section.rows[0];
+
+        return row?.amount
+            ? [
+                  {
+                      doctor_id: section.doctor_id,
+                      role: props.role,
+                      service_id: lockedServiceId.value || null,
+                      service_name: props.bookingService?.name || 'خدمة الحجز',
+                      amount: row.amount,
+                  },
+              ]
+            : [];
+    }
 
     for (const row of section.rows) {
         if (!row.service_id || !row.amount) {
@@ -151,7 +206,19 @@ watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
             </select>
         </div>
 
-        <div v-for="(row, index) in section.rows" :key="index" class="delegation-row">
+        <div v-if="lockService" class="delegation-row delegation-row-locked">
+            <input :value="lockedServiceLabel" type="text" class="field-input field-input-readonly" readonly title="خدمة الحجز" />
+            <input
+                v-model.number="section.rows[0].amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="السعر"
+                class="field-input delegation-amount"
+            />
+        </div>
+
+        <div v-for="(row, index) in lockService ? [] : section.rows" :key="index" class="delegation-row">
             <select v-model="row.service_id" class="field-input" @change="onServiceChange(row)">
                 <option value="">— اختر الخدمة —</option>
                 <option v-for="svc in availableServices" :key="svc.id" :value="svc.id">
@@ -169,7 +236,7 @@ watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
             <button type="button" class="delegation-remove" title="حذف السطر" @click="removeRow(index)">×</button>
         </div>
 
-        <button type="button" class="delegation-add" @click="addRow">
+        <button v-if="!lockService" type="button" class="delegation-add" @click="addRow">
             {{ addLabel }}
         </button>
     </div>
@@ -186,6 +253,14 @@ watch(section, () => emit('update:modelValue', buildLines()), { deep: true });
     grid-template-columns: 2fr 1fr auto;
     gap: 8px;
     align-items: center;
+}
+.delegation-row-locked {
+    grid-template-columns: 2fr 1fr;
+}
+.field-input-readonly {
+    background: #f3f6fa;
+    color: #4a5878;
+    cursor: default;
 }
 .delegation-amount {
     text-align: center;

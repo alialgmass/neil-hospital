@@ -41,6 +41,8 @@ interface Surgery {
         id: string;
         file_no: string;
         patient_name: string;
+        service_id?: string | null;
+        service_name?: string | null;
         doctor_delegations?: DelegationRow[];
     };
     procedure: string;
@@ -105,7 +107,13 @@ const props = defineProps<{
         name: string;
         default_dr_fee: number | null;
     }[];
-    bookings: { id: string; file_no: string; patient_name: string }[];
+    bookings: {
+        id: string;
+        file_no: string;
+        patient_name: string;
+        service_id?: string | null;
+        service_name?: string | null;
+    }[];
     dept: string;
     filters: { status?: string };
     revenue: number;
@@ -277,6 +285,22 @@ interface DelegationLine {
 const overlayDelegations = ref<DelegationLine[]>([]);
 const settledDelegations = ref<DelegationRow[]>([]);
 const savingDelegations = ref(false);
+
+/** Delegation/anesthesia always run on the booking's own service. */
+function toBookingService(
+    booking: { service_id?: string | null; service_name?: string | null } | null | undefined,
+): { id: string | null; name: string | null } | null {
+    return booking
+        ? { id: booking.service_id ?? null, name: booking.service_name ?? null }
+        : null;
+}
+
+const overlayBookingService = computed(() =>
+    toBookingService(selectedCase.value?.booking),
+);
+const scheduleBookingService = computed(() =>
+    toBookingService(props.bookings.find((b) => b.id === scheduleForm.booking_id)),
+);
 
 const delegateLines = computed(() =>
     overlayDelegations.value.filter((l) => l.role === 'delegate'),
@@ -1682,6 +1706,8 @@ if (props.prefill) {
                                 :doctors="doctors"
                                 :anesthesiologists="anesthesiologists"
                                 :services="delegationServices"
+                                :lock-service="true"
+                                :booking-service="overlayBookingService"
                                 @update:model-value="
                                     (lines) =>
                                         updateOverlayDelegationRole(
@@ -1735,6 +1761,8 @@ if (props.prefill) {
                                 :doctors="doctors"
                                 :anesthesiologists="anesthesiologists"
                                 :services="delegationServices"
+                                :lock-service="true"
+                                :booking-service="overlayBookingService"
                                 @update:model-value="
                                     (lines) =>
                                         updateOverlayDelegationRole(
@@ -1926,6 +1954,8 @@ if (props.prefill) {
                 :doctors="doctors"
                 :anesthesiologists="anesthesiologists"
                 :services="delegationServices"
+                :lock-service="true"
+                :booking-service="scheduleBookingService"
             />
 
             <div>

@@ -34,6 +34,8 @@ interface Surgery {
         id: string;
         file_no: string;
         patient_name: string;
+        service_id?: string | null;
+        service_name?: string | null;
         doctor_delegations?: DelegationRow[];
     };
     procedure: string;
@@ -741,6 +743,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     :doctors="doctors"
                                     :anesthesiologists="anesthesiologists"
                                     :services="delegationServices"
+                                    :lock-service="true"
+                                    :booking-service="{
+                                        id: surgery.booking.service_id ?? null,
+                                        name: surgery.booking.service_name ?? null,
+                                    }"
                                     @update:model-value="(lines) => updateOverlayDelegationRole('delegate', lines)"
                                 />
                                 <ul
@@ -778,6 +785,11 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                     :doctors="doctors"
                                     :anesthesiologists="anesthesiologists"
                                     :services="delegationServices"
+                                    :lock-service="true"
+                                    :booking-service="{
+                                        id: surgery.booking.service_id ?? null,
+                                        name: surgery.booking.service_name ?? null,
+                                    }"
                                     @update:model-value="(lines) => updateOverlayDelegationRole('anesthesia', lines)"
                                 />
                                 <ul

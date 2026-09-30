@@ -26,6 +26,8 @@ const props = defineProps<{
     doctors: Doctor[];
     anesthesiologists: Doctor[];
     services: DelegationService[];
+    lockService?: boolean;
+    bookingService?: { id: string | null; name: string | null } | null;
 }>();
 
 const emit = defineEmits<{
@@ -60,6 +62,8 @@ function updateRole(role: 'delegate' | 'anesthesia', lines: DelegationLine[]) {
                     :doctors="doctors"
                     :anesthesiologists="anesthesiologists"
                     :services="services"
+                    :lock-service="lockService"
+                    :booking-service="bookingService"
                     @update:model-value="(lines) => updateRole('delegate', lines)"
                 />
             </div>
@@ -78,6 +82,8 @@ function updateRole(role: 'delegate' | 'anesthesia', lines: DelegationLine[]) {
                     :doctors="doctors"
                     :anesthesiologists="anesthesiologists"
                     :services="services"
+                    :lock-service="lockService"
+                    :booking-service="bookingService"
                     @update:model-value="(lines) => updateRole('anesthesia', lines)"
                 />
             </div>

@@ -189,6 +189,88 @@ class BookingDoctorDelegationTest extends TestCase
         $this->assertEquals('delegate', $result['rows'][0]['role']);
     }
 
+    public function test_scheduled_delegation_is_saved_on_the_bookings_own_service(): void
+    {
+        $booking = $this->bookAndSchedule('cash', 5000);
+
+        $line = BookingDoctorDelegation::where('booking_id', $booking->id)->sole();
+
+        // The form submitted a different service — the booking's service wins.
+        $this->assertSame($this->service->id, $line->service_id);
+        $this->assertSame($this->service->name, $line->service_name);
+    }
+
+    public function test_overlay_delegate_and_anesthesia_lines_are_saved_on_the_bookings_own_service(): void
+    {
+        $booking = $this->bookAndSchedule('cash', 5000);
+        $surgery = Surgery::where('booking_id', $booking->id)->firstOrFail();
+        $anesthetist = Doctor::create(['name' => 'د. تخدير', 'fee_type' => 'fixed', 'fee_value' => 0]);
+
+        $this->actingAs($this->user)->post("/surgery/{$surgery->id}/delegations", [
+            'delegations' => [
+                [
+                    'doctor_id' => $this->delegateDoctor->id,
+                    'role' => 'delegate',
+                    'service_id' => $this->delegationService->id,
+                    'service_name' => $this->delegationService->name,
+                    'amount' => 300,
+                ],
+                [
+                    'doctor_id' => $anesthetist->id,
+                    'role' => 'anesthesia',
+                    'service_id' => $this->delegationService->id,
+                    'service_name' => $this->delegationService->name,
+                    'amount' => 200,
+                ],
+            ],
+        ])->assertRedirect();
+
+        $lines = BookingDoctorDelegation::where('booking_id', $booking->id)->get();
+
+        $this->assertCount(2, $lines);
+        $this->assertEqualsCanonicalizing(['delegate', 'anesthesia'], $lines->map(fn ($l) => $l->role->value)->all());
+        $lines->each(function (BookingDoctorDelegation $line) {
+            $this->assertSame($this->service->id, $line->service_id);
+            $this->assertSame($this->service->name, $line->service_name);
+        });
+    }
+
+    public function test_booking_without_a_service_saves_the_delegation_without_a_service(): void
+    {
+        $booking = $this->bookAndSchedule('cash', 5000);
+        $booking->update(['service_id' => null, 'service_name' => null]);
+        $surgery = Surgery::where('booking_id', $booking->id)->firstOrFail();
+
+        $this->actingAs($this->user)->post("/surgery/{$surgery->id}/delegations", [
+            'delegations' => [[
+                'doctor_id' => $this->delegateDoctor->id,
+                'role' => 'anesthesia',
+                'service_id' => $this->delegationService->id,
+                'service_name' => $this->delegationService->name,
+                'amount' => 250,
+            ]],
+        ])->assertRedirect();
+
+        $line = BookingDoctorDelegation::where('booking_id', $booking->id)->sole();
+
+        $this->assertNull($line->service_id);
+        $this->assertSame(250.0, (float) $line->amount);
+    }
+
+    public function test_surgery_index_exposes_the_bookings_service_for_the_delegation_pickers(): void
+    {
+        $booking = $this->bookAndSchedule('cash', 5000);
+
+        $this->actingAs($this->user)->get('/surgery')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('surgeries.data.0.booking.id', $booking->id)
+                ->where('surgeries.data.0.booking.service_id', $this->service->id)
+                ->where('surgeries.data.0.booking.service_name', $this->service->name)
+                ->etc()
+            );
+    }
+
     public function test_the_dedicated_delegations_endpoint_adds_a_line_without_touching_the_surgerys_own_fields(): void
     {
         $room = OrRoom::create(['name' => 'Room 1']);
