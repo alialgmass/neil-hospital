@@ -6,6 +6,7 @@ use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\ServicePricingService;
 use Modules\Booking\States\CompletedElectronicState;
@@ -27,17 +28,25 @@ class UpdateBookingRequest extends FormRequest
      * price is then the sum of each service's price, and service_id/
      * service_name are filled with the first/combined values purely for
      * backward-compat display on screens that still read the single columns.
+     *
+     * Exception: once a booking has been paid (partial or full) the price
+     * typed in the edit form is honoured as-is, so staff can correct the
+     * agreed price after payment. UpdateBookingAction then re-syncs the
+     * revenue/treasury entries and the doctor's dues to the new amounts.
      */
     protected function prepareForValidation(): void
     {
         $serviceIds = array_filter((array) $this->input('service_ids', []));
+        $keepsClientPrice = $this->isEditingPriceAfterPayment();
 
         if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
             $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'));
 
             $this->merge([
                 'services' => $lines,
-                'price' => array_sum(array_column($lines, 'price')),
+                'price' => $keepsClientPrice
+                    ? (float) $this->input('price')
+                    : array_sum(array_column($lines, 'price')),
                 'service_id' => $lines[0]['service_id'] ?? null,
                 'service_name' => implode('، ', array_column($lines, 'service_name')),
             ]);
@@ -49,6 +58,10 @@ class UpdateBookingRequest extends FormRequest
         // client-supplied `services` array for any other department.
         $this->merge(['services' => []]);
 
+        if ($keepsClientPrice) {
+            return;
+        }
+
         $price = app(ServicePricingService::class)->priceFor(
             $this->input('service_id'),
             $this->input('eye_side'),
@@ -58,6 +71,22 @@ class UpdateBookingRequest extends FormRequest
         if ($price !== null) {
             $this->merge(['price' => $price]);
         }
+    }
+
+    /**
+     * Whether the booking being edited was already paid (partially or in
+     * full) and the form submitted an explicit price to keep.
+     */
+    private function isEditingPriceAfterPayment(): bool
+    {
+        if (! is_numeric($this->input('price'))) {
+            return false;
+        }
+
+        $bookingId = $this->route('id');
+        $booking = $bookingId ? Booking::find($bookingId) : null;
+
+        return $booking !== null && $booking->pay_status !== PayStatus::Unpaid;
     }
 
     public function messages(): array

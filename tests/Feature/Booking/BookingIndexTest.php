@@ -61,6 +61,37 @@ class BookingIndexTest extends TestCase
         );
     }
 
+    public function test_booking_index_rows_expose_insurance_flag_data(): void
+    {
+        $company = InsuranceCompany::create(['name' => 'التأمين الوطني']);
+
+        $base = [
+            'patient_name' => 'محمد علي',
+            'dept' => 'clinic',
+            'visit_date' => today()->toDateString(),
+            'price' => 150,
+            'paid_amount' => 0,
+            'pay_status' => 'unpaid',
+            'status' => 'waiting',
+            'created_by' => $this->user->id,
+        ];
+
+        Booking::create([...$base, 'file_no' => 'MRN-INS', 'pay_method' => 'insurance', 'ins_company_id' => $company->id]);
+        Booking::create([...$base, 'file_no' => 'MRN-CASH', 'pay_method' => 'cash']);
+
+        $response = $this->actingAs($this->user)->get('/booking');
+
+        $response->assertOk();
+        $response->assertInertia(function ($page) {
+            $rows = collect($page->toArray()['props']['bookings']['data'])->keyBy('file_no');
+
+            $this->assertSame('insurance', $rows['MRN-INS']['pay_method']);
+            $this->assertSame('التأمين الوطني', $rows['MRN-INS']['insurance_company']['name']);
+            $this->assertSame('cash', $rows['MRN-CASH']['pay_method']);
+            $this->assertNull($rows['MRN-CASH']['insurance_company']);
+        });
+    }
+
     public function test_booking_index_returns_active_doctors_only(): void
     {
         Doctor::create(['name' => 'د. أحمد', 'is_active' => true, 'fee_type' => 'fixed', 'fee_value' => 0]);

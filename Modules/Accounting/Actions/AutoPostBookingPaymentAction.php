@@ -101,6 +101,87 @@ class AutoPostBookingPaymentAction
         ]);
     }
 
+    /**
+     * Re-align an already-posted booking's revenue with its current
+     * `paid_amount` after the price/amount was edited post-payment.
+     *
+     * - More collected than posted → post the extra as a new revenue entry
+     *   plus a treasury inflow.
+     * - Less collected than posted → reverse every live revenue entry
+     *   (original amounts/accounts), repost the new total, and record the
+     *   difference as a treasury refund (outflow).
+     *
+     * Bookings whose payment was never posted (e.g. historical imports) are
+     * left alone so an edit can't suddenly book old cash as today's revenue.
+     */
+    public function syncToPaidAmount(Booking $booking): void
+    {
+        if ($booking->pay_method === PayMethod::Insurance) {
+            return;
+        }
+
+        $revenueEntries = JournalEntry::whereIn('source', [
+            JournalSource::BOOKING->value,
+            JournalSource::AUTO_BOOKING->value,
+        ])->where('reference', $booking->file_no);
+
+        if (! (clone $revenueEntries)->exists()) {
+            return;
+        }
+
+        $liveEntries = (clone $revenueEntries)->whereNull('reversed_at')->get();
+        $posted = round((float) $liveEntries->sum('amount'), 2);
+        $target = round((float) $booking->paid_amount, 2);
+        $delta = round($target - $posted, 2);
+
+        if ($delta === 0.0) {
+            return;
+        }
+
+        $date = today()->toDateString();
+
+        $this->treasuryService->record([
+            'type' => $delta > 0 ? TreasuryType::In : TreasuryType::Out,
+            'description' => $delta > 0
+                ? "فرق سعر حجز: {$booking->file_no} — {$booking->patient_name}"
+                : "رد فرق سعر حجز: {$booking->file_no} — {$booking->patient_name}",
+            'amount' => abs($delta),
+            'date' => $date,
+            'source' => $delta > 0 ? JournalSource::BOOKING : JournalSource::REVERSAL,
+            'booking_id' => $booking->id,
+        ]);
+
+        if ($delta < 0) {
+            foreach ($liveEntries as $entry) {
+                $this->journalService->reverse(
+                    entry: $entry,
+                    reversalSource: JournalSource::REVERSAL,
+                    reference: 'REV-'.$booking->file_no,
+                    description: "عكس قيد — تعديل سعر حجز: {$booking->file_no} — {$booking->patient_name}",
+                    date: $date,
+                );
+            }
+        }
+
+        $toPost = $delta > 0 ? $delta : $target;
+
+        if ($toPost <= 0) {
+            return;
+        }
+
+        $this->journalService->record([
+            'date' => $date,
+            'description' => "تعديل إيراد حجز: {$booking->file_no} — {$booking->service_name}",
+            'debit_account_id' => $this->accountResolver->id($this->debitAccountCode($booking)),
+            'credit_account_id' => $this->findRevenueAccountId($booking),
+            'amount' => $toPost,
+            'source' => JournalSource::BOOKING,
+            'reference' => $booking->file_no,
+            'idempotency_key' => "booking_payment_adjust:{$booking->file_no}:".(clone $revenueEntries)->count().":{$target}",
+            'cost_center' => $this->costCenter($booking->dept),
+        ]);
+    }
+
     private function debitAccountCode(Booking $booking): AccountCode
     {
         return match ($booking->pay_method) {

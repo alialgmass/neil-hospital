@@ -19,10 +19,12 @@ interface Props {
     insuranceCompanies: InsuranceCompany[];
     isInsurance: boolean;
     netAmount: number;
+    isEditingPaidBooking?: boolean;
     errors?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    isEditingPaidBooking: false,
     errors: () => ({}),
 });
 
@@ -202,6 +204,9 @@ function closeInsOnBlur() {
             />
             <p v-if="errors.price" class="mt-1 text-xs text-hospital-danger">
                 {{ errors.price }}
+            </p>
+            <p v-else-if="isEditingPaidBooking" class="mt-1 text-xs text-hospital-warning">
+                تعديل السعر بعد الدفع سيُعدِّل قيود الإيراد والخزنة ومستحق الطبيب تلقائياً.
             </p>
         </div>
 

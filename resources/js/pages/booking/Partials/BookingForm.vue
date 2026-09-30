@@ -220,6 +220,22 @@ const selectedDeptLabel = computed(
     () => (page.props.departments ?? []).find((d) => d.value === form.dept)?.label ?? '—',
 );
 
+// Editing an already-paid booking: the typed price is kept by the server and
+// the revenue entries + doctor dues are re-synced to the new amounts.
+const isEditingPaidBooking = computed(
+    () =>
+        !isCreating.value &&
+        ['paid', 'partial'].includes((props.booking?.pay_status as string) ?? ''),
+);
+
+// A fully-paid booking stays fully paid when its price is corrected: the
+// collected amount follows the new net due (a refund or an extra collection).
+watch(netAmount, (amount) => {
+    if (isEditingPaidBooking.value && props.booking?.pay_status === 'paid') {
+        form.paid_amount = String(amount);
+    }
+});
+
 const showInvoicePreview = computed(
     () => form.pay_status === 'paid' || form.pay_status === 'partial',
 );
@@ -393,6 +409,7 @@ function submit() {
                     :price-lists="priceLists"
                     :is-insurance="isInsurance"
                     :net-amount="netAmount"
+                    :is-editing-paid-booking="isEditingPaidBooking"
                     :errors="form.errors"
                     @update:model-value="(v) => Object.assign(form, v)"
                 />

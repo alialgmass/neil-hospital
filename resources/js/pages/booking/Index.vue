@@ -50,6 +50,7 @@ interface Booking {
     analysis_notes?: string;
     doctor?: { id: string; name: string };
     insuranceCompany?: { id: string; name: string };
+    insurance_company?: { id: string; name: string } | null;
     surgery?: { id: string; or_bed_id?: number | string | null } | null;
 }
 
@@ -174,6 +175,10 @@ const visibleDeptLabels = computed<Record<string, string>>(() =>
     Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus.value[key] !== false)),
 );
 
+function isInsuranceBooking(booking: Booking): boolean {
+    return booking.pay_method === 'insurance' || Boolean(booking.ins_company_id);
+}
+
 const columns = [
     { key: 'file_no', label: 'رقم الملف', sortable: true },
     { key: 'patient_name', label: 'المريض', sortable: true },
@@ -181,6 +186,7 @@ const columns = [
     { key: 'visit_date', label: 'التاريخ', sortable: true },
     { key: 'doctor', label: 'الطبيب' },
     { key: 'price', label: 'السعر' },
+    { key: 'insurance', label: 'التأمين' },
     { key: 'pay_status', label: 'السداد' },
     { key: 'status', label: 'الحالة' },
 ];
@@ -508,6 +514,27 @@ const isDeleteModalOpen = computed({
             </template>
             <template #cell-price="{ value }">
                 {{ Number(value).toLocaleString('en-US') }} ج.م
+            </template>
+            <template #cell-insurance="{ row }">
+                <span
+                    v-if="isInsuranceBooking(row as Booking)"
+                    class="inline-flex flex-col items-start rounded-md bg-hospital-accent-pale px-2 py-0.5 text-[11px] font-bold text-hospital-accent"
+                    :title="(row as Booking).insurance_company?.name"
+                >
+                    تأمين
+                    <span
+                        v-if="(row as Booking).insurance_company?.name"
+                        class="max-w-32 truncate text-[10px] font-medium"
+                    >
+                        {{ (row as Booking).insurance_company?.name }}
+                    </span>
+                </span>
+                <span
+                    v-else
+                    class="inline-block rounded-md bg-hospital-surface-2 px-2 py-0.5 text-[11px] font-medium text-hospital-text-3"
+                >
+                    بدون تأمين
+                </span>
             </template>
             <template #cell-pay_status="{ value }">
                 <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />

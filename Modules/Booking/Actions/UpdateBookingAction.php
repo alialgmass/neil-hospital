@@ -5,11 +5,15 @@ namespace Modules\Booking\Actions;
 use App\Enums\Department;
 use App\Services\ActivityLogService;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
+use Modules\Doctor\Actions\SyncBookingDoctorDuesAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
@@ -24,6 +28,7 @@ class UpdateBookingAction
         private readonly ActivityLogService $activityLog,
         private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
     ) {}
 
     public function execute(string $id, BookingData $data): Booking
@@ -46,8 +51,10 @@ class UpdateBookingAction
             ));
         }
 
-        // Auto-post accounting entries when payment is first confirmed
-        if ($old->pay_status !== PayStatus::Paid && $booking->pay_status === PayStatus::Paid) {
+        if ($this->isPostPaymentAmountEdit($old, $booking)) {
+            $this->syncPaymentAccounting($booking);
+        } elseif ($old->pay_status !== PayStatus::Paid && $booking->pay_status === PayStatus::Paid) {
+            // Auto-post accounting entries when payment is first confirmed
             $this->autoPost->execute($booking);
         }
 
@@ -61,6 +68,41 @@ class UpdateBookingAction
         );
 
         return $booking;
+    }
+
+    /**
+     * The booking had already been paid (partially or fully) and this edit
+     * changed its price or collected amount.
+     */
+    private function isPostPaymentAmountEdit(Booking $old, Booking $booking): bool
+    {
+        if ($old->pay_status === PayStatus::Unpaid) {
+            return false;
+        }
+
+        return round((float) $old->price, 2) !== round((float) $booking->price, 2)
+            || round((float) $old->paid_amount, 2) !== round((float) $booking->paid_amount, 2);
+    }
+
+    /**
+     * Re-align revenue/treasury and the doctor's dues with the edited amounts.
+     * Skipped for bookings whose payment was never posted (historical data).
+     */
+    private function syncPaymentAccounting(Booking $booking): void
+    {
+        $hasPostedRevenue = JournalEntry::whereIn('source', [
+            JournalSource::BOOKING->value,
+            JournalSource::AUTO_BOOKING->value,
+        ])->where('reference', $booking->file_no)->exists();
+
+        if (! $hasPostedRevenue) {
+            return;
+        }
+
+        DB::transaction(function () use ($booking) {
+            $this->autoPost->syncToPaidAmount($booking);
+            $this->syncBookingDoctorDues->execute($booking);
+        });
     }
 
     /**
