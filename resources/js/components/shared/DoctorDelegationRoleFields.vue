@@ -34,6 +34,12 @@ const props = defineProps<{
      */
     lockService?: boolean;
     bookingService?: { id: string | null; name: string | null } | null;
+    /**
+     * The booking's own primary doctor. Never offered as a delegate: the fee
+     * would be withheld from their share and re-credited to them, netting to
+     * zero while inflating the zero-payment debt.
+     */
+    primaryDoctorId?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -59,9 +65,11 @@ const section = reactive(fromModelValue());
 const lockedServiceId = computed(() => props.bookingService?.id ?? '');
 const lockedServiceLabel = computed(() => props.bookingService?.name || 'لم تُحدَّد خدمة لهذا الحجز');
 
-const doctorOptions = computed(() =>
-    props.role === 'anesthesia' && props.anesthesiologists.length ? props.anesthesiologists : props.doctors,
-);
+const doctorOptions = computed(() => {
+    const source = props.role === 'anesthesia' && props.anesthesiologists.length ? props.anesthesiologists : props.doctors;
+
+    return props.primaryDoctorId ? source.filter((d) => d.id !== props.primaryDoctorId) : source;
+});
 
 // Any active service is a valid candidate for delegation/anesthesia — no
 // special tagging required, only the doctor's own per-service fee matters.

@@ -78,6 +78,11 @@ const bookingService = computed(() => {
         : null;
 });
 
+/** The booking's own doctor is never a valid delegate/anesthetist. */
+const primaryDoctorId = computed(
+    () => props.bookings.find((b) => b.id === form.booking_id)?.doctor_id ?? null,
+);
+
 const procedures = [
     'LASIK',
     'SMILE',
@@ -294,6 +299,7 @@ function close() {
                 :services="delegationServices"
                 :lock-service="true"
                 :booking-service="bookingService"
+                :primary-doctor-id="primaryDoctorId"
             />
 
             <!-- Pre-op notes -->

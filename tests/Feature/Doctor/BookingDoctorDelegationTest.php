@@ -104,12 +104,48 @@ class BookingDoctorDelegationTest extends TestCase
         ]);
     }
 
+    /**
+     * Give the primary doctor debt to net against, the way an earlier
+     * uncollected case would.
+     *
+     * A zero payment no longer puts the whole price on the doctor: it puts
+     * only the cost the case assigns to them (supplies + delegated/anesthesia
+     * fees, or the service price for laser/lasik). A case scheduled without
+     * any of those yet therefore incurs nothing at booking time — see
+     * DoctorZeroPaymentDebtTest for the creation rule. These tests are about
+     * how a later paid case nets against existing debt, so the debt is seeded
+     * directly here.
+     */
+    private function seedPrimaryDoctorDebt(float $amount): string
+    {
+        // Debt is tracked per booking (the ledger has a booking_id foreign
+        // key), so the seeded case needs a real booking of its own.
+        $booking = Booking::create([
+            'file_no' => 'MRN-SEED-'.uniqid(),
+            'patient_name' => 'حالة سابقة',
+            'dept' => 'surgery',
+            'doctor_id' => $this->primaryDoctor->id,
+            'visit_date' => '2026-05-01',
+            'price' => 0,
+            'discount' => 0,
+            'ins_amount' => 0,
+            'paid_amount' => 0,
+            'pay_method' => 'cash',
+            'pay_status' => 'paid',
+            'status' => 'completed',
+            'created_by' => $this->user->id,
+        ]);
+
+        $this->primaryDoctor->incurDebtForBooking($booking->id, $amount);
+
+        return $booking->id;
+    }
+
     public function test_cash_payment_deducts_the_delegated_amount_from_the_primary_doctor_and_pays_the_delegate(): void
     {
         $booking = $this->bookAndSchedule('cash', 5000);
 
-        // The booking was created unpaid, so CreateBookingAction::recordDoctorDebtIfUnpaid()
-        // already put the full 5000 on the primary doctor as debt.
+        $this->seedPrimaryDoctorDebt(5000.0);
         $this->assertEquals(5000.0, (float) $this->primaryDoctor->fresh()->doctor_debt_balance);
 
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
@@ -136,6 +172,8 @@ class BookingDoctorDelegationTest extends TestCase
     public function test_claims_report_nets_out_the_amount_that_was_diverted_to_settle_the_primary_doctors_debt(): void
     {
         $booking = $this->bookAndSchedule('cash', 5000);
+
+        $this->seedPrimaryDoctorDebt(5000.0);
 
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
             'paid_amount' => 5000,

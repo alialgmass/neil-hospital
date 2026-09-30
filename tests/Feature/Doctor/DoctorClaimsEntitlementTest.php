@@ -11,6 +11,7 @@ use Modules\Booking\Models\Service;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\ClaimCalculator;
 use Modules\Doctor\Services\DoctorClaimsService;
+use Modules\Insurance\Models\InsuranceCompany;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -24,6 +25,8 @@ class DoctorClaimsEntitlementTest extends TestCase
     private Service $service;
 
     private Doctor $doctor;
+
+    private InsuranceCompany $company;
 
     protected function setUp(): void
     {
@@ -39,6 +42,7 @@ class DoctorClaimsEntitlementTest extends TestCase
         $this->service = Service::create(['name' => 'مياه بيضاء', 'dept' => 'clinic', 'price' => 5000, 'ins_price' => 5000]);
         $this->doctor = Doctor::create(['name' => 'د. عمر', 'fee_type' => 'fixed', 'fee_value' => 100]);
         $this->doctor->services()->attach($this->service->id, ['fee' => 750]);
+        $this->company = InsuranceCompany::create(['name' => 'شركة التأمين', 'coverage_pct' => 80]);
     }
 
     private function book(string $payMethod, float $price): Booking
@@ -47,6 +51,10 @@ class DoctorClaimsEntitlementTest extends TestCase
             'patient_name' => 'مريض', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->doctor->id, 'price' => $price,
+            // StoreBookingRequest requires an insurance company for insurance
+            // pay_method — without it the booking is rejected and the
+            // entitlement never accrues.
+            'ins_company_id' => $payMethod === 'insurance' ? $this->company->id : null,
             'pay_method' => $payMethod, 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 

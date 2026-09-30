@@ -11,10 +11,14 @@ import {
     Printer,
     Search,
     PackageOpen,
+    Stethoscope,
 } from 'lucide-vue-next';
 import { ref, computed, onMounted, watch } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
-import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
+import {
+    NO_PERMISSION_TITLE,
+    usePermissions,
+} from '@/composables/usePermissions';
 import { formatDate } from '@/lib/date';
 
 interface DoctorSummary {
@@ -36,6 +40,15 @@ interface SupplyItem {
     total?: number;
 }
 
+/** One withheld delegated/anesthesia fee, split out so the receipt can show
+ *  what the combined "خصم التفويض والتخدير" figure is actually made of. */
+interface DelegationLine {
+    role: string;
+    role_label: string;
+    amount: number;
+    doctor_name: string | null;
+}
+
 interface ClaimRow {
     booking_id: string;
     file_no: string;
@@ -49,6 +62,8 @@ interface ClaimRow {
     gross_dr_share?: number;
     debt_settled?: number;
     debt_incurred?: number;
+    delegated_total?: number;
+    delegation_lines?: DelegationLine[];
     supplies?: SupplyItem[];
     supply_total?: number;
     role?: 'delegate' | 'anesthesia' | null;
@@ -510,7 +525,9 @@ function printInvoice() {
                                     class="rounded-[6px] bg-hospital-success px-2.5 py-1 text-[10px] font-bold text-white transition-all hover:bg-hospital-success/90 disabled:cursor-not-allowed disabled:opacity-50"
                                     @click="openPay(s)"
                                     :disabled="!canPay"
-                                    :title="canPay ? undefined : NO_PERMISSION_TITLE"
+                                    :title="
+                                        canPay ? undefined : NO_PERMISSION_TITLE
+                                    "
                                 >
                                     صرف
                                 </button>
@@ -803,7 +820,8 @@ function printInvoice() {
                                                         : 'bg-hospital-primary'
                                                 "
                                                 :title="
-                                                    row.delegation_status === 'settled'
+                                                    row.delegation_status ===
+                                                    'settled'
                                                         ? 'تم الدفع'
                                                         : 'مستحق'
                                                 "
@@ -843,7 +861,9 @@ function printInvoice() {
                                     >
                                         {{ fmt(row.dr_share) }}
                                     </td>
-                                    <td class="px-4 py-2.5 text-left font-mono text-xs">
+                                    <td
+                                        class="px-4 py-2.5 text-left font-mono text-xs"
+                                    >
                                         <span
                                             v-if="(row.debt_incurred ?? 0) > 0"
                                             class="font-semibold text-hospital-danger"
@@ -852,13 +872,23 @@ function printInvoice() {
                                             {{ fmt(row.debt_incurred!) }}
                                         </span>
                                         <span
-                                            v-else-if="(row.debt_settled ?? 0) > 0"
+                                            v-else-if="
+                                                (row.debt_settled ?? 0) > 0
+                                            "
                                             class="font-semibold text-hospital-warning"
-                                            :title="'من إجمالي مستحق ' + fmt(row.gross_dr_share ?? 0) + ' — خُصم لسداد مديونية سابقة على الطبيب'"
+                                            :title="
+                                                'من إجمالي مستحق ' +
+                                                fmt(row.gross_dr_share ?? 0) +
+                                                ' — خُصم لسداد مديونية سابقة على الطبيب'
+                                            "
                                         >
                                             − {{ fmt(row.debt_settled!) }}
                                         </span>
-                                        <span v-else class="text-hospital-text-3">—</span>
+                                        <span
+                                            v-else
+                                            class="text-hospital-text-3"
+                                            >—</span
+                                        >
                                     </td>
                                     <td class="px-4 py-2.5">
                                         <FileText
@@ -903,6 +933,67 @@ function printInvoice() {
                                                                         item.unit_cost,
                                                             )
                                                         }}</strong>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Delegation / anesthesia items sub-row -->
+                                <tr
+                                    v-if="
+                                        (row.delegated_total ?? 0) > 0 &&
+                                        (row.delegation_lines ?? []).length > 0
+                                    "
+                                    class="border-b border-hospital-border/40 bg-rose-50/40"
+                                >
+                                    <td colspan="8" class="px-6 pt-1 pb-2.5">
+                                        <div class="flex items-start gap-2">
+                                            <Stethoscope
+                                                class="mt-0.5 h-3.5 w-3.5 shrink-0 text-hospital-warning"
+                                            />
+                                            <div>
+                                                <p
+                                                    class="mb-1 text-[9px] font-bold text-hospital-warning uppercase"
+                                                >
+                                                    تفويض وتخدير
+                                                </p>
+                                                <div
+                                                    class="flex flex-wrap gap-2"
+                                                >
+                                                    <span
+                                                        v-for="(
+                                                            line, i
+                                                        ) in row.delegation_lines"
+                                                        :key="`dl-${i}`"
+                                                        class="rounded bg-white px-2 py-0.5 text-[10px] text-hospital-text-2 shadow-sm"
+                                                    >
+                                                        {{ line.role_label
+                                                        }}<template
+                                                            v-if="
+                                                                line.doctor_name
+                                                            "
+                                                        >
+                                                            —
+                                                            {{
+                                                                line.doctor_name
+                                                            }}</template
+                                                        >
+                                                        =
+                                                        <strong>{{
+                                                            fmt(line.amount)
+                                                        }}</strong>
+                                                    </span>
+                                                    <span
+                                                        class="rounded bg-white px-2 py-0.5 text-[10px] font-bold text-hospital-warning shadow-sm"
+                                                    >
+                                                        إجمالي الخصم:
+                                                        {{
+                                                            fmt(
+                                                                row.delegated_total ??
+                                                                    0,
+                                                            )
+                                                        }}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1107,6 +1198,42 @@ function printInvoice() {
                                     {{ fmt(selectedRow.supply_total!) }}</span
                                 >
                             </div>
+                            <template
+                                v-if="(selectedRow.delegated_total ?? 0) > 0"
+                            >
+                                <div
+                                    class="mb-1 flex items-center justify-between border-b border-dashed border-hospital-border pb-1 text-sm"
+                                >
+                                    <span class="text-hospital-text-2"
+                                        >خصم التفويض والتخدير</span
+                                    >
+                                    <span
+                                        class="font-mono text-hospital-warning"
+                                        >−
+                                        {{
+                                            fmt(selectedRow.delegated_total!)
+                                        }}</span
+                                    >
+                                </div>
+                                <div
+                                    v-for="(
+                                        line, i
+                                    ) in selectedRow.delegation_lines ?? []"
+                                    :key="`d-${i}`"
+                                    class="flex items-center justify-between py-0.5 text-xs"
+                                >
+                                    <span class="text-hospital-text-3">
+                                        {{ line.role_label }}
+                                        <template v-if="line.doctor_name">
+                                            — {{ line.doctor_name }}
+                                        </template>
+                                    </span>
+                                    <span
+                                        class="font-mono text-hospital-warning"
+                                        >− {{ fmt(line.amount) }}</span
+                                    >
+                                </div>
+                            </template>
                             <div
                                 v-if="(selectedRow.debt_incurred ?? 0) > 0"
                                 class="rounded-lg border border-hospital-danger/40 bg-hospital-danger-pale/40 p-2 text-xs text-hospital-danger"
@@ -1115,7 +1242,9 @@ function printInvoice() {
                                 {{ fmt(selectedRow.debt_incurred!) }} كدين على
                                 الطبيب، ولم يُحصَّل أي مبلغ من المريض.
                             </div>
-                            <template v-if="(selectedRow.debt_settled ?? 0) > 0">
+                            <template
+                                v-if="(selectedRow.debt_settled ?? 0) > 0"
+                            >
                                 <div
                                     class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
                                 >
@@ -1133,7 +1262,10 @@ function printInvoice() {
                                         >خصم مديونية الطبيب</span
                                     >
                                     <span class="font-mono text-hospital-danger"
-                                        >− {{ fmt(selectedRow.debt_settled!) }}</span
+                                        >−
+                                        {{
+                                            fmt(selectedRow.debt_settled!)
+                                        }}</span
                                     >
                                 </div>
                             </template>
@@ -1288,7 +1420,7 @@ function printInvoice() {
                 <button
                     type="submit"
                     :disabled="payForm.processing || !canPay"
-                    class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
                     :title="canPay ? undefined : NO_PERMISSION_TITLE"
                 >
                     تسجيل الدفعة
@@ -1453,11 +1585,20 @@ function printInvoice() {
                             <td class="num primary bold">
                                 {{ fmt(row.dr_share) }}
                             </td>
-                            <td class="num" :class="(row.debt_incurred ?? 0) > 0 ? 'bold' : 'muted'">
+                            <td
+                                class="num"
+                                :class="
+                                    (row.debt_incurred ?? 0) > 0
+                                        ? 'bold'
+                                        : 'muted'
+                                "
+                            >
                                 <template v-if="(row.debt_incurred ?? 0) > 0">
                                     {{ fmt(row.debt_incurred!) }}
                                 </template>
-                                <template v-else-if="(row.debt_settled ?? 0) > 0">
+                                <template
+                                    v-else-if="(row.debt_settled ?? 0) > 0"
+                                >
                                     − {{ fmt(row.debt_settled!) }}
                                 </template>
                                 <template v-else>—</template>
@@ -1486,8 +1627,45 @@ function printInvoice() {
                                             )
                                         }}
                                     </span>
-                                    <span class="ph-supply-pill ph-supply-total">
+                                    <span
+                                        class="ph-supply-pill ph-supply-total"
+                                    >
                                         إجمالي: {{ fmt(row.supply_total ?? 0) }}
+                                    </span>
+                                </span>
+                            </td>
+                        </tr>
+                        <!-- Delegation / anesthesia sub-row -->
+                        <tr
+                            v-if="
+                                (row.delegated_total ?? 0) > 0 &&
+                                (row.delegation_lines ?? []).length > 0
+                            "
+                            class="ph-supply-row"
+                        >
+                            <td colspan="10" class="ph-supply-cell">
+                                <span class="ph-supply-label">
+                                    تفويض وتخدير:
+                                </span>
+                                <span class="ph-supply-items">
+                                    <span
+                                        v-for="(
+                                            line, i
+                                        ) in row.delegation_lines"
+                                        :key="`dl-${i}`"
+                                        class="ph-supply-pill"
+                                    >
+                                        {{ line.role_label
+                                        }}<template v-if="line.doctor_name">
+                                            ({{ line.doctor_name }})</template
+                                        >
+                                        = {{ fmt(line.amount) }}
+                                    </span>
+                                    <span
+                                        class="ph-supply-pill ph-supply-total"
+                                    >
+                                        إجمالي الخصم:
+                                        {{ fmt(row.delegated_total ?? 0) }}
                                     </span>
                                 </span>
                             </td>
@@ -1554,7 +1732,8 @@ function printInvoice() {
             </div>
 
             <div class="ph-footer">
-                {{ hospitalName }} {{ hospitalSpecialty }} &nbsp;|&nbsp; طُبع بتاريخ
+                {{ hospitalName }} {{ hospitalSpecialty }} &nbsp;|&nbsp; طُبع
+                بتاريخ
                 {{ formatDate(new Date()) }}
             </div>
         </div>

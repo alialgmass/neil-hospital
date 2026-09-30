@@ -10,10 +10,10 @@ use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
-use Modules\Booking\Models\Service;
 use Modules\Booking\Services\BookingService;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
 use Modules\Surgery\DTOs\SurgeryData;
@@ -28,6 +28,7 @@ class CreateBookingAction
         private readonly AutoPostDevelopmentFeeAction $autoPostDevelopmentFee,
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly DoctorClaimsService $doctorClaimsService,
     ) {}
 
     public function execute(BookingData $data, int $createdBy): Booking
@@ -120,11 +121,10 @@ class CreateBookingAction
             return;
         }
 
-        $devFee = $booking->service_id
-            ? (float) (Service::whereKey($booking->service_id)->value('dev_treasury_fee') ?? 0)
-            : 0.0;
-
-        $debt = max(0, (float) $booking->price - $devFee);
+        // Department-specific rule, shared with the pay screen so a booking
+        // closed out at creation and the same booking closed out from
+        // PayBookingController::writeOffAsDoctorDebt() can never disagree.
+        $debt = $this->doctorClaimsService->debtForZeroPayment($booking);
 
         if ($debt > 0) {
             $doctor->incurDebtForBooking($booking->id, $debt);

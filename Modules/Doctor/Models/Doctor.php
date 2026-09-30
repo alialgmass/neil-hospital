@@ -115,6 +115,45 @@ class Doctor extends Model
         }
     }
 
+    /**
+     * Void the debt booked against a specific booking because the money it
+     * was booked for actually arrived.
+     *
+     * Debt is incurred when a booking is created unpaid — the hospital
+     * expected to collect and didn't, so the expected dues became the
+     * doctor's liability. When the patient later pays that same booking, the
+     * premise is gone: nothing is owed back, so the debt must be released
+     * rather than netted off the doctor's share. Netting (the old behaviour)
+     * made a fully-paid case still show a debt deduction, which reads as the
+     * doctor being charged for a case that was collected in full.
+     *
+     * Returns the amount released. Clamped to the outstanding balance so a
+     * booking can never push the balance negative, and only this booking's own
+     * 'incurred' rows are touched — debt raised by *other* cases stays put.
+     */
+    public function releaseDebtForBooking(string $bookingId): float
+    {
+        $incurred = (float) $this->debtSettlements()
+            ->where('booking_id', $bookingId)
+            ->where('type', DebtEntryType::Incurred->value)
+            ->sum('amount');
+
+        $released = min($incurred, max(0.0, (float) $this->doctor_debt_balance));
+
+        if ($released <= 0) {
+            return 0.0;
+        }
+
+        $this->decrement('doctor_debt_balance', round($released, 2));
+
+        $this->debtSettlements()
+            ->where('booking_id', $bookingId)
+            ->where('type', DebtEntryType::Incurred->value)
+            ->delete();
+
+        return round($released, 2);
+    }
+
     public function debtSettlements(): HasMany
     {
         return $this->hasMany(DoctorDebtSettlement::class);

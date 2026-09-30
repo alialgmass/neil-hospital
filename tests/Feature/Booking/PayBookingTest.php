@@ -76,13 +76,16 @@ class PayBookingTest extends TestCase
         ], $overrides));
     }
 
-    public function test_pay_booking_updates_price_and_paid_amount(): void
+    public function test_pay_booking_records_the_payment_without_repricing(): void
     {
-        $booking = $this->createBooking(['price' => 0]);
+        // The pay modal only ever collects an amount and a method — it has no
+        // price input, so the backend must never write `price` from the
+        // payment. Doing so also used to make netDue compare the payment
+        // against itself, marking a partially-paid booking fully settled.
+        $booking = $this->createBooking(['price' => 1000]);
 
         $this->actingAs($this->user)
             ->patch("/booking/{$booking->id}/pay", [
-                'price' => 300,
                 'paid_amount' => 300,
                 'pay_method' => 'cash',
             ])
@@ -90,9 +93,9 @@ class PayBookingTest extends TestCase
 
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
-            'price' => 300,
+            'price' => 1000,
             'paid_amount' => 300,
-            'pay_status' => 'paid',
+            'pay_status' => 'partial',
         ]);
     }
 
@@ -104,7 +107,6 @@ class PayBookingTest extends TestCase
         $booking = $this->createBooking(['doctor_id' => $doctor->id]);
 
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
-            'price' => 1000,
             'paid_amount' => 1000,
             'pay_method' => 'cash',
         ]);
@@ -125,13 +127,11 @@ class PayBookingTest extends TestCase
         $booking = $this->createBooking(['doctor_id' => $doctor->id, 'price' => 500]);
 
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
-            'price' => 500,
             'paid_amount' => 200,
             'pay_method' => 'cash',
         ]);
 
         $this->actingAs($this->user)->patch("/booking/{$booking->id}/pay", [
-            'price' => 500,
             'paid_amount' => 300,
             'pay_method' => 'cash',
         ]);

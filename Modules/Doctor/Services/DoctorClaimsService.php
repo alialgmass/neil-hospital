@@ -4,11 +4,13 @@ namespace Modules\Doctor\Services;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use BackedEnum;
 use Illuminate\Support\Facades\DB;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Enums\DebtEntryType;
+use Modules\Doctor\Enums\DelegationRole;
 use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
@@ -87,6 +89,9 @@ class DoctorClaimsService
             $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
             $totalDrShare += $drShare;
 
+            $delegatedTotal = $this->delegatedTotal($booking->id);
+            $delegationLines = $this->delegationBreakdown($booking->id);
+
             $row = [
                 'booking_id' => $booking->id,
                 'file_no' => $booking->file_no,
@@ -100,6 +105,13 @@ class DoctorClaimsService
                 'gross_dr_share' => round($grossShare, 2),
                 'debt_settled' => round($settledFromBooking, 2),
                 'debt_incurred' => $writtenOff ? (float) $debtIncurred[$booking->id] : 0.0,
+                // Delegated/anesthesia fees withheld from this booking's own
+                // share. The receipt needs this to make its arithmetic add
+                // up: gross_dr_share is already net of it, so without the
+                // figure the supplies line alone looks like it explains the
+                // whole gap between what the patient paid and the gross.
+                'delegated_total' => round($delegatedTotal, 2),
+                'delegation_lines' => $delegationLines,
             ];
 
             if (in_array($booking->dept, ['surgery', 'lasik'])) {
@@ -108,7 +120,7 @@ class DoctorClaimsService
                     ->first(['supplies_used', 'supply_total']);
 
                 $row['supplies'] = $surgery
-                    ? (json_decode($surgery->supplies_used, true) ?? [])
+                    ? (json_decode($surgery->supplies_used ?? '[]', true) ?? [])
                     : [];
                 $row['supply_total'] = $surgery ? (float) $surgery->supply_total : 0.0;
             }
@@ -157,6 +169,8 @@ class DoctorClaimsService
                 'dr_share' => $drShare,
                 'gross_dr_share' => round($grossShare, 2),
                 'debt_settled' => round($settledFromBooking, 2),
+                'delegated_total' => 0.0,
+                'delegation_lines' => [],
                 'role' => $delegation->role,
                 'delegation_status' => $delegation->status,
             ];
@@ -170,12 +184,120 @@ class DoctorClaimsService
      * subtracted from the primary doctor's own share so the same fee is
      * never paid twice (see computeDrShare() / computeShareForPayment()).
      */
-    private function delegatedTotal(string $bookingId): float
+    public function delegatedTotal(string $bookingId): float
     {
         return (float) DB::table('booking_doctor_delegations')
             ->where('booking_id', $bookingId)
             ->where('status', '!=', DelegationStatus::Void->value)
             ->sum('amount');
+    }
+
+    /**
+     * The same delegated fees as delegatedTotal(), but broken out per role and
+     * per doctor so the case receipt can show what the withheld amount is
+     * made of instead of a single anonymous number. Same Void exclusion, so
+     * the parts always add up to the total deducted.
+     *
+     * @return array<int, array{role: string, role_label: string, amount: float, doctor_name: string|null}>
+     */
+    public function delegationBreakdown(string $bookingId): array
+    {
+        $rows = DB::table('booking_doctor_delegations')
+            ->leftJoin('doctors', 'doctors.id', '=', 'booking_doctor_delegations.doctor_id')
+            ->where('booking_doctor_delegations.booking_id', $bookingId)
+            ->where('booking_doctor_delegations.status', '!=', DelegationStatus::Void->value)
+            ->orderBy('booking_doctor_delegations.id')
+            ->get([
+                'booking_doctor_delegations.role',
+                'booking_doctor_delegations.amount',
+                'doctors.name as doctor_name',
+            ]);
+
+        return $rows->map(fn (object $row): array => [
+            'role' => $row->role instanceof BackedEnum ? $row->role->value : (string) $row->role,
+            'role_label' => DelegationRole::tryFrom((string) $row->role)?->label() ?? (string) $row->role,
+            'amount' => (float) $row->amount,
+            'doctor_name' => $row->doctor_name,
+        ])->all();
+    }
+
+    /**
+     * Supplies actually consumed on this case. Both individually-picked items
+     * and بنود (SupplyBundle) are merged into supply_total by
+     * SurgeryService::recordSupplies(), so this single figure covers both.
+     */
+    public function supplyTotalFor(string $bookingId): float
+    {
+        return (float) (DB::table('surgeries')
+            ->where('booking_id', $bookingId)
+            ->value('supply_total') ?? 0.0);
+    }
+
+    /** The service's own price for the booked side, or its fixed center value. */
+    public function centerPriceFor(?string $serviceId, EyeSide|string|null $eyeSide = null): ?float
+    {
+        return $this->resolveLaserFixedRevenue($serviceId, $eyeSide);
+    }
+
+    /** What is still expected to be collected on this booking. */
+    private function outstandingFor(Booking $booking): float
+    {
+        return max(0.0,
+            (float) $booking->price
+            - (float) $booking->discount
+            - (float) $booking->ins_amount
+            - (float) $booking->paid_amount
+        );
+    }
+
+    /**
+     * What a zero-payment write-off puts on the doctor — only the cost the
+     * booking actually assigns to them, never the whole uncollected price.
+     *
+     * surgery   — supplies (items + بنود) and the delegated/anesthesia
+     *             doctors' declared fees: the exact pair the share
+     *             calculation deducts, so a written-off case mirrors a paid
+     *             one instead of charging the doctor for the whole price.
+     * laser/lasik — the service's own price for the booked side plus the
+     *             dev-treasury fee, the same pair their share deducts.
+     *
+     * Capped at the outstanding amount so a partly-paid booking can never
+     * push a doctor past what was expected to be collected. Departments
+     * without a rule of their own (clinic/labs) and services with no
+     * configured center price keep the legacy "outstanding less dev fee"
+     * behaviour rather than silently dropping to no debt at all.
+     */
+    public function debtForZeroPayment(Booking $booking): float
+    {
+        $outstanding = $this->outstandingFor($booking);
+
+        if ($outstanding <= 0.0) {
+            return 0.0;
+        }
+
+        $dept = $booking->dept->value;
+        $devFee = $this->resolveDevFee($booking->service_id);
+        $legacy = max(0.0, round($outstanding - $devFee, 2));
+
+        // Pentacam never generates a doctor fee (see doComputeDrShare()), so
+        // there is nothing for a zero payment to assign to the doctor.
+        if ($dept === Department::Pentacam->value) {
+            return 0.0;
+        }
+
+        if ($dept === Department::Surgery->value) {
+            return min($outstanding, $this->supplyTotalFor($booking->id) + $this->delegatedTotal($booking->id));
+        }
+
+        if (in_array($dept, [Department::Laser->value, Department::Lasik->value], true)) {
+            $centerPrice = $this->centerPriceFor($booking->service_id, $booking->eye_side);
+
+            return $centerPrice !== null
+                ? min($outstanding, round($centerPrice + $devFee, 2))
+                : $legacy;
+        }
+
+        return $legacy;
     }
 
     /**
@@ -232,19 +354,24 @@ class DoctorClaimsService
             return $this->computeFeeEntryShareForPayment($deptFee, $netAmount, $isFirstPayment);
         }
 
-        if (in_array($dept, ['surgery'], true)) {
-            if ($booking->pay_method === PayMethod::Insurance) {
-                return $isFirstPayment ? $this->insuranceSurgeryFixedFee($doctor, $booking) : 0.0;
-            }
+        // Insurance surgery/lasik: the doctor's own fixed fee, never derived from
+        // the service's price/center split. Grouped before the cash branches so
+        // lasik cannot slip into the center-price split below and disagree with
+        // doComputeDrShare(), which puts insurance lasik on the same fixed fee.
+        if ($booking->pay_method === PayMethod::Insurance
+            && in_array($dept, [Department::Surgery->value, Department::Lasik->value], true)) {
+            return $isFirstPayment ? $this->insuranceSurgeryFixedFee($doctor, $booking) : 0.0;
+        }
 
+        if ($dept === Department::Surgery->value) {
             return $this->surgeryShareForPayment($booking, $netAmount, $isFirstPayment);
         }
 
-        // Laser strategy (fixed hospital revenue): the doctor gets whatever is
+        // Laser/Lasik strategy (fixed hospital revenue): the doctor gets whatever is
         // left after the hospital's fixed cut for this service, not a
         // percentage/fixed fee of their own. Deducted on the first payment
-        // only, mirroring the surgery/lasik supply deduction above.
-        if ($dept === Department::Laser->value || $dept === Department::Lasik->value) {
+        // only, mirroring the surgery supply deduction above.
+        if (in_array($dept, [Department::Laser->value, Department::Lasik->value], true)) {
             $fixedRevenue = $this->resolveLaserFixedRevenue($booking->service_id, $booking->eye_side);
 
             if ($fixedRevenue !== null) {
@@ -431,16 +558,20 @@ class DoctorClaimsService
         }
 
         return match (true) {
-            // Insurance surgery: dr_share = the doctor's fixed fee (Doctors module — see resolveDoctorFixedFee())
-            $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik']) => $this->computeInsuranceSurgeryShare($doctor, $booking),
+            // Insurance surgery/lasik: dr_share = the doctor's fixed fee (Doctors
+            // module — see resolveDoctorFixedFee()). Lasik sits here too so this
+            // path agrees with computeShareForPayment(), which also keeps
+            // insurance lasik on the fee-based strategy rather than letting the
+            // center-price branch below swallow it.
+            $booking->pay_method === 'insurance' && in_array($dept, ['surgery', 'lasik'], true) => $this->computeInsuranceSurgeryShare($doctor, $booking),
 
-            // Surgery/Lasik: dr_share = net paid − supply_total
-            in_array($dept, ['surgery', 'lasik']) => $this->computeSurgeryShare($booking->id, $netPaid),
+            // Surgery: dr_share = net paid − supply_total
+            $dept === Department::Surgery->value => $this->computeSurgeryShare($booking->id, $netPaid),
 
-            // Clinic, Labs, Laser: dr_share = f(net paid) per doctor fee_type
-            // (Laser falls back to an eye-priced or fixed-hospital-revenue
-            // split when the service is configured that way — see
-            // resolveLaserFixedRevenue()).
+            // Clinic, Labs, Lasik, Laser: dr_share = f(net paid) per doctor
+            // fee_type, except Lasik/Laser which take the eye-priced or
+            // fixed-center split when the service is configured that way — see
+            // computeServiceShare() and resolveLaserFixedRevenue().
             default => $this->computeServiceShare($doctor, $netPaid, $insAmount, $dept, $booking->service_id ?? null, $booking->eye_side ?? null),
         };
     }
@@ -479,19 +610,20 @@ class DoctorClaimsService
     }
 
     /**
-     * Clinic/Labs/Laser strategy: dr_share = paid − center_share.
+     * Clinic/Labs/Lasik/Laser strategy: dr_share = paid − center_share.
      * center_share derived from service definition (pct or fixed).
      *
-     * Laser is special-cased first, mirroring computeShareForPayment(): the
-     * doctor gets whatever remains of the (already dev-fee-netted) paid
-     * amount after the hospital's cut — the service's one-eye/both-eyes
-     * price for the booked side, or its legacy fixed center_val — not a
-     * percentage/fixed fee of their own. Falls through to the normal doctor
-     * fee_type strategies when the service has neither configured.
+     * Lasik/Laser are special-cased first, mirroring computeShareForPayment():
+     * the doctor gets whatever remains of the (already dev-fee-netted) paid
+     * amount after the hospital's cut — the service's one-eye/both-eyes price
+     * for the booked side, or its legacy fixed center_val — not a
+     * percentage/fixed fee of their own. Lasik follows the laser rule exactly;
+     * only a service with neither configured falls through to the doctor's own
+     * fee_type strategies.
      */
     private function computeServiceShare(Doctor $doctor, float $paid, float $insAmount, ?string $dept = null, ?string $serviceId = null, EyeSide|string|null $eyeSide = null): float
     {
-        if ($dept === Department::Laser->value) {
+        if (in_array($dept, [Department::Laser->value, Department::Lasik->value], true)) {
             $fixedRevenue = $this->resolveLaserFixedRevenue($serviceId, $eyeSide);
 
             if ($fixedRevenue !== null) {

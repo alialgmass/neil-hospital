@@ -312,6 +312,12 @@ const scheduleBookingService = computed(() =>
     toBookingService(props.bookings.find((b) => b.id === scheduleForm.booking_id)),
 );
 
+// The primary doctor can't also be the delegate/anesthetist — filter them out
+// of the dropdowns (the backend rejects it too).
+const schedulePrimaryDoctorId = computed(
+    () => props.bookings.find((b) => b.id === scheduleForm.booking_id)?.doctor_id ?? null,
+);
+
 const delegateLines = computed(() =>
     overlayDelegations.value.filter((l) => l.role === 'delegate'),
 );
@@ -1996,6 +2002,7 @@ if (props.prefill) {
                 :services="delegationServices"
                 :lock-service="true"
                 :booking-service="scheduleBookingService"
+                :primary-doctor-id="schedulePrimaryDoctorId"
             />
 
             <div>

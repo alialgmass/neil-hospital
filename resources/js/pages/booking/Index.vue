@@ -98,7 +98,7 @@ const deleteTarget = ref<Booking | null>(null);
 
 // ── Pay modal ──
 const payTarget = ref<Booking | null>(null);
-const payForm = useForm({ price: '', paid_amount: '', pay_method: 'cash' });
+const payForm = useForm({ paid_amount: '', pay_method: 'cash' });
 
 const isPayModalOpen = computed({
     get: () => !!payTarget.value,
@@ -109,12 +109,14 @@ const isPayModalOpen = computed({
 },
 });
 
+// The booking's own price is the only source of truth for what is still owed
+// — the pay modal collects an amount, it never re-prices the case.
 const payRemaining = computed(() => {
     if (!payTarget.value) {
 return 0;
-}
+    }
 
-    const net = Math.max(0, Number(payForm.price) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
+    const net = Math.max(0, Number(payTarget.value.price ?? 0) - (Number((payTarget.value as any).discount) || 0) - (Number((payTarget.value as any).ins_amount) || 0));
 
     return Math.max(0, net - Number(payTarget.value.paid_amount));
 });
@@ -125,7 +127,6 @@ function openPay(booking: Booking) {
     }
 
     payTarget.value = booking;
-    payForm.price = String(booking.price ?? '0');
     payForm.paid_amount = String(payRemaining.value || '');
 }
 

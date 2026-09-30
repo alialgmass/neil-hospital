@@ -757,6 +757,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                         id: surgery.booking.service_id ?? null,
                                         name: surgery.booking.service_name ?? null,
                                     }"
+                                    :primary-doctor-id="surgery.booking.doctor_id ?? null"
                                     @update:model-value="(lines) => updateOverlayDelegationRole('delegate', lines)"
                                 />
                                 <ul
@@ -799,6 +800,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
                                         id: surgery.booking.service_id ?? null,
                                         name: surgery.booking.service_name ?? null,
                                     }"
+                                    :primary-doctor-id="surgery.booking.doctor_id ?? null"
                                     @update:model-value="(lines) => updateOverlayDelegationRole('anesthesia', lines)"
                                 />
                                 <ul

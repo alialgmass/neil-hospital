@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Actions;
 
+use Illuminate\Validation\ValidationException;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Models\BookingDoctorDelegation;
@@ -21,9 +22,24 @@ class SyncBookingDoctorDelegationsAction
      */
     public function execute(Booking $booking, array $lines): void
     {
+        // Delegating to the booking's own primary doctor is never a real
+        // arrangement: the fee is withheld from that doctor's share and then
+        // re-credited to the same person, so it nets to zero while still
+        // inflating the zero-payment debt (which adds every delegated fee)
+        // and showing a deduction the doctor then earns back. It is almost
+        // always a mis-picked doctor on the schedule form, so reject it
+        // loudly rather than silently creating a no-op line.
+        foreach ($lines as $line) {
+            if ($booking->doctor_id !== null && $line['doctor_id'] === $booking->doctor_id) {
+                throw ValidationException::withMessages([
+                    'delegations' => 'لا يمكن تفويض أو تسجيل تخدير للطبيب الأساسي نفسه — اختر طبيباً آخر.',
+                ]);
+            }
+        }
+
         // A settled row has already been paid out — resubmitting the same
-        // form (e.g. editing an unrelated field) must not recreate it as a
-        // new, duplicate pending line.
+        // form (e.g. editing an unrelated field) must not recreate it as
+        // a new, duplicate pending line.
         $settledSignatures = BookingDoctorDelegation::where('booking_id', $booking->id)
             ->where('status', DelegationStatus::Settled)
             ->get()
