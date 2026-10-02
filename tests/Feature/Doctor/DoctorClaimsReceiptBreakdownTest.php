@@ -19,7 +19,7 @@ use Tests\TestCase;
 /**
  * The case receipt has to make its own arithmetic add up.
  *
- * gross_dr_share is already net of supplies AND delegated/anesthesia fees,
+ * dr_share is already net of supplies AND delegated/anesthesia fees,
  * but only supplies used to be sent to the front end. The receipt therefore
  * showed "10,000 paid − 228 supplies = 8,915 gross", leaving an unexplained
  * 857 gap. delegated_total is now part of the row payload so the receipt can
@@ -103,7 +103,7 @@ class DoctorClaimsReceiptBreakdownTest extends TestCase
         // two lines it prints now have to reconcile against it exactly.
         $this->assertEquals(
             round($row['paid'] - $row['supply_total'] - $row['delegated_total'], 2),
-            $row['gross_dr_share']
+            $row['dr_share']
         );
     }
 
@@ -194,12 +194,12 @@ class DoctorClaimsReceiptBreakdownTest extends TestCase
         $this->assertCount(2, $rows);
         $rows->each(function (array $row): void {
             $this->assertSame(0.0, $row['delegated_total']);
-            $this->assertEquals($row['gross_dr_share'], $row['dr_share']);
+            $this->assertArrayNotHasKey('debt_settled', $row);
         });
 
         $this->assertEqualsCanonicalizing(
             [77.0, 780.0],
-            $rows->pluck('gross_dr_share')->all()
+            $rows->pluck('dr_share')->all()
         );
     }
 }

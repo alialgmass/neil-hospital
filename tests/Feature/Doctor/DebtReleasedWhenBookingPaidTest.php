@@ -104,13 +104,12 @@ class DebtReleasedWhenBookingPaidTest extends TestCase
 
         $this->pay($booking, 10000);
 
-        $row = collect(app(DoctorClaimsService::class)
-            ->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31')['rows'])
-            ->firstWhere('booking_id', $booking->id);
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31');
 
-        // The receipt must not carry a "خصم مديونية الطبيب" line at all.
-        $this->assertEquals(0.0, $row['debt_settled']);
-        $this->assertEquals($row['gross_dr_share'], $row['dr_share']);
+        // Released debt is never deducted from the dues at all.
+        $this->assertEquals(0.0, $result['debt_deducted']);
+        $this->assertEquals($result['gross_claims'], $result['total_claims']);
     }
 
     public function test_the_doctor_still_earns_the_whole_share_on_the_paid_booking(): void
@@ -164,6 +163,25 @@ class DebtReleasedWhenBookingPaidTest extends TestCase
             ->where('type', DebtEntryType::Incurred->value)
             ->first();
         $this->assertNotNull($row);
+    }
+
+    public function test_debt_from_another_case_is_deducted_from_the_period_total_not_the_case(): void
+    {
+        $paid = $this->makeBooking(10000);
+        $unpaid = $this->makeBooking(5000);
+        $this->doctor->incurDebtForBooking($unpaid->id, 3000);
+
+        $this->pay($paid, 10000);
+
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31');
+        $paidRow = collect($result['rows'])->firstWhere('booking_id', $paid->id);
+
+        // The paid case keeps its full share; the 3,000 debt comes off the total.
+        $this->assertEquals(10000.0, $paidRow['dr_share']);
+        $this->assertArrayNotHasKey('debt_settled', $paidRow);
+        $this->assertEquals(3000.0, $result['debt_deducted']);
+        $this->assertEquals(round($result['gross_claims'] - 3000, 2), $result['total_claims']);
     }
 
     public function test_release_never_pushes_the_balance_negative(): void

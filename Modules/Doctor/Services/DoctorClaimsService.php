@@ -68,6 +68,7 @@ class DoctorClaimsService
 
         $rows = [];
         $totalDrShare = 0.0;
+        $totalDebtDeducted = 0.0;
 
         foreach ($bookings as $booking) {
             // Only a booking closed out via the 0-payment write-off is
@@ -85,8 +86,11 @@ class DoctorClaimsService
                 : ($entitlements->has($booking->id)
                     ? (float) $entitlements[$booking->id]
                     : $this->computeDrShare($doctor, $booking));
-            $settledFromBooking = $writtenOff ? 0.0 : min($grossShare, (float) ($debtSettled[$booking->id] ?? 0));
-            $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
+            // Debt settled at payment time is deducted from the period total
+            // (debt_deducted), never shown against an individual case — the
+            // case row always carries its full share.
+            $totalDebtDeducted += $writtenOff ? 0.0 : min($grossShare, (float) ($debtSettled[$booking->id] ?? 0));
+            $drShare = round($grossShare, 2);
             $totalDrShare += $drShare;
 
             $delegatedTotal = $this->delegatedTotal($booking->id);
@@ -102,12 +106,10 @@ class DoctorClaimsService
                 'paid' => (float) $booking->paid_amount,
                 'ins_amount' => (float) $booking->ins_amount,
                 'dr_share' => $drShare,
-                'gross_dr_share' => round($grossShare, 2),
-                'debt_settled' => round($settledFromBooking, 2),
                 'debt_incurred' => $writtenOff ? (float) $debtIncurred[$booking->id] : 0.0,
                 // Delegated/anesthesia fees withheld from this booking's own
                 // share. The receipt needs this to make its arithmetic add
-                // up: gross_dr_share is already net of it, so without the
+                // up: dr_share is already net of it, so without the
                 // figure the supplies line alone looks like it explains the
                 // whole gap between what the patient paid and the gross.
                 'delegated_total' => round($delegatedTotal, 2),
@@ -152,9 +154,8 @@ class DoctorClaimsService
             ]);
 
         foreach ($delegationRows as $delegation) {
-            $grossShare = (float) $delegation->amount;
-            $settledFromBooking = min($grossShare, (float) ($debtSettled[$delegation->booking_id] ?? 0));
-            $drShare = max(0.0, round($grossShare - $settledFromBooking, 2));
+            $drShare = round((float) $delegation->amount, 2);
+            $totalDebtDeducted += min($drShare, (float) ($debtSettled[$delegation->booking_id] ?? 0));
             $totalDrShare += $drShare;
 
             $rows[] = [
@@ -167,8 +168,6 @@ class DoctorClaimsService
                 'paid' => null,
                 'ins_amount' => null,
                 'dr_share' => $drShare,
-                'gross_dr_share' => round($grossShare, 2),
-                'debt_settled' => round($settledFromBooking, 2),
                 'delegated_total' => 0.0,
                 'delegation_lines' => [],
                 'role' => $delegation->role,
@@ -176,7 +175,7 @@ class DoctorClaimsService
             ];
         }
 
-        return $this->buildClaimsResult($doctor, $from, $to, $totalDrShare, $rows);
+        return $this->buildClaimsResult($doctor, $from, $to, $totalDrShare, $totalDebtDeducted, $rows);
     }
 
     /**
@@ -637,8 +636,17 @@ class DoctorClaimsService
         };
     }
 
-    private function buildClaimsResult(Doctor $doctor, ?string $from, ?string $to, float $total, array $rows): array
+    /**
+     * total_claims is the period's dues after the doctor's debt deduction:
+     * gross_claims (sum of every case's full share) minus debt_deducted (all
+     * debt settled out of this period's cases, applied to the total).
+     */
+    private function buildClaimsResult(Doctor $doctor, ?string $from, ?string $to, float $grossTotal, float $debtDeducted, array $rows): array
     {
+        $grossTotal = round($grossTotal, 2);
+        $debtDeducted = round(min($grossTotal, $debtDeducted), 2);
+        $total = round($grossTotal - $debtDeducted, 2);
+
         $paymentRecords = DoctorPayment::where('doctor_id', $doctor->id)
             ->when($from, fn ($q) => $q->whereDate('paid_at', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('paid_at', '<=', $to))
@@ -656,6 +664,8 @@ class DoctorClaimsService
             ],
             'period_from' => $from,
             'period_to' => $to,
+            'gross_claims' => $grossTotal,
+            'debt_deducted' => $debtDeducted,
             'total_claims' => $total,
             'paid_amount' => $alreadyPaid,
             'net_due' => max(0, $total - $alreadyPaid),

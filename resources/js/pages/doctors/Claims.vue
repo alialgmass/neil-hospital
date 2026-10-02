@@ -59,8 +59,6 @@ interface ClaimRow {
     paid: number | null;
     ins_amount: number | null;
     dr_share: number;
-    gross_dr_share?: number;
-    debt_settled?: number;
     debt_incurred?: number;
     delegated_total?: number;
     delegation_lines?: DelegationLine[];
@@ -87,6 +85,10 @@ interface Claims {
     };
     period_from: string | null;
     period_to: string | null;
+    /** Sum of every case's full share, before the debt deduction. */
+    gross_claims: number;
+    /** Doctor debt deducted from the period total (never per case). */
+    debt_deducted: number;
     total_claims: number;
     paid_amount: number;
     net_due: number;
@@ -675,6 +677,29 @@ function printInvoice() {
                     </div>
                 </div>
 
+                <!-- Debt deducted from the period total (not from any single case) -->
+                <div
+                    v-if="claims.debt_deducted > 0"
+                    class="shrink-0 space-y-1 border-b border-hospital-border bg-white px-4 py-3 text-xs"
+                >
+                    <div class="flex items-center justify-between">
+                        <span class="text-hospital-text-2"
+                            >إجمالي المستحقات قبل خصم المديونية</span
+                        >
+                        <span class="font-mono">{{
+                            fmt(claims.gross_claims)
+                        }}</span>
+                    </div>
+                    <div
+                        class="flex items-center justify-between text-hospital-danger"
+                    >
+                        <span>خصم مديونية الطبيب (على إجمالي الحالات)</span>
+                        <span class="font-mono"
+                            >− {{ fmt(claims.debt_deducted) }}</span
+                        >
+                    </div>
+                </div>
+
                 <!-- Outstanding debt on the doctor (unpaid bookings — service price is charged to the doctor) -->
                 <div
                     v-if="(claims.doctor.debt_balance ?? 0) > 0"
@@ -870,19 +895,6 @@ function printInvoice() {
                                             title="حجز بدفعة صفر — تحول كاملاً لدين على الطبيب"
                                         >
                                             {{ fmt(row.debt_incurred!) }}
-                                        </span>
-                                        <span
-                                            v-else-if="
-                                                (row.debt_settled ?? 0) > 0
-                                            "
-                                            class="font-semibold text-hospital-warning"
-                                            :title="
-                                                'من إجمالي مستحق ' +
-                                                fmt(row.gross_dr_share ?? 0) +
-                                                ' — خُصم لسداد مديونية سابقة على الطبيب'
-                                            "
-                                        >
-                                            − {{ fmt(row.debt_settled!) }}
                                         </span>
                                         <span
                                             v-else
@@ -1242,33 +1254,6 @@ function printInvoice() {
                                 {{ fmt(selectedRow.debt_incurred!) }} كدين على
                                 الطبيب، ولم يُحصَّل أي مبلغ من المريض.
                             </div>
-                            <template
-                                v-if="(selectedRow.debt_settled ?? 0) > 0"
-                            >
-                                <div
-                                    class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
-                                >
-                                    <span class="text-hospital-text-2"
-                                        >إجمالي مستحق الطبيب قبل الخصم</span
-                                    >
-                                    <span class="font-mono">{{
-                                        fmt(selectedRow.gross_dr_share ?? 0)
-                                    }}</span>
-                                </div>
-                                <div
-                                    class="flex items-center justify-between border-b border-dashed border-hospital-border py-2 text-sm"
-                                >
-                                    <span class="text-hospital-danger"
-                                        >خصم مديونية الطبيب</span
-                                    >
-                                    <span class="font-mono text-hospital-danger"
-                                        >−
-                                        {{
-                                            fmt(selectedRow.debt_settled!)
-                                        }}</span
-                                    >
-                                </div>
-                            </template>
                             <div
                                 class="flex items-center justify-between pt-2 text-base font-bold text-hospital-primary"
                             >
@@ -1283,6 +1268,27 @@ function printInvoice() {
                             <p class="mb-2 text-xs font-bold text-blue-700">
                                 ملخص الفترة
                             </p>
+                            <div
+                                v-if="claims.debt_deducted > 0"
+                                class="mb-2 space-y-1 text-xs"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <span class="text-hospital-text-2"
+                                        >إجمالي المستحق قبل خصم المديونية</span
+                                    >
+                                    <span class="font-mono">{{
+                                        fmt(claims.gross_claims)
+                                    }}</span>
+                                </div>
+                                <div
+                                    class="flex items-center justify-between text-hospital-danger"
+                                >
+                                    <span>خصم مديونية الطبيب</span>
+                                    <span class="font-mono"
+                                        >− {{ fmt(claims.debt_deducted) }}</span
+                                    >
+                                </div>
+                            </div>
                             <div class="grid grid-cols-3 gap-2 text-center">
                                 <div>
                                     <p class="text-[10px] text-hospital-text-2">
@@ -1596,11 +1602,6 @@ function printInvoice() {
                                 <template v-if="(row.debt_incurred ?? 0) > 0">
                                     {{ fmt(row.debt_incurred!) }}
                                 </template>
-                                <template
-                                    v-else-if="(row.debt_settled ?? 0) > 0"
-                                >
-                                    − {{ fmt(row.debt_settled!) }}
-                                </template>
                                 <template v-else>—</template>
                             </td>
                         </tr>
@@ -1695,6 +1696,22 @@ function printInvoice() {
                             }}
                         </td>
                     </tr>
+                    <template v-if="claims.debt_deducted > 0">
+                        <tr class="ph-tfoot-sub">
+                            <td colspan="9">
+                                إجمالي مستحقات الطبيب قبل خصم المديونية
+                            </td>
+                            <td class="num bold">
+                                {{ fmt(claims.gross_claims) }}
+                            </td>
+                        </tr>
+                        <tr class="ph-tfoot-sub">
+                            <td colspan="9">خصم مديونية الطبيب</td>
+                            <td class="num bold">
+                                − {{ fmt(claims.debt_deducted) }}
+                            </td>
+                        </tr>
+                    </template>
                     <tr class="ph-tfoot-sub">
                         <td colspan="9">إجمالي مستحقات الطبيب</td>
                         <td class="num primary bold">

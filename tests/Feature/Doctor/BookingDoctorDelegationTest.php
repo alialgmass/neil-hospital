@@ -188,12 +188,13 @@ class BookingDoctorDelegationTest extends TestCase
             ->calculateClaims($this->primaryDoctor->id, '2026-01-01', '2026-12-31');
 
         $this->assertEquals(0.0, $result['total_claims']);
-        $this->assertEquals(0.0, $result['rows'][0]['dr_share']);
 
-        // The row still surfaces the gross share and how much of it went to
-        // debt, so the doctor-dues screen can show *why* this case is 0.
-        $this->assertEquals(4700.0, $result['rows'][0]['gross_dr_share']);
-        $this->assertEquals(4700.0, $result['rows'][0]['debt_settled']);
+        // The case row keeps its full share — the debt is deducted from the
+        // period total, never from an individual case.
+        $this->assertEquals(4700.0, $result['rows'][0]['dr_share']);
+        $this->assertArrayNotHasKey('debt_settled', $result['rows'][0]);
+        $this->assertEquals(4700.0, $result['gross_claims']);
+        $this->assertEquals(4700.0, $result['debt_deducted']);
     }
 
     public function test_insurance_booking_accrues_the_delegate_immediately_and_nets_the_primary_entitlement(): void
