@@ -32,10 +32,11 @@ class SupplierPaymentTest extends TestCase
             'supplier_id' => $supplier->id, 'amount' => 400, 'method' => 'cash', 'paid_at' => now()->toDateString(),
         ]);
 
-        $payable = Account::where('code', '2020')->firstOrFail();
+        $payable = Account::findOrFail($supplier->fresh()->payable_account_id);
         $cash = Account::where('code', '1010')->firstOrFail();
 
         $entry = JournalEntry::where('source', 'supplier_payment')->sole();
+        $this->assertSame('2020', $payable->parent->code);
         $this->assertSame($payable->id, $entry->debit_account_id);
         $this->assertSame($cash->id, $entry->credit_account_id);
         $this->assertEquals(400.00, (float) $entry->amount);

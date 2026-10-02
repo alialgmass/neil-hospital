@@ -2,7 +2,6 @@
 
 namespace Modules\Accounting\Actions;
 
-use App\Enums\Department;
 use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
@@ -19,13 +18,15 @@ class AutoPostStockIssueAction
     ) {}
 
     /**
-     * Post journal entries for each item in a stock issue voucher.
-     * Dr [expense account by item category] / Cr 1050 (Inventory)
+     * Post journal entries for each item in a stock issue voucher, at cost.
+     * Dr [consuming department's cost account — 5010 / 5020 / 5030 / 5040,
+     *     or the operating-supplies expense for non-medical items] / Cr 1051
+     * Inventory never leaves the books without its cost being recorded.
      */
     public function execute(StockPermit $permit): void
     {
         $inventoryAccountId = $this->accountResolver->id(AccountCode::INVENTORY);
-        $costCenter = $this->resolveCostCenter($permit->department);
+        $costCenter = CostCenter::forDepartment($permit->department);
         $date = $permit->created_at->toDateString();
 
         foreach ($permit->items as $item) {
@@ -36,10 +37,10 @@ class AutoPostStockIssueAction
             }
 
             $category = $item->item_id
-                ? InventoryItem::where('id', $item->item_id)->value('category')
+                ? InventoryItem::find($item->item_id, ['id', 'category'])?->category
                 : null;
 
-            $expenseAccountId = $this->accountResolver->id(AccountCode::expenseAccountForCategory($category));
+            $expenseAccountId = $this->accountResolver->id(AccountCode::consumptionCostCode($permit->department, $category));
 
             $this->journalService->record([
                 'date' => $date,
@@ -53,21 +54,5 @@ class AutoPostStockIssueAction
                 'cost_center' => $costCenter,
             ]);
         }
-    }
-
-    private function resolveCostCenter(?Department $department): CostCenter
-    {
-        if ($department === null) {
-            return CostCenter::Inventory;
-        }
-
-        return match ($department) {
-            Department::Clinic => CostCenter::Clinic,
-            Department::Labs => CostCenter::Lab,
-            Department::Surgery => CostCenter::Surgery,
-            Department::Lasik => CostCenter::Lasik,
-            Department::Laser => CostCenter::Laser,
-            Department::Pentacam => CostCenter::Pentacam,
-        };
     }
 }

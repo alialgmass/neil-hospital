@@ -19,6 +19,7 @@ enum JournalSource: string
     case INSURANCE_DOCTOR_PAYMENT = 'insurance_doctor_payment';
     case SUPPLIER_PAYMENT = 'supplier_payment';
     case REVERSAL = 'reversal';
+    case OPENING_BALANCE = 'opening_balance';
 
     public function label(): string
     {
@@ -38,6 +39,7 @@ enum JournalSource: string
             self::INSURANCE_DOCTOR_PAYMENT => 'صرف أتعاب طبيب تأمين (كاش فوري)',
             self::SUPPLIER_PAYMENT => 'سداد مورد',
             self::REVERSAL => 'عكس قيد (إلغاء)',
+            self::OPENING_BALANCE => 'قيد افتتاحي',
         };
     }
 }

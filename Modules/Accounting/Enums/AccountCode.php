@@ -73,8 +73,7 @@ enum AccountCode: string
     case LASIK_REVENUE = '4040';
     case LASER_REVENUE = '4050';
     case PENTACAM_REVENUE = '4060';
-    case SUPPLIES_SALE_REVENUE = '4070'; // إيراد بيع مستهلكات للأطباء (فرق سعر البيع عن الشراء)
-    case PHARMACY_REVENUE = '4080';
+    case SUPPLIES_SALE_REVENUE = '4070'; // إيراد بيع مستهلكات للأطباء — بسعر البيع (الفرق عن سعر الشراء = ربح المركز)
     case INSURANCE_REVENUE_GROUP = '4100';
     case INSURANCE_REVENUE = '4110'; // إيرادات تأمين — عيادة / حصة المستشفى (افتراضي حتى تفصيل الأقسام — تذكرة 06)
     case INSURANCE_LAB_REVENUE = '4120';
@@ -97,7 +96,6 @@ enum AccountCode: string
     case LAB_SUPPLIES_COST = '5040';
     case DOCTOR_EXPENSES_GROUP = '5100';
     case DOCTOR_CLINIC_EXPENSE = '5110';
-    case SUPPLY_COST_RECOVERED_FROM_DOCTOR = '5115'; // (-) استرداد تكلفة مستلزمات من الطبيب — حساب مقابل يخفض صافي الأتعاب
     case DOCTOR_SURGERY_EXPENSE = '5120';
     case INSURANCE_DOCTOR_FEES = '5130';
     case VISITING_DOCTOR_FEES = '5140';
@@ -188,18 +186,63 @@ enum AccountCode: string
     }
 
     /**
-     * Stock issue / supply-consumption category → expense account.
-     * Single source of truth shared by AutoPostStockIssueAction and
-     * ProcessBundleSupplyAction — previously duplicated with divergent
-     * (and in ProcessBundleSupplyAction's case, wrong) codes.
+     * Cost account debited when stock leaves inventory for consumption.
+     * Single source of truth shared by AutoPostStockIssueAction,
+     * ProcessBundleSupplyAction and the stock-take shortage posting.
+     *
+     * Medical consumables are costed to the consuming department's direct
+     * cost account (guide §1.5 / §2.5): 5010 surgery · 5020 lasik ·
+     * 5040 labs & pentacam · 5030 medicines & drops (laser, clinic). A store
+     * issue with no department falls back to 5010. Non-medical operational
+     * supplies are not a cost of service — they go to their operating
+     * expense account (5250 stationery · 5251 cleaning · 5240 maintenance).
      */
-    public static function expenseAccountForCategory(?ItemCategory $category): self
+    public static function consumptionCostCode(?Department $dept, ?ItemCategory $category = null): self
     {
         return match ($category) {
             ItemCategory::Office => self::ADMIN_EXPENSE,
-            ItemCategory::Cleaning, ItemCategory::Maintenance => self::MAINTENANCE,
-            default => self::SURGERY_SUPPLIES_COST,
+            ItemCategory::Cleaning => self::CLEANING_EXPENSE,
+            ItemCategory::Maintenance => self::MAINTENANCE,
+            default => match ($dept) {
+                Department::Lasik => self::LASIK_SUPPLIES_COST,
+                Department::Labs, Department::Pentacam => self::LAB_SUPPLIES_COST,
+                Department::Laser, Department::Clinic => self::MEDICINE_COST,
+                default => self::SURGERY_SUPPLIES_COST,
+            },
         };
+    }
+
+    /**
+     * Inventory leaf accounts (1051–1053). Every credit to one of these for
+     * consumption must be matched by a debit to a consumption cost account.
+     *
+     * @return array<int, string>
+     */
+    public static function inventoryCodes(): array
+    {
+        return [self::INVENTORY->value, self::MEDICINE_INVENTORY->value, self::OPERATIONAL_SUPPLIES_INVENTORY->value];
+    }
+
+    /**
+     * Accounts a consumption relief of inventory may be costed to: the
+     * direct cost-of-service accounts plus the operational-supplies expenses.
+     *
+     * @return array<int, string>
+     */
+    public static function consumptionCostCodes(): array
+    {
+        return [
+            ...self::costOfServiceCodes(),
+            self::ADMIN_EXPENSE->value,
+            self::CLEANING_EXPENSE->value,
+            self::MAINTENANCE->value,
+        ];
+    }
+
+    /** @return array<int, string> */
+    public static function insuranceRevenueCodes(): array
+    {
+        return array_values(array_unique(array_map(fn (self $code) => $code->value, self::insuranceRevenueMap())));
     }
 
     /** @return array<int, string> */
@@ -232,6 +275,9 @@ enum AccountCode: string
             self::INVENTORY_GROUP->value,
             self::FIXED_ASSETS->value,
             self::CURRENT_LIABILITIES->value,
+            self::DOCTOR_PAYABLE->value, // control — posts go to the doctor's 2201–2299 sub-ledger
+            self::SUPPLIER_PAYABLE->value, // control — posts go to the supplier's 2301–2399 sub-ledger
+            self::NET_SALARY_PAYABLE->value, // control — posts go to the employee's 2401–2499 sub-ledger
             self::LONG_TERM_LIABILITIES->value,
             self::OPERATING_REVENUE->value,
             self::INSURANCE_REVENUE_GROUP->value,

@@ -5,6 +5,7 @@ namespace Modules\Booking\Services;
 use App\Enums\Department;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Enums\PayMethod;
@@ -20,12 +21,14 @@ use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\PriceList;
 use Modules\Insurance\States\DraftState;
+use Modules\Insurance\States\SubmittedState;
 
 class BookingService
 {
     public function __construct(
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly MrnGeneratorService $mrnGenerator,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     /** @return array{services: Collection, insuranceCompanies: Collection, priceLists: Collection, doctors: Collection} */
@@ -236,5 +239,10 @@ class BookingService
         }
 
         $claim->save();
+
+        // Guide §2.3 (1أ): the claim's revenue + receivable follow it from the service day.
+        if ($claim->status instanceof DraftState || $claim->status instanceof SubmittedState) {
+            $this->autoPostInsuranceClaim->recognize($claim);
+        }
     }
 }

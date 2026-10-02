@@ -8,6 +8,7 @@ use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
 use Modules\Doctor\Models\DoctorPayment;
 
@@ -17,11 +18,13 @@ class AutoPostDoctorPaymentAction
         private readonly JournalService $journalService,
         private readonly TreasuryService $treasuryService,
         private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Post when doctor dues are paid out.
-     * Dr 2010 (Doctor Payables) / Cr 1010 (Cash) or 1020 (Bank), by payment method.
+     * Dr the doctor's payable sub-ledger (2201–2299) / Cr 1010 (Cash) or
+     * 1020 (Bank), by payment method.
      */
     public function execute(DoctorPayment $payment, string $doctorName): void
     {
@@ -44,7 +47,7 @@ class AutoPostDoctorPaymentAction
             'source' => JournalSource::DOCTOR_PAYMENT,
         ]);
 
-        $payableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
+        $payableId = $this->subledgers->forDoctor($payment->doctor_id);
         $creditId = $this->accountResolver->id($isBank ? AccountCode::BANK : AccountCode::CASH);
 
         $this->journalService->record([
@@ -56,6 +59,8 @@ class AutoPostDoctorPaymentAction
             'source' => JournalSource::DOCTOR_PAYMENT,
             'reference' => (string) $payment->id,
             'idempotency_key' => "doctor_payment:{$payment->id}",
+            // A payable settlement carries no cost-center dimension of its own
+            // (guide §2.5) — it is tracked under the doctors' tracking center.
             'cost_center' => CostCenter::Doctors,
         ]);
     }

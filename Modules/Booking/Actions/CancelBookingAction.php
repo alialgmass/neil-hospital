@@ -4,6 +4,7 @@ namespace Modules\Booking\Actions;
 
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
@@ -19,6 +20,7 @@ class CancelBookingAction
         private readonly SurgeryService $surgeryService,
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     /**
@@ -47,6 +49,7 @@ class CancelBookingAction
         $this->surgeryService->updateStatusByBooking($booking->id, 'cancelled');
 
         $this->syncDoctorEntitlement->voidFor($booking);
+        $this->autoPostInsuranceClaim->reverseForBooking($booking->id, 'إلغاء الحجز');
 
         $this->activityLog->log(
             action: 'cancelled',

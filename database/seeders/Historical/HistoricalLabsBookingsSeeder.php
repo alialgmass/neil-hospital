@@ -125,11 +125,12 @@ class HistoricalLabsBookingsSeeder extends Seeder
             // Dr 1010 (Cash) / Cr 4020 (Labs Revenue)
             $bookingAction->execute($booking);
 
-            // Dr 5130 / Cr 2010  (Doctor dues accrual for radiology)
+            // Dr 5110 / Cr doctor sub-ledger 22xx (doctor dues accrual for radiology)
             if ($drShare > 0 && $doctorId) {
                 $doctorAction->execute(
                     dept: Department::Labs,
                     amount: $drShare,
+                    doctorId: $doctorId,
                     doctorName: (string) ($row['doctor_name'] ?? ''),
                     reference: $row['file_no'],
                     date: $row['visit_date'],

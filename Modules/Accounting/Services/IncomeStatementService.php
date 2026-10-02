@@ -5,6 +5,7 @@ namespace Modules\Accounting\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\AccountGroup;
+use Modules\Accounting\Enums\AccountNature;
 use Modules\Accounting\Models\Account;
 
 class IncomeStatementService
@@ -59,7 +60,8 @@ class IncomeStatementService
 
             if ($account->group === AccountGroup::Revenues) {
                 $revenues[] = $row;
-                $totalRevenue += $balance;
+                // Contra-revenue (4910 discounts / 4920 refunds) is debit-nature and reduces revenue.
+                $totalRevenue += $account->nature === AccountNature::Debit ? -$balance : $balance;
             } elseif (in_array($account->code, AccountCode::costOfServiceCodes())) {
                 $costOfServices[] = $row;
                 $totalCost += $balance;

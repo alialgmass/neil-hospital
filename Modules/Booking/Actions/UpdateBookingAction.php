@@ -7,6 +7,7 @@ use App\Services\ActivityLogService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\DTOs\BookingData;
@@ -29,6 +30,7 @@ class UpdateBookingAction
         private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
         private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     public function execute(string $id, BookingData $data): Booking
@@ -139,7 +141,7 @@ class UpdateBookingAction
 
         if (! $claim) {
             try {
-                InsuranceClaim::create([
+                $claim = InsuranceClaim::create([
                     ...$claimAttributes,
                     'booking_id' => $booking->id,
                     'approved_amount' => 0,
@@ -148,6 +150,8 @@ class UpdateBookingAction
                     'claim_date' => today()->toDateString(),
                     'created_by' => $old->created_by,
                 ]);
+
+                $this->autoPostInsuranceClaim->recognize($claim);
             } catch (QueryException $e) {
                 // A concurrent request already created the claim (unique booking_id
                 // constraint) — nothing to do, it'll pick up this data on the next edit.
@@ -162,6 +166,9 @@ class UpdateBookingAction
 
         if ($claim->status->equals(DraftState::class)) {
             $claim->update($claimAttributes);
+
+            // Re-sync the service-day recognition to the edited amount / company / dept.
+            $this->autoPostInsuranceClaim->recognize($claim->refresh());
         }
     }
 }

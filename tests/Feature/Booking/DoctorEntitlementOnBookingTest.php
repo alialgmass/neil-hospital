@@ -56,6 +56,7 @@ class DoctorEntitlementOnBookingTest extends TestCase
             'doctor_id' => $this->doctor->id,
             'price' => 5000,
             'ins_company_id' => $this->company->id,
+            'ins_amount' => 4000,
             'pay_method' => 'insurance',
             'pay_status' => 'unpaid',
             'status' => 'waiting',

@@ -69,7 +69,7 @@ class BookingDoctorDelegationTest extends TestCase
             'patient_name' => 'مريض', 'dept' => 'surgery', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
             'doctor_id' => $this->primaryDoctor->id, 'price' => $price, 'bed_id' => $bed->id,
-            'ins_company_id' => $insCompanyId,
+            'ins_company_id' => $insCompanyId, 'ins_amount' => $payMethod === 'insurance' ? $price : 0,
             'pay_method' => $payMethod, 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 

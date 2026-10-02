@@ -6,6 +6,7 @@ use App\Enums\Department;
 use App\Services\ActivityLogService;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Accounting\Actions\AutoPostDevelopmentFeeAction;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
@@ -29,6 +30,7 @@ class CreateBookingAction
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
         private readonly DoctorClaimsService $doctorClaimsService,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     public function execute(BookingData $data, int $createdBy): Booking
@@ -38,7 +40,7 @@ class CreateBookingAction
         if ($data->insCompanyId) {
             $patientShare = max(0, $data->price - $data->discount - $data->insAmount);
 
-            InsuranceClaim::create([
+            $claim = InsuranceClaim::create([
                 'booking_id' => $booking->id,
                 'insurance_company_id' => $data->insCompanyId,
                 'service_id' => $data->serviceId,
@@ -56,6 +58,11 @@ class CreateBookingAction
                 'claim_date' => today()->toDateString(),
                 'created_by' => $createdBy,
             ]);
+
+            // Guide §2.3 (1أ): insurance revenue + receivable on the service
+            // day — before the doctor's same-day cash fee below, which
+            // requires it.
+            $this->autoPostInsuranceClaim->recognize($claim);
         }
 
         if (in_array($data->dept, [Department::Surgery, Department::Lasik])) {

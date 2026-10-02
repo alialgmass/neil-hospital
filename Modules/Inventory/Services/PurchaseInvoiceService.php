@@ -124,7 +124,8 @@ class PurchaseInvoiceService
 
             $invoice->update([
                 'invoice_no' => $data['invoice_no'] ?? $invoice->invoice_no,
-                'supplier_id' => $data['supplier_id'] ?? null,
+                // An edit that doesn't send the supplier keeps it (a credit invoice must keep its supplier sub-ledger).
+                'supplier_id' => array_key_exists('supplier_id', $data) ? $data['supplier_id'] : $invoice->supplier_id,
                 'invoice_date' => $data['invoice_date'],
                 'notes' => $data['notes'] ?? null,
                 'subtotal' => $subtotal,

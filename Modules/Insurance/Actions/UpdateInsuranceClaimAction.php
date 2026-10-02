@@ -7,6 +7,7 @@ use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\ApprovedState;
+use Modules\Insurance\States\DraftState;
 use Modules\Insurance\States\PaidState;
 use Modules\Insurance\States\RejectedState;
 use Modules\Insurance\States\SubmittedState;
@@ -35,9 +36,10 @@ class UpdateInsuranceClaimAction
 
         $newStatus = (string) $claim->status;
 
-        // Post journal when claim is submitted
-        if ($newStatus === SubmittedState::$name && $oldStatus !== SubmittedState::$name) {
-            $this->autoPost->onSubmit($claim);
+        // Revenue + receivable are recognized on the service day (guide §2.3);
+        // keep that recognition in step with edits while the claim is open.
+        if ($claim->status instanceof DraftState || $claim->status instanceof SubmittedState) {
+            $this->autoPost->recognize($claim);
         }
 
         // Post collection entry and mark booking paid when claim is collected

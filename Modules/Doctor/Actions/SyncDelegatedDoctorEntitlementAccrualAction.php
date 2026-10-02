@@ -66,6 +66,7 @@ class SyncDelegatedDoctorEntitlementAccrualAction
                 $this->autoPostDoctorDues->execute(
                     dept: $booking->dept,
                     amount: $amount,
+                    doctorId: $doctor->id,
                     doctorName: $doctor->name,
                     reference: $booking->file_no,
                     date: $booking->visit_date?->toDateString(),

@@ -12,6 +12,8 @@ interface TrialRow {
     debits: number;
     credits: number;
     balance: number;
+    is_group: boolean;
+    parent_code: string | null;
 }
 
 const props = defineProps<{
@@ -33,8 +35,10 @@ function clearFilters() {
     router.get('/ledger/trial-balance', {}, { preserveState: true });
 }
 
-const totalDebits  = computed(() => props.rows.reduce((s, r) => s + r.debits, 0));
-const totalCredits = computed(() => props.rows.reduce((s, r) => s + r.credits, 0));
+// Group / control rows are roll-ups of their sub-accounts — foot the leaves only.
+const leafRows     = computed(() => props.rows.filter((r) => !r.is_group));
+const totalDebits  = computed(() => leafRows.value.reduce((s, r) => s + r.debits, 0));
+const totalCredits = computed(() => leafRows.value.reduce((s, r) => s + r.credits, 0));
 const isBalanced   = computed(() => Math.abs(totalDebits.value - totalCredits.value) < 0.01);
 
 const groupLabels: Record<string, string> = {
@@ -157,9 +161,12 @@ function balanceSideClass(row: TrialRow): string {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in rows" :key="row.code" class="border-b border-hospital-border/50 transition-colors even:bg-hospital-bg/30 hover:bg-hospital-primary-pale/40">
+                    <tr v-for="row in rows" :key="row.code" class="border-b border-hospital-border/50 transition-colors even:bg-hospital-bg/30 hover:bg-hospital-primary-pale/40" :class="{ 'bg-hospital-bg font-semibold': row.is_group }">
                         <td class="px-4 py-3 font-mono text-hospital-text-2">{{ row.code }}</td>
-                        <td class="px-4 py-3 font-medium text-hospital-text">{{ row.name }}</td>
+                        <td class="px-4 py-3 font-medium text-hospital-text" :class="{ 'pr-8': row.parent_code && !row.is_group }">
+                            {{ row.name }}
+                            <span v-if="row.is_group" class="mr-1 text-xs font-normal text-hospital-text-2">(إجمالي — لا يُرحّل)</span>
+                        </td>
                         <td class="px-4 py-3">
                             <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium" :class="groupClass(row.group)">
                                 {{ groupLabels[row.group] ?? row.group }}

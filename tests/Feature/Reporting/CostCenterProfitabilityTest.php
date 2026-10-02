@@ -42,11 +42,11 @@ class CostCenterProfitabilityTest extends TestCase
     {
         // Clinic: 1000 revenue, 200 expense → profit 800.
         $this->postEntry('1010', '4010', 1000, 'CC-CLINIC');
-        $this->postEntry('5110', '2010', 200, 'CC-CLINIC');
+        $this->postEntry('5110', '2201', 200, 'CC-CLINIC'); // a doctor's own sub-ledger under 2010
 
         // Surgery: 10000 revenue, 2360 expense → profit 7640.
         $this->postEntry('1010', '4030', 10000, 'CC-SURG');
-        $this->postEntry('5120', '2010', 2360, 'CC-SURG');
+        $this->postEntry('5120', '2202', 2360, 'CC-SURG');
 
         // Admin: no revenue, 500 expense → profit -500.
         $this->postEntry('5250', '1010', 500, 'CC-ADMIN');

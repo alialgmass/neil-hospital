@@ -8,6 +8,7 @@ use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
 use Modules\HR\Models\Payroll;
 
@@ -17,11 +18,12 @@ class AutoPostPayrollAction
         private readonly JournalService $journalService,
         private readonly TreasuryService $treasuryService,
         private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Post when a payroll record is approved (accrual).
-     * Dr 5210 (Salaries) / Cr 2040 (Employee Payables)
+     * Dr 5210 (Salaries) / Cr the employee's net-salary sub-ledger (2401–2499, under 2030)
      */
     public function onApprove(Payroll $payroll): void
     {
@@ -32,7 +34,7 @@ class AutoPostPayrollAction
         }
 
         $salariesId = $this->accountResolver->id(AccountCode::SALARIES);
-        $payableId = $this->accountResolver->id(AccountCode::NET_SALARY_PAYABLE);
+        $payableId = $this->subledgers->forEmployee($payroll->employee_id);
         $employeeName = $payroll->employee?->name ?? 'موظف';
 
         $this->journalService->record([
@@ -50,7 +52,7 @@ class AutoPostPayrollAction
 
     /**
      * Post when a payroll record is marked paid (settlement).
-     * Dr 2040 (Employee Payables) / Cr 1010 (Cash)
+     * Dr the employee's net-salary sub-ledger (2401–2499) / Cr 1010 (Cash)
      */
     public function onPay(Payroll $payroll): void
     {
@@ -71,7 +73,7 @@ class AutoPostPayrollAction
             'source' => JournalSource::SALARY,
         ]);
 
-        $payableId = $this->accountResolver->id(AccountCode::NET_SALARY_PAYABLE);
+        $payableId = $this->subledgers->forEmployee($payroll->employee_id);
         $cashId = $this->accountResolver->id(AccountCode::CASH);
 
         $this->journalService->record([

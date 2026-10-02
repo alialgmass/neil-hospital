@@ -56,7 +56,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
+            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_amount' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
@@ -83,7 +83,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
+            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_amount' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
@@ -92,7 +92,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name, 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
+            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_amount' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 
@@ -108,7 +108,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض تأمين', 'dept' => 'labs', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
             'service_id' => $this->service->id, 'service_name' => $this->service->name,
-            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_company_id' => $this->company->id,
+            'doctor_id' => $this->doctor->id, 'price' => 6500, 'ins_amount' => 6500, 'ins_company_id' => $this->company->id,
             'pay_method' => 'insurance', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 

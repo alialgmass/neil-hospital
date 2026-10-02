@@ -7,6 +7,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\AccountNature;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Exceptions\AccountingException;
@@ -70,8 +71,16 @@ class JournalService
             throw new AccountingException('Debit and credit accounts cannot be the same account.');
         }
 
-        $this->accountResolver->mustBePostableAndActive($data['debit_account_id']);
-        $this->accountResolver->mustBePostableAndActive($data['credit_account_id']);
+        $debit = $this->accountResolver->mustBePostableAndActive($data['debit_account_id']);
+        $credit = $this->accountResolver->mustBePostableAndActive($data['credit_account_id']);
+
+        $source = $data['source'] ?? JournalSource::MANUAL;
+        $source = $source instanceof JournalSource ? $source : JournalSource::tryFrom((string) $source);
+
+        if ($source !== JournalSource::REVERSAL && empty($data['reversal_of_id'])) {
+            $this->guardInventoryRelief($debit, $credit);
+            $this->guardInsuranceDoctorFees($debit, $source);
+        }
 
         try {
             return DB::transaction(function () use ($data) {
@@ -177,6 +186,51 @@ class JournalService
             reversalSource: JournalSource::REVERSAL,
             reference: $entry->reference ?? "REV-{$entry->id}",
         );
+    }
+
+    /**
+     * Inventory (1051–1053) may only be relieved against: a consumption cost
+     * account (5010–5040, or the operating-supplies expense for non-medical
+     * stock), another inventory account (transfer), or — for a return to a
+     * supplier — the supplier's sub-ledger / cash / bank. Stock never leaves
+     * the books without its cost being recorded.
+     *
+     * @throws AccountingException
+     */
+    private function guardInventoryRelief(Account $debit, Account $credit): void
+    {
+        if (! in_array($credit->code, AccountCode::inventoryCodes(), true)) {
+            return;
+        }
+
+        $allowed = [
+            ...AccountCode::consumptionCostCodes(),
+            ...AccountCode::inventoryCodes(),
+            AccountCode::CASH->value,
+            AccountCode::BANK->value,
+        ];
+
+        $supplierMasterId = Account::where('code', AccountCode::SUPPLIER_PAYABLE->value)->value('id');
+
+        if (in_array($debit->code, $allowed, true) || ($supplierMasterId && $debit->parent_id === $supplierMasterId)) {
+            return;
+        }
+
+        throw new AccountingException("لا يجوز تخفيض المخزون ({$credit->code}) إلا مقابل حساب تكلفة (5010–5040) أو مرتجع لمورد — الحساب المدين {$debit->code} غير مسموح.");
+    }
+
+    /**
+     * 5130 (insurance doctor fees) is only ever debited by the insurance
+     * cycle's same-day cash payment (AutoPostInsuranceDoctorCashPaymentAction),
+     * which itself requires the case's insurance revenue (4110–4150) first.
+     *
+     * @throws AccountingException
+     */
+    private function guardInsuranceDoctorFees(Account $debit, ?JournalSource $source): void
+    {
+        if ($debit->code === AccountCode::INSURANCE_DOCTOR_FEES->value && $source !== JournalSource::INSURANCE_DOCTOR_PAYMENT) {
+            throw new AccountingException('أتعاب أطباء التأمين (5130) تُرحّل فقط من دورة التأمين بعد إثبات إيراد المطالبة.');
+        }
     }
 
     private function adjustBalance(string $accountId, float $amount, AccountNature $side): void

@@ -37,10 +37,12 @@ class DoctorPaymentAccountingTest extends TestCase
             'doctor_id' => $doctor->id, 'amount' => 500, 'method' => 'cash', 'paid_at' => now()->toDateString(),
         ]);
 
-        $payable = Account::where('code', '2010')->firstOrFail();
+        // The doctor's own sub-ledger under the 2010 control account — never 2010 itself.
+        $payable = Account::findOrFail($doctor->fresh()->payable_account_id);
         $cash = Account::where('code', '1010')->firstOrFail();
 
         $entry = JournalEntry::where('source', 'doctor_payment')->sole();
+        $this->assertSame('2010', $payable->parent->code);
         $this->assertSame($payable->id, $entry->debit_account_id);
         $this->assertSame($cash->id, $entry->credit_account_id);
         $this->assertEquals(500.00, (float) $entry->amount);

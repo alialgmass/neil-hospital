@@ -7,6 +7,7 @@ use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
@@ -61,14 +62,16 @@ class RecordSuppliesBulkTest extends TestCase
 
     private function makeSurgery(string $dept = 'surgery', array $existingSupplies = []): Surgery
     {
+        // A case always has a surgeon: bundle consumables are charged to their sub-ledger.
+        $surgeon = Doctor::create(['name' => 'د. جراح', 'fee_type' => 'percentage', 'fee_value' => 100]);
         $booking = Booking::create([
             'file_no' => 'MRN-'.uniqid(), 'patient_name' => 'مريض', 'dept' => $dept,
-            'visit_date' => now()->toDateString(), 'price' => 6500, 'paid_amount' => 0,
+            'visit_date' => now()->toDateString(), 'price' => 6500, 'paid_amount' => 0, 'doctor_id' => $surgeon->id,
             'pay_method' => 'cash', 'pay_status' => 'unpaid', 'status' => 'waiting',
         ]);
 
         return Surgery::create([
-            'booking_id' => $booking->id, 'dept' => $dept, 'status' => 'in_progress',
+            'booking_id' => $booking->id, 'surgeon_id' => $surgeon->id, 'dept' => $dept, 'status' => 'in_progress',
             'supplies_used' => $existingSupplies,
             'supply_total' => array_sum(array_column($existingSupplies, 'total')),
         ]);

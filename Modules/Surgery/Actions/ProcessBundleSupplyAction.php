@@ -2,6 +2,7 @@
 
 namespace Modules\Surgery\Actions;
 
+use App\Enums\Department;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Enums\AccountCode;
@@ -9,6 +10,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Models\SupplyBundle;
@@ -23,18 +25,21 @@ class ProcessBundleSupplyAction
         private readonly InventoryService $inventoryService,
         private readonly JournalService $journalService,
         private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Deduct each sub-item from inventory, post accounting entries, and return
      * the bundle as a single supply-line entry ready to be stored in supplies_used.
      *
-     * Inventory consumption (5010/5020 → 1051) posts regardless of pay
-     * method. The doctor-charge leg (2010 → 4070, postBundleChargeEntry())
-     * is skipped for an insurance-paid case, since insurance doctor fees
-     * are a fixed amount (Dr 5130 / Cr 1010, see
-     * AutoPostInsuranceDoctorCashPaymentAction) that never accrues to 2010
-     * and is never supplies-adjusted.
+     * Inventory consumption posts regardless of pay method, at PURCHASE price,
+     * to the department's cost account (Dr 5010 surgery / 5020 lasik — Cr
+     * 1051). The doctor-charge leg (Dr doctor sub-ledger 22xx / Cr 4070, at
+     * SELLING price — postBundleChargeEntry()) is skipped for an
+     * insurance-paid case, whose doctor fee is a fixed cash amount (Dr 5130 /
+     * Cr 1010, see AutoPostInsuranceDoctorCashPaymentAction) that never
+     * touches 2010 and is never supplies-adjusted; an insurance case's
+     * consumption is tagged CC-INS (guide §2.5).
      *
      * @param  array<array{inventory_item_id: string, qty: float}>  $selectedItems
      *                                                                              When provided, only those items are deducted with their given quantities.
@@ -46,11 +51,11 @@ class ProcessBundleSupplyAction
         $bundle = SupplyBundle::with('items.inventoryItem')->findOrFail($bundleId);
 
         $inventoryAccountId = $this->accountResolver->id(AccountCode::INVENTORY);
-        $costCenter = match ($dept) {
-            'lasik' => CostCenter::Lasik,
-            'laser' => CostCenter::Laser,
-            default => CostCenter::Surgery,
-        };
+        $department = Department::tryFrom($dept) ?? Department::Surgery;
+        $surgery = $surgeryId !== null ? Surgery::with('booking:id,file_no,doctor_id,pay_method')->find($surgeryId) : null;
+        $isInsurancePaid = $surgery?->isInsurancePaid() ?? false;
+        $costCenter = $isInsurancePaid ? CostCenter::Insurance : CostCenter::forDepartment($department, CostCenter::Surgery);
+        $reference = $surgery?->booking?->file_no ?? $bundle->name;
 
         // Build a lookup of user-selected items: inventory_item_id → custom qty
         $selectedMap = [];
@@ -83,7 +88,7 @@ class ProcessBundleSupplyAction
             $cost = round($deductQty * (float) $item->unit_cost, 2);
             if ($cost > 0) {
                 $category = $item->inventoryItem?->category;
-                $expenseId = $this->accountResolver->id(AccountCode::expenseAccountForCategory($category));
+                $expenseId = $this->accountResolver->id(AccountCode::consumptionCostCode($department, $category));
 
                 $this->journalService->record([
                     'date' => now()->toDateString(),
@@ -92,15 +97,15 @@ class ProcessBundleSupplyAction
                     'credit_account_id' => $inventoryAccountId,
                     'amount' => $cost,
                     'source' => JournalSource::SUPPLIES_USED,
-                    'reference' => $bundle->name,
+                    'reference' => $reference,
                     'idempotency_key' => "bundle_supply_item:{$permit->id}:{$item->inventory_item_id}",
                     'cost_center' => $costCenter,
                 ]);
             }
         }
 
-        if (! $this->isInsurancePaid($surgeryId)) {
-            $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id);
+        if (! $isInsurancePaid) {
+            $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id, $surgery, $reference);
         }
 
         return [
@@ -115,38 +120,41 @@ class ProcessBundleSupplyAction
     }
 
     /**
-     * Dr 2010 (مستحقات الأطباء) / Cr 4070 (إيراد بيع مستهلكات للأطباء)
+     * Dr the doctor's payable sub-ledger (22xx) / Cr 4070 (إيراد بيع مستهلكات للأطباء)
      * Records the bundle price charged against the doctor's dues at selling
-     * price — per الدليل المحاسبي v2.0's final worked example, this is
-     * revenue to the center (the spread over purchase cost is the center's
-     * supplies profit), NOT a patient sale (4210) and NOT a contra-expense.
+     * price — guide §1.4 / §2.7: revenue to the center (the spread over
+     * purchase cost is the center's supplies profit), NOT a patient sale
+     * (4210) and NOT a contra-expense (5115 is retired).
      */
-    private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId): void
+    private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId, ?Surgery $surgery, string $reference): void
     {
         $bundlePrice = round((float) $bundle->price * $qty, 2);
         if ($bundlePrice <= 0) {
             return;
         }
 
-        $doctorPayableId = $this->accountResolver->id(AccountCode::DOCTOR_PAYABLE);
+        $doctorId = $surgery?->surgeon_id ?? $surgery?->booking?->doctor_id;
+
+        if (! $doctorId) {
+            throw ValidationException::withMessages([
+                'bundles' => 'لا يمكن تحميل المستهلكات على الطبيب: الحالة غير مرتبطة بطبيب.',
+            ]);
+        }
+
+        $doctorPayableId = $this->subledgers->forDoctor($doctorId);
         $revenueId = $this->accountResolver->id(AccountCode::SUPPLIES_SALE_REVENUE);
 
         $this->journalService->record([
             'date' => now()->toDateString(),
-            'description' => "سعر بند مستلزمات: {$bundle->name} × {$qty}",
+            'description' => "تحميل مستهلكات على الطبيب بسعر البيع: {$bundle->name} × {$qty}",
             'debit_account_id' => $doctorPayableId,
             'credit_account_id' => $revenueId,
             'amount' => $bundlePrice,
             'source' => JournalSource::SUPPLIES_USED,
-            'reference' => $bundle->name,
+            'reference' => $reference,
             'idempotency_key' => "bundle_supply_charge:{$permitId}",
             'cost_center' => $costCenter,
         ]);
-    }
-
-    private function isInsurancePaid(?string $surgeryId): bool
-    {
-        return $surgeryId !== null && (Surgery::find($surgeryId)?->isInsurancePaid() ?? false);
     }
 
     private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit

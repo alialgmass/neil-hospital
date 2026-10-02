@@ -26,6 +26,7 @@ class AutoPostStockIssueActionTest extends TestCase
         Account::create(['code' => '5010', 'name' => 'تكلفة مستلزمات طبية', 'group' => 'expenses', 'nature' => 'debit']);
         Account::create(['code' => '5250', 'name' => 'مصروفات إدارية وتسويقية', 'group' => 'expenses', 'nature' => 'debit']);
         Account::create(['code' => '5240', 'name' => 'مصروفات الصيانة', 'group' => 'expenses', 'nature' => 'debit']);
+        Account::create(['code' => '5251', 'name' => 'مصروفات نظافة', 'group' => 'expenses', 'nature' => 'debit']);
     }
 
     private function makeItem(?ItemCategory $category): InventoryItem
@@ -93,7 +94,7 @@ class AutoPostStockIssueActionTest extends TestCase
         $this->assertSame('5240', Account::find($entry->debit_account_id)->code);
     }
 
-    public function test_posts_to_maintenance_expense_account_for_cleaning_category_item(): void
+    public function test_posts_to_cleaning_expense_account_for_cleaning_category_item(): void
     {
         $item = $this->makeItem(ItemCategory::Cleaning);
         $permit = $this->makePermit($item);
@@ -101,6 +102,6 @@ class AutoPostStockIssueActionTest extends TestCase
         app(AutoPostStockIssueAction::class)->execute($permit);
 
         $entry = JournalEntry::sole();
-        $this->assertSame('5240', Account::find($entry->debit_account_id)->code);
+        $this->assertSame('5251', Account::find($entry->debit_account_id)->code);
     }
 }

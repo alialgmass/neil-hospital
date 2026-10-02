@@ -8,6 +8,7 @@ use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
 use Modules\Inventory\Models\SupplierPayment;
 
@@ -17,11 +18,12 @@ class AutoPostSupplierPaymentAction
         private readonly JournalService $journalService,
         private readonly TreasuryService $treasuryService,
         private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Post when a supplier is paid.
-     * Dr 2020 (Suppliers) / Cr 1010 (Cash) or 1020 (Bank), by payment method.
+     * Dr the supplier's sub-ledger (2301–2399) / Cr 1010 (Cash) or 1020 (Bank), by payment method.
      */
     public function execute(SupplierPayment $payment, string $supplierName): void
     {
@@ -42,7 +44,7 @@ class AutoPostSupplierPaymentAction
             'source' => JournalSource::SUPPLIER_PAYMENT,
         ]);
 
-        $suppliersId = $this->accountResolver->id(AccountCode::SUPPLIER_PAYABLE);
+        $suppliersId = $this->subledgers->forSupplier($payment->supplier_id);
         $creditId = $this->accountResolver->id($isBank ? AccountCode::BANK : AccountCode::CASH);
 
         $this->journalService->record([

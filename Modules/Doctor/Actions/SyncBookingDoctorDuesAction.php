@@ -68,6 +68,7 @@ class SyncBookingDoctorDuesAction
         $this->autoPostDoctorDues->execute(
             dept: $booking->dept,
             amount: $target,
+            doctorId: $doctor->id,
             doctorName: $doctor->name,
             reference: $booking->file_no,
             date: $date,

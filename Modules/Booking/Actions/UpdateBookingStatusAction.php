@@ -5,6 +5,7 @@ namespace Modules\Booking\Actions;
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Accounting\Actions\ReverseBookingPaymentAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
@@ -25,6 +26,7 @@ class UpdateBookingStatusAction
         private readonly ReverseBookingPaymentAction $reversal,
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     public function execute(string $id, string|BookingStatus $newStatus, ?string $cancelReason = null): Booking
@@ -64,6 +66,7 @@ class UpdateBookingStatusAction
         if ($booking->status instanceof CancelledState) {
             $this->reversal->execute($booking);
             $this->syncDoctorEntitlement->voidFor($booking);
+            $this->autoPostInsuranceClaim->reverseForBooking($booking->id, 'إلغاء الحجز');
         }
 
         $this->activityLog->log(

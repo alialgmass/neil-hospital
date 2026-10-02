@@ -66,6 +66,7 @@ const sourceOptions = [
     { value: 'doctor_payment',    label: 'صرف مستحقات طبيب' },
     { value: 'supplier_payment',  label: 'سداد مورد' },
     { value: 'reversal',          label: 'عكس قيد (إلغاء)' },
+    { value: 'opening_balance',   label: 'قيد افتتاحي' },
 ];
 
 const sourceBadge: Record<string, { label: string; classes: string }> = {

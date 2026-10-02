@@ -9,6 +9,7 @@ use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
 use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Doctor\Models\Doctor;
 use Tests\TestCase;
 
 class PentacamRevenueTest extends TestCase
@@ -35,6 +36,7 @@ class PentacamRevenueTest extends TestCase
         app(AutoPostDoctorDuesAction::class)->execute(
             Department::Pentacam,
             500.0,
+            $this->doctor()->id,
             'د. محمود الجارم',
             'MRN-PENTA-1',
         );
@@ -47,10 +49,16 @@ class PentacamRevenueTest extends TestCase
         app(AutoPostDoctorDuesAction::class)->execute(
             Department::Surgery,
             500.0,
+            $this->doctor()->id,
             'د. محمود الجارم',
             'MRN-SURG-1',
         );
 
         $this->assertSame(1, JournalEntry::count());
+    }
+
+    private function doctor(): Doctor
+    {
+        return Doctor::create(['name' => 'د. محمود الجارم', 'fee_type' => 'percentage', 'fee_value' => 50]);
     }
 }

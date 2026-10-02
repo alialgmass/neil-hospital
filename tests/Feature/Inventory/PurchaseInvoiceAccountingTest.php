@@ -63,8 +63,10 @@ class PurchaseInvoiceAccountingTest extends TestCase
             ['item_name' => 'مادة', 'qty' => 5, 'unit_cost' => 100],
         ]);
 
-        $supplierPayable = Account::where('code', '2020')->firstOrFail();
+        // The supplier's own sub-ledger under the 2020 control account.
+        $supplierPayable = Account::findOrFail($supplier->fresh()->payable_account_id);
         $entry = JournalEntry::where('source', 'purchase')->sole();
+        $this->assertSame('2020', $supplierPayable->parent->code);
         $this->assertSame($supplierPayable->id, $entry->credit_account_id);
         $this->assertEquals(500.00, (float) $entry->amount);
     }

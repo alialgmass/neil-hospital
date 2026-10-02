@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Insurance\Actions\DeleteInsuranceClaimAction;
 use Modules\Insurance\Actions\UpdateInsuranceClaimAction;
 use Modules\Insurance\Exports\InsuranceClaimsExport;
@@ -22,6 +23,7 @@ class InsuranceClaimController extends Controller
         private readonly UpdateInsuranceClaimAction $updateAction,
         private readonly DeleteInsuranceClaimAction $deleteAction,
         private readonly InsuranceService $insuranceService,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     public function export(Request $request)
@@ -50,7 +52,10 @@ class InsuranceClaimController extends Controller
         $data['patient_share'] = $data['patient_share'] ?? 0;
         $data['insurance_share'] = $data['insurance_share'] ?? $data['invoice_amount'];
 
-        InsuranceClaim::create($data);
+        $claim = InsuranceClaim::create($data);
+
+        // Guide §2.3 (1أ): revenue + receivable are recognized when the claim is raised.
+        $this->autoPostInsuranceClaim->recognize($claim);
 
         return back()->with('success', 'تم إنشاء المطالبة بنجاح.');
     }

@@ -128,6 +128,7 @@ class PayBookingController extends Controller
                     $this->autoPostDoctorDues->execute(
                         dept: $booking->dept,
                         amount: $netShare,
+                        doctorId: $doctor->id,
                         doctorName: $doctor->name,
                         reference: $booking->file_no,
                         date: $booking->visit_date->toDateString(),

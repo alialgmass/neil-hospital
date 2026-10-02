@@ -5,12 +5,16 @@ namespace Tests\Feature\Surgery;
 use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
+use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\SupplyBundle;
 use Modules\Surgery\Actions\ProcessBundleSupplyAction;
+use Modules\Surgery\Models\Surgery;
 use Tests\TestCase;
 
 class ProcessBundleSupplyAccountingTest extends TestCase
@@ -45,7 +49,7 @@ class ProcessBundleSupplyAccountingTest extends TestCase
     {
         $bundle = $this->makeBundle(ItemCategory::Office);
 
-        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1);
+        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $this->makeSurgery()->id);
 
         $admin = Account::where('code', '5250')->firstOrFail();
         $salaries = Account::where('code', '5210')->firstOrFail();
@@ -59,7 +63,7 @@ class ProcessBundleSupplyAccountingTest extends TestCase
     {
         $bundle = $this->makeBundle(ItemCategory::Maintenance);
 
-        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1);
+        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $this->makeSurgery()->id);
 
         $maintenance = Account::where('code', '5240')->firstOrFail();
         $utilities = Account::where('code', '5230')->firstOrFail();
@@ -72,18 +76,40 @@ class ProcessBundleSupplyAccountingTest extends TestCase
     {
         $bundle = $this->makeBundle(ItemCategory::Medical);
 
-        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1);
+        $surgery = $this->makeSurgery();
+        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id);
 
         $supplyRevenue = Account::where('code', '4070')->firstOrFail();
-        $recovery = Account::where('code', '5115')->firstOrFail();
         $patientSales = Account::where('code', '4210')->firstOrFail();
-        $doctorPayable = Account::where('code', '2010')->firstOrFail();
+        $surgeonPayable = DB::table('doctors')->where('id', $surgery->surgeon_id)->value('payable_account_id');
 
         $chargeEntry = JournalEntry::where('credit_account_id', $supplyRevenue->id)->first();
         $this->assertNotNull($chargeEntry, 'Bundle charge should credit 4070 (supplies-sale revenue), not 5115 or 4210');
-        $this->assertSame($doctorPayable->id, $chargeEntry->debit_account_id);
+        $this->assertSame($surgeonPayable, $chargeEntry->debit_account_id, 'charged to the surgeon\'s own 22xx sub-ledger');
+        $this->assertSame($surgery->booking->file_no, $chargeEntry->reference);
         $this->assertEquals(200.00, (float) $chargeEntry->amount);
         $this->assertSame(0, JournalEntry::where('credit_account_id', $patientSales->id)->count());
-        $this->assertSame(0, JournalEntry::where('credit_account_id', $recovery->id)->count());
+    }
+
+    public function test_lasik_consumption_is_costed_to_lasik_supplies(): void
+    {
+        $bundle = $this->makeBundle(ItemCategory::Medical, 765);
+
+        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'lasik', [], $this->makeSurgery('lasik')->id);
+
+        $this->assertEquals(1530.0, (float) Account::where('code', '5020')->value('balance'));
+        $this->assertEquals(0.0, (float) Account::where('code', '5010')->value('balance'));
+    }
+
+    private function makeSurgery(string $dept = 'surgery'): Surgery
+    {
+        $surgeon = Doctor::create(['name' => 'د. جراح', 'fee_type' => 'percentage', 'fee_value' => 100]);
+        $booking = Booking::create([
+            'file_no' => 'MRN-'.uniqid(), 'patient_name' => 'مريض', 'dept' => $dept,
+            'visit_date' => now()->toDateString(), 'price' => 10000, 'paid_amount' => 10000, 'doctor_id' => $surgeon->id,
+            'pay_method' => 'cash', 'pay_status' => 'paid', 'status' => 'waiting',
+        ]);
+
+        return Surgery::create(['booking_id' => $booking->id, 'surgeon_id' => $surgeon->id, 'dept' => $dept, 'status' => 'in_progress']);
     }
 }

@@ -44,7 +44,7 @@ class PurchaseReturnAccountingTest extends TestCase
             ],
         ]);
 
-        $supplierPayable = Account::where('code', '2020')->firstOrFail();
+        $supplierPayable = Account::findOrFail($supplier->fresh()->payable_account_id);
         $inventory = Account::where('code', '1051')->firstOrFail();
 
         $returnEntry = JournalEntry::where('reference', 'RET-'.$invoice->invoice_no)->sole();

@@ -13,7 +13,14 @@ interface Account {
     nature: string;
     parent_id?: string;
     balance: number;
+    rollup_balance: number;
+    is_group: boolean;
     is_active: boolean;
+}
+
+// A parent/control account (e.g. 2010) is never posted to — it shows the sum of its sub-accounts.
+function displayBalance(account: Account): number {
+    return account.is_group ? Number(account.rollup_balance) : Number(account.balance);
 }
 
 const props = defineProps<{
@@ -58,7 +65,7 @@ const parentOptions = computed(() => props.accounts.filter(a => a.is_active));
 const groupTotal = computed(() => {
     const totals: Record<string, number> = {};
     groups.forEach(g => {
-        totals[g] = byGroup.value[g].reduce((sum, a) => sum + Number(a.balance), 0);
+        totals[g] = byGroup.value[g].filter(a => !a.is_group).reduce((sum, a) => sum + Number(a.balance), 0);
     });
 
     return totals;
@@ -218,9 +225,10 @@ function submitEdit() {
                                 </div>
                             </td>
                             <td class="px-4 py-3 text-left font-mono">
-                                <span class="text-[12px] font-bold" :class="account.balance >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
-                                    {{ fmt(account.balance) }} 
+                                <span class="text-[12px] font-bold" :class="displayBalance(account) >= 0 ? 'text-hospital-text' : 'text-hospital-danger'">
+                                    {{ fmt(displayBalance(account)) }}
                                     <span class="text-[9px] text-hospital-text-3 mr-0.5">ج.م</span>
+                                    <span v-if="account.is_group" class="block text-[9px] font-normal text-hospital-text-3">إجمالي — لا يُرحّل</span>
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-left">

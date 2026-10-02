@@ -120,12 +120,13 @@ class HistoricalSurgeryBookingsSeeder extends Seeder
                     // Dr 1010 / Cr 4030 (Surgery Revenue)
                     $bookingAction->execute($booking);
 
-                    // Dr 5120 / Cr 2010 (Doctor dues accrual)
+                    // Dr 5120 / Cr doctor sub-ledger 22xx (doctor dues accrual)
                     $drShare = (float) ($row['dr_share'] ?? 0);
                     if ($drShare > 0 && $doctorId) {
                         $doctorAction->execute(
                             dept: Department::Surgery,
                             amount: $drShare,
+                            doctorId: $doctorId,
                             doctorName: (string) ($row['doctor_name'] ?? ''),
                             reference: $row['file_no'],
                             date: $row['visit_date'],

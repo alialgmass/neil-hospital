@@ -55,6 +55,7 @@ class DoctorClaimsEntitlementTest extends TestCase
             // pay_method — without it the booking is rejected and the
             // entitlement never accrues.
             'ins_company_id' => $payMethod === 'insurance' ? $this->company->id : null,
+            'ins_amount' => $payMethod === 'insurance' ? $price : 0,
             'pay_method' => $payMethod, 'pay_status' => 'unpaid', 'status' => 'waiting',
         ])->assertRedirect();
 

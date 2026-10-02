@@ -8,6 +8,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Inventory\Models\PurchaseInvoice;
 
 class AutoPostPurchaseReturnAction
@@ -15,13 +16,14 @@ class AutoPostPurchaseReturnAction
     public function __construct(
         private readonly JournalService $journalService,
         private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Post when goods are returned to a supplier against a purchase invoice.
      *
-     * If the original invoice was credit-purchased: Dr 2020 (Suppliers) / Cr 1050 (Inventory)
-     * If the original invoice was cash-purchased:    Dr 1010 (Cash)      / Cr 1050 (Inventory)
+     * If the original invoice was credit-purchased: Dr supplier sub-ledger (2301–2399) / Cr 1051 (Inventory)
+     * If the original invoice was cash-purchased:    Dr 1010 (Cash)                     / Cr 1051 (Inventory)
      */
     public function execute(PurchaseInvoice $invoice, float $returnTotal): void
     {
@@ -32,7 +34,10 @@ class AutoPostPurchaseReturnAction
         $inventoryId = $this->accountResolver->id(AccountCode::INVENTORY);
 
         $isCash = (float) $invoice->paid_amount >= (float) $invoice->total;
-        $debitId = $this->accountResolver->id($isCash ? AccountCode::CASH : AccountCode::SUPPLIER_PAYABLE);
+        // A credit invoice always has a supplier (enforced when it was posted).
+        $debitId = $isCash || ! $invoice->supplier_id
+            ? $this->accountResolver->id(AccountCode::CASH)
+            : $this->subledgers->forSupplier($invoice->supplier_id);
 
         $supplierName = DB::table('suppliers')->where('id', $invoice->supplier_id)->value('name') ?? 'مورد';
 

@@ -78,13 +78,14 @@ class ChartOfAccountsV2Test extends TestCase
     {
         $this->assertDatabaseHas('accounts', ['code' => '1011', 'name' => 'خزنة التطوير — الاستقبال']);
         $this->assertDatabaseHas('accounts', ['code' => '1080']);
-        $this->assertDatabaseHas('accounts', ['code' => '4060', 'name' => 'إيرادات وحدة البنتاكام']);
+        $this->assertDatabaseHas('accounts', ['code' => '4060', 'name' => 'إيرادات وحدة البنتاكام (CC-PENTA)']);
         $this->assertDatabaseHas('accounts', ['code' => '4130', 'name' => 'إيرادات تأمين — جراحة']);
 
-        $contra = Account::where('code', '5115')->first();
-        $this->assertSame('expenses', $contra->group->value);
-        $this->assertSame('credit', $contra->nature->value);
-        $this->assertSame('5100', $contra->parent->code);
+        // Consumables charged to the doctor are revenue in 4070 (guide §1.4); the 5115 contra-expense is retired.
+        $consumables = Account::where('code', '4070')->first();
+        $this->assertSame('revenues', $consumables->group->value);
+        $this->assertSame('credit', $consumables->nature->value);
+        $this->assertFalse(Account::where('code', '5115')->where('is_active', true)->exists());
     }
 
     public function test_liability_renumber_matches_guide(): void

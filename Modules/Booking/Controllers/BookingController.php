@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Actions\CreateBookingAction;
 use Modules\Booking\Actions\UpdateBookingAction;
@@ -69,7 +71,8 @@ class BookingController extends Controller
     public function store(StoreBookingRequest $request): RedirectResponse
     {
         $data = BookingData::fromArray($request->validated());
-        $booking = $this->createAction->execute($data, $request->user()->id);
+        // All-or-nothing: a refused posting (e.g. a guide rule) must not leave a half-created booking behind.
+        $booking = DB::transaction(fn () => $this->createAction->execute($data, $request->user()->id));
 
         return redirect()->route('booking.index')
             ->with('success', "تم تسجيل الحجز بنجاح — {$booking->file_no}");
@@ -99,11 +102,14 @@ class BookingController extends Controller
         return back()->with('success', 'تم تحديث الحجز بنجاح.');
     }
 
-    public function destroy(string $id, SyncDoctorEntitlementAction $syncDoctorEntitlement): RedirectResponse
+    public function destroy(string $id, SyncDoctorEntitlementAction $syncDoctorEntitlement, AutoPostInsuranceClaimAction $autoPostInsuranceClaim): RedirectResponse
     {
         $booking = $this->bookingRepository->findOrFail($id);
 
         $syncDoctorEntitlement->onBookingDeleted($booking);
+
+        $autoPostInsuranceClaim->reverseForBooking($booking->id, 'حذف الحجز');
+
         $this->bookingRepository->delete($id);
 
         return back()->with('success', 'تم حذف الحجز بنجاح.');

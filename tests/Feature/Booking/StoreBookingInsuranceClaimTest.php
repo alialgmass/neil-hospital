@@ -3,6 +3,7 @@
 namespace Tests\Feature\Booking;
 
 use App\Models\User;
+use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
@@ -23,6 +24,9 @@ class StoreBookingInsuranceClaimTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // An insurance claim is recognized in the ledger the moment it is raised.
+        $this->seed(AccountsSeeder::class);
 
         $permission = Permission::firstOrCreate(['name' => 'booking.create', 'guard_name' => 'web']);
         $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);

@@ -11,6 +11,7 @@ use Modules\Accounting\Actions\ReverseBookingPaymentAction;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
+use Modules\Doctor\Models\Doctor;
 use Tests\TestCase;
 
 class ReverseBookingPaymentTest extends TestCase
@@ -68,6 +69,7 @@ class ReverseBookingPaymentTest extends TestCase
         app(AutoPostDoctorDuesAction::class)->execute(
             dept: $booking->dept,
             amount: 100,
+            doctorId: Doctor::create(['name' => 'د. أحمد', 'fee_type' => 'percentage', 'fee_value' => 50])->id,
             doctorName: 'د. أحمد',
             reference: $booking->file_no,
         );
