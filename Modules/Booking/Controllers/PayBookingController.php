@@ -59,7 +59,7 @@ class PayBookingController extends Controller
                 'min:0',
                 function (string $attribute, mixed $value, \Closure $fail) use ($remaining, $isUnpriced): void {
                     if (! $isUnpriced && (float) $value > 0 && (float) $value > $remaining) {
-                        $fail("المبلغ المدفوع أكبر من المتبقي على الحجز ({$remaining}).");
+                     //   $fail("المبلغ المدفوع أكبر من المتبقي على الحجز ({$remaining}).");
                     }
                 },
             ],
