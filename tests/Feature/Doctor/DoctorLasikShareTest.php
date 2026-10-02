@@ -176,6 +176,35 @@ class DoctorLasikShareTest extends TestCase
         $this->assertEquals(0.0, $row['debt_incurred']);
     }
 
+    public function test_lasik_claims_use_the_collected_amount_when_the_price_is_the_service_price(): void
+    {
+        // Booking price = the service's own one-eye price; the patient paid
+        // 6000 on top of it at the pay screen. Doctor keeps 6000 − 4000 − 200.
+        $this->booking->update(['price' => 4000, 'paid_amount' => 6000]);
+
+        $row = $this->claims()->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31')['rows'][0];
+
+        $this->assertEquals(1800.0, $row['dr_share']);
+    }
+
+    public function test_laser_claims_use_the_collected_amount_when_the_price_is_the_service_price(): void
+    {
+        $laser = Service::create([
+            'name' => 'ليزر', 'dept' => 'laser', 'price' => 1000,
+            'dev_treasury_fee' => 50, 'one_eye_price' => 1000, 'both_eyes_price' => 1800,
+            'center_type' => 'pct', 'center_val' => 50, 'center_share' => 500, 'dr_share' => 500,
+        ]);
+        $this->booking->update([
+            'dept' => 'laser', 'service_id' => $laser->id, 'eye_side' => 'OU',
+            'price' => 1800, 'paid_amount' => 2500,
+        ]);
+
+        $row = $this->claims()->calculateClaims($this->doctor->id, '2026-01-01', '2026-12-31')['rows'][0];
+
+        // 2500 − 1800 − 50
+        $this->assertEquals(650.0, $row['dr_share']);
+    }
+
     public function test_lasik_delegation_is_still_deducted_from_the_primary_doctor(): void
     {
         $delegate = Doctor::create(['name' => 'د. مساعد ليزك', 'fee_type' => 'fixed', 'fee_value' => 0]);

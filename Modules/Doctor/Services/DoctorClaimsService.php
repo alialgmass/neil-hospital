@@ -539,6 +539,15 @@ class DoctorClaimsService
         $paid = (float) $booking->price;
         $insAmount = (float) $booking->ins_amount;
 
+        // Laser/Lasik: the patient pays above the service's own price and the
+        // doctor keeps whatever is left after the service price + dev fee
+        // (see computeShareForPayment()). booking->price is that service
+        // price, so the share must come from what was actually collected —
+        // otherwise it always nets to 0.
+        if (in_array($dept, [Department::Laser->value, Department::Lasik->value], true)) {
+            $paid = max($paid, (float) ($booking->paid_amount ?? 0));
+        }
+
         // Development-treasury fee is deducted from the price BEFORE the
         // doctor's share is computed (cash bookings only — see
         // AutoPostDevelopmentFeeAction). Fixed/flat fee amounts are
