@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Save } from 'lucide-vue-next';
+import { Save, Trash2, AlertTriangle } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Setting {
@@ -36,6 +36,20 @@ Object.values(props.settings).forEach((s) => {
 const logoPreview = ref<string | null>(props.hospitalLogoUrl);
 const logoFile = ref<File | null>(null);
 const uploadingLogo = ref(false);
+
+const showWipeModal = ref(false);
+const wiping = ref(false);
+
+function confirmWipe() {
+    wiping.value = true;
+    router.delete('/settings/wipe-bookings', {
+        preserveScroll: true,
+        onFinish: () => {
+            wiping.value = false;
+            showWipeModal.value = false;
+        },
+    });
+}
 
 function onLogoSelected(e: Event) {
     const file = (e.target as HTMLInputElement).files?.[0] ?? null;
@@ -329,6 +343,68 @@ function toggleBookingStatus(status: string): void {
             </div>
         </div>
 
+        <!-- ── Danger Zone / Data Management ── -->
+        <div class="settings-section border-red-200 bg-red-50/20 lg:col-span-2">
+            <div class="settings-title !border-red-200 !text-red-700">⚠️ منطقة الخطر (إدارة البيانات)</div>
+            <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                    <h4 class="text-xs font-bold text-red-900">حذف جميع الحجوزات وجميع متعلقاتها</h4>
+                    <p class="mt-1 text-xs text-red-600/80">
+                        حذف كافة الحجوزات المسجلة بالنظام بما في ذلك الشيتات الطبية، الفحوصات والتشخيص، العمليات، مطالبات التأمين، استحقاقات الأطباء، والقيود المحاسبية المتعلقة بها.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                    @click="showWipeModal = true"
+                >
+                    <Trash2 class="h-4 w-4" />
+                    حذف جميع الحجوزات ومتعلقاتها
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Confirm Wipe Modal ── -->
+    <div v-if="showWipeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
+            <div class="flex items-center gap-3 text-red-600">
+                <AlertTriangle class="h-6 w-6 shrink-0" />
+                <h3 class="text-base font-bold">تأكيد حذف جميع الحجوزات</h3>
+            </div>
+            <div class="mt-3 text-xs leading-relaxed text-gray-600">
+                <p class="font-bold text-red-700">تحذير: هذا الإجراء نهائي ولا يمكن التراجع عنه!</p>
+                <p class="mt-2">سيتم حذف كافة الحجوزات بجميع حالاتها وأقسامها، بالإضافة إلى المتعلقات الآتية:</p>
+                <ul class="mt-2 space-y-1 pr-4 list-disc text-gray-700">
+                    <li>الشيتات الطبية والفحوصات بالكامل</li>
+                    <li>نتائج التشخيص والعمليات الجراحية</li>
+                    <li>مطالبات الشركات واستحقاقات الأطباء</li>
+                    <li>حركة الخزينة والقيود المحاسبية التابعة للحجوزات</li>
+                    <li>جميع الملفات والمرفقات المرفوعة</li>
+                </ul>
+                <p class="mt-3 font-semibold text-gray-800">هل أنت متأكد تماماً من رغبتك في الاستمرار؟</p>
+            </div>
+            <div class="mt-5 flex items-center justify-end gap-2 border-t pt-3">
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    :disabled="wiping"
+                    @click="showWipeModal = false"
+                >
+                    إلغاء
+                </button>
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                    :disabled="wiping"
+                    @click="confirmWipe"
+                >
+                    <Trash2 class="h-3.5 w-3.5" />
+                    {{ wiping ? 'جاري الحذف...' : 'نعم، حذف الكل نهائياً' }}
+                </button>
+            </div>
+        </div>
     </div>
 </template>
 

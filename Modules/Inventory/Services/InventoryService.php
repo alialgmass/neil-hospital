@@ -114,7 +114,7 @@ class InventoryService
         InventoryItem::where('id', $id)->increment('quantity', $delta);
     }
 
-    public function getIssuedPermits(string $date, int $perPage = 20): LengthAwarePaginator
+    public function getIssuedPermits(?string $date, int $perPage = 20): LengthAwarePaginator
     {
         return StockPermit::query()
             ->where('type', 'out')
@@ -125,7 +125,7 @@ class InventoryService
             ->withQueryString();
     }
 
-    public function getDailyConsumption(string $date): Collection
+    public function getDailyConsumption(?string $date): Collection
     {
         return StockPermitItem::query()
             ->join('stock_permits', 'stock_permit_items.permit_id', '=', 'stock_permits.id')

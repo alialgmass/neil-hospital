@@ -55,6 +55,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/logo', [SettingsController::class, 'updateLogo'])
             ->middleware('can:settings.manage')
             ->name('logo');
+
+        Route::delete('/wipe-bookings', [SettingsController::class, 'wipeBookings'])
+            ->middleware('can:settings.manage')
+            ->name('wipe-bookings');
     });
 
     // Roles & permissions

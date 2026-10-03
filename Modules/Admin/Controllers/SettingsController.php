@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Admin\Actions\WipeBookingsAction;
 use Modules\Admin\Enums\SystemModule;
 use Modules\Admin\Models\Setting;
 use Modules\Admin\Services\SettingsService;
@@ -55,5 +56,12 @@ class SettingsController extends Controller
         $setting->addMediaFromRequest('logo')->toMediaCollection('logo');
 
         return back()->with('success', 'تم تحديث شعار المستشفى بنجاح.');
+    }
+
+    public function wipeBookings(WipeBookingsAction $wipeAction): RedirectResponse
+    {
+        $count = $wipeAction->execute();
+
+        return back()->with('success', "تم حذف جميع الحجوزات وجميع متعلقاتها بنجاح ({$count} حجز).");
     }
 }
