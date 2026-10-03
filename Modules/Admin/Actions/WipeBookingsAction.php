@@ -114,8 +114,8 @@ class WipeBookingsAction
 
             // 12. Activity logs for bookings
             DB::table('activity_logs')
-                ->where('subject_type', 'booking')
-                ->orWhereIn('subject_id', $bookingIds)
+                ->where('module', 'booking')
+                ->orWhereIn('record_id', $bookingIds)
                 ->delete();
 
             // 13. Delete all bookings
