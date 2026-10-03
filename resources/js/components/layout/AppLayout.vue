@@ -35,9 +35,22 @@ const user = computed(() => page.props.auth?.user);
 const userName = computed(() => user.value?.name ?? 'المستخدم');
 const userRole = computed(() => user.value?.role ?? 'مسؤول');
 const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
-const hospitalName = computed(() => page.props.settings?.hospital_name ?? 'مستشفى النور');
-const hospitalSpecialty = computed(() => page.props.settings?.hospital_specialty ?? 'طب وجراحة العيون');
-const hospitalLogoUrl = computed(() => page.props.settings?.hospital_logo_url ?? null);
+const hospitalName = computed(() => {
+    const val = page.props.settings?.hospital_name;
+    if (typeof val === 'string') return val;
+    if (val && typeof val === 'object' && 'value' in val) return (val as any).value ?? 'مستشفى النور';
+    return 'مستشفى النور';
+});
+const hospitalSpecialty = computed(() => {
+    const val = page.props.settings?.hospital_specialty;
+    if (typeof val === 'string') return val;
+    if (val && typeof val === 'object' && 'value' in val) return (val as any).value ?? 'طب وجراحة العيون';
+    return 'طب وجراحة العيون';
+});
+const hospitalLogoUrl = computed(() => {
+    const val = page.props.settings?.hospital_logo_url;
+    return typeof val === 'string' ? val : null;
+});
 
 function showFlash(flash: PageProps['flash']) {
     if (flash.success) toast.success(flash.success);

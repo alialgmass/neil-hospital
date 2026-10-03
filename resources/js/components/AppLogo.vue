@@ -4,8 +4,16 @@ import { computed } from 'vue';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 
 const page = usePage();
-const hospitalName = computed(() => page.props.settings?.hospital_name ?? 'مستشفى النور');
-const logoUrl = computed(() => page.props.settings?.hospital_logo_url ?? null);
+const hospitalName = computed(() => {
+    const val = page.props.settings?.hospital_name;
+    if (typeof val === 'string') return val;
+    if (val && typeof val === 'object' && 'value' in val) return (val as any).value ?? 'مستشفى النور';
+    return 'مستشفى النور';
+});
+const logoUrl = computed(() => {
+    const val = page.props.settings?.hospital_logo_url;
+    return typeof val === 'string' ? val : null;
+});
 </script>
 
 <template>

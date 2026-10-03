@@ -22,14 +22,14 @@ interface BookingStatusOption {
 }
 
 const props = defineProps<{
-    settings: Record<string, Setting>;
+    allSettings: Record<string, Setting>;
     hospitalLogoUrl: string | null;
     systemModules: SystemModuleOption[];
     bookingStatuses: BookingStatusOption[];
 }>();
 
 const form = ref<Record<string, string>>({});
-Object.values(props.settings).forEach((s) => {
+Object.values(props.allSettings).forEach((s) => {
     form.value[s.key] = s.value ?? '';
 });
 

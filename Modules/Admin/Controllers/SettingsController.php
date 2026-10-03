@@ -22,7 +22,7 @@ class SettingsController extends Controller
     public function index(): Response
     {
         return Inertia::render('admin/Settings', [
-            'settings' => $this->service->all(),
+            'allSettings' => $this->service->all(),
             'hospitalLogoUrl' => Setting::logoUrl(),
             'systemModules' => collect(SystemModule::cases())->map(fn (SystemModule $module) => [
                 'value' => $module->value,
