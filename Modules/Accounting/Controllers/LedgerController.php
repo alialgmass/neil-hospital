@@ -5,6 +5,7 @@ namespace Modules\Accounting\Controllers;
 use App\Http\Controllers\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
+use Modules\Accounting\Services\BalanceSheetService;
 use Modules\Accounting\Services\IncomeStatementService;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\LedgerService;
@@ -15,6 +16,7 @@ class LedgerController extends Controller
         private readonly LedgerService $ledgerService,
         private readonly JournalService $journalService,
         private readonly IncomeStatementService $incomeStatementService,
+        private readonly BalanceSheetService $balanceSheetService,
     ) {}
 
     public function trialBalance(): Response
@@ -36,6 +38,16 @@ class LedgerController extends Controller
         return Inertia::render('ledger/IncomeStatement', [
             'statement' => $this->incomeStatementService->get($from, $to),
             'filters' => compact('from', 'to'),
+        ]);
+    }
+
+    public function balanceSheet(): Response
+    {
+        $asOf = request('as_of');
+
+        return Inertia::render('ledger/BalanceSheet', [
+            'sheet' => $this->balanceSheetService->get($asOf),
+            'filters' => compact('asOf'),
         ]);
     }
 

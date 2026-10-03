@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage } from '@inertiajs/vue3'
 import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Trash2, TrendingDown } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
 import StatCard from '@/components/shared/StatCard.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -52,6 +53,10 @@ const props = defineProps<{
     selectableItems: SelectableItem[]
 }>()
 
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('inventory.write'))
+
 const selectedDate = ref(props.date)
 const showModal = ref(false)
 const expandedRows = ref<Set<string>>(new Set())
@@ -79,10 +84,10 @@ function formatTime(dateStr: string): string {
 }
 
 function formatMoney(val: number): string {
-    return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const deptOptions = [
+const allDeptOptions = [
     { value: 'surgery', label: 'العمليات' },
     { value: 'lasik', label: 'الليزك' },
     { value: 'laser', label: 'الليزر' },
@@ -90,6 +95,13 @@ const deptOptions = [
     { value: 'labs', label: 'الفحوصات' },
     { value: 'admin', label: 'الإدارة' },
 ]
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>()
+const deptOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {}
+
+    return allDeptOptions.filter((dept) => moduleStatus[dept.value] !== false)
+})
 
 // Issue form
 const form = useForm({
@@ -120,6 +132,10 @@ function onItemSelect(idx: number) {
 }
 
 function submitIssue() {
+    if (!canWrite.value) {
+        return
+    }
+
     form.post('/stock-issue', {
         onSuccess: () => {
             showModal.value = false
@@ -138,8 +154,10 @@ function submitIssue() {
                 <p class="mt-0.5 text-sm text-gray-500">المستهلكات وأذون الصرف بحسب اليوم</p>
             </div>
             <button
-                class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
-                @click="showModal = true"
+                class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="canWrite && (showModal = true)"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
             >
                 <PackageOpen class="h-4 w-4" />
                 إذن صرف جديد
@@ -401,7 +419,7 @@ function submitIssue() {
 
                 <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
-                    <button type="submit" class="btn-danger" :disabled="form.processing || form.items.length === 0">
+                    <button type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-50" :disabled="form.processing || form.items.length === 0 || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                         {{ form.processing ? 'جارٍ الحفظ...' : 'إصدار الإذن' }}
                     </button>
                 </div>

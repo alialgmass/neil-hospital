@@ -10,6 +10,8 @@ import {
     Dot,
     UserCog,
     Wallet,
+    FileSpreadsheet,
+    FileUp,
     Calculator,
     BookOpen,
     Library,
@@ -41,6 +43,7 @@ import {
     Package,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { usePermissions } from '@/composables/usePermissions';
 
 interface NavEntry {
     title: string;
@@ -57,12 +60,9 @@ interface NavGroup {
 }
 
 const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 const moduleStatus = computed<Record<string, boolean>>(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
 
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
 
 function moduleEnabled(module: string): boolean {
     return moduleStatus.value[module] !== false;
@@ -142,6 +142,8 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial', module: 'reports' },
             { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical', module: 'reports' },
+            { title: 'تصدير الوحدات', href: '/module-exports', icon: FileSpreadsheet, permission: 'users.manage' },
+            { title: 'استيراد الوحدات', href: '/module-imports', icon: FileUp, permission: 'users.manage' },
             { title: 'المستخدمون', href: '/users', icon: Users, permission: 'users.manage' },
             { title: 'الأدوار والصلاحيات', href: '/roles', icon: Shield, permission: 'users.manage' },
             { title: 'الإعدادات', href: '/settings', icon: Settings, permission: 'settings.manage' },
@@ -166,6 +168,7 @@ function isActive(href: string): boolean {
     if (href === '/dashboard') {
         return currentPath.value === '/dashboard';
     }
+
     return currentPath.value.startsWith(href);
 }
 

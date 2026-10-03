@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Enums\ItemUnit;
+use Modules\Inventory\Exports\InventoryExport;
 use Modules\Inventory\Services\InventoryService;
 
 class InventoryController extends Controller
@@ -33,6 +35,13 @@ class InventoryController extends Controller
             'openOrdersCount' => $this->inventoryService->openOrdersCount(),
             'filters' => $filters,
         ]);
+    }
+
+    public function export()
+    {
+        $filters = request()->only(['search', 'category', 'low_stock']);
+
+        return Excel::download(new InventoryExport($this->inventoryService->all($filters)), 'inventory.xlsx');
     }
 
     public function store(Request $request): RedirectResponse

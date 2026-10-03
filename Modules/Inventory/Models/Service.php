@@ -17,11 +17,15 @@ class Service extends Model
         'name',
         'dept',
         'price',
+        'one_eye_price',
+        'both_eyes_price',
         'ins_price',
         'center_type',
         'center_val',
         'center_share',
         'dr_share',
+        'default_dr_fee',
+        'dev_treasury_fee',
         'duration_mins',
         'status',
         'revenue_account_id',
@@ -31,10 +35,14 @@ class Service extends Model
     {
         return [
             'price' => 'float',
+            'one_eye_price' => 'float',
+            'both_eyes_price' => 'float',
             'ins_price' => 'float',
             'center_val' => 'float',
             'center_share' => 'float',
             'dr_share' => 'float',
+            'default_dr_fee' => 'float',
+            'dev_treasury_fee' => 'float',
         ];
     }
 

@@ -4,25 +4,27 @@ namespace Modules\Accounting\Services;
 
 use Illuminate\Support\Collection;
 use Modules\Accounting\Models\Account;
-use Modules\Admin\Enums\SystemModule;
 
 class AccountService
 {
-    /** Revenue accounts tied to a disable-able clinical department. */
-    private const DEPT_ACCOUNTS = [
-        '4010' => SystemModule::Clinic,
-        '4020' => SystemModule::Labs,
-        '4030' => SystemModule::Surgery,
-        '4040' => SystemModule::Lasik,
-        '4050' => SystemModule::Laser,
-    ];
-
+    /**
+     * Every account, with `is_group` set on parent/control accounts and
+     * `rollup_balance` = own balance + every descendant's (so 2010 shows the
+     * total owed to all doctors even though nothing posts to it directly).
+     */
     public function all(): Collection
     {
-        return Account::orderBy('code')
-            ->get()
-            ->reject(fn (Account $account) => isset(self::DEPT_ACCOUNTS[$account->code])
-                && ! self::DEPT_ACCOUNTS[$account->code]->isEnabled())
-            ->values();
+        $accounts = Account::orderBy('code')->moduleEnabled()->get();
+        $childrenOf = $accounts->groupBy('parent_id');
+
+        $rollup = function (Account $account) use (&$rollup, $childrenOf): float {
+            return (float) $account->balance + $childrenOf->get($account->id, collect())
+                ->sum(fn (Account $child) => $rollup($child));
+        };
+
+        return $accounts->each(function (Account $account) use ($rollup, $childrenOf) {
+            $account->setAttribute('is_group', $childrenOf->has($account->id));
+            $account->setAttribute('rollup_balance', round($rollup($account), 2));
+        });
     }
 }

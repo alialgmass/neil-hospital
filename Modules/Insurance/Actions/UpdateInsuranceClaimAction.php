@@ -6,7 +6,10 @@ use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\States\ApprovedState;
+use Modules\Insurance\States\DraftState;
 use Modules\Insurance\States\PaidState;
+use Modules\Insurance\States\RejectedState;
 use Modules\Insurance\States\SubmittedState;
 
 class UpdateInsuranceClaimAction
@@ -20,14 +23,23 @@ class UpdateInsuranceClaimAction
     {
         $oldStatus = (string) $claim->status;
 
+        // Approval without an explicit approved_amount means "approved in
+        // full" — default it to the claim's insurance_share so collection
+        // (which is driven entirely by approved_amount, see
+        // AutoPostInsuranceClaimAction::onCollect()) always has a basis.
+        if (($data['status'] ?? null) === ApprovedState::$name && ! array_key_exists('approved_amount', $data)) {
+            $data['approved_amount'] = $claim->insurance_share;
+        }
+
         $claim->update($data);
         $claim->refresh();
 
         $newStatus = (string) $claim->status;
 
-        // Post journal when claim is submitted
-        if ($newStatus === SubmittedState::$name && $oldStatus !== SubmittedState::$name) {
-            $this->autoPost->onSubmit($claim);
+        // Revenue + receivable are recognized on the service day (guide §2.3);
+        // keep that recognition in step with edits while the claim is open.
+        if ($claim->status instanceof DraftState || $claim->status instanceof SubmittedState) {
+            $this->autoPost->recognize($claim);
         }
 
         // Post collection entry and mark booking paid when claim is collected
@@ -37,6 +49,11 @@ class UpdateInsuranceClaimAction
             if ($claim->booking_id) {
                 $claim->booking->update(['pay_status' => PayStatus::Paid->value]);
             }
+        }
+
+        // Reverse the submitted receivable/revenue entry when a claim is rejected
+        if ($newStatus === RejectedState::$name && $oldStatus !== RejectedState::$name) {
+            $this->autoPost->onReject($claim);
         }
 
         $this->activityLogService->log(

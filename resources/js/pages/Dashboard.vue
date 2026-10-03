@@ -165,7 +165,7 @@ const deptLabels: Record<string, string> = {
 };
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 0 }); 
+    return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); 
 }
 
 function getDeptClass(dept: string) {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Building2, PlusCircle, TrendingDown, Users } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Supplier {
     id: string;
@@ -26,6 +28,10 @@ const props = defineProps<{
     stats: { total_suppliers: number; total_purchases: number; total_due: number };
 }>();
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('inventory.write'));
+
 const supplierTypes = ['أدوية وقطرات', 'مستلزمات جراحية', 'معدات وأجهزة', 'مستهلكات', 'متنوع'];
 const paymentTerms = ['فوري', '30 يوم', '60 يوم', '90 يوم'];
 
@@ -38,7 +44,7 @@ function goToPage(page: number) {
 }
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 // Add
@@ -48,6 +54,10 @@ const addForm = useForm({
     address: '', tax_no: '', terms: '', notes: '',
 });
 function submitAdd() {
+    if (!canWrite.value) {
+        return;
+    }
+
     addForm.post('/suppliers', {
         onSuccess: () => { showAdd.value = false; addForm.reset(); },
     });
@@ -61,6 +71,10 @@ const editForm = useForm({
     address: '', tax_no: '', terms: '', notes: '', is_active: true,
 });
 function openEdit(s: Supplier) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingId.value = s.id;
     editForm.name = s.name;
     editForm.contact = s.contact ?? '';
@@ -75,6 +89,10 @@ function openEdit(s: Supplier) {
     showEdit.value = true;
 }
 function submitEdit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editForm.put(`/suppliers/${editingId.value}`, {
         onSuccess: () => { showEdit.value = false; },
     });
@@ -135,10 +153,18 @@ function submitEdit() {
             />
             <button class="btn-secondary" @click="applySearch">بحث</button>
         </div>
-        <button class="btn-primary flex items-center gap-1.5" @click="showAdd = true">
-            <PlusCircle class="h-4 w-4" />
-            مورد جديد
-        </button>
+        <div class="flex items-center gap-2">
+            <ModuleImportButton
+                permission="inventory.write"
+                label="الموردون"
+                templateUrl="/suppliers/import-template"
+                importUrl="/suppliers/import"
+            />
+            <button class="btn-primary flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showAdd = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
+                <PlusCircle class="h-4 w-4" />
+                مورد جديد
+            </button>
+        </div>
     </div>
 
     <!-- Table -->
@@ -176,7 +202,7 @@ function submitEdit() {
                         <Badge :variant="s.is_active ? 'active' : 'inactive'" />
                     </td>
                     <td class="px-4 py-3">
-                        <button class="rounded-lg border border-br px-3 py-1 text-xs text-t2 hover:border-p/40 hover:bg-pp hover:text-p transition-colors" @click="openEdit(s)">
+                        <button class="rounded-lg border border-br px-3 py-1 text-xs text-t2 hover:border-p/40 hover:bg-pp hover:text-p transition-colors disabled:cursor-not-allowed disabled:opacity-50" @click="openEdit(s)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                             تعديل
                         </button>
                     </td>
@@ -254,7 +280,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="btn-primary">
+                <button type="submit" :disabled="addForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ addForm.processing ? 'جارٍ الحفظ...' : 'إضافة المورد' }}
                 </button>
             </div>
@@ -317,7 +343,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showEdit = false">إلغاء</button>
-                <button type="submit" :disabled="editForm.processing" class="btn-primary">
+                <button type="submit" :disabled="editForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ editForm.processing ? 'جارٍ الحفظ...' : 'حفظ التعديلات' }}
                 </button>
             </div>

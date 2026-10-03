@@ -12,11 +12,14 @@ enum SystemModule: string
     case Surgery = 'surgery';
     case Lasik = 'lasik';
     case Laser = 'laser';
+    case Pentacam = 'pentacam';
     case Doctors = 'doctors';
     case Accounting = 'accounting';
     case Inventory = 'inventory';
     case Hr = 'hr';
     case Reports = 'reports';
+
+    const Insurance = 'insurance';
 
     public function label(): string
     {
@@ -27,6 +30,7 @@ enum SystemModule: string
             self::Surgery => 'العمليات',
             self::Lasik => 'الليزك',
             self::Laser => 'الليزر',
+            self::Pentacam => 'البنتكام',
             self::Doctors => 'الأطباء',
             self::Accounting => 'المالية والمحاسبة',
             self::Inventory => 'المخزن والخدمات',
@@ -49,6 +53,7 @@ enum SystemModule: string
             self::Surgery => ['surgery', 'or-rooms'],
             self::Lasik => ['lasik'],
             self::Laser => ['laser'],
+            self::Pentacam => ['pentacam'],
             self::Doctors => ['doctors', 'dr-claims', 'dr-payments', 'doctor-shifts'],
             self::Accounting => ['treasury', 'journal', 'daily-journal', 'accounts', 'ledger', 'cost-centers', 'sales-invoices'],
             self::Inventory => ['services', 'inventory', 'suppliers', 'purchases', 'stock-issue', 'stock-permits', 'supply-bundles', 'stock-take', 'insurance'],
@@ -70,6 +75,7 @@ enum SystemModule: string
             self::Surgery => 'surgery',
             self::Lasik => 'lasik',
             self::Laser => 'laser',
+            self::Pentacam => 'pentacam',
             default => null,
         };
     }

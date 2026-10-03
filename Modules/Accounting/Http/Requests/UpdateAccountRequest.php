@@ -24,6 +24,7 @@ class UpdateAccountRequest extends FormRequest
             'nature' => ['required', "in:{$natures}"],
             'parent_id' => ['nullable', 'exists:accounts,id'],
             'is_active' => ['boolean'],
+            'is_postable' => ['boolean'],
         ];
     }
 }

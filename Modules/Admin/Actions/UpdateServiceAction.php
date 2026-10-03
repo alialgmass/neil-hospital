@@ -28,6 +28,13 @@ class UpdateServiceAction
         return $service;
     }
 
+    /**
+     * Splits the configured price into the hospital's center cut only — the
+     * doctor's fee is never derived from the service price/center split.
+     * It comes exclusively from the Doctors module (per-doctor per-service
+     * fee, falling back to the service's default_dr_fee — see
+     * SyncDoctorEntitlementAction::resolveFee()).
+     */
     private function computeShares(Service $service): void
     {
         $price = (float) $service->price;
@@ -35,9 +42,6 @@ class UpdateServiceAction
             ? round($price * ($service->center_val / 100), 2)
             : (float) $service->center_val;
 
-        $service->update([
-            'center_share' => $centerShare,
-            'dr_share' => max(0, $price - $centerShare),
-        ]);
+        $service->update(['center_share' => $centerShare]);
     }
 }

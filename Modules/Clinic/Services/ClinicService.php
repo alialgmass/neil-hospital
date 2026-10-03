@@ -19,7 +19,7 @@ class ClinicService
     {
         $filterDate = $date ?? today()->toDateString();
 
-        return Booking::with(['doctor:id,name', 'clinicSheet:id,booking_id,diagnosis'])
+        return Booking::with(['doctor:id,name', 'clinicSheet:id,booking_id,diagnosis,referral_to'])
             ->where('dept', 'clinic')
             ->whereDate('visit_date', $filterDate)
             ->orderBy('visit_time')

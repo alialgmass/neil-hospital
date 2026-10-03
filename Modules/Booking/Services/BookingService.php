@@ -2,8 +2,10 @@
 
 namespace Modules\Booking\Services;
 
+use App\Enums\Department;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\DTOs\BookingFilterData;
 use Modules\Booking\Enums\PayMethod;
@@ -13,31 +15,34 @@ use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Models\Doctor;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\PriceList;
 use Modules\Insurance\States\DraftState;
+use Modules\Insurance\States\SubmittedState;
 
 class BookingService
 {
     public function __construct(
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly MrnGeneratorService $mrnGenerator,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     /** @return array{services: Collection, insuranceCompanies: Collection, priceLists: Collection, doctors: Collection} */
     public function getFormResources(): array
     {
         return [
-            'services' => Service::select('id', 'name', 'dept', 'price', 'ins_price')->active()->orderBy('name')->get(),
-            'insuranceCompanies' => InsuranceCompany::select('id', 'name')->orderBy('name')->get(),
+            'services' => Service::select('id', 'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price')->active()->orderBy('name')->get(),
+            'insuranceCompanies' => InsuranceCompany::select('id', 'name', 'coverage_pct')->orderBy('name')->get(),
             'priceLists' => PriceList::select('id', 'name', 'ins_company_id', 'ins_coverage')
                 ->where('is_active', true)
                 ->with('items:price_list_id,service_id,price')
                 ->orderBy('name')
                 ->get(),
-            'doctors' => Doctor::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
+            'doctors' => Doctor::select('id', 'name', 'departments')->where('is_active', true)->orderBy('name')->get(),
         ];
     }
 
@@ -53,15 +58,16 @@ class BookingService
 
     public function create(BookingData $data, int $createdBy): Booking
     {
-        $fileNo = $this->mrnGenerator->generate();
+        $fileNo = $this->mrnGenerator->generate($data->nationalId);
 
-        return $this->bookingRepository->create([
+        $booking = $this->bookingRepository->create([
             'file_no' => $fileNo,
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -82,6 +88,32 @@ class BookingService
             'analysis_notes' => $data->analysisNotes,
             'created_by' => $createdBy,
         ]);
+
+        $this->syncServices($booking, $data);
+
+        return $booking;
+    }
+
+    /**
+     * Persists the multi-service line items for departments that allow
+     * selecting more than one service per booking (currently: Labs).
+     * No-op when the request only carried a single service.
+     */
+    private function syncServices(Booking $booking, BookingData $data): void
+    {
+        if (empty($data->services) && $data->dept !== Department::Labs) {
+            return;
+        }
+
+        $booking->services()->delete();
+
+        foreach ($data->services as $line) {
+            $booking->services()->create([
+                'service_id' => $line['service_id'],
+                'service_name' => $line['service_name'],
+                'price' => $line['price'],
+            ]);
+        }
     }
 
     public function update(string $id, BookingData $data): Booking
@@ -91,12 +123,13 @@ class BookingService
             ? PayStatus::Paid
             : ($data->paidAmount > 0 ? PayStatus::Partial : PayStatus::Unpaid);
 
-        return $this->bookingRepository->update($id, [
+        $booking = $this->bookingRepository->update($id, [
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
+            'kinship_degree' => $data->kinshipDegree,
             'dept' => $data->dept,
             'service_id' => $data->serviceId,
             'service_name' => $data->serviceName,
@@ -116,13 +149,17 @@ class BookingService
             'analysis_type' => $data->analysisType,
             'analysis_notes' => $data->analysisNotes,
         ]);
+
+        $this->syncServices($booking, $data);
+
+        return $booking;
     }
 
     public function getArchive(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Booking::query()
             ->with('doctor:id,name')
-            ->whereIn('status', [CompletedState::$name, CancelledState::$name])
+            ->whereIn('status', [CompletedState::$name, CompletedElectronicState::$name, CancelledState::$name])
             ->when($filters['search'] ?? null, function ($q, $v) {
                 $q->where(function ($iq) use ($v) {
                     $iq->where('patient_name', 'like', "%{$v}%")
@@ -139,7 +176,7 @@ class BookingService
     public function getPatientFile(string $fileNo): Collection
     {
         return Booking::query()
-            ->with(['doctor', 'clinicSheet', 'diagnosticResults'])
+            ->with(['doctor', 'service', 'clinicSheet', 'diagnosticResults', 'surgery', 'insuranceClaim.company'])
             ->where('file_no', $fileNo)
             ->orderByDesc('visit_date')
             ->get();
@@ -202,5 +239,10 @@ class BookingService
         }
 
         $claim->save();
+
+        // Guide §2.3 (1أ): the claim's revenue + receivable follow it from the service day.
+        if ($claim->status instanceof DraftState || $claim->status instanceof SubmittedState) {
+            $this->autoPostInsuranceClaim->recognize($claim);
+        }
     }
 }
