@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Services\ServicePricingService;
+use Modules\Insurance\Models\InsuranceCompany;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -111,5 +112,82 @@ class ServicePricingTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect();
 
         $this->assertSame(1800.0, (float) Booking::firstOrFail()->price);
+    }
+
+    public function test_insurance_uses_insurance_one_eye_and_both_eyes_prices(): void
+    {
+        $service = $this->service(['ins_one_eye_price' => 800, 'ins_both_eyes_price' => 1500]);
+
+        $this->assertSame(800.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OD));
+        $this->assertSame(1500.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OU));
+        $this->assertSame(800.0, $this->pricing->priceFor($service->id, 'OS', null, true));
+        $this->assertSame(1500.0, $this->pricing->priceFor($service->id, 'OU', null, true));
+    }
+
+    public function test_insurance_both_eyes_falls_back_to_double_insurance_one_eye_price(): void
+    {
+        $service = $this->service(['ins_one_eye_price' => 800, 'ins_both_eyes_price' => null]);
+
+        $this->assertSame(1600.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OU));
+    }
+
+    public function test_insurance_falls_back_to_general_insurance_price(): void
+    {
+        $service = $this->service(['ins_price' => 900]);
+
+        $this->assertSame(900.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OD));
+        $this->assertSame(1800.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OU));
+    }
+
+    public function test_insurance_falls_back_to_cash_eye_prices_when_no_insurance_price_configured(): void
+    {
+        $service = $this->service(['ins_price' => 0]);
+
+        $this->assertSame(1000.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OD));
+        $this->assertSame(1800.0, $this->pricing->resolveInsuranceEyePrice($service, EyeSide::OU));
+    }
+
+    public function test_cash_pricing_ignores_insurance_eye_prices(): void
+    {
+        $service = $this->service(['ins_one_eye_price' => 800, 'ins_both_eyes_price' => 1500]);
+
+        $this->assertSame(1000.0, $this->pricing->priceFor($service->id, 'OD'));
+        $this->assertSame(1800.0, $this->pricing->priceFor($service->id, 'OU'));
+    }
+
+    public function test_insurance_multi_service_pricing_uses_insurance_eye_prices(): void
+    {
+        $service = $this->service(['dept' => 'labs', 'ins_one_eye_price' => 300, 'ins_both_eyes_price' => 500]);
+
+        $lines = $this->pricing->priceForMany([$service->id], 'OU', true);
+
+        $this->assertSame(500.0, $lines[0]['price']);
+    }
+
+    public function test_store_insurance_booking_uses_insurance_both_eyes_price(): void
+    {
+        $permission = Permission::firstOrCreate(['name' => 'booking.create', 'guard_name' => 'web']);
+        $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $role->givePermissionTo($permission);
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $company = InsuranceCompany::create(['name' => 'شركة تأمين', 'coverage_pct' => 80]);
+        $service = $this->service(['dept' => 'laser', 'ins_one_eye_price' => 700, 'ins_both_eyes_price' => 1300]);
+
+        $this->actingAs($user)->post('/booking', [
+            'patient_name' => 'مريض تأمين',
+            'dept' => 'laser',
+            'service_id' => $service->id,
+            'service_name' => $service->name,
+            'visit_date' => '2026-05-01',
+            'eye_side' => 'OU',
+            'price' => 1, // tampered — must be ignored
+            'pay_method' => 'insurance',
+            'ins_company_id' => $company->id,
+            'pay_status' => 'unpaid',
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertSame(1300.0, (float) Booking::firstOrFail()->price);
     }
 }

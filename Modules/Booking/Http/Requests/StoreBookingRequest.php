@@ -6,6 +6,7 @@ use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Services\ServicePricingService;
 use Modules\Surgery\Services\SurgeryService;
 
@@ -31,7 +32,7 @@ class StoreBookingRequest extends FormRequest
         $serviceIds = array_filter((array) $this->input('service_ids', []));
 
         if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
-            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'));
+            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'), $this->isInsurance());
 
             $this->merge([
                 'services' => $lines,
@@ -51,11 +52,21 @@ class StoreBookingRequest extends FormRequest
             $this->input('service_id'),
             $this->input('eye_side'),
             $this->input('price') !== null ? (float) $this->input('price') : null,
+            $this->isInsurance(),
         );
 
         if ($price !== null) {
             $this->merge(['price' => $price]);
         }
+    }
+
+    /**
+     * Whether the booking is paid by an insurance company, so the
+     * insurance eye prices apply instead of the cash ones.
+     */
+    private function isInsurance(): bool
+    {
+        return $this->input('pay_method') === PayMethod::Insurance->value;
     }
 
     public function rules(): array

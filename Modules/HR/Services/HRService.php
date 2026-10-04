@@ -9,6 +9,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostPayrollAction;
 use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
@@ -124,6 +126,30 @@ class HRService
         unset($data['username'], $data['role'], $data['permissions']);
 
         $employee->update($data);
+
+        return $employee;
+    }
+
+    /**
+     * Set a new login password for the employee's user account. Their
+     * "remember me" logins are invalidated by rotating remember_token.
+     *
+     * @throws ValidationException when the employee has no login account.
+     */
+    public function updateEmployeePassword(string $id, string $password): Employee
+    {
+        $employee = Employee::with('user')->findOrFail($id);
+
+        if (! $employee->user) {
+            throw ValidationException::withMessages([
+                'password' => 'هذا الموظف ليس له حساب دخول على النظام.',
+            ]);
+        }
+
+        $employee->user->forceFill([
+            'password' => Hash::make($password),
+            'remember_token' => Str::random(60),
+        ])->save();
 
         return $employee;
     }

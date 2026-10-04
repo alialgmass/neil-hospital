@@ -17,7 +17,7 @@ const props = defineProps<{ items: InventoryItem[] }>()
 
 // ── Permissions ──
 const { can } = usePermissions()
-const canWrite = computed(() => can('inventory.write'))
+const canWrite = computed(() => can('stocktake.adjust'))
 
 interface CountRow {
     item_id: string
@@ -53,12 +53,16 @@ const filteredCounts = computed(() =>
     form.counts.filter((r) => {
         const matchCat = !selectedCategory.value || r.category === selectedCategory.value
         const matchSearch = !search.value || r.item_name.toLowerCase().includes(search.value.toLowerCase())
+
         return matchCat && matchSearch
     }),
 )
 
 const visibleCategories = computed(() => {
-    if (selectedCategory.value) return [selectedCategory.value]
+    if (selectedCategory.value) {
+return [selectedCategory.value]
+}
+
     return categories.filter((cat) => filteredCounts.value.some((r) => r.category === cat))
 })
 

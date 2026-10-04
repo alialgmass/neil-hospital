@@ -9,7 +9,7 @@ use Modules\Booking\Models\Service;
  * Resolves the price for a service based on the selected eye side.
  *
  * The booking price is ALWAYS derived server-side from the service's
- * one-eye / both-eyes prices — the client-submitted price is never trusted
+ * one-eye / both-eyes prices (the insurance ones for insurance bookings) — the client-submitted price is never trusted
  * whenever a service is selected. A client price is only honoured as a
  * fallback for service-less bookings (e.g. manual walk-in charges).
  */
@@ -39,6 +39,40 @@ class ServicePricingService
     }
 
     /**
+     * The insurance price for the given service + eye side.
+     *
+     * Uses the insurance one-eye / both-eyes prices, falling back to the
+     * general `ins_price` (doubled for both eyes). When the service has no
+     * insurance price configured at all, the cash eye price is used.
+     */
+    public function resolveInsuranceEyePrice(Service $service, ?EyeSide $eyeSide): ?float
+    {
+        $legacy = (float) $service->ins_price > 0 ? (float) $service->ins_price : null;
+        $oneEye = $service->ins_one_eye_price !== null ? (float) $service->ins_one_eye_price : $legacy;
+        $bothEyes = $service->ins_both_eyes_price !== null ? (float) $service->ins_both_eyes_price : null;
+
+        if ($oneEye === null && $bothEyes === null) {
+            return $this->resolveEyePrice($service, $eyeSide);
+        }
+
+        if ($eyeSide === EyeSide::OU) {
+            return $bothEyes ?? $oneEye * 2;
+        }
+
+        return $oneEye ?? $this->resolveEyePrice($service, $eyeSide);
+    }
+
+    /**
+     * Resolve the cash or insurance eye price depending on the payer.
+     */
+    private function resolveFor(Service $service, ?EyeSide $eyeSide, bool $isInsurance): ?float
+    {
+        return $isInsurance
+            ? $this->resolveInsuranceEyePrice($service, $eyeSide)
+            : $this->resolveEyePrice($service, $eyeSide);
+    }
+
+    /**
      * Resolve the server-side price for a booking request.
      *
      * When a valid service is selected the returned price is derived purely
@@ -46,7 +80,7 @@ class ServicePricingService
      * The `$fallback` is only returned when no service is selected, the
      * service does not exist, or the service has no price configured.
      */
-    public function priceFor(?string $serviceId, ?string $eyeSide, ?float $fallback = null): ?float
+    public function priceFor(?string $serviceId, ?string $eyeSide, ?float $fallback = null, bool $isInsurance = false): ?float
     {
         if (! $serviceId) {
             return $fallback;
@@ -60,7 +94,7 @@ class ServicePricingService
 
         $eye = $eyeSide ? EyeSide::tryFrom($eyeSide) : null;
 
-        return $this->resolveEyePrice($service, $eye) ?? $fallback;
+        return $this->resolveFor($service, $eye, $isInsurance) ?? $fallback;
     }
 
     /**
@@ -71,13 +105,13 @@ class ServicePricingService
      * @param  array<int, string>  $serviceIds
      * @return array<int, array{service_id: string, service_name: string, price: float}>
      */
-    public function priceForMany(array $serviceIds, ?string $eyeSide): array
+    public function priceForMany(array $serviceIds, ?string $eyeSide, bool $isInsurance = false): array
     {
         $services = Service::whereIn('id', $serviceIds)->get()->keyBy('id');
         $eye = $eyeSide ? EyeSide::tryFrom($eyeSide) : null;
 
         return collect($serviceIds)
-            ->map(function (string $serviceId) use ($services, $eye) {
+            ->map(function (string $serviceId) use ($services, $eye, $isInsurance) {
                 $service = $services->get($serviceId);
 
                 if (! $service) {
@@ -87,7 +121,7 @@ class ServicePricingService
                 return [
                     'service_id' => $service->id,
                     'service_name' => $service->name,
-                    'price' => $this->resolveEyePrice($service, $eye) ?? 0.0,
+                    'price' => $this->resolveFor($service, $eye, $isInsurance) ?? 0.0,
                 ];
             })
             ->filter()

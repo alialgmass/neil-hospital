@@ -86,7 +86,7 @@ class ReferPatientAction
                 'service_id' => $service?->id,
                 'service_name' => $service?->name,
                 'eye_side' => $eyeSide,
-                'price' => $this->servicePricing->priceFor($serviceId, $eyeSide) ?? 0,
+                'price' => $this->servicePricing->priceFor($serviceId, $eyeSide, null, (bool) $isInsured) ?? 0,
                 'ins_company_id' => $isInsured ? $originalBooking->ins_company_id : null,
                 'pay_method' => $isInsured ? 'insurance' : 'cash',
                 // Same-day: the patient is being routed to the next stop of

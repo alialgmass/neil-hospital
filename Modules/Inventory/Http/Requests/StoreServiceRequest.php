@@ -20,6 +20,8 @@ class StoreServiceRequest extends FormRequest
             'one_eye_price' => 'nullable|numeric|min:0',
             'both_eyes_price' => 'nullable|numeric|min:0',
             'ins_price' => 'nullable|numeric|min:0',
+            'ins_one_eye_price' => 'nullable|numeric|min:0',
+            'ins_both_eyes_price' => 'nullable|numeric|min:0',
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',
             'default_dr_fee' => 'nullable|numeric|min:0',

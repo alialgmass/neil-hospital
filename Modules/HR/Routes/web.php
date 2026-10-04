@@ -16,6 +16,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/employees/import', [ModuleImportActionController::class, 'import'])->defaults('module', 'employees')->middleware('can:hr.manage')->name('employees.import');
     Route::post('/employees', [EmployeeController::class, 'store'])->middleware('can:hr.manage')->name('employees.store');
     Route::put('/employees/{id}', [EmployeeController::class, 'update'])->middleware('can:hr.manage')->name('employees.update');
+    Route::put('/employees/{id}/password', [EmployeeController::class, 'updatePassword'])->middleware('can:users.manage')->name('employees.update-password');
 
     // Shifts
     Route::get('/shifts', [ShiftController::class, 'index'])->middleware('can:hr.view')->name('shifts.index');

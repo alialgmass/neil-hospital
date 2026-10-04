@@ -5,7 +5,7 @@ namespace Modules\Surgery\DTOs;
 readonly class SuppliesUsedData
 {
     /**
-     * @param  array<int, array{inventory_item_id: string, bundle_id: ?string, name: string, qty: float, unit_cost: float, total: float, is_bundle: bool}>  $items
+     * @param  array<int, array{inventory_item_id: string, bundle_id: ?string, permit_id: ?string, name: string, qty: float, unit_cost: float, total: float, is_bundle: bool}>  $items
      */
     public function __construct(
         public string $surgeryId,
@@ -40,6 +40,9 @@ readonly class SuppliesUsedData
             $items[] = [
                 'inventory_item_id' => $itemId,
                 'bundle_id' => $item['bundle_id'] ?? null,
+                // The bundle's stock permit — lets the line be deleted later
+                // with its stock and journal entries reversed.
+                'permit_id' => $isBundle ? ($item['permit_id'] ?? null) : null,
                 'name' => $item['name'] ?? '',
                 'qty' => $qty,
                 'unit_cost' => $unitCost,

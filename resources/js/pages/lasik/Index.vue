@@ -226,6 +226,13 @@ function openSupplies(id: string) {
     showSupplies.value = true;
 }
 
+function onSuppliesUpdated(supplies: SupplyUsedItem[], total: number) {
+    if (activeCase.value) {
+        activeCase.value.supplies_used = supplies;
+        activeCase.value.supply_total = total;
+    }
+}
+
 function submitSupplies(
     validItems: SupplyPayloadItem[],
     done: (errors: Record<string, string> | null) => void = () => {},
@@ -468,6 +475,7 @@ const eyeLabel: Record<string, string> = {
         @open-supplies="openSupplies"
         @update-status="updateStatus"
         @submit-supplies="submitSupplies"
+        @supplies-updated="onSuppliesUpdated"
         @submit-report="submitReport"
     />
 

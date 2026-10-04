@@ -36,6 +36,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:surgery.write')
             ->name('supplies');
 
+        Route::put('/{id}/supplies/{index}', [SurgeryController::class, 'updateSupplyLine'])
+            ->whereNumber('index')
+            ->middleware('can:surgery.write')
+            ->name('supplies.update');
+
+        Route::delete('/{id}/supplies/{index}', [SurgeryController::class, 'destroySupplyLine'])
+            ->whereNumber('index')
+            ->middleware('can:surgery.write')
+            ->name('supplies.destroy');
+
         Route::post('/{id}/delegations', [SurgeryController::class, 'delegations'])
             ->middleware('can:surgery.write')
             ->name('delegations');
@@ -66,6 +76,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{id}/supplies', [SurgeryController::class, 'supplies'])
             ->middleware('can:lasik.write')
             ->name('supplies');
+
+        Route::put('/{id}/supplies/{index}', [SurgeryController::class, 'updateSupplyLine'])
+            ->whereNumber('index')
+            ->middleware('can:lasik.write')
+            ->name('supplies.update');
+
+        Route::delete('/{id}/supplies/{index}', [SurgeryController::class, 'destroySupplyLine'])
+            ->whereNumber('index')
+            ->middleware('can:lasik.write')
+            ->name('supplies.destroy');
 
         Route::post('/{id}/delegations', [SurgeryController::class, 'delegations'])
             ->middleware('can:lasik.write')

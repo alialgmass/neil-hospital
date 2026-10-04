@@ -282,18 +282,42 @@ class ReportingService
     }
 
     // 6. Inventory Movement Report
-    public function inventoryMovement(string $from, string $to, ?string $itemId = null): array
+    /**
+     * Every stock movement in [from, to], tagged with its source document:
+     * purchase invoices (in), manual add permits (in), issue permits (out),
+     * surgery/lasik bundle consumption (out), item sales invoices (out) and
+     * stock-take adjustments (in/out). Values are at cost so in/out/net are
+     * comparable; sales also report their selling value.
+     *
+     * @return array{
+     *     rows: array<int, object>,
+     *     bySource: array<int, array{source: string, direction: string, count: int, qty: float, total: float}>,
+     *     byItem: array<int, array{item_id: ?string, item_name: ?string, unit: ?string, in_qty: float, out_qty: float, in_value: float, out_value: float}>,
+     *     salesValue: float,
+     *     from: string,
+     *     to: string
+     * }
+     */
+    public function inventoryMovement(string $from, string $to, ?string $itemId = null, ?string $source = null): array
     {
-        // Manual stock-in/stock-out/adjustment permits.
+        $permitSource = "CASE
+            WHEN stock_permits.permit_no LIKE 'ADJ-%' OR stock_permits.reason = 'تسوية جرد' THEN 'stock_take'
+            WHEN stock_permits.type = 'in' THEN 'stock_in'
+            WHEN stock_permits.reason LIKE 'استخدام بند:%' THEN 'bundle'
+            ELSE 'issue'
+        END";
+
         $permitMovements = DB::table('stock_permit_items')
             ->join('stock_permits', 'stock_permit_items.permit_id', '=', 'stock_permits.id')
             ->leftJoin('inventory', 'stock_permit_items.item_id', '=', 'inventory.id')
             ->select(
-                'inventory.name as item_name',
+                'stock_permit_items.item_id',
+                DB::raw('COALESCE(inventory.name, stock_permit_items.item_name) as item_name'),
                 'inventory.unit',
                 'stock_permits.type',
+                DB::raw("{$permitSource} as source"),
                 'stock_permits.permit_no as reference_no',
-                'stock_permits.department as party',
+                DB::raw('COALESCE(stock_permits.department, stock_permits.reason) as party'),
                 'stock_permit_items.qty',
                 'stock_permit_items.unit_cost',
                 DB::raw('stock_permit_items.qty * stock_permit_items.unit_cost as total'),
@@ -302,17 +326,17 @@ class ReportingService
             ->when($itemId, fn ($q, $v) => $q->where('stock_permit_items.item_id', $v))
             ->whereBetween('stock_permits.created_at', [$from, $to.' 23:59:59']);
 
-        // Purchase invoice receipts also increase stock (see PurchaseInvoiceService::create())
-        // but never create a stock_permit row, so they were previously missing entirely
-        // from this report's "in" movements.
+        // Purchase invoice receipts increase stock without a stock_permit row.
         $purchaseMovements = DB::table('purchase_invoice_items')
             ->join('purchase_invoices', 'purchase_invoice_items.invoice_id', '=', 'purchase_invoices.id')
             ->leftJoin('inventory', 'purchase_invoice_items.item_id', '=', 'inventory.id')
             ->leftJoin('suppliers', 'purchase_invoices.supplier_id', '=', 'suppliers.id')
             ->select(
-                'inventory.name as item_name',
+                'purchase_invoice_items.item_id',
+                DB::raw('COALESCE(inventory.name, purchase_invoice_items.item_name) as item_name'),
                 'inventory.unit',
                 DB::raw("'in' as type"),
+                DB::raw("'purchase' as source"),
                 'purchase_invoices.invoice_no as reference_no',
                 'suppliers.name as party',
                 'purchase_invoice_items.qty',
@@ -323,12 +347,78 @@ class ReportingService
             ->when($itemId, fn ($q, $v) => $q->where('purchase_invoice_items.item_id', $v))
             ->whereBetween('purchase_invoices.invoice_date', [$from, $to]);
 
-        $rows = $permitMovements->unionAll($purchaseMovements)
-            ->orderByDesc('movement_date')
-            ->get()
-            ->toArray();
+        // Item sales invoices take stock out at the item's cost.
+        $saleMovements = DB::table('item_sales_invoice_items')
+            ->join('item_sales_invoices', 'item_sales_invoice_items.invoice_id', '=', 'item_sales_invoices.id')
+            ->leftJoin('inventory', 'item_sales_invoice_items.item_id', '=', 'inventory.id')
+            ->select(
+                'item_sales_invoice_items.item_id',
+                DB::raw('COALESCE(inventory.name, item_sales_invoice_items.item_name) as item_name'),
+                'inventory.unit',
+                DB::raw("'out' as type"),
+                DB::raw("'sale' as source"),
+                'item_sales_invoices.invoice_no as reference_no',
+                'item_sales_invoices.customer_name as party',
+                'item_sales_invoice_items.qty',
+                'item_sales_invoice_items.unit_cost',
+                DB::raw('item_sales_invoice_items.qty * item_sales_invoice_items.unit_cost as total'),
+                'item_sales_invoices.invoice_date as movement_date',
+            )
+            ->when($itemId, fn ($q, $v) => $q->where('item_sales_invoice_items.item_id', $v))
+            ->whereBetween('item_sales_invoices.invoice_date', [$from, $to]);
 
-        return compact('rows', 'from', 'to');
+        $rows = DB::query()
+            ->fromSub($permitMovements->unionAll($purchaseMovements)->unionAll($saleMovements), 'movements')
+            ->when($source, fn ($q, $v) => $q->where('source', $v))
+            ->orderByDesc('movement_date')
+            ->get();
+
+        $bySource = $rows->groupBy(fn (object $row) => "{$row->source}|{$row->type}")
+            ->map(fn ($group) => [
+                'source' => $group->first()->source,
+                'direction' => $group->first()->type,
+                'count' => $group->unique('reference_no')->count(),
+                'qty' => round((float) $group->sum('qty'), 2),
+                'total' => round((float) $group->sum('total'), 2),
+            ])
+            ->values()
+            ->all();
+
+        $byItem = $rows->groupBy(fn (object $row) => $row->item_id ?? $row->item_name)
+            ->map(function ($group) {
+                $in = $group->where('type', 'in');
+                $out = $group->where('type', 'out');
+
+                return [
+                    'item_id' => $group->first()->item_id,
+                    'item_name' => $group->first()->item_name,
+                    'unit' => $group->first()->unit,
+                    'in_qty' => round((float) $in->sum('qty'), 2),
+                    'out_qty' => round((float) $out->sum('qty'), 2),
+                    'in_value' => round((float) $in->sum('total'), 2),
+                    'out_value' => round((float) $out->sum('total'), 2),
+                ];
+            })
+            ->sortBy('item_name')
+            ->values()
+            ->all();
+
+        $salesValue = in_array($source, [null, 'sale'], true)
+            ? round((float) DB::table('item_sales_invoice_items')
+                ->join('item_sales_invoices', 'item_sales_invoice_items.invoice_id', '=', 'item_sales_invoices.id')
+                ->when($itemId, fn ($q, $v) => $q->where('item_sales_invoice_items.item_id', $v))
+                ->whereBetween('item_sales_invoices.invoice_date', [$from, $to])
+                ->sum('item_sales_invoice_items.line_total'), 2)
+            : 0.0;
+
+        return [
+            'rows' => $rows->all(),
+            'bySource' => $bySource,
+            'byItem' => $byItem,
+            'salesValue' => $salesValue,
+            'from' => $from,
+            'to' => $to,
+        ];
     }
 
     // 7. Purchase Prices Report

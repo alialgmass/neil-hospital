@@ -54,6 +54,8 @@ class RolesPermissionsSeeder extends Seeder
         'inventory.write',
         'purchases.edit',
         'purchases.delete',
+        'stocktake.view',
+        'stocktake.adjust',
         'insurance.view',
         'insurance.write',
         'insurance.price_lists.edit',
@@ -128,6 +130,8 @@ class RolesPermissionsSeeder extends Seeder
             'dashboard',
             'inventory.view',
             'inventory.write',
+            'stocktake.view',
+            'stocktake.adjust',
             'services.view',
         ],
     ];

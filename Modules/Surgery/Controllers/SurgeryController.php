@@ -14,6 +14,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Doctor\Actions\SyncBookingDoctorDelegationsAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Inventory\Models\InventoryItem;
+use Modules\Surgery\Actions\ModifySurgerySupplyLineAction;
 use Modules\Surgery\Actions\ProcessBundleSupplyAction;
 use Modules\Surgery\Actions\RecordSuppliesUsedAction;
 use Modules\Surgery\Actions\RecordSurgeryReportAction;
@@ -23,6 +24,7 @@ use Modules\Surgery\DTOs\SuppliesUsedData;
 use Modules\Surgery\DTOs\SurgeryData;
 use Modules\Surgery\Http\Requests\RecordSuppliesRequest;
 use Modules\Surgery\Http\Requests\StoreSurgeryRequest;
+use Modules\Surgery\Http\Requests\SupplyLineRequest;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\Services\SurgeryService;
 
@@ -35,6 +37,7 @@ class SurgeryController extends Controller
         private readonly RecordSuppliesUsedAction $suppliesAction,
         private readonly UpdateSurgeryStatusAction $statusAction,
         private readonly ProcessBundleSupplyAction $bundleAction,
+        private readonly ModifySurgerySupplyLineAction $supplyLineAction,
         private readonly SyncBookingDoctorDelegationsAction $syncDelegations,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
@@ -185,6 +188,34 @@ class SurgeryController extends Controller
         session()->flash('surgery.supply_total', $surgery->supply_total);
 
         return back()->with('success', 'تم تسجيل المستلزمات المستخدمة.');
+    }
+
+    public function updateSupplyLine(SupplyLineRequest $request, string $id, int $index): RedirectResponse
+    {
+        $surgery = $this->supplyLineAction->update(
+            $id,
+            $index,
+            $request->validated('line_ref'),
+            (float) $request->validated('qty'),
+            (float) $request->validated('unit_cost'),
+        );
+
+        return $this->backWithSupplies($surgery, 'تم تعديل المستلزم.');
+    }
+
+    public function destroySupplyLine(SupplyLineRequest $request, string $id, int $index): RedirectResponse
+    {
+        $surgery = $this->supplyLineAction->delete($id, $index, $request->validated('line_ref'));
+
+        return $this->backWithSupplies($surgery, 'تم حذف المستلزم.');
+    }
+
+    private function backWithSupplies(Surgery $surgery, string $message): RedirectResponse
+    {
+        session()->flash('surgery.supplies_used', $surgery->supplies_used);
+        session()->flash('surgery.supply_total', $surgery->supply_total);
+
+        return back()->with('success', $message);
     }
 
     /**

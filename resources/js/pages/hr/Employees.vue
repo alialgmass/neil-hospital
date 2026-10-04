@@ -229,6 +229,37 @@ function savePermissions(selected: string[]) {
     editForm.permissions = selected;
     showPermissionsModal.value = false;
 }
+
+// ── Change login password ──
+const canManageUsers = computed(() => can('users.manage'));
+const showPassword = ref(false);
+const passwordEmployee = ref<Employee | null>(null);
+const passwordForm = useForm({ password: '', password_confirmation: '' });
+
+function openPassword(e: Employee) {
+    if (!canManageUsers.value || !e.user) {
+        return;
+    }
+
+    passwordEmployee.value = e;
+    passwordForm.reset();
+    passwordForm.clearErrors();
+    showPassword.value = true;
+}
+
+function submitPassword() {
+    if (!passwordEmployee.value) {
+        return;
+    }
+
+    passwordForm.put(`/employees/${passwordEmployee.value.id}/password`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            showPassword.value = false;
+            passwordForm.reset();
+        },
+    });
+}
 </script>
 
 <template>
@@ -445,6 +476,13 @@ function savePermissions(selected: string[]) {
                             @click="openEdit(e)"
                         >
                             تعديل
+                        </button>
+                        <button
+                            v-if="canManageUsers && e.user"
+                            class="mr-1 rounded-lg border border-br px-3 py-1 text-xs text-t2 transition-colors hover:border-p/40 hover:bg-pp hover:text-p"
+                            @click="openPassword(e)"
+                        >
+                            كلمة السر
                         </button>
                     </td>
                 </tr>
@@ -891,6 +929,30 @@ function savePermissions(selected: string[]) {
                     {{
                         editForm.processing ? 'جارٍ الحفظ...' : 'حفظ التعديلات'
                     }}
+                </button>
+            </div>
+        </form>
+    </Modal>
+
+    <Modal v-model="showPassword" :title="`تغيير كلمة السر — ${passwordEmployee?.name ?? ''}`" size="sm">
+        <form class="space-y-4" @submit.prevent="submitPassword">
+            <p class="text-xs text-t3">
+                اسم الدخول:
+                <span class="font-mono font-semibold text-t">{{ passwordEmployee?.user?.username ?? passwordEmployee?.username ?? '—' }}</span>
+            </p>
+            <div>
+                <label class="form-label">كلمة السر الجديدة <span class="text-d">*</span></label>
+                <input v-model="passwordForm.password" type="password" class="input-field" autocomplete="new-password" />
+                <p v-if="passwordForm.errors.password" class="form-error">{{ passwordForm.errors.password }}</p>
+            </div>
+            <div>
+                <label class="form-label">تأكيد كلمة السر <span class="text-d">*</span></label>
+                <input v-model="passwordForm.password_confirmation" type="password" class="input-field" autocomplete="new-password" />
+            </div>
+            <div class="flex justify-end gap-3 border-t border-br pt-4">
+                <button type="button" class="btn-secondary" @click="showPassword = false">إلغاء</button>
+                <button type="submit" :disabled="passwordForm.processing" class="btn-primary">
+                    {{ passwordForm.processing ? 'جارٍ الحفظ...' : 'تغيير كلمة السر' }}
                 </button>
             </div>
         </form>

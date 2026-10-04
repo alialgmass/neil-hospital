@@ -18,6 +18,8 @@ interface Service {
     one_eye_price: number;
     both_eyes_price: number;
     ins_price: number;
+    ins_one_eye_price: number | null;
+    ins_both_eyes_price: number | null;
     center_type: 'pct' | 'fixed';
     center_val: number;
     center_share: number;
@@ -102,6 +104,8 @@ const form = useForm({
     one_eye_price: 0 as number,
     both_eyes_price: 0 as number,
     ins_price: 0 as number,
+    ins_one_eye_price: null as number | null,
+    ins_both_eyes_price: null as number | null,
     center_type: 'pct' as 'pct' | 'fixed',
     center_val: 40 as number,
     default_dr_fee: null as number | null,
@@ -126,6 +130,8 @@ function openCreate() {
     form.duration_mins = 30;
     form.status = 'active';
     form.revenue_account_id = null;
+    form.ins_one_eye_price = null;
+    form.ins_both_eyes_price = null;
     showModal.value = true;
 }
 
@@ -141,6 +147,8 @@ function openEdit(svc: Service) {
     form.one_eye_price = Number(svc.one_eye_price);
     form.both_eyes_price = Number(svc.both_eyes_price);
     form.ins_price = Number(svc.ins_price);
+    form.ins_one_eye_price = svc.ins_one_eye_price != null ? Number(svc.ins_one_eye_price) : null;
+    form.ins_both_eyes_price = svc.ins_both_eyes_price != null ? Number(svc.ins_both_eyes_price) : null;
     form.center_type = svc.center_type;
     form.center_val = Number(svc.center_val);
     form.default_dr_fee = svc.default_dr_fee != null ? Number(svc.default_dr_fee) : null;
@@ -350,6 +358,7 @@ function fmt(n: number) {
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">السعر</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر العين (واحدة/اثنتان)</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر التأمين</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">تأمين العين (واحدة/اثنتان)</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة المركز</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة الطبيب</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الحالة</th>
@@ -359,7 +368,7 @@ function fmt(n: number) {
                     <tbody>
                         <!-- Empty state -->
                         <tr v-if="services.data.length === 0">
-                            <td colspan="9" class="py-16 text-center">
+                            <td colspan="10" class="py-16 text-center">
                                 <div class="flex flex-col items-center gap-3 text-hospital-text-3">
                                     <Package class="h-14 w-14 opacity-30" />
                                     <p class="text-base font-medium">لا توجد خدمات</p>
@@ -380,6 +389,9 @@ function fmt(n: number) {
                             <td class="px-4 py-3 font-mono text-hospital-text">{{ fmt(Number(svc.price)) }}</td>
                             <td class="px-4 py-3 font-mono text-hospital-text-2">{{ fmt(Number(svc.one_eye_price)) }} / {{ fmt(Number(svc.both_eyes_price)) }}</td>
                             <td class="px-4 py-3 font-mono text-hospital-primary">{{ fmt(Number(svc.ins_price)) }}</td>
+                            <td class="px-4 py-3 font-mono text-hospital-primary">
+                                {{ svc.ins_one_eye_price != null ? fmt(Number(svc.ins_one_eye_price)) : '—' }} / {{ svc.ins_both_eyes_price != null ? fmt(Number(svc.ins_both_eyes_price)) : '—' }}
+                            </td>
                             <td class="px-4 py-3 font-mono text-hospital-warning">
                                 {{ svc.center_type === 'pct' ? `${svc.center_val}%` : `${fmt(Number(svc.center_val))} ج` }}
                             </td>
@@ -542,6 +554,30 @@ function fmt(n: number) {
                                 placeholder="0.00"
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                             />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين - عين واحدة (ج.م)</label>
+                            <input
+                                v-model.number="form.ins_one_eye_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="سعر التأمين"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.ins_one_eye_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.ins_one_eye_price }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين - العينين (ج.م)</label>
+                            <input
+                                v-model.number="form.ins_both_eyes_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="ضعف سعر العين الواحدة"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.ins_both_eyes_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.ins_both_eyes_price }}</p>
                         </div>
                     </div>
                 </div>

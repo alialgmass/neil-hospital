@@ -23,6 +23,8 @@ interface Service {
     one_eye_price: number | null;
     both_eyes_price: number | null;
     ins_price: number;
+    ins_one_eye_price: number | null;
+    ins_both_eyes_price: number | null;
 }
 
 interface Doctor {
@@ -252,13 +254,13 @@ return;
     if (isInsurance.value && activePriceList.value) {
         const pl = activePriceList.value;
         const item = pl?.items.find((i) => i.service_id === form.service_id);
-        const itemPrice = item?.price ?? service.ins_price ?? service.price;
+        const itemPrice = item?.price ?? eyeSidePrice(service);
         form.price = String(itemPrice);
         form.ins_amount = pl
             ? String(Math.round((itemPrice * pl.ins_coverage) / 100 * 100) / 100)
             : '0';
     } else if (isInsurance.value) {
-        form.price = String(service.ins_price ?? service.price);
+        form.price = String(eyeSidePrice(service));
         // No dedicated price list for this company — fall back to its general coverage rate.
         const company = props.insuranceCompanies.find((c) => c.id === form.ins_company_id);
         form.ins_amount = company
@@ -272,6 +274,10 @@ return;
 
 // Preview price only — the server always recomputes from the service + eye side.
 function eyeSidePrice(service: Service): number {
+    return isInsurance.value ? insuranceEyeSidePrice(service) : cashEyeSidePrice(service);
+}
+
+function cashEyeSidePrice(service: Service): number {
     const oneEye = service.one_eye_price ?? service.price;
 
     if (form.eye_side === 'OU') {
@@ -284,10 +290,33 @@ function eyeSidePrice(service: Service): number {
     return oneEye ?? service.price;
 }
 
+// Mirrors ServicePricingService::resolveInsuranceEyePrice().
+function insuranceEyeSidePrice(service: Service): number {
+    const legacy = Number(service.ins_price) > 0 ? Number(service.ins_price) : null;
+    const oneEye = service.ins_one_eye_price != null ? Number(service.ins_one_eye_price) : legacy;
+    const bothEyes = service.ins_both_eyes_price != null ? Number(service.ins_both_eyes_price) : null;
+
+    if (oneEye == null && bothEyes == null) {
+        return cashEyeSidePrice(service);
+    }
+
+    if (form.eye_side === 'OU') {
+        return bothEyes ?? (oneEye as number) * 2;
+    }
+
+    return oneEye ?? cashEyeSidePrice(service);
+}
+
 function eyePrice() {
     const service = props.services.find((s) => s.id === form.service_id);
 
-    if (!service || isInsurance.value) {
+    if (!service) {
+        return;
+    }
+
+    if (isInsurance.value) {
+        recalcPrice();
+
         return;
     }
 
@@ -306,13 +335,13 @@ watch(() => form.eye_side, () => {
     eyePrice();
 });
 watch(() => form.pay_method, () => {
-    if (!form.service_id) {
-        return;
+    if (isLabs.value) {
+        recalcLabsPrice();
+    } else if (form.service_id) {
+        recalcPrice();
     }
 
-    recalcPrice();
-
-    if (!isInsurance.value) {
+    if (form.service_id && !isInsurance.value) {
         form.ins_company_id = '';
         form.ins_amount = '0';
     }

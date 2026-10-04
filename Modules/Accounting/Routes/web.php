@@ -67,6 +67,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Sales Invoices (Billing)
     Route::prefix('sales-invoices')->name('sales-invoices.')->group(function () {
+        // Sales invoices are inventory item sales — the list lives under item-sales.
+        Route::redirect('/', '/item-sales')->name('index');
+
         Route::get('/booking/{bookingId}', [SalesInvoiceController::class, 'show'])
             ->middleware('can:booking.view')
             ->name('show');

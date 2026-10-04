@@ -9,6 +9,7 @@ use Inertia\Response;
 use Modules\HR\Enums\EmployeeStatus;
 use Modules\HR\Models\Employee;
 use Modules\HR\Requests\StoreEmployeeRequest;
+use Modules\HR\Requests\UpdateEmployeePasswordRequest;
 use Modules\HR\Requests\UpdateEmployeeRequest;
 use Modules\HR\Services\HRService;
 
@@ -57,5 +58,12 @@ class EmployeeController extends Controller
         $this->hr->updateEmployee($id, $request->validated());
 
         return back()->with('success', 'تم تعديل بيانات الموظف بنجاح.');
+    }
+
+    public function updatePassword(UpdateEmployeePasswordRequest $request, string $id): RedirectResponse
+    {
+        $employee = $this->hr->updateEmployeePassword($id, $request->validated('password'));
+
+        return back()->with('success', "تم تغيير كلمة السر للموظف {$employee->name}.");
     }
 }

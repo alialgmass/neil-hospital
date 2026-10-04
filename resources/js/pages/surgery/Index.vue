@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { CalendarPlus, List } from 'lucide-vue-next';
-import { computed, ref, watch } from 'vue';
+import { CalendarPlus, Check, List, Pencil, Trash2, X } from 'lucide-vue-next';
+import { computed, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
@@ -19,6 +19,8 @@ import { delegationAmountError } from '@/utils/delegations';
 
 interface SupplyUsedItem {
     inventory_item_id: string;
+    bundle_id?: string | null;
+    is_bundle?: boolean;
     name: string;
     qty: number;
     unit_cost: number;
@@ -494,6 +496,89 @@ function openCase(
 
 function closeOverlay() {
     selectedCase.value = null;
+}
+
+// ── Edit / delete an already-added supply line ──
+const editingSupplyIndex = ref<number | null>(null);
+const editSupply = reactive({ qty: 0, unit_cost: 0 });
+const supplyLineBusy = ref(false);
+
+function supplyLineRef(line: SupplyUsedItem): string {
+    return line.is_bundle ? (line.bundle_id ?? '') : line.inventory_item_id;
+}
+
+function supplyLineUrl(index: number): string {
+    return `${surgeryRoutes.supplies(selectedCase.value!.id).url}/${index}`;
+}
+
+function applySupplyFlash(page: { props: { flash?: { surgery?: { supplies_used: SupplyUsedItem[]; supply_total: number | string } } } }) {
+    const flash = page.props.flash?.surgery;
+
+    if (flash && selectedCase.value) {
+        selectedCase.value.supplies_used = flash.supplies_used;
+        selectedCase.value.supply_total = Number(flash.supply_total);
+    }
+}
+
+function startEditSupply(index: number, line: SupplyUsedItem) {
+    editingSupplyIndex.value = index;
+    editSupply.qty = Number(line.qty);
+    editSupply.unit_cost = Number(line.unit_cost);
+}
+
+function saveSupplyLine(index: number, line: SupplyUsedItem) {
+    if (!canWrite.value || supplyLineBusy.value) {
+        return;
+    }
+
+    supplyLineBusy.value = true;
+    router.put(
+        supplyLineUrl(index),
+        { line_ref: supplyLineRef(line), qty: editSupply.qty, unit_cost: editSupply.unit_cost },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: (page) => {
+                applySupplyFlash(page as never);
+                editingSupplyIndex.value = null;
+                toast.success('تم تعديل المستلزم');
+            },
+            onError: (errors) => toast.error(Object.values(errors)[0] ?? 'تعذر تعديل المستلزم'),
+            onFinish: () => {
+                supplyLineBusy.value = false;
+            },
+        },
+    );
+}
+
+function deleteSupplyLine(index: number, line: SupplyUsedItem) {
+    if (!canWrite.value || supplyLineBusy.value) {
+        return;
+    }
+
+    const message = line.is_bundle
+        ? `حذف البند "${line.name}"؟ سيتم إرجاع أصنافه للمخزن وعكس قيوده.`
+        : `حذف "${line.name}" من مستلزمات الحالة؟`;
+
+    if (!window.confirm(message)) {
+        return;
+    }
+
+    supplyLineBusy.value = true;
+    router.delete(supplyLineUrl(index), {
+        data: { line_ref: supplyLineRef(line) },
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: (page) => {
+            applySupplyFlash(page as never);
+            editingSupplyIndex.value = null;
+            toast.success('تم حذف المستلزم');
+        },
+        onError: (errors) => toast.error(Object.values(errors)[0] ?? 'تعذر حذف المستلزم'),
+        onFinish: () => {
+            supplyLineBusy.value = false;
+        },
+    });
 }
 
 function resetSupplyForm() {
@@ -1493,6 +1578,7 @@ if (props.prefill) {
                                         <th>الكمية</th>
                                         <th>السعر/الوحدة</th>
                                         <th>الإجمالي</th>
+                                        <th v-if="canWrite"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1511,22 +1597,59 @@ if (props.prefill) {
                                             >
                                             {{ s.name || '—' }}
                                         </td>
-                                        <td>{{ s.qty }}</td>
-                                        <td>
-                                            {{
-                                                Number(
-                                                    s.unit_cost,
-                                                ).toLocaleString('en-US')
-                                            }}
-                                            ج
-                                        </td>
-                                        <td class="font-semibold">
-                                            {{
-                                                Number(s.total).toLocaleString(
-                                                    'ar-EG',
-                                                )
-                                            }}
-                                            ج
+                                        <template v-if="editingSupplyIndex === i">
+                                            <td>
+                                                <input v-model.number="editSupply.qty" type="number" min="0.01" step="0.01" class="input-field w-20 text-xs" />
+                                            </td>
+                                            <td>
+                                                <input v-model.number="editSupply.unit_cost" type="number" min="0" step="0.01" class="input-field w-24 text-xs" />
+                                            </td>
+                                            <td class="font-semibold">
+                                                {{ (editSupply.qty * editSupply.unit_cost).toLocaleString('en-US') }}
+                                                ج
+                                            </td>
+                                        </template>
+                                        <template v-else>
+                                            <td>{{ s.qty }}</td>
+                                            <td>
+                                                {{ Number(s.unit_cost).toLocaleString('en-US') }}
+                                                ج
+                                            </td>
+                                            <td class="font-semibold">
+                                                {{ Number(s.total).toLocaleString('en-US') }}
+                                                ج
+                                            </td>
+                                        </template>
+                                        <td v-if="canWrite" class="whitespace-nowrap">
+                                            <div v-if="editingSupplyIndex === i" class="flex items-center gap-2">
+                                                <button type="button" class="text-green-600 hover:text-green-700 disabled:opacity-40" title="حفظ" :disabled="supplyLineBusy" @click="saveSupplyLine(i, s)">
+                                                    <Check class="h-4 w-4" />
+                                                </button>
+                                                <button type="button" class="text-gray-400 hover:text-gray-600" title="إلغاء" @click="editingSupplyIndex = null">
+                                                    <X class="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                            <div v-else class="flex items-center gap-2">
+                                                <button
+                                                    v-if="!s.is_bundle"
+                                                    type="button"
+                                                    class="text-blue-600 hover:text-blue-700 disabled:opacity-40"
+                                                    title="تعديل"
+                                                    :disabled="supplyLineBusy"
+                                                    @click="startEditSupply(i, s)"
+                                                >
+                                                    <Pencil class="h-3.5 w-3.5" />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="text-red-500 hover:text-red-600 disabled:opacity-40"
+                                                    title="حذف"
+                                                    :disabled="supplyLineBusy"
+                                                    @click="deleteSupplyLine(i, s)"
+                                                >
+                                                    <Trash2 class="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1546,6 +1669,7 @@ if (props.prefill) {
                                             }}
                                             ج
                                         </td>
+                                        <td v-if="canWrite"></td>
                                     </tr>
                                 </tfoot>
                             </table>

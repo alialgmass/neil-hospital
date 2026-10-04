@@ -6,6 +6,7 @@ use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\ServicePricingService;
@@ -40,7 +41,7 @@ class UpdateBookingRequest extends FormRequest
         $keepsClientPrice = $this->isEditingPriceAfterPayment();
 
         if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
-            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'));
+            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'), $this->isInsurance());
 
             $this->merge([
                 'services' => $lines,
@@ -66,6 +67,7 @@ class UpdateBookingRequest extends FormRequest
             $this->input('service_id'),
             $this->input('eye_side'),
             $this->input('price') !== null ? (float) $this->input('price') : null,
+            $this->isInsurance(),
         );
 
         if ($price !== null) {
@@ -134,6 +136,15 @@ class UpdateBookingRequest extends FormRequest
             'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',
         ];
+    }
+
+    /**
+     * Whether the booking is paid by an insurance company, so the
+     * insurance eye prices apply instead of the cash ones.
+     */
+    private function isInsurance(): bool
+    {
+        return $this->input('pay_method') === PayMethod::Insurance->value;
     }
 
     public function rules(): array

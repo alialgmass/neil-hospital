@@ -110,6 +110,7 @@ class ProcessBundleSupplyAction
 
         return [
             'bundle_id' => $bundle->id,
+            'permit_id' => $permit->id,
             'inventory_item_id' => '',
             'name' => $bundle->name,
             'qty' => $qty,

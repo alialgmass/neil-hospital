@@ -56,7 +56,7 @@ enum SystemModule: string
             self::Pentacam => ['pentacam'],
             self::Doctors => ['doctors', 'dr-claims', 'dr-payments', 'doctor-shifts'],
             self::Accounting => ['treasury', 'journal', 'daily-journal', 'accounts', 'ledger', 'cost-centers', 'sales-invoices'],
-            self::Inventory => ['services', 'inventory', 'suppliers', 'purchases', 'stock-issue', 'stock-permits', 'supply-bundles', 'stock-take', 'insurance'],
+            self::Inventory => ['services', 'inventory', 'suppliers', 'purchases', 'item-sales', 'stock-issue', 'stock-permits', 'supply-bundles', 'stock-take', 'insurance'],
             self::Hr => ['employees', 'attendance', 'shifts', 'shift-handovers', 'leaves', 'payroll'],
             self::Reports => ['reports', 'archive'],
         };

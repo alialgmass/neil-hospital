@@ -62,6 +62,7 @@ const sourceOptions = [
     { value: 'insurance_claim',   label: 'مطالبة تأمين' },
     { value: 'insurance_collect', label: 'تحصيل تأمين' },
     { value: 'supplies_used',     label: 'صرف مستلزمات' },
+    { value: 'item_sale',         label: 'بيع أصناف' },
     { value: 'doctor_shift',      label: 'شيفت طبيب' },
     { value: 'doctor_payment',    label: 'صرف مستحقات طبيب' },
     { value: 'supplier_payment',  label: 'سداد مورد' },
@@ -80,6 +81,7 @@ const sourceBadge: Record<string, { label: string; classes: string }> = {
     insurance_claim:   { label: 'مطالبة تأمين',        classes: 'bg-pp text-pd' },
     insurance_collect: { label: 'تحصيل تأمين',        classes: 'bg-sp text-s' },
     supplies_used:     { label: 'صرف مستلزمات',       classes: 'bg-wp text-w' },
+    item_sale:         { label: 'بيع أصناف',          classes: 'bg-sp text-s' },
     doctor_shift:      { label: 'شيفت طبيب',           classes: 'bg-pp text-p' },
     doctor_payment:    { label: 'صرف مستحقات',        classes: 'bg-dp text-d' },
     supplier_payment:  { label: 'سداد مورد',           classes: 'bg-wp text-w' },
@@ -177,6 +179,7 @@ function doDelete() {
     if (!confirmingDeleteId.value) {
         return;
     }
+
     router.delete(`/journal/${confirmingDeleteId.value}`, {
         onFinish: () => {
             confirmingDeleteId.value = null;

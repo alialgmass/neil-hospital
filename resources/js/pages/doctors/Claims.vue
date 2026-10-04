@@ -1440,16 +1440,20 @@ function printInvoice() {
         <div id="dr-claims-print" dir="rtl">
             <!-- Hospital Header -->
             <div class="ph-header">
-                <div class="ph-logo">👁</div>
-                <div class="ph-hospital">
-                    <div class="ph-hospital-name">
-                        {{ hospitalName }}
+                <div class="ph-brand">
+                    <div class="ph-logo">👁</div>
+                    <div class="ph-hospital">
+                        <div class="ph-hospital-name">
+                            {{ hospitalName }}
+                        </div>
+                        <div class="ph-hospital-sub">{{ hospitalSpecialty }}</div>
                     </div>
-                    <div class="ph-hospital-sub">{{ hospitalSpecialty }}</div>
                 </div>
-                <div class="ph-doc-info">
+                <div class="ph-doc-center">
                     <div class="ph-doc-label">كشف مستحقات الطبيب</div>
                     <div class="ph-doc-name">{{ claims.doctor.name }}</div>
+                </div>
+                <div class="ph-doc-info">
                     <div class="ph-doc-period">
                         الفترة:
                         <span v-if="claims.period_from && claims.period_to"
@@ -1822,8 +1826,17 @@ function printInvoice() {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
-    .ph-hospital {
+    /* Brand and period blocks share the remaining width equally so the
+       doctor's name stays centred on the page. */
+    .ph-brand {
         flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+    .ph-doc-center {
+        flex-shrink: 0;
+        text-align: center;
     }
     .ph-hospital-name {
         font-size: 15px;
@@ -1836,6 +1849,7 @@ function printInvoice() {
         margin-top: 2px;
     }
     .ph-doc-info {
+        flex: 1;
         text-align: left;
     }
     .ph-doc-label {
@@ -1845,7 +1859,7 @@ function printInvoice() {
         letter-spacing: 0.5px;
     }
     .ph-doc-name {
-        font-size: 15px;
+        font-size: 18px;
         font-weight: 700;
         color: #0a4fa6;
         margin-top: 2px;
