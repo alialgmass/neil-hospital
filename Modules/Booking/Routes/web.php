@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Booking\Controllers\BookingController;
 use Modules\Booking\Controllers\BookingStatusController;
+use Modules\Booking\Controllers\CallCenterController;
 use Modules\Booking\Controllers\PayBookingController;
 
 Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->group(function () {
@@ -49,4 +50,27 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
     Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
         ->middleware('can:booking.view')
         ->name('patient-file');
+});
+
+// Call center: call log, preliminary bookings for reception, reminders & follow-ups.
+Route::middleware(['auth', 'verified'])->prefix('call-center')->name('call-center.')->group(function () {
+    Route::get('/', [CallCenterController::class, 'index'])
+        ->middleware('can:callcenter.view')
+        ->name('index');
+
+    Route::get('/lookup', [CallCenterController::class, 'lookup'])
+        ->middleware('can:callcenter.view')
+        ->name('lookup');
+
+    Route::post('/calls', [CallCenterController::class, 'storeCall'])
+        ->middleware('can:callcenter.write')
+        ->name('calls.store');
+
+    Route::post('/pre-bookings', [CallCenterController::class, 'storePreBooking'])
+        ->middleware('can:callcenter.write')
+        ->name('pre-bookings.store');
+
+    Route::patch('/pre-bookings/{id}/cancel', [CallCenterController::class, 'cancelPreBooking'])
+        ->middleware('can:callcenter.write')
+        ->name('pre-bookings.cancel');
 });

@@ -47,7 +47,7 @@ enum SystemModule: string
     public function routePrefixes(): array
     {
         return match ($this) {
-            self::Booking => ['booking'],
+            self::Booking => ['booking', 'call-center'],
             self::Clinic => ['clinic'],
             self::Labs => ['labs'],
             self::Surgery => ['surgery', 'or-rooms'],

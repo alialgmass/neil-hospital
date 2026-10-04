@@ -23,6 +23,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\Services\BookingService;
+use Modules\Booking\Services\CallCenterService;
 use Modules\Booking\States\CompletedElectronicState;
 use Modules\Booking\States\CompletedState;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
@@ -38,6 +39,7 @@ class BookingController extends Controller
         private readonly UpdateBookingAction $updateAction,
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly ActivityLogService $activityLog,
+        private readonly CallCenterService $callCenter,
     ) {}
 
     public function index(): Response
@@ -56,6 +58,10 @@ class BookingController extends Controller
             'doctors' => $formResources['doctors'],
             'orRooms' => $this->surgeryService->getOrRoomsForDate($filterDate),
             'today' => today()->toDateString(),
+            // Call-center preliminary bookings waiting for reception to confirm.
+            'preBookings' => request()->user()->can('booking.create')
+                ? $this->callCenter->pendingForReception()
+                : [],
         ]);
     }
 
@@ -70,9 +76,22 @@ class BookingController extends Controller
 
     public function store(StoreBookingRequest $request): RedirectResponse
     {
+        // Optional: the call-center preliminary booking this booking confirms.
+        $preBookingId = $request->validate([
+            'pre_booking_id' => ['nullable', 'string', 'exists:pre_bookings,id'],
+        ])['pre_booking_id'] ?? null;
+
         $data = BookingData::fromArray($request->validated());
         // All-or-nothing: a refused posting (e.g. a guide rule) must not leave a half-created booking behind.
-        $booking = DB::transaction(fn () => $this->createAction->execute($data, $request->user()->id));
+        $booking = DB::transaction(function () use ($data, $request, $preBookingId) {
+            $booking = $this->createAction->execute($data, $request->user()->id);
+
+            if ($preBookingId) {
+                $this->callCenter->markConverted($preBookingId, $booking, $request->user()->id);
+            }
+
+            return $booking;
+        });
 
         return redirect()->route('booking.index')
             ->with('success', "تم تسجيل الحجز بنجاح — {$booking->file_no}");

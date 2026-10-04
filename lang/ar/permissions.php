@@ -14,6 +14,8 @@ return [
         'booking.edit_completed' => 'تعديل حجز مكتمل',
         'booking.delete' => 'حذف حجز',
         'booking.pay' => 'تسجيل مدفوعات الحجز',
+        'callcenter.view' => 'عرض الكول سنتر',
+        'callcenter.write' => 'تسجيل المكالمات والحجوزات المبدئية',
         'clinic.view' => 'عرض العيادة',
         'clinic.write' => 'تسجيل الكشف والتحويل',
         'examinations.view' => 'عرض الفحص الطبي',
@@ -67,6 +69,7 @@ return [
     'groups' => [
         'dashboard' => 'لوحة التحكم',
         'booking' => 'الحجوزات',
+        'callcenter' => 'الكول سنتر',
         'clinic' => 'العيادة',
         'examinations' => 'الفحص الطبي',
         'labs' => 'الفحوصات',
@@ -99,6 +102,7 @@ return [
         'accountant' => 'محاسب',
         'nurse' => 'ممرض / مساعد',
         'store_keeper' => 'أمين المخزن',
+        'call_center' => 'كول سنتر',
     ],
 
 ];

@@ -9,6 +9,7 @@ import {
     Search,
     X,
     CreditCard,
+    PhoneCall,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
@@ -78,6 +79,25 @@ interface Props {
     insuranceCompanies?: { id: string; name: string }[];
     orRooms?: { id: number; name: string; beds: { id: number; bed_number: number }[] }[];
     today?: string;
+    /** Call-center preliminary bookings waiting for reception to confirm. */
+    preBookings?: PreBooking[];
+}
+
+interface PreBooking {
+    id: string;
+    patient_name: string;
+    patient_phone: string;
+    national_id: string | null;
+    file_no: string | null;
+    dept: string;
+    service_id: string | null;
+    doctor_id: string | null;
+    preferred_date: string;
+    preferred_time: string | null;
+    notes: string | null;
+    service?: { id: string; name: string } | null;
+    doctor?: { id: string; name: string } | null;
+    creator?: { id: number; name: string } | null;
 }
 
 const props = defineProps<Props>();
@@ -93,6 +113,35 @@ const canEditCompleted = computed(() => can('booking.edit_completed'));
 
 // ── State ──
 const showCreateModal = ref(false);
+
+// ── Call-center preliminary bookings → prefilled create form ──
+const createPrefill = ref<Record<string, unknown> | undefined>(undefined);
+const createFormKey = ref(0);
+
+function openCreate(prefill?: Record<string, unknown>) {
+    if (!canCreate.value) {
+        return;
+    }
+
+    createPrefill.value = prefill;
+    createFormKey.value++;
+    showCreateModal.value = true;
+}
+
+function convertPreBooking(pre: PreBooking) {
+    openCreate({
+        pre_booking_id: pre.id,
+        patient_name: pre.patient_name,
+        patient_phone: pre.patient_phone,
+        national_id: pre.national_id ?? '',
+        dept: pre.dept,
+        service_id: pre.service_id ?? '',
+        doctor_id: pre.doctor_id ?? '',
+        visit_date: pre.preferred_date,
+        visit_time: pre.preferred_time ?? '',
+        visit_note: pre.notes ?? '',
+    });
+}
 const editBooking = ref<Booking | null>(null);
 const deleteTarget = ref<Booking | null>(null);
 
@@ -477,11 +526,49 @@ const isDeleteModalOpen = computed({
             class="btn btn-p flex items-center gap-1.5 rounded-[7px] bg-hospital-primary px-[13px] py-[7px] text-[12px] font-bold text-white transition-all hover:bg-hospital-primary-light active:scale-95 shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
             :disabled="!canCreate"
             :title="canCreate ? undefined : NO_PERMISSION_TITLE"
-            @click="canCreate && (showCreateModal = true)"
+            @click="openCreate()"
         >
             <CalendarPlus class="h-3.5 w-3.5" />
             <span>حجز جديد</span>
         </button>
+    </div>
+
+    <!-- Call-center preliminary bookings waiting for confirmation -->
+    <div
+        v-if="canCreate && preBookings && preBookings.length"
+        class="mb-4 overflow-hidden rounded-[var(--rl)] border border-amber-200 bg-amber-50/60 [box-shadow:var(--sh)]"
+    >
+        <div class="flex items-center gap-2 border-b border-amber-200 px-4 py-2.5">
+            <PhoneCall class="h-4 w-4 text-amber-700" />
+            <p class="text-[13px] font-bold text-amber-800">حجوزات مبدئية من الكول سنتر ({{ preBookings.length }})</p>
+        </div>
+        <table class="w-full text-right text-[12px]">
+            <tbody>
+                <tr v-for="pre in preBookings" :key="pre.id" class="border-b border-amber-100 last:border-0">
+                    <td class="whitespace-nowrap px-4 py-2 font-mono text-hospital-text-2">
+                        {{ pre.preferred_date }} {{ pre.preferred_time?.slice(0, 5) ?? '' }}
+                    </td>
+                    <td class="px-4 py-2">
+                        <span class="font-bold text-hospital-text">{{ pre.patient_name }}</span>
+                        <span class="mr-2 font-mono text-hospital-text-3">{{ pre.patient_phone }}</span>
+                    </td>
+                    <td class="px-4 py-2 text-hospital-text-2">
+                        {{ pre.service?.name ?? pre.dept }}<template v-if="pre.doctor"> — {{ pre.doctor.name }}</template>
+                    </td>
+                    <td class="max-w-xs px-4 py-2 text-hospital-text-3">{{ pre.notes ?? '' }}</td>
+                    <td class="px-4 py-2 text-hospital-text-3">{{ pre.creator?.name ?? '' }}</td>
+                    <td class="px-4 py-2 text-left">
+                        <button
+                            type="button"
+                            class="rounded-md bg-hospital-primary px-3 py-1 text-[11px] font-bold text-white hover:bg-hospital-primary-light"
+                            @click="convertPreBooking(pre)"
+                        >
+                            تحويل لحجز
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 
     <!-- Table Card -->
@@ -639,11 +726,13 @@ const isDeleteModalOpen = computed({
             </div>
         </template>
         <BookingForm
+            :key="createFormKey"
             :services="(services as any) ?? []"
             :doctors="(doctors as any) ?? []"
             :insurance-companies="(insuranceCompanies as any) ?? []"
             :price-lists="(priceLists as any) ?? []"
             :or-rooms="(orRooms as any) ?? []"
+            :booking="createPrefill"
             :today="today"
             submit-url="/booking"
             submit-method="post"

@@ -123,6 +123,8 @@ const form = useForm({
     eye_side: (props.booking?.eye_side as string) ?? '',
     analysis_type: (props.booking?.analysis_type as string) ?? '',
     analysis_notes: (props.booking?.analysis_notes as string) ?? '',
+    // Set when reception confirms a call-center preliminary booking.
+    pre_booking_id: (props.booking?.pre_booking_id as string) ?? '',
 });
 
 const isCreating = computed(() => props.submitMethod === 'post');

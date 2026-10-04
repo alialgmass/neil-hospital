@@ -41,6 +41,7 @@ import {
     HeartPulse,
     BadgeDollarSign,
     Package,
+    PhoneCall,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { usePermissions } from '@/composables/usePermissions';
@@ -81,6 +82,7 @@ const navGroups: NavGroup[] = [
         icon: HeartPulse,
         items: [
             { title: 'الحجز', href: '/booking', icon: CalendarPlus, permission: 'booking.view', module: 'booking' },
+            { title: 'الكول سنتر', href: '/call-center', icon: PhoneCall, permission: 'callcenter.view', module: 'booking' },
             { title: 'العيادة', href: '/clinic', icon: Stethoscope, permission: 'clinic.view', module: 'clinic' },
             { title: 'الفحوصات', href: '/labs', icon: FlaskConical, permission: 'labs.view', module: 'labs' },
             { title: 'العمليات', href: '/surgery', icon: Scissors, permission: 'surgery.view', module: 'surgery' },

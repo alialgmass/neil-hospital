@@ -345,7 +345,7 @@ class ReportingService
                 'purchase_invoices.invoice_date as movement_date',
             )
             ->when($itemId, fn ($q, $v) => $q->where('purchase_invoice_items.item_id', $v))
-            ->whereBetween('purchase_invoices.invoice_date', [$from, $to]);
+            ->whereBetween('purchase_invoices.invoice_date', [$from, $to.' 23:59:59']);
 
         // Item sales invoices take stock out at the item's cost.
         $saleMovements = DB::table('item_sales_invoice_items')
@@ -365,7 +365,7 @@ class ReportingService
                 'item_sales_invoices.invoice_date as movement_date',
             )
             ->when($itemId, fn ($q, $v) => $q->where('item_sales_invoice_items.item_id', $v))
-            ->whereBetween('item_sales_invoices.invoice_date', [$from, $to]);
+            ->whereBetween('item_sales_invoices.invoice_date', [$from, $to.' 23:59:59']);
 
         $rows = DB::query()
             ->fromSub($permitMovements->unionAll($purchaseMovements)->unionAll($saleMovements), 'movements')
@@ -407,7 +407,7 @@ class ReportingService
             ? round((float) DB::table('item_sales_invoice_items')
                 ->join('item_sales_invoices', 'item_sales_invoice_items.invoice_id', '=', 'item_sales_invoices.id')
                 ->when($itemId, fn ($q, $v) => $q->where('item_sales_invoice_items.item_id', $v))
-                ->whereBetween('item_sales_invoices.invoice_date', [$from, $to])
+                ->whereBetween('item_sales_invoices.invoice_date', [$from, $to.' 23:59:59'])
                 ->sum('item_sales_invoice_items.line_total'), 2)
             : 0.0;
 

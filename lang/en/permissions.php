@@ -10,6 +10,8 @@ return [
         'booking.edit_completed' => 'Edit completed booking',
         'booking.delete' => 'Delete booking',
         'booking.pay' => 'Record booking payments',
+        'callcenter.view' => 'View call center',
+        'callcenter.write' => 'Log calls and preliminary bookings',
         'clinic.view' => 'View clinic',
         'clinic.write' => 'Record examinations and referrals',
         'examinations.view' => 'View medical examinations',
@@ -62,6 +64,7 @@ return [
     'groups' => [
         'dashboard' => 'Dashboard',
         'booking' => 'Bookings',
+        'callcenter' => 'Call center',
         'clinic' => 'Clinic',
         'examinations' => 'Medical examinations',
         'labs' => 'Lab tests',
@@ -93,6 +96,7 @@ return [
         'accountant' => 'Accountant',
         'nurse' => 'Nurse / assistant',
         'store_keeper' => 'Store keeper',
+        'call_center' => 'Call center',
     ],
 
 ];

@@ -18,6 +18,8 @@ class RolesPermissionsSeeder extends Seeder
         'booking.edit_completed',
         'booking.delete',
         'booking.pay',
+        'callcenter.view',
+        'callcenter.write',
         'clinic.view',
         'clinic.write',
         'examinations.view',
@@ -125,6 +127,12 @@ class RolesPermissionsSeeder extends Seeder
             'lasik.view',
             'laser.view',
             'inventory.view',
+        ],
+        'call_center' => [
+            'dashboard',
+            'callcenter.view',
+            'callcenter.write',
+            'hide_amounts',
         ],
         'store_keeper' => [
             'dashboard',
