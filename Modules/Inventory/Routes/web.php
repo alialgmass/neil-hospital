@@ -130,6 +130,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:inventory.write')
             ->name('store');
 
+        Route::get('/customers/search', [ItemSalesInvoiceController::class, 'searchCustomers'])
+            ->middleware('can:inventory.view')
+            ->name('customers.search');
+
         Route::get('/{id}', [ItemSalesInvoiceController::class, 'show'])
             ->middleware('can:inventory.view')
             ->name('show');

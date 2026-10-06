@@ -67,6 +67,37 @@ class ItemSalesInvoiceTest extends TestCase
         ], $overrides);
     }
 
+    public function test_customer_search_returns_matching_past_invoice_customers(): void
+    {
+        $item = $this->makeItem('قطرة');
+
+        $this->actingAs($this->storeKeeper)
+            ->post('/item-sales', $this->payload(
+                [['item_id' => $item->id, 'qty' => 1, 'unit_price' => 30]],
+                ['customer_name' => 'سيد أحمد', 'customer_phone' => '0100'],
+            ));
+
+        $this->actingAs($this->viewer)
+            ->getJson('/item-sales/customers/search?q='.urlencode('سيد'))
+            ->assertOk()
+            ->assertJsonFragment(['customer_name' => 'سيد أحمد', 'customer_phone' => '0100']);
+    }
+
+    public function test_customer_search_with_empty_query_returns_nothing(): void
+    {
+        $this->actingAs($this->viewer)
+            ->getJson('/item-sales/customers/search?q=')
+            ->assertOk()
+            ->assertExactJson([]);
+    }
+
+    public function test_customer_search_requires_inventory_view_permission(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->getJson('/item-sales/customers/search?q=a')
+            ->assertForbidden();
+    }
+
     private function accountBalance(string $code): float
     {
         return (float) Account::where('code', $code)->value('balance');

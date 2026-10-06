@@ -4,11 +4,13 @@ namespace Modules\Inventory\Controllers;
 
 use App\Enums\Department;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Booking\Enums\PayMethod;
+use Modules\Booking\Models\Booking;
 use Modules\Inventory\Actions\CreateItemSalesInvoiceAction;
 use Modules\Inventory\Http\Requests\StoreItemSalesInvoiceRequest;
 use Modules\Inventory\Models\InventoryItem;
@@ -86,6 +88,48 @@ class ItemSalesInvoiceController extends Controller
         return redirect()
             ->route('item-sales.show', $invoice->id)
             ->with('success', "تم إصدار فاتورة البيع رقم {$invoice->invoice_no}.");
+    }
+
+    /**
+     * Customer lookup for the sales invoice form: booked patients first, then past invoice customers.
+     */
+    public function searchCustomers(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->query('q', ''));
+
+        if ($term === '') {
+            return response()->json([]);
+        }
+
+        $patients = Booking::query()
+            ->where('patient_name', 'like', "%{$term}%")
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get(['file_no', 'patient_name', 'patient_phone'])
+            ->map(fn (Booking $booking) => [
+                'customer_name' => $booking->patient_name,
+                'customer_phone' => $booking->patient_phone,
+                'file_no' => $booking->file_no,
+            ]);
+
+        $pastCustomers = ItemSalesInvoice::query()
+            ->where('customer_name', 'like', "%{$term}%")
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get(['customer_name', 'customer_phone', 'file_no'])
+            ->map(fn (ItemSalesInvoice $invoice) => [
+                'customer_name' => $invoice->customer_name,
+                'customer_phone' => $invoice->customer_phone,
+                'file_no' => $invoice->file_no,
+            ]);
+
+        $customers = $patients
+            ->concat($pastCustomers)
+            ->unique(fn (array $customer) => $customer['file_no'] ?: $customer['customer_name'])
+            ->take(10)
+            ->values();
+
+        return response()->json($customers);
     }
 
     public function show(string $id): Response

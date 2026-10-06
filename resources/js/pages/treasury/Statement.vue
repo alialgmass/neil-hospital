@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import { Printer } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 interface StatementRow {
     date: string;
@@ -32,6 +32,10 @@ function applyFilters() {
         { preserveState: true },
     );
 }
+
+const totalIn = computed(() => props.statement.statement.reduce((sum, row) => sum + row.in, 0));
+const totalOut = computed(() => props.statement.statement.reduce((sum, row) => sum + row.out, 0));
+const closingBalance = computed(() => props.statement.opening_balance + totalIn.value - totalOut.value);
 
 function fmt(n: number) {
     return n > 0 ? n.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—';
@@ -89,6 +93,17 @@ function printPage() {
                     <td class="px-4 py-10 text-center text-hospital-text-3" colspan="6">لا توجد حركات في هذه الفترة</td>
                 </tr>
             </tbody>
+            <tfoot v-if="statement.statement.length > 0" class="border-t-2 border-hospital-border bg-hospital-bg font-bold">
+                <tr>
+                    <td class="px-4 py-3" colspan="2">الإجمالي ({{ statement.statement.length }} حركة)</td>
+                    <td class="px-4 py-3 text-left font-mono text-hospital-success">{{ fmtBal(totalIn) }}</td>
+                    <td class="px-4 py-3 text-left font-mono text-hospital-danger">{{ fmtBal(totalOut) }}</td>
+                    <td class="px-4 py-3 text-left font-mono" :class="closingBalance < 0 ? 'text-hospital-danger' : 'text-hospital-success'">
+                        {{ fmtBal(closingBalance) }}
+                    </td>
+                    <td class="px-4 py-3 text-hospital-text-2">الرصيد الختامي</td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </template>

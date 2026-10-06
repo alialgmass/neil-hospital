@@ -16,13 +16,15 @@ use Modules\Surgery\Models\Surgery;
 /**
  * Edits or removes a single line of a case's supplies_used.
  *
- * - Individual items only live on the case (they reduce the doctor's share
- *   via supply_total and never moved stock), so editing/removing them just
- *   rewrites the line and the total.
+ * - An individual item added with a stock-issue permit moved stock and posted
+ *   its consumption entry; editing it re-issues the permit for the new
+ *   quantity and removing it returns the stock, reverses the entries and
+ *   deletes the permit. Lines saved before permits existed (no permit_id)
+ *   only live on the case — editing/removing them rewrites the line and the
+ *   total.
  * - A bundle (بند) line moved stock and posted journal entries through its
- *   own stock permit; removing it returns that stock, reverses the entries
- *   and deletes the permit. Bundles can't be edited in place — remove and
- *   re-add them instead.
+ *   own stock permit; removing it does the same. Bundles can't be edited in
+ *   place — remove and re-add them instead.
  *
  * Lines are addressed by their position; the caller also sends the line's
  * item/bundle id so a stale screen can't hit a different line.
@@ -33,6 +35,7 @@ class ModifySurgerySupplyLineAction
         private readonly JournalService $journalService,
         private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
         private readonly ActivityLogService $activityLog,
+        private readonly IssueCaseSuppliesPermitAction $issuePermit,
     ) {}
 
     public function update(string $surgeryId, int $index, string $lineRef, float $qty, float $unitCost): Surgery
@@ -53,6 +56,12 @@ class ModifySurgerySupplyLineAction
                 'total' => round($qty * $unitCost, 2),
             ];
 
+            // A line backed by an issue permit re-issues it for the new quantity.
+            if (! empty($line['permit_id'])) {
+                $this->releasePermit($surgery, $line, $lines);
+                $lines[$index]['permit_id'] = $this->issuePermit->execute($surgery, [$lines[$index]])->id;
+            }
+
             $surgery = $this->saveLines($surgery, $lines);
 
             $this->activityLog->log(
@@ -71,8 +80,8 @@ class ModifySurgerySupplyLineAction
         return DB::transaction(function () use ($surgeryId, $index, $lineRef) {
             [$surgery, $lines, $line] = $this->lockLine($surgeryId, $index, $lineRef);
 
-            if (! empty($line['is_bundle'])) {
-                $this->reverseBundle($surgery, $line, $lines);
+            if (! empty($line['is_bundle']) || ! empty($line['permit_id'])) {
+                $this->releasePermit($surgery, $line, $lines);
             }
 
             array_splice($lines, $index, 1);
@@ -160,7 +169,7 @@ class ModifySurgerySupplyLineAction
      * @param  array<string, mixed>  $line
      * @param  array<int, array<string, mixed>>  $lines
      */
-    private function reverseBundle(Surgery $surgery, array $line, array $lines): void
+    private function releasePermit(Surgery $surgery, array $line, array $lines): void
     {
         $permit = $this->bundlePermit($surgery, $line, $lines);
 
@@ -173,7 +182,8 @@ class ModifySurgerySupplyLineAction
         JournalEntry::where('source', JournalSource::SUPPLIES_USED->value)
             ->where(function ($query) use ($permit) {
                 $query->where('idempotency_key', 'like', "bundle_supply_item:{$permit->id}:%")
-                    ->orWhere('idempotency_key', "bundle_supply_charge:{$permit->id}");
+                    ->orWhere('idempotency_key', "bundle_supply_charge:{$permit->id}")
+                    ->orWhere('idempotency_key', 'like', "stock_issue:{$permit->id}:%");
             })
             ->whereNull('reversed_at')
             ->get()

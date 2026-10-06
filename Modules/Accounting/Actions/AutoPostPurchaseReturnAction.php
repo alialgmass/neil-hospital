@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Inventory\Models\PurchaseInvoice;
@@ -43,7 +44,13 @@ class AutoPostPurchaseReturnAction
 
         $this->journalService->record([
             'date' => now()->toDateString(),
-            'description' => "مرتجع مشتريات — فاتورة {$invoice->invoice_no} — {$supplierName}",
+            'description' => JournalNarration::make('مرتجع مشتريات', [
+                'فاتورة' => $invoice->invoice_no,
+                'المورد' => $supplierName,
+                'قيمة المرتجع' => JournalNarration::money($returnTotal),
+                'إجمالي الفاتورة' => JournalNarration::money($invoice->total),
+                'التسوية' => $debitId === $this->accountResolver->id(AccountCode::CASH) ? 'استرداد نقدي' : 'خصم من حساب المورد',
+            ]),
             'debit_account_id' => $debitId,
             'credit_account_id' => $inventoryId,
             'amount' => round($returnTotal, 2),

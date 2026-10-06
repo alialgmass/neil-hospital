@@ -40,9 +40,9 @@ readonly class SuppliesUsedData
             $items[] = [
                 'inventory_item_id' => $itemId,
                 'bundle_id' => $item['bundle_id'] ?? null,
-                // The bundle's stock permit — lets the line be deleted later
+                // The line's stock permit — lets the line be edited or deleted later
                 // with its stock and journal entries reversed.
-                'permit_id' => $isBundle ? ($item['permit_id'] ?? null) : null,
+                'permit_id' => $item['permit_id'] ?? null,
                 'name' => $item['name'] ?? '',
                 'qty' => $qty,
                 'unit_cost' => $unitCost,

@@ -35,6 +35,7 @@ import {
     CalendarCheck,
     Clock,
     ArrowLeftRight,
+    MinusCircle,
     UmbrellaOff,
     Banknote,
     ChevronDown,
@@ -104,6 +105,7 @@ const navGroups: NavGroup[] = [
         icon: BadgeDollarSign,
         items: [
             { title: 'الخزنة', href: '/treasury', icon: Wallet, permission: 'treasury.view', module: 'accounting' },
+            { title: 'كشف حركة الخزنة', href: '/treasury/statement', icon: FileText, permission: 'treasury.view', module: 'accounting' },
             { title: 'قيود اليومية', href: '/journal', icon: BookOpen, permission: 'journal.view', module: 'accounting' },
             { title: 'الدليل المحاسبي', href: '/accounts', icon: Library, permission: 'journal.view', module: 'accounting' },
             { title: 'ميزان المراجعة', href: '/ledger/trial-balance', icon: Scale, permission: 'reports.financial', module: 'accounting' },
@@ -136,6 +138,7 @@ const navGroups: NavGroup[] = [
             { title: 'الورديات', href: '/shifts', icon: Clock, permission: 'hr.view', module: 'hr' },
             { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view', module: 'hr' },
             { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view', module: 'hr' },
+            { title: 'خصومات الموظفين', href: '/employee-deductions', icon: MinusCircle, permission: 'hr.manage', module: 'hr' },
             { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage', module: 'hr' },
         ],
     },

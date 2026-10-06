@@ -2,6 +2,7 @@
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import { usePermissions } from '@/composables/usePermissions';
 import type { DepartmentOption } from '@/types';
 import AnalysisFields from './AnalysisFields.vue';
 import BedPicker from './BedPicker.vue';
@@ -93,6 +94,13 @@ const emit = defineEmits<{
 
 const page = usePage<{ departments?: DepartmentOption[] }>();
 
+/** Current local time as HH:MM — the default visit time of a new booking. */
+function currentTime(): string {
+    const now = new Date();
+
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
 const form = useForm({
     patient_name: (props.booking?.patient_name as string) ?? '',
     patient_phone: (props.booking?.patient_phone as string) ?? '',
@@ -110,7 +118,9 @@ const form = useForm({
     ins_company_id: (props.booking?.ins_company_id as string) ?? '',
     visit_date:
         ((props.booking?.visit_date as string) ?? props.today ?? '').slice(0, 10),
-    visit_time: ((props.booking?.visit_time as string) ?? '').slice(0, 5),
+    visit_time: props.booking
+        ? ((props.booking.visit_time as string) ?? '').slice(0, 5)
+        : currentTime(),
     price: (props.booking?.price as string) ?? '0',
     discount: (props.booking?.discount as string) ?? '0',
     ins_amount: (props.booking?.ins_amount as string) ?? '0',
@@ -240,8 +250,12 @@ watch(netAmount, (amount) => {
     }
 });
 
+const { can } = usePermissions();
+const canViewPrices = computed(() => can('booking.view_prices'));
+const canEditPrices = computed(() => can('booking.edit_prices'));
+
 const showInvoicePreview = computed(
-    () => form.pay_status === 'paid' || form.pay_status === 'partial',
+    () => canViewPrices.value && (form.pay_status === 'paid' || form.pay_status === 'partial'),
 );
 
 function recalcPrice() {
@@ -441,6 +455,8 @@ function submit() {
                     :is-insurance="isInsurance"
                     :net-amount="netAmount"
                     :is-editing-paid-booking="isEditingPaidBooking"
+                    :can-view-prices="canViewPrices"
+                    :can-edit-prices="canEditPrices"
                     :errors="form.errors"
                     @update:model-value="(v) => Object.assign(form, v)"
                 />
@@ -495,6 +511,7 @@ function submit() {
                     :visit-date="form.visit_date"
                     :visit-time="form.visit_time"
                     :net-amount="netAmount"
+                    :show-amount="canViewPrices"
                 />
 
                 <div class="bk-section">

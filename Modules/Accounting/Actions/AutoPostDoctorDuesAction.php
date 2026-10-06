@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 
@@ -42,7 +43,13 @@ class AutoPostDoctorDuesAction
 
         $this->journalService->record([
             'date' => $date ?? now()->toDateString(),
-            'description' => "نصيب الطبيب: {$doctorName} — ".$dept->label(),
+            'description' => JournalNarration::make('استحقاق نصيب طبيب', [
+                'الطبيب' => $doctorName,
+                'القسم' => $dept,
+                'المبلغ' => JournalNarration::money($amount),
+                'المرجع' => $reference,
+                'التاريخ' => $date ?? now()->toDateString(),
+            ]),
             'debit_account_id' => $expenseId,
             'credit_account_id' => $payableId,
             'amount' => $amount,

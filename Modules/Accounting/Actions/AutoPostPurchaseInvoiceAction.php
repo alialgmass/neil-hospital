@@ -8,6 +8,7 @@ use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Inventory\Models\PurchaseInvoice;
@@ -52,7 +53,15 @@ class AutoPostPurchaseInvoiceAction
 
         $this->journalService->record([
             'date' => $invoice->invoice_date->toDateString(),
-            'description' => "فاتورة شراء {$invoice->invoice_no} — {$supplierName}",
+            'description' => JournalNarration::make('فاتورة شراء '.($isCash ? '(نقدي)' : '(آجل)'), [
+                'فاتورة' => $invoice->invoice_no,
+                'المورد' => $supplierName,
+                'الإجمالي' => JournalNarration::money($total),
+                'الخصم' => (float) $invoice->discount > 0 ? JournalNarration::money($invoice->discount) : null,
+                'المدفوع' => JournalNarration::money($invoice->paid_amount),
+                'المتبقي' => $isCash ? null : JournalNarration::money($total - (float) $invoice->paid_amount),
+                'تاريخ الفاتورة' => $invoice->invoice_date->toDateString(),
+            ]),
             'debit_account_id' => $inventoryId,
             'credit_account_id' => $creditId,
             'amount' => $total,

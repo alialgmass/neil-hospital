@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
@@ -39,7 +40,7 @@ class AutoPostPayrollAction
 
         $this->journalService->record([
             'date' => now()->toDateString(),
-            'description' => "استحقاق راتب {$employeeName} — {$payroll->month}/{$payroll->year}",
+            'description' => $this->narration('استحقاق راتب', $payroll, $employeeName),
             'debit_account_id' => $salariesId,
             'credit_account_id' => $payableId,
             'amount' => $amount,
@@ -67,7 +68,7 @@ class AutoPostPayrollAction
 
         $this->treasuryService->record([
             'type' => TreasuryType::Out,
-            'description' => "صرف راتب {$employeeName} — {$payroll->month}/{$payroll->year}",
+            'description' => $this->narration('صرف راتب', $payroll, $employeeName),
             'amount' => $amount,
             'date' => $date,
             'source' => JournalSource::SALARY,
@@ -78,7 +79,7 @@ class AutoPostPayrollAction
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "صرف راتب {$employeeName} — {$payroll->month}/{$payroll->year}",
+            'description' => $this->narration('صرف راتب', $payroll, $employeeName),
             'debit_account_id' => $payableId,
             'credit_account_id' => $cashId,
             'amount' => $amount,
@@ -86,6 +87,19 @@ class AutoPostPayrollAction
             'reference' => (string) $payroll->id,
             'idempotency_key' => "payroll_payment:{$payroll->id}",
             'cost_center' => CostCenter::Admin,
+        ]);
+    }
+
+    private function narration(string $title, Payroll $payroll, string $employeeName): string
+    {
+        return JournalNarration::make($title, [
+            'الموظف' => $employeeName,
+            'عن شهر' => "{$payroll->month}/{$payroll->year}",
+            'الأساسي' => JournalNarration::money($payroll->base_salary),
+            'البدلات' => (float) $payroll->allowances > 0 ? JournalNarration::money($payroll->allowances) : null,
+            'الإضافي' => (float) $payroll->overtime_pay > 0 ? JournalNarration::money($payroll->overtime_pay) : null,
+            'الخصومات' => (float) $payroll->deductions > 0 ? JournalNarration::money($payroll->deductions) : null,
+            'الصافي' => JournalNarration::money($payroll->net_salary),
         ]);
     }
 }

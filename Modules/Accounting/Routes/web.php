@@ -19,6 +19,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:treasury.view')
             ->name('statement');
 
+        Route::get('/{id}/voucher', [TreasuryController::class, 'voucher'])
+            ->middleware('can:treasury.view')
+            ->name('voucher');
+
+        Route::post('/vouchers', [TreasuryController::class, 'storeVoucher'])
+            ->middleware('can:treasury.write')
+            ->name('vouchers.store');
+
         Route::post('/', [TreasuryController::class, 'store'])
             ->middleware('can:treasury.write')
             ->name('store');

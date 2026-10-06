@@ -42,6 +42,16 @@ class TreasuryEntry extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * Human-readable voucher number: RCV- for receipts (inflows), PAY- for payments (outflows).
+     */
+    public function voucherNumber(): string
+    {
+        $prefix = $this->type === TreasuryType::In ? 'RCV' : 'PAY';
+
+        return $prefix.'-'.$this->date->format('Ymd').'-'.strtoupper(substr($this->id, -5));
+    }
+
     /** The entry this one reverses, if any. */
     public function reversalOf(): BelongsTo
     {

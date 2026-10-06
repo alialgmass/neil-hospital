@@ -57,7 +57,7 @@ enum SystemModule: string
             self::Doctors => ['doctors', 'dr-claims', 'dr-payments', 'doctor-shifts'],
             self::Accounting => ['treasury', 'journal', 'daily-journal', 'accounts', 'ledger', 'cost-centers', 'sales-invoices'],
             self::Inventory => ['services', 'inventory', 'suppliers', 'purchases', 'item-sales', 'stock-issue', 'stock-permits', 'supply-bundles', 'stock-take', 'insurance'],
-            self::Hr => ['employees', 'attendance', 'shifts', 'shift-handovers', 'leaves', 'payroll'],
+            self::Hr => ['employees', 'attendance', 'shifts', 'shift-handovers', 'leaves', 'employee-deductions', 'payroll'],
             self::Reports => ['reports', 'archive'],
         };
     }

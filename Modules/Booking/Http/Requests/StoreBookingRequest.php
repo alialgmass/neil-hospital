@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\AnalysisType;
 use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,6 +30,10 @@ class StoreBookingRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        if (blank($this->input('visit_time'))) {
+            $this->merge(['visit_time' => now()->format('H:i')]);
+        }
+
         $serviceIds = array_filter((array) $this->input('service_ids', []));
 
         if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
@@ -48,16 +53,29 @@ class StoreBookingRequest extends FormRequest
         // client-supplied `services` array for any other department.
         $this->merge(['services' => []]);
 
+        $canEditPrices = $this->canEditPrices();
+
         $price = app(ServicePricingService::class)->priceFor(
             $this->input('service_id'),
             $this->input('eye_side'),
-            $this->input('price') !== null ? (float) $this->input('price') : null,
+            $canEditPrices && $this->input('price') !== null ? (float) $this->input('price') : null,
             $this->isInsurance(),
         );
 
         if ($price !== null) {
             $this->merge(['price' => $price]);
+        } elseif (! $canEditPrices) {
+            // A typed price is price editing — without the permission it is never trusted.
+            $this->merge(['price' => 0.0]);
         }
+    }
+
+    /**
+     * Typing or overriding a booking price needs its own permission.
+     */
+    private function canEditPrices(): bool
+    {
+        return $this->user()?->can('booking.edit_prices') ?? false;
     }
 
     /**
@@ -109,7 +127,7 @@ class StoreBookingRequest extends FormRequest
                 },
             ],
             'eye_side' => ['required', 'in:OD,OS,OU'],
-            'analysis_type' => ['nullable', 'string', 'max:150'],
+            'analysis_type' => ['nullable', Rule::in(array_column(AnalysisType::cases(), 'value'))],
             'analysis_notes' => ['nullable', 'string', 'max:500'],
         ];
     }
@@ -153,7 +171,7 @@ class StoreBookingRequest extends FormRequest
             'bed_id.exists' => 'السرير المحدد غير موجود.',
             'eye_side.required' => 'يجب تحديد جانب العين.',
             'eye_side.in' => 'جانب العين غير صالح.',
-            'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
+            'analysis_type.in' => 'نوع التحليل يجب أن يكون Negative أو Positive.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',
         ];
     }

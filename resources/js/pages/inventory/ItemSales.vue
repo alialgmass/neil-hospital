@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link, router, useForm } from '@inertiajs/vue3'
 import { Banknote, FileText, Percent, Printer, Receipt, ShoppingBag, Trash2, TrendingUp } from 'lucide-vue-next'
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
 import StatCard from '@/components/shared/StatCard.vue'
@@ -112,6 +112,55 @@ function openCreate() {
     form.items = [{ item_id: '', qty: 1, unit_price: 0 }]
     showModal.value = true
 }
+
+interface CustomerMatch {
+    customer_name: string
+    customer_phone: string | null
+    file_no: string | null
+}
+
+const customerResults = ref<CustomerMatch[]>([])
+const customerDropdownOpen = ref(false)
+let customerDebounce: ReturnType<typeof setTimeout> | undefined
+
+function onCustomerNameInput(value: string) {
+    form.customer_name = value
+    clearTimeout(customerDebounce)
+
+    if (!value.trim()) {
+        customerResults.value = []
+        customerDropdownOpen.value = false
+
+        return
+    }
+
+    customerDebounce = setTimeout(async () => {
+        try {
+            const res = await fetch(`/item-sales/customers/search?q=${encodeURIComponent(value)}`, {
+                headers: { Accept: 'application/json' },
+            })
+            customerResults.value = res.ok ? await res.json() : []
+            customerDropdownOpen.value = customerResults.value.length > 0
+        } catch {
+            customerResults.value = []
+        }
+    }, 300)
+}
+
+function selectCustomer(customer: CustomerMatch) {
+    form.customer_name = customer.customer_name
+    form.customer_phone = customer.customer_phone ?? form.customer_phone
+    form.file_no = customer.file_no ?? form.file_no
+    customerDropdownOpen.value = false
+}
+
+function closeCustomerDropdown() {
+    setTimeout(() => {
+        customerDropdownOpen.value = false
+    }, 150)
+}
+
+onBeforeUnmount(() => clearTimeout(customerDebounce))
 
 function addRow() {
     form.items.push({ item_id: '', qty: 1, unit_price: 0 })
@@ -294,10 +343,36 @@ function submit() {
         <Modal v-model="showModal" title="فاتورة بيع جديدة" size="lg">
             <form class="space-y-4" @submit.prevent="submit">
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
+                    <div class="relative">
                         <label class="form-label">اسم العميل / المريض *</label>
-                        <input v-model="form.customer_name" class="input-field" type="text" />
+                        <input
+                            :value="form.customer_name"
+                            class="input-field"
+                            type="text"
+                            placeholder="ابحث بالاسم..."
+                            autocomplete="off"
+                            @input="onCustomerNameInput(($event.target as HTMLInputElement).value)"
+                            @focus="customerDropdownOpen = customerResults.length > 0"
+                            @blur="closeCustomerDropdown"
+                        />
                         <p v-if="form.errors.customer_name" class="form-error">{{ form.errors.customer_name }}</p>
+                        <ul
+                            v-if="customerDropdownOpen && customerResults.length > 0"
+                            class="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-hospital-border bg-white shadow-lg"
+                        >
+                            <li
+                                v-for="(customer, idx) in customerResults"
+                                :key="`${customer.file_no ?? ''}-${idx}`"
+                                class="cursor-pointer px-3 py-2 text-xs hover:bg-hospital-bg"
+                                @mousedown.prevent="selectCustomer(customer)"
+                            >
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-hospital-text">{{ customer.customer_name }}</span>
+                                    <span v-if="customer.file_no" class="font-mono text-hospital-text-3">{{ customer.file_no }}</span>
+                                </div>
+                                <div v-if="customer.customer_phone" class="mt-0.5 text-hospital-text-3">{{ customer.customer_phone }}</div>
+                            </li>
+                        </ul>
                     </div>
                     <div>
                         <label class="form-label">التاريخ *</label>

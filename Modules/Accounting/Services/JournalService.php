@@ -130,7 +130,12 @@ class JournalService
 
             $reversal = $this->record([
                 'date' => $date ?? today()->toDateString(),
-                'description' => $description ?? "عكس قيد: {$fresh->description}",
+                'description' => $description ?? JournalNarration::make('عكس قيد', [
+                    'المبلغ' => JournalNarration::money($fresh->amount),
+                    'تاريخ القيد الأصلي' => $fresh->date?->toDateString(),
+                    'المرجع الأصلي' => $fresh->reference,
+                    'البيان الأصلي' => $fresh->description,
+                ]),
                 'debit_account_id' => $fresh->credit_account_id,
                 'credit_account_id' => $fresh->debit_account_id,
                 'amount' => (float) $fresh->amount,

@@ -20,11 +20,15 @@ interface Props {
     isInsurance: boolean;
     netAmount: number;
     isEditingPaidBooking?: boolean;
+    canViewPrices?: boolean;
+    canEditPrices?: boolean;
     errors?: Record<string, string>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     isEditingPaidBooking: false,
+    canViewPrices: true,
+    canEditPrices: true,
     errors: () => ({}),
 });
 
@@ -189,70 +193,74 @@ function closeInsOnBlur() {
             </div>
         </template>
 
-        <div>
-            <label class="bk-label">السعر الأصلي (ج)</label>
-            <input
-                :value="modelValue.price"
-                type="number"
-                step="0.01"
-                min="0"
-                class="bk-input"
-                :class="{ 'border-hospital-danger': errors.price }"
-                @input="
-                    update('price', ($event.target as HTMLInputElement).value)
-                "
-            />
-            <p v-if="errors.price" class="mt-1 text-xs text-hospital-danger">
-                {{ errors.price }}
-            </p>
-            <p v-else-if="isEditingPaidBooking" class="mt-1 text-xs text-hospital-warning">
-                تعديل السعر بعد الدفع سيُعدِّل قيود الإيراد والخزنة ومستحق الطبيب تلقائياً.
-            </p>
-        </div>
+        <template v-if="canViewPrices">
+            <div>
+                <label class="bk-label">السعر الأصلي (ج)</label>
+                <input
+                    :value="modelValue.price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.price, 'bk-input-readonly': !canEditPrices }"
+                    :readonly="!canEditPrices"
+                    @input="
+                        update('price', ($event.target as HTMLInputElement).value)
+                    "
+                />
+                <p v-if="errors.price" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.price }}
+                </p>
+                <p v-else-if="isEditingPaidBooking" class="mt-1 text-xs text-hospital-warning">
+                    تعديل السعر بعد الدفع سيُعدِّل قيود الإيراد والخزنة ومستحق الطبيب تلقائياً.
+                </p>
+            </div>
 
-        <div>
-            <label class="bk-label">الخصم (ج)</label>
-            <input
-                :value="modelValue.discount"
-                type="number"
-                step="0.01"
-                min="0"
-                class="bk-input"
-                :class="{ 'border-hospital-danger': errors.discount }"
-                @input="
-                    update(
-                        'discount',
-                        ($event.target as HTMLInputElement).value,
-                    )
-                "
-            />
-            <p v-if="errors.discount" class="mt-1 text-xs text-hospital-danger">
-                {{ errors.discount }}
-            </p>
-        </div>
+            <div>
+                <label class="bk-label">الخصم (ج)</label>
+                <input
+                    :value="modelValue.discount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="bk-input"
+                    :class="{ 'border-hospital-danger': errors.discount }"
+                    @input="
+                        update(
+                            'discount',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
+                />
+                <p v-if="errors.discount" class="mt-1 text-xs text-hospital-danger">
+                    {{ errors.discount }}
+                </p>
+            </div>
 
-        <div v-if="isInsurance">
-            <label class="bk-label">مبلغ التأمين (ج)</label>
-            <input
-                :value="modelValue.ins_amount"
-                type="number"
-                step="0.01"
-                min="0"
-                class="bk-input bk-input-readonly"
-                readonly
-            />
-        </div>
+            <div v-if="isInsurance">
+                <label class="bk-label">مبلغ التأمين (ج)</label>
+                <input
+                    :value="modelValue.ins_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="bk-input bk-input-readonly"
+                    readonly
+                />
+            </div>
 
-        <div>
-            <label class="bk-label">الإجمالي المستحق (ج)</label>
-            <input
-                :value="netAmount"
-                type="number"
-                class="bk-input bk-input-readonly"
-                style="font-weight: 700; color: #0a4fa6; font-size: 14px"
-                readonly
-            />
-        </div>
+            <div>
+                <label class="bk-label">الإجمالي المستحق (ج)</label>
+                <input
+                    :value="netAmount"
+                    type="number"
+                    class="bk-input bk-input-readonly"
+                    style="font-weight: 700; color: #0a4fa6; font-size: 14px"
+                    readonly
+                />
+            </div>
+
+        </template>
 
         <div class="col-span-2">
             <label class="bk-label">حالة السداد</label>

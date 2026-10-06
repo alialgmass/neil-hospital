@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Admin\Controllers\ModuleImportActionController;
 use Modules\HR\Controllers\AttendanceController;
 use Modules\HR\Controllers\EmployeeController;
+use Modules\HR\Controllers\EmployeeDeductionController;
 use Modules\HR\Controllers\LeaveController;
 use Modules\HR\Controllers\PayrollController;
 use Modules\HR\Controllers\ShiftController;
@@ -37,6 +38,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/leaves', [LeaveController::class, 'store'])->middleware('can:hr.manage')->name('leaves.store');
     Route::post('/leaves/{id}/approve', [LeaveController::class, 'approve'])->middleware('can:hr.manage')->name('leaves.approve');
     Route::post('/leaves/{id}/reject', [LeaveController::class, 'reject'])->middleware('can:hr.manage')->name('leaves.reject');
+
+    // Employee deductions
+    Route::get('/employee-deductions', [EmployeeDeductionController::class, 'index'])->middleware('can:hr.manage')->name('employee-deductions.index');
+    Route::post('/employee-deductions', [EmployeeDeductionController::class, 'store'])->middleware('can:hr.manage')->name('employee-deductions.store');
+    Route::delete('/employee-deductions/{id}', [EmployeeDeductionController::class, 'destroy'])->middleware('can:hr.manage')->name('employee-deductions.destroy');
 
     // Payroll
     Route::get('/payroll', [PayrollController::class, 'index'])->middleware('can:hr.manage')->name('payroll.index');

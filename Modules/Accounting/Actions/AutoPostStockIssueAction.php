@@ -6,6 +6,7 @@ use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
@@ -44,7 +45,15 @@ class AutoPostStockIssueAction
 
             $this->journalService->record([
                 'date' => $date,
-                'description' => "صرف مخزون: {$item->item_name} — إذن رقم {$permit->permit_no}",
+                'description' => JournalNarration::make('صرف مخزون', [
+                    'الصنف' => $item->item_name,
+                    'الكمية' => (float) $item->qty,
+                    'تكلفة الوحدة' => JournalNarration::money($item->unit_cost),
+                    'الإجمالي' => JournalNarration::money($amount),
+                    'إذن رقم' => $permit->permit_no,
+                    'القسم' => $permit->department,
+                    'السبب' => $permit->reason,
+                ]),
                 'debit_account_id' => $expenseAccountId,
                 'credit_account_id' => $inventoryAccountId,
                 'amount' => $amount,

@@ -5,6 +5,7 @@ namespace Modules\HR\Services;
 use App\Models\User;
 use App\Services\PermissionLabelService;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,12 +15,14 @@ use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostPayrollAction;
 use Modules\Admin\Services\SettingsService;
 use Modules\HR\Enums\AttendanceStatus;
+use Modules\HR\Enums\DeductionType;
 use Modules\HR\Enums\EmployeeStatus;
 use Modules\HR\Enums\HandoverStatus;
 use Modules\HR\Enums\LeaveStatus;
 use Modules\HR\Enums\PayrollStatus;
 use Modules\HR\Models\Attendance;
 use Modules\HR\Models\Employee;
+use Modules\HR\Models\EmployeeDeduction;
 use Modules\HR\Models\Leave;
 use Modules\HR\Models\Payroll;
 use Modules\HR\Models\Shift;
@@ -369,6 +372,139 @@ class HRService
         return ['overtime_pay' => $overtimePay, 'deductions' => $deductions];
     }
 
+    // ── Employee deductions ────────────────────────────────────────────────
+
+    public function workingDaysPerMonth(): int
+    {
+        return (int) $this->settings->get('hr_working_days', 26);
+    }
+
+    public function listDeductions(array $filters = [], int $perPage = 25): LengthAwarePaginator
+    {
+        return EmployeeDeduction::with(['employee:id,name,dept', 'creator:id,name'])
+            ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('employee_id', $v))
+            ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('deduction_date', '>=', $v))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('deduction_date', '<=', $v))
+            ->orderByDesc('deduction_date')
+            ->orderByDesc('created_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function totalDeductions(array $filters = []): float
+    {
+        return (float) EmployeeDeduction::query()
+            ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('employee_id', $v))
+            ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('deduction_date', '>=', $v))
+            ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('deduction_date', '<=', $v))
+            ->sum('amount');
+    }
+
+    /**
+     * Record a deduction. A day-based deduction is priced from the employee's
+     * base salary (base ÷ working days per month); an amount-based one is
+     * taken as entered. If the month's payroll is still a draft the deduction
+     * is applied to it immediately.
+     *
+     * @param  array{employee_id: string, deduction_date: string, type: string, days?: float|string|null, amount?: float|string|null, reason: string}  $data
+     *
+     * @throws ValidationException when the month's payroll is already approved or paid.
+     */
+    public function createDeduction(array $data): EmployeeDeduction
+    {
+        $date = Carbon::parse($data['deduction_date']);
+        $employee = Employee::findOrFail($data['employee_id']);
+
+        return DB::transaction(function () use ($data, $date, $employee) {
+            $payroll = $this->payrollForDeduction($employee->id, $date);
+
+            $isDays = $data['type'] === DeductionType::Days->value;
+            $workingDays = $this->workingDaysPerMonth();
+            $dailyRate = $isDays && $workingDays > 0 ? round((float) $employee->base_salary / $workingDays, 2) : null;
+            $amount = $isDays
+                ? round((float) $data['days'] * (float) $dailyRate, 2)
+                : round((float) $data['amount'], 2);
+
+            if ($amount <= 0) {
+                throw ValidationException::withMessages([
+                    'days' => 'لا يمكن حساب قيمة الخصم — تأكد من راتب الموظف الأساسي.',
+                ]);
+            }
+
+            $deduction = EmployeeDeduction::create([
+                'employee_id' => $employee->id,
+                'deduction_date' => $date->toDateString(),
+                'type' => $data['type'],
+                'days' => $isDays ? $data['days'] : null,
+                'daily_rate' => $dailyRate,
+                'amount' => $amount,
+                'reason' => $data['reason'],
+                'created_by' => auth()->id(),
+            ]);
+
+            $this->shiftPayrollDeductions($payroll, $amount);
+
+            return $deduction;
+        });
+    }
+
+    /**
+     * @throws ValidationException when the month's payroll is already approved or paid.
+     */
+    public function deleteDeduction(string $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $deduction = EmployeeDeduction::findOrFail($id);
+            $payroll = $this->payrollForDeduction($deduction->employee_id, $deduction->deduction_date);
+
+            $this->shiftPayrollDeductions($payroll, -(float) $deduction->amount);
+
+            $deduction->delete();
+        });
+    }
+
+    private function manualDeductionsTotal(string $employeeId, int $month, int $year): float
+    {
+        return (float) EmployeeDeduction::where('employee_id', $employeeId)
+            ->whereMonth('deduction_date', $month)
+            ->whereYear('deduction_date', $year)
+            ->sum('amount');
+    }
+
+    /**
+     * The payroll a deduction dated $date belongs to — null when none exists
+     * yet (it will be picked up when payroll is generated).
+     *
+     * @throws ValidationException when that payroll is no longer a draft.
+     */
+    private function payrollForDeduction(string $employeeId, CarbonInterface $date): ?Payroll
+    {
+        $payroll = Payroll::where('employee_id', $employeeId)
+            ->where('month', $date->month)
+            ->where('year', $date->year)
+            ->first();
+
+        if ($payroll && $payroll->status !== PayrollStatus::Draft) {
+            throw ValidationException::withMessages([
+                'deduction_date' => 'راتب هذا الشهر تم اعتماده بالفعل — اختر تاريخًا في شهر لم يُعتمد راتبه.',
+            ]);
+        }
+
+        return $payroll;
+    }
+
+    private function shiftPayrollDeductions(?Payroll $payroll, float $delta): void
+    {
+        if (! $payroll) {
+            return;
+        }
+
+        $payroll->update([
+            'deductions' => round((float) $payroll->deductions + $delta, 2),
+            'net_salary' => round((float) $payroll->net_salary - $delta, 2),
+        ]);
+    }
+
     public function generatePayroll(int $month, int $year): int
     {
         $employees = Employee::where('status', EmployeeStatus::Active)->get(['id', 'base_salary', 'allowances']);
@@ -386,6 +522,7 @@ class HRService
 
                 $summary = $this->getAttendanceSummary($emp->id, $month, $year);
                 $computed = $this->computeFromAttendance($base, $summary);
+                $computed['deductions'] += $this->manualDeductionsTotal($emp->id, $month, $year);
 
                 Payroll::create([
                     'employee_id' => $emp->id,
@@ -414,6 +551,7 @@ class HRService
 
         $summary = $this->getAttendanceSummary($payroll->employee_id, $payroll->month, $payroll->year);
         $computed = $this->computeFromAttendance($base, $summary);
+        $computed['deductions'] += $this->manualDeductionsTotal($payroll->employee_id, $payroll->month, $payroll->year);
 
         $payroll->update([
             'overtime_pay' => $computed['overtime_pay'],

@@ -9,6 +9,7 @@ use Modules\Accounting\Exceptions\AccountingException;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Booking\Models\Booking;
 use Modules\Insurance\Models\InsuranceClaim;
@@ -59,7 +60,12 @@ class AutoPostInsuranceDoctorCashPaymentAction
 
         $this->journalService->record([
             'date' => $date ?? now()->toDateString(),
-            'description' => "أتعاب طبيب تأمين (كاش فوري): {$doctorName}",
+            'description' => JournalNarration::make('أتعاب طبيب تأمين (كاش فوري)', [
+                'الطبيب' => $doctorName,
+                'ملف' => $reference,
+                'المبلغ' => JournalNarration::money($amount),
+                'التاريخ' => $date ?? now()->toDateString(),
+            ]),
             'debit_account_id' => $expenseId,
             'credit_account_id' => $cashId,
             'amount' => $amount,
@@ -104,7 +110,11 @@ class AutoPostInsuranceDoctorCashPaymentAction
                 entry: $entry,
                 reversalSource: JournalSource::REVERSAL,
                 reference: 'REV-'.$reference,
-                description: "عكس أتعاب طبيب تأمين (كاش فوري): {$reference}",
+                description: JournalNarration::make('عكس أتعاب طبيب تأمين (كاش فوري)', [
+                    'ملف' => $reference,
+                    'المبلغ' => JournalNarration::money($entry->amount),
+                    'البيان الأصلي' => $entry->description,
+                ]),
                 date: $date,
             ));
     }

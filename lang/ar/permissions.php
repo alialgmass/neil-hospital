@@ -12,6 +12,8 @@ return [
         'booking.create' => 'إضافة حجز',
         'booking.edit' => 'تعديل حجز',
         'booking.edit_completed' => 'تعديل حجز مكتمل',
+        'booking.view_prices' => 'عرض الأسعار في الحجز',
+        'booking.edit_prices' => 'تعديل الأسعار في الحجز',
         'booking.delete' => 'حذف حجز',
         'booking.pay' => 'تسجيل مدفوعات الحجز',
         'callcenter.view' => 'عرض الكول سنتر',

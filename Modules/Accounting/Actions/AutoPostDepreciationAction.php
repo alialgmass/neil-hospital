@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\FixedAsset;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 
 /**
@@ -63,7 +64,12 @@ class AutoPostDepreciationAction
 
         $entry = $this->journalService->record([
             'date' => $date,
-            'description' => "إهلاك {$period}: {$asset->name}",
+            'description' => JournalNarration::make("إهلاك شهر {$period}", [
+                'الأصل' => $asset->name,
+                'الفئة' => $asset->asset_class,
+                'قسط الشهر' => JournalNarration::money($amount),
+                'مجمع الإهلاك بعد القيد' => JournalNarration::money((float) $asset->accumulated_depreciation + $amount),
+            ]),
             'debit_account_id' => $expenseId,
             'credit_account_id' => $accumulatedId,
             'amount' => $amount,

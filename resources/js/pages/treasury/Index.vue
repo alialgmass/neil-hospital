@@ -6,6 +6,7 @@ import {
     Edit3,
     FileText,
     PlusCircle,
+    Printer,
     Trash2,
     Wallet,
 } from 'lucide-vue-next';
@@ -102,6 +103,8 @@ function goToPage(page: number) {
 
 const showAdd = ref(false);
 const editingId = ref<string | null>(null);
+// Set while issuing a receipt (in) / payment (out) voucher instead of a plain manual entry.
+const voucherMode = ref<'in' | 'out' | null>(null);
 const form = useForm({
     type: 'in' as 'in' | 'out',
     description: '',
@@ -118,7 +121,21 @@ function openAdd() {
     }
 
     editingId.value = null;
+    voucherMode.value = null;
     form.reset();
+    form.date = new Date().toISOString().slice(0, 10);
+    showAdd.value = true;
+}
+
+function openVoucher(type: 'in' | 'out') {
+    if (!canWrite.value) {
+        return;
+    }
+
+    editingId.value = null;
+    voucherMode.value = type;
+    form.reset();
+    form.type = type;
     form.date = new Date().toISOString().slice(0, 10);
     showAdd.value = true;
 }
@@ -129,6 +146,7 @@ function openEdit(entry: TreasuryEntry) {
     }
 
     editingId.value = entry.id;
+    voucherMode.value = null;
     form.type = entry.type;
     form.description = entry.description;
     form.amount = entry.amount;
@@ -151,7 +169,7 @@ function submit() {
         return;
     }
 
-    form.post('/treasury', {
+    form.post(voucherMode.value ? '/treasury/vouchers' : '/treasury', {
         onSuccess: () => {
             showAdd.value = false;
             form.reset();
@@ -179,6 +197,30 @@ function doDelete() {
         },
     });
 }
+
+const modalTitle = computed(() => {
+    if (editingId.value) {
+        return 'تعديل حركة خزنة';
+    }
+
+    if (voucherMode.value) {
+        return voucherMode.value === 'in' ? 'إيصال استلام جديد' : 'إيصال صرف جديد';
+    }
+
+    return 'تسجيل حركة خزنة';
+});
+
+const beneficiaryLabel = computed(() => {
+    if (voucherMode.value === 'in') {
+        return 'استلمنا من السيد/ة *';
+    }
+
+    if (voucherMode.value === 'out') {
+        return 'صرفنا إلى السيد/ة *';
+    }
+
+    return 'الجهة / المستفيد';
+});
 
 const sourceLabels: Record<string, string> = {
     manual: 'يدوي',
@@ -341,6 +383,22 @@ function printPage() {
         >
             <PlusCircle class="h-4 w-4" /> قيد يدوي
         </button>
+        <button
+            class="flex items-center gap-1.5 rounded-lg border border-hospital-success/40 px-4 py-2 text-sm text-hospital-success hover:bg-hospital-success-pale disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canWrite"
+            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+            @click="openVoucher('in')"
+        >
+            <ArrowDownCircle class="h-4 w-4" /> إيصال استلام
+        </button>
+        <button
+            class="flex items-center gap-1.5 rounded-lg border border-hospital-danger/40 px-4 py-2 text-sm text-hospital-danger hover:bg-hospital-danger-pale disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canWrite"
+            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+            @click="openVoucher('out')"
+        >
+            <ArrowUpCircle class="h-4 w-4" /> إيصال صرف
+        </button>
         <Link
             href="/treasury/statement"
             class="flex items-center gap-1.5 rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
@@ -410,6 +468,13 @@ function printPage() {
             </template>
             <template #actions="{ row }">
                 <div class="flex items-center gap-1">
+                    <Link
+                        :href="`/treasury/${(row as TreasuryEntry).id}/voucher`"
+                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-bg hover:text-hospital-primary"
+                        :title="(row as TreasuryEntry).type === 'in' ? 'طباعة إيصال استلام' : 'طباعة إيصال صرف'"
+                    >
+                        <Printer class="h-4 w-4" />
+                    </Link>
                     <button
                         type="button"
                         class="rounded p-1.5 text-hospital-text-3 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
@@ -453,10 +518,10 @@ function printPage() {
     </div>
 
     <!-- Add/Edit Modal -->
-    <Modal v-model="showAdd" :title="editingId ? 'تعديل حركة خزنة' : 'تسجيل حركة خزنة'" size="md">
+    <Modal v-model="showAdd" :title="modalTitle" size="md">
         <form class="space-y-4" @submit.prevent="submit">
             <div class="grid grid-cols-2 gap-4">
-                <div>
+                <div v-if="!voucherMode">
                     <label class="mb-1 block text-sm font-medium">النوع</label>
                     <select
                         v-model="form.type"
@@ -510,13 +575,19 @@ function printPage() {
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium"
-                        >الجهة / المستفيد</label
+                        >{{ beneficiaryLabel }}</label
                     >
                     <input
                         v-model="form.beneficiary"
                         type="text"
                         class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none"
                     />
+                    <p
+                        v-if="form.errors.beneficiary"
+                        class="mt-1 text-xs text-hospital-danger"
+                    >
+                        {{ form.errors.beneficiary }}
+                    </p>
                 </div>
                 <div class="col-span-2">
                     <label class="mb-1 block text-sm font-medium"
@@ -542,7 +613,7 @@ function printPage() {
                     :disabled="form.processing"
                     class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
                 >
-                    {{ editingId ? 'حفظ التعديلات' : 'تسجيل' }}
+                    {{ editingId ? 'حفظ التعديلات' : voucherMode ? 'إصدار الإيصال وطباعته' : 'تسجيل' }}
                 </button>
             </div>
         </form>

@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
@@ -38,7 +39,7 @@ class AutoPostSupplierPaymentAction
 
         $this->treasuryService->record([
             'type' => TreasuryType::Out,
-            'description' => "سداد مورد: {$supplierName}",
+            'description' => $this->narration($payment, $supplierName),
             'amount' => $amount,
             'date' => $date,
             'source' => JournalSource::SUPPLIER_PAYMENT,
@@ -49,7 +50,7 @@ class AutoPostSupplierPaymentAction
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "سداد مستحقات مورد: {$supplierName} — VCH-{$payment->id}",
+            'description' => $this->narration($payment, $supplierName),
             'debit_account_id' => $suppliersId,
             'credit_account_id' => $creditId,
             'amount' => $amount,
@@ -57,6 +58,17 @@ class AutoPostSupplierPaymentAction
             'reference' => (string) $payment->id,
             'idempotency_key' => "supplier_payment:{$payment->id}",
             'cost_center' => CostCenter::Inventory,
+        ]);
+    }
+
+    private function narration(SupplierPayment $payment, string $supplierName): string
+    {
+        return JournalNarration::make('سداد مستحقات مورد', [
+            'المورد' => $supplierName,
+            'المبلغ' => JournalNarration::money($payment->amount),
+            'طريقة الدفع' => $payment->method === 'transfer' ? 'تحويل بنكي' : 'نقدي',
+            'سند' => 'VCH-'.$payment->id,
+            'تاريخ السداد' => $payment->paid_at?->toDateString(),
         ]);
     }
 }

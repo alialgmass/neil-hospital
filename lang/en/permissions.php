@@ -8,6 +8,8 @@ return [
         'booking.create' => 'Create booking',
         'booking.edit' => 'Edit booking',
         'booking.edit_completed' => 'Edit completed booking',
+        'booking.view_prices' => 'View prices in bookings',
+        'booking.edit_prices' => 'Edit prices in bookings',
         'booking.delete' => 'Delete booking',
         'booking.pay' => 'Record booking payments',
         'callcenter.view' => 'View call center',

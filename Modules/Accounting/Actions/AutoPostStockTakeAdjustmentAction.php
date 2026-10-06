@@ -6,6 +6,7 @@ use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Models\StockPermit;
@@ -41,7 +42,13 @@ class AutoPostStockTakeAdjustmentAction
 
             $this->journalService->record([
                 'date' => $date,
-                'description' => ($isShortage ? 'عجز جرد: ' : 'زيادة جرد: ')."{$line['item_name']} — {$permit->permit_no}",
+                'description' => JournalNarration::make($isShortage ? 'عجز جرد' : 'زيادة جرد', [
+                    'الصنف' => $line['item_name'],
+                    'فرق الكمية' => abs((float) $line['variance']),
+                    'تكلفة الوحدة' => JournalNarration::money($line['unit_cost']),
+                    'القيمة' => JournalNarration::money($amount),
+                    'إذن جرد' => $permit->permit_no,
+                ]),
                 'debit_account_id' => $isShortage
                     ? $this->accountResolver->id(AccountCode::consumptionCostCode(null, $line['category']))
                     : $inventoryId,

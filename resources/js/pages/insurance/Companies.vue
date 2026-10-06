@@ -729,17 +729,7 @@ const tabs = [
                                 <th
                                     class="px-4 py-3 text-center text-xs font-semibold tracking-wide text-hospital-text-3 uppercase"
                                 >
-                                    الفاتورة
-                                </th>
-                                <th
-                                    class="px-4 py-3 text-center text-xs font-semibold tracking-wide text-hospital-text-3 uppercase"
-                                >
-                                    التأمين
-                                </th>
-                                <th
-                                    class="px-4 py-3 text-center text-xs font-semibold tracking-wide text-hospital-text-3 uppercase"
-                                >
-                                    المريض
+                                    سعر التأمين
                                 </th>
                                 <th
                                     class="px-4 py-3 text-center text-xs font-semibold tracking-wide text-hospital-text-3 uppercase"
@@ -780,25 +770,9 @@ const tabs = [
                                     {{ claim.service_name }}
                                 </td>
                                 <td
-                                    class="px-4 py-3 text-center font-semibold text-hospital-text tabular-nums"
-                                >
-                                    {{ claim.invoice_amount.toFixed(2) }}
-                                    <span class="text-xs text-hospital-text-3"
-                                        >ج</span
-                                    >
-                                </td>
-                                <td
                                     class="px-4 py-3 text-center font-semibold text-hospital-primary tabular-nums"
                                 >
                                     {{ claim.insurance_share.toFixed(2) }}
-                                    <span class="text-xs text-hospital-text-3"
-                                        >ج</span
-                                    >
-                                </td>
-                                <td
-                                    class="px-4 py-3 text-center font-semibold text-hospital-warning tabular-nums"
-                                >
-                                    {{ claim.patient_share.toFixed(2) }}
                                     <span class="text-xs text-hospital-text-3"
                                         >ج</span
                                     >
@@ -844,7 +818,7 @@ const tabs = [
                                 </td>
                             </tr>
                             <tr v-if="claims.data.length === 0">
-                                <td colspan="9" class="px-4 py-12 text-center">
+                                <td colspan="7" class="px-4 py-12 text-center">
                                     <TrendingUp
                                         class="mx-auto mb-3 h-10 w-10 text-gray-300"
                                     />

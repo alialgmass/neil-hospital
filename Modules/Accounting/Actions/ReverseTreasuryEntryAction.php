@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Models\TreasuryEntry;
+use Modules\Accounting\Services\JournalNarration;
 
 class ReverseTreasuryEntryAction
 {
@@ -30,7 +31,12 @@ class ReverseTreasuryEntryAction
 
             $reversal = TreasuryEntry::create([
                 'type' => $fresh->type === TreasuryType::In ? TreasuryType::Out : TreasuryType::In,
-                'description' => "عكس قيد: {$fresh->description}",
+                'description' => JournalNarration::make('عكس حركة خزينة', [
+                    'النوع الأصلي' => $fresh->type === TreasuryType::In ? 'وارد' : 'منصرف',
+                    'المبلغ' => JournalNarration::money($fresh->amount),
+                    'تاريخ الحركة الأصلية' => $fresh->date?->toDateString(),
+                    'البيان الأصلي' => $fresh->description,
+                ]),
                 'amount' => $fresh->amount,
                 'date' => today()->toDateString(),
                 'account_id' => $fresh->account_id,

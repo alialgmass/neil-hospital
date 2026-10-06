@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
@@ -41,7 +42,7 @@ class AutoPostDoctorPaymentAction
         // treasury log tracks all payment-method movements, not just cash).
         $this->treasuryService->record([
             'type' => TreasuryType::Out,
-            'description' => "صرف مستحقات د. {$doctorName}",
+            'description' => $this->narration($payment, $doctorName),
             'amount' => $amount,
             'date' => $date,
             'source' => JournalSource::DOCTOR_PAYMENT,
@@ -52,7 +53,7 @@ class AutoPostDoctorPaymentAction
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "صرف مستحقات د. {$doctorName} — VCH-{$payment->id}",
+            'description' => $this->narration($payment, $doctorName),
             'debit_account_id' => $payableId,
             'credit_account_id' => $creditId,
             'amount' => $amount,
@@ -62,6 +63,17 @@ class AutoPostDoctorPaymentAction
             // A payable settlement carries no cost-center dimension of its own
             // (guide §2.5) — it is tracked under the doctors' tracking center.
             'cost_center' => CostCenter::Doctors,
+        ]);
+    }
+
+    private function narration(DoctorPayment $payment, string $doctorName): string
+    {
+        return JournalNarration::make('صرف مستحقات طبيب', [
+            'الطبيب' => $doctorName,
+            'المبلغ' => JournalNarration::money($payment->amount),
+            'طريقة الدفع' => $payment->method === 'transfer' ? 'تحويل بنكي' : 'نقدي',
+            'سند' => 'VCH-'.$payment->id,
+            'تاريخ الصرف' => $payment->paid_at?->toDateString(),
         ]);
     }
 }

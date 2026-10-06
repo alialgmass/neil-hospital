@@ -130,6 +130,7 @@ const latestBooking = computed(() => props.bookings[0] ?? null);
 
 // ── Permissions ──
 const { can } = usePermissions();
+const canViewPrices = computed(() => can('booking.view_prices'));
 const canTransfer = computed(() => can('transfer_medical_record'));
 
 // ── Transfer to Operation (Surgery/Lasik/Laser) ──
@@ -446,7 +447,7 @@ function isImage(mime: string): boolean {
                             booking.pay_status
                         }}
                     </span>
-                    <span class="text-sm font-medium text-hospital-text"
+                    <span v-if="canViewPrices" class="text-sm font-medium text-hospital-text"
                         >{{ fmt(booking.price) }} ج.م</span
                     >
                     <span class="text-xs text-hospital-text-3">{{
@@ -489,7 +490,7 @@ function isImage(mime: string): boolean {
                 </div>
                 <div v-if="booking.analysis_type" class="text-sm">
                     <span class="text-hospital-text-3">نوع التحليل: </span>
-                    <span class="font-medium">{{ booking.analysis_type }}</span>
+                    <span class="font-medium capitalize">{{ booking.analysis_type }}</span>
                 </div>
                 <div v-if="booking.analysis_notes" class="text-sm">
                     <span class="text-hospital-text-3">ملاحظات التحليل: </span>

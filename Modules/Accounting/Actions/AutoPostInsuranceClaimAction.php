@@ -10,6 +10,7 @@ use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\InsuranceReceivableAccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\PaidState;
@@ -60,7 +61,7 @@ class AutoPostInsuranceClaimAction
 
         $this->journalService->record([
             'date' => $claim->service_date?->toDateString() ?? $claim->claim_date?->toDateString() ?? now()->toDateString(),
-            'description' => "مطالبة تأمين: {$claim->file_no} — {$claim->patient_name}",
+            'description' => $this->narration('إثبات مطالبة تأمين', $claim, $amount),
             'debit_account_id' => $receivableId,
             'credit_account_id' => $revenueId,
             'amount' => $amount,
@@ -99,7 +100,7 @@ class AutoPostInsuranceClaimAction
                 entry: $entry,
                 reversalSource: JournalSource::REVERSAL,
                 reference: 'REV-'.($claim->claim_reference ?? $claim->file_no),
-                description: "عكس قيد — {$reason}: {$claim->file_no} — {$claim->patient_name}",
+                description: $this->narration("عكس قيد — {$reason}", $claim, (float) $entry->amount),
             );
         }
     }
@@ -154,7 +155,7 @@ class AutoPostInsuranceClaimAction
 
             $this->journalService->record([
                 'date' => $claim->payment_date?->toDateString() ?? now()->toDateString(),
-                'description' => "تحصيل تأمين: {$claim->file_no} — {$claim->patient_name}",
+                'description' => $this->narration('تحصيل مطالبة تأمين (صافي بعد الضريبة)', $claim, $netBank),
                 'debit_account_id' => $bankId,
                 'credit_account_id' => $receivableId,
                 'amount' => $netBank,
@@ -170,7 +171,7 @@ class AutoPostInsuranceClaimAction
 
             $this->journalService->record([
                 'date' => $claim->payment_date?->toDateString() ?? now()->toDateString(),
-                'description' => "ضريبة مخصومة من المنبع: {$claim->file_no} — {$claim->patient_name}",
+                'description' => $this->narration("ضريبة مخصومة من المنبع ({$withholdingPct}%)", $claim, $withholdingAmount),
                 'debit_account_id' => $withholdingId,
                 'credit_account_id' => $receivableId,
                 'amount' => $withholdingAmount,
@@ -186,6 +187,24 @@ class AutoPostInsuranceClaimAction
         if ($shortfall > 0) {
             $this->writeOffShortfall($claim, $shortfall, $receivableId);
         }
+    }
+
+    /**
+     * Detailed بيان shared by every claim posting: patient, company, service and amounts.
+     */
+    private function narration(string $title, InsuranceClaim $claim, float $amount): string
+    {
+        return JournalNarration::make($title, [
+            'ملف' => $claim->file_no,
+            'المريض' => $claim->patient_name,
+            'شركة التأمين' => $claim->company?->name,
+            'الخدمة' => $claim->service_name,
+            'المبلغ' => JournalNarration::money($amount),
+            'نصيب التأمين' => JournalNarration::money($claim->insurance_share),
+            'المبلغ المعتمد' => $claim->approved_amount !== null ? JournalNarration::money($claim->approved_amount) : null,
+            'رقم المطالبة' => $claim->claim_reference,
+            'تاريخ الخدمة' => $claim->service_date?->toDateString(),
+        ]);
     }
 
     /**
@@ -221,7 +240,7 @@ class AutoPostInsuranceClaimAction
 
         $this->journalService->record([
             'date' => $claim->payment_date?->toDateString() ?? now()->toDateString(),
-            'description' => "إعدام فرق مطالبة تأمين: {$claim->file_no} — {$claim->patient_name}",
+            'description' => $this->narration('إعدام فرق مطالبة تأمين (اعتماد جزئي)', $claim, $shortfall),
             'debit_account_id' => $badDebtId,
             'credit_account_id' => $receivableId,
             'amount' => $shortfall,

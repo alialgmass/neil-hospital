@@ -122,8 +122,8 @@ class SupplyLineEditDeleteTest extends TestCase
         $this->assertEquals(5, $surgery->supplies_used[0]['qty']);
         $this->assertEquals(60, $surgery->supplies_used[0]['total']);
         $this->assertEquals(64.0, (float) $surgery->supply_total);
-        // Individual items never touch stock.
-        $this->assertEquals(100, (float) $gloves->fresh()->quantity);
+        // The issue permit was re-issued for the new quantity: 2 returned, 5 issued.
+        $this->assertEquals(95, (float) $gloves->fresh()->quantity);
     }
 
     public function test_deletes_an_item_line_and_recomputes_total(): void

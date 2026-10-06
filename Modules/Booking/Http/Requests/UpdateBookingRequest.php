@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\AnalysisType;
 use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -63,16 +64,29 @@ class UpdateBookingRequest extends FormRequest
             return;
         }
 
+        $canEditPrices = $this->canEditPrices();
+
         $price = app(ServicePricingService::class)->priceFor(
             $this->input('service_id'),
             $this->input('eye_side'),
-            $this->input('price') !== null ? (float) $this->input('price') : null,
+            $canEditPrices && $this->input('price') !== null ? (float) $this->input('price') : null,
             $this->isInsurance(),
         );
 
         if ($price !== null) {
             $this->merge(['price' => $price]);
+        } elseif (! $canEditPrices) {
+            // No configured price and no right to type one: the stored price stands.
+            $this->merge(['price' => Booking::find($this->route('id'))?->price ?? 0.0]);
         }
+    }
+
+    /**
+     * Typing or overriding a booking price needs its own permission.
+     */
+    private function canEditPrices(): bool
+    {
+        return $this->user()?->can('booking.edit_prices') ?? false;
     }
 
     /**
@@ -81,7 +95,7 @@ class UpdateBookingRequest extends FormRequest
      */
     private function isEditingPriceAfterPayment(): bool
     {
-        if (! is_numeric($this->input('price'))) {
+        if (! $this->canEditPrices() || ! is_numeric($this->input('price'))) {
             return false;
         }
 
@@ -133,7 +147,7 @@ class UpdateBookingRequest extends FormRequest
             'bed_id.exists' => 'السرير المحدد غير موجود.',
             'eye_side.required' => 'يجب تحديد جانب العين.',
             'eye_side.in' => 'جانب العين غير صالح.',
-            'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
+            'analysis_type.in' => 'نوع التحليل يجب أن يكون Negative أو Positive.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',
         ];
     }
@@ -210,7 +224,11 @@ class UpdateBookingRequest extends FormRequest
                 },
             ],
             'eye_side' => ['required', 'in:OD,OS,OU'],
-            'analysis_type' => ['nullable', 'string', 'max:150'],
+            // A booking saved before the two-value list keeps whatever it already stores.
+            'analysis_type' => ['nullable', Rule::in(array_filter([
+                ...array_column(AnalysisType::cases(), 'value'),
+                Booking::find($this->route('id'))?->analysis_type,
+            ]))],
             'analysis_notes' => ['nullable', 'string', 'max:500'],
         ];
     }

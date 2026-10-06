@@ -12,6 +12,7 @@ use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Exceptions\AccountingException;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\TreasuryService;
 use Modules\Booking\Enums\PayMethod;
@@ -75,7 +76,7 @@ class AutoPostBookingPaymentAction
         // 1. Treasury entry (cash movement)
         $this->treasuryService->record([
             'type' => TreasuryType::In,
-            'description' => "دفعة حجز: {$booking->file_no} — {$booking->patient_name}",
+            'description' => $this->narration('دفعة حجز', $booking, $toPost),
             'amount' => $toPost,
             'date' => $date,
             'source' => JournalSource::BOOKING,
@@ -90,7 +91,7 @@ class AutoPostBookingPaymentAction
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "إيراد حجز: {$booking->file_no} — {$booking->service_name}",
+            'description' => $this->narration('إيراد حجز', $booking, $toPost),
             'debit_account_id' => $debitAccId,
             'credit_account_id' => $creditAccId,
             'amount' => $toPost,
@@ -142,9 +143,7 @@ class AutoPostBookingPaymentAction
 
         $this->treasuryService->record([
             'type' => $delta > 0 ? TreasuryType::In : TreasuryType::Out,
-            'description' => $delta > 0
-                ? "فرق سعر حجز: {$booking->file_no} — {$booking->patient_name}"
-                : "رد فرق سعر حجز: {$booking->file_no} — {$booking->patient_name}",
+            'description' => $this->narration($delta > 0 ? 'فرق سعر حجز' : 'رد فرق سعر حجز', $booking, abs($delta)),
             'amount' => abs($delta),
             'date' => $date,
             'source' => $delta > 0 ? JournalSource::BOOKING : JournalSource::REVERSAL,
@@ -157,7 +156,7 @@ class AutoPostBookingPaymentAction
                     entry: $entry,
                     reversalSource: JournalSource::REVERSAL,
                     reference: 'REV-'.$booking->file_no,
-                    description: "عكس قيد — تعديل سعر حجز: {$booking->file_no} — {$booking->patient_name}",
+                    description: $this->narration('عكس قيد — تعديل سعر حجز', $booking, (float) $entry->amount),
                     date: $date,
                 );
             }
@@ -171,7 +170,7 @@ class AutoPostBookingPaymentAction
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "تعديل إيراد حجز: {$booking->file_no} — {$booking->service_name}",
+            'description' => $this->narration('تعديل إيراد حجز', $booking, $toPost),
             'debit_account_id' => $this->accountResolver->id($this->debitAccountCode($booking)),
             'credit_account_id' => $this->findRevenueAccountId($booking),
             'amount' => $toPost,
@@ -179,6 +178,24 @@ class AutoPostBookingPaymentAction
             'reference' => $booking->file_no,
             'idempotency_key' => "booking_payment_adjust:{$booking->file_no}:".(clone $revenueEntries)->count().":{$target}",
             'cost_center' => $this->costCenter($booking->dept),
+        ]);
+    }
+
+    /**
+     * Detailed بيان shared by every booking posting: who, what, where and how it was paid.
+     */
+    private function narration(string $title, Booking $booking, float $amount): string
+    {
+        return JournalNarration::make($title, [
+            'ملف' => $booking->file_no,
+            'المريض' => $booking->patient_name,
+            'الخدمة' => $booking->service_name,
+            'القسم' => $booking->dept,
+            'طريقة الدفع' => $booking->pay_method,
+            'المبلغ' => JournalNarration::money($amount),
+            'سعر الحجز' => JournalNarration::money($booking->price),
+            'إجمالي المدفوع' => JournalNarration::money($booking->paid_amount),
+            'تاريخ الزيارة' => $booking->visit_date?->toDateString(),
         ]);
     }
 

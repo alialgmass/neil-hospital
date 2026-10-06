@@ -110,6 +110,7 @@ const canCreate = computed(() => can('booking.create'));
 const canEdit = computed(() => can('booking.edit'));
 const canDelete = computed(() => can('booking.delete'));
 const canEditCompleted = computed(() => can('booking.edit_completed'));
+const canViewPrices = computed(() => can('booking.view_prices'));
 
 // ── State ──
 const showCreateModal = ref(false);
@@ -229,7 +230,7 @@ function isInsuranceBooking(booking: Booking): boolean {
     return booking.pay_method === 'insurance' || Boolean(booking.ins_company_id);
 }
 
-const columns = [
+const allColumns = [
     { key: 'file_no', label: 'رقم الملف', sortable: true },
     { key: 'patient_name', label: 'المريض', sortable: true },
     { key: 'dept', label: 'القسم' },
@@ -240,6 +241,8 @@ const columns = [
     { key: 'pay_status', label: 'السداد' },
     { key: 'status', label: 'الحالة' },
 ];
+
+const columns = computed(() => allColumns.filter((column) => column.key !== 'price' || canViewPrices.value));
 
 const allStatCards = [
     {

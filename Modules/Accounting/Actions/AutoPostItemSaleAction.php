@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Accounting\Services\TreasuryService;
 use Modules\Booking\Enums\PayMethod;
@@ -35,7 +36,7 @@ class AutoPostItemSaleAction
         if ($total > 0) {
             $this->treasuryService->record([
                 'type' => TreasuryType::In,
-                'description' => "فاتورة بيع أصناف: {$invoice->invoice_no} — {$invoice->customer_name}",
+                'description' => $this->narration('تحصيل فاتورة بيع أصناف', $invoice, $total),
                 'amount' => $total,
                 'date' => $date,
                 'source' => JournalSource::ITEM_SALE,
@@ -44,7 +45,7 @@ class AutoPostItemSaleAction
 
             $this->journalService->record([
                 'date' => $date,
-                'description' => "إيراد بيع أصناف: فاتورة {$invoice->invoice_no} — {$invoice->customer_name}",
+                'description' => $this->narration('إيراد بيع أصناف', $invoice, $total),
                 'debit_account_id' => $this->accountResolver->id($this->debitAccountCode($invoice->pay_method)),
                 'credit_account_id' => $this->accountResolver->id(AccountCode::SUPPLIES_REVENUE),
                 'amount' => $total,
@@ -70,7 +71,15 @@ class AutoPostItemSaleAction
 
             $this->journalService->record([
                 'date' => $date,
-                'description' => "تكلفة بيع: {$item->item_name} — فاتورة {$invoice->invoice_no}",
+                'description' => JournalNarration::make('تكلفة بضاعة مباعة', [
+                    'الصنف' => $item->item_name,
+                    'الكمية' => (float) $item->qty,
+                    'تكلفة الوحدة' => JournalNarration::money($item->unit_cost),
+                    'الإجمالي' => JournalNarration::money($cost),
+                    'فاتورة' => $invoice->invoice_no,
+                    'العميل' => $invoice->customer_name,
+                    'القسم' => $invoice->department,
+                ]),
                 'debit_account_id' => $this->accountResolver->id(AccountCode::consumptionCostCode($invoice->department, $category)),
                 'credit_account_id' => $inventoryAccountId,
                 'amount' => $cost,
@@ -80,6 +89,24 @@ class AutoPostItemSaleAction
                 'cost_center' => $costCenter,
             ]);
         }
+    }
+
+    /**
+     * Detailed بيان shared by the sale's treasury and revenue postings.
+     */
+    private function narration(string $title, ItemSalesInvoice $invoice, float $amount): string
+    {
+        return JournalNarration::make($title, [
+            'فاتورة' => $invoice->invoice_no,
+            'العميل' => $invoice->customer_name,
+            'ملف' => $invoice->file_no,
+            'القسم' => $invoice->department,
+            'طريقة الدفع' => $invoice->pay_method,
+            'عدد الأصناف' => $invoice->items->count(),
+            'الإجمالي قبل الخصم' => JournalNarration::money($invoice->subtotal),
+            'الخصم' => (float) $invoice->discount > 0 ? JournalNarration::money($invoice->discount) : null,
+            'الصافي' => JournalNarration::money($amount),
+        ]);
     }
 
     private function debitAccountCode(PayMethod $payMethod): AccountCode

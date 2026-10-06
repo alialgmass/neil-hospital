@@ -7,6 +7,7 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
@@ -58,7 +59,14 @@ class AutoPostDevelopmentFeeAction
 
         $this->journalService->record([
             'date' => $booking->visit_date->toDateString(),
-            'description' => "رسوم خزنة التطوير: {$booking->file_no} — {$booking->service_name}",
+            'description' => JournalNarration::make('رسوم خزنة التطوير (تحويل من الخزنة الرئيسية)', [
+                'ملف' => $booking->file_no,
+                'المريض' => $booking->patient_name,
+                'الخدمة' => $booking->service_name,
+                'القسم' => $booking->dept,
+                'الرسم' => JournalNarration::money($fee),
+                'تاريخ الزيارة' => $booking->visit_date?->toDateString(),
+            ]),
             'debit_account_id' => $developmentFundId,
             'credit_account_id' => $cashId,
             'amount' => $fee,

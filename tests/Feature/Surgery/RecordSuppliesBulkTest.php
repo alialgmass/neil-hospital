@@ -271,8 +271,8 @@ class RecordSuppliesBulkTest extends TestCase
         $this->assertTrue($surgery->supplies_used[1]['is_bundle']);
         // item 2×5 + bundle 200
         $this->assertEquals(210.0, (float) $surgery->supply_total);
-        // Existing bundle behaviour is unchanged: bundle items are deducted from stock.
-        $this->assertEquals(98, (float) $gloves->fresh()->quantity);
+        // Both the individual item (2) and the bundle's item (2) are issued from stock.
+        $this->assertEquals(96, (float) $gloves->fresh()->quantity);
     }
 
     public function test_multiple_bundles_in_one_request_get_distinct_permit_numbers(): void
