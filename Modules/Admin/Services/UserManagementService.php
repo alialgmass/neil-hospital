@@ -34,6 +34,17 @@ class UserManagementService
         return $this->labels->describePermissions(Permission::orderBy('name')->get());
     }
 
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    public function createRole(string $name, array $permissions): Role
+    {
+        $role = Role::create(['name' => $name, 'guard_name' => 'web']);
+        $role->syncPermissions($permissions);
+
+        return $role;
+    }
+
     public function syncRolePermissions(string|int $roleId, array $permissions): void
     {
         $role = Role::findOrFail($roleId);

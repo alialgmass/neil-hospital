@@ -67,6 +67,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:users.manage')
             ->name('index');
 
+        Route::post('/', [RoleController::class, 'store'])
+            ->middleware('can:users.manage')
+            ->name('store');
+
         Route::put('/{id}/permissions', [RoleController::class, 'updatePermissions'])
             ->middleware('can:users.manage')
             ->name('update-permissions');

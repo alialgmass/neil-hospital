@@ -44,11 +44,27 @@ const permissionGroups = computed(() => {
 
 // Edit permissions for a role
 const editingRole  = ref<Role | null>(null);
-const editForm     = useForm({ permissions: [] as string[] });
+const creating     = ref(false);
+const editForm     = useForm({ name: '', permissions: [] as string[] });
+
+const modalOpen = computed(() => creating.value || editingRole.value !== null);
+
+function openCreate() {
+    editingRole.value = null;
+    creating.value    = true;
+    editForm.reset();
+    editForm.clearErrors();
+}
 
 function openEdit(role: Role) {
+    creating.value       = false;
     editingRole.value    = role;
     editForm.permissions = role.permissions.map(p => p.name);
+}
+
+function closeModal() {
+    editingRole.value = null;
+    creating.value    = false;
 }
 
 function togglePermission(perm: string) {
@@ -62,22 +78,27 @@ function togglePermission(perm: string) {
 }
 
 function submitEdit() {
-    if (!editingRole.value) {
- return; 
-}
+    if (creating.value) {
+        editForm.post('/roles', { onSuccess: closeModal });
 
-    editForm.put(`/roles/${editingRole.value.id}/permissions`, {
-        onSuccess: () => {
- editingRole.value = null; 
-},
-    });
+        return;
+    }
+
+    if (!editingRole.value) {
+        return;
+    }
+
+    editForm.put(`/roles/${editingRole.value.id}/permissions`, { onSuccess: closeModal });
 }
 </script>
 
 <template>
     <Head title="الأدوار والصلاحيات" />
 
-    <h2 class="mb-5 text-lg font-bold text-hospital-text">الأدوار والصلاحيات</h2>
+    <div class="mb-5 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-hospital-text">الأدوار والصلاحيات</h2>
+        <button type="button" class="btn-primary" @click="openCreate">+ إضافة دور</button>
+    </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div
@@ -119,11 +140,24 @@ function submitEdit() {
     </div>
 
     <!-- Edit Permissions Modal -->
-    <Modal v-if="editingRole" :model-value="!!editingRole" title="تعديل صلاحيات الدور" size="lg" @update:model-value="editingRole = null">
+    <Modal v-if="modalOpen" :model-value="modalOpen" :title="creating ? 'إضافة دور جديد' : 'تعديل صلاحيات الدور'" size="lg" @update:model-value="closeModal">
         <form class="space-y-4" @submit.prevent="submitEdit">
+            <div v-if="creating">
+                <label class="mb-1 block text-xs font-medium text-t2">اسم الدور</label>
+                <input
+                    v-model="editForm.name"
+                    type="text"
+                    maxlength="100"
+                    required
+                    class="w-full rounded-lg border border-br px-3 py-2 text-sm"
+                    placeholder="مثال: مشرف الاستقبال"
+                />
+                <p v-if="editForm.errors.name" class="mt-1 text-xs text-red-600">{{ editForm.errors.name }}</p>
+            </div>
+
             <div class="flex items-center gap-2 rounded-lg border border-br bg-pp px-3 py-2">
                 <Shield class="h-4 w-4 text-p" />
-                <span class="text-sm font-medium text-pd">{{ editingRole.label }}</span>
+                <span class="text-sm font-medium text-pd">{{ creating ? (editForm.name || 'دور جديد') : editingRole?.label }}</span>
                 <span class="mr-auto text-xs text-t3">{{ editForm.permissions.length }} صلاحية محددة</span>
             </div>
 
@@ -164,9 +198,9 @@ function submitEdit() {
             </div>
 
             <div class="flex justify-end gap-2 border-t border-br pt-4">
-                <button type="button" class="btn-secondary" @click="editingRole = null">إلغاء</button>
+                <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
                 <button type="submit" :disabled="editForm.processing" class="btn-primary">
-                    {{ editForm.processing ? 'جارٍ الحفظ...' : 'حفظ الصلاحيات' }}
+                    {{ editForm.processing ? 'جارٍ الحفظ...' : creating ? 'إضافة الدور' : 'حفظ الصلاحيات' }}
                 </button>
             </div>
         </form>
