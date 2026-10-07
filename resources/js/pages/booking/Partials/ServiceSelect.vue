@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 
 interface Service {
     id: string;
+    code?: string | null;
     name: string;
 }
 
@@ -66,7 +67,8 @@ const filteredServices = computed(() => {
     }
 
     return props.services.filter((svc) =>
-        normalizeSearchText(svc.name).includes(query),
+        normalizeSearchText(svc.name).includes(query)
+        || normalizeSearchText(svc.code ?? '').includes(query),
     );
 });
 
@@ -174,6 +176,7 @@ function onServiceKeydown(event: KeyboardEvent) {
                             @mousedown.prevent="selectService(svc)"
                             @mouseenter="highlightedServiceIndex = index"
                         >
+                            <span v-if="svc.code" class="ml-2 font-mono text-[10px] text-t3" dir="ltr">{{ svc.code }}</span>
                             {{ svc.name }}
                         </li>
                         <li

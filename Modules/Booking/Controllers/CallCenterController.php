@@ -15,6 +15,7 @@ use Modules\Booking\Enums\CallReason;
 use Modules\Booking\Enums\PreBookingStatus;
 use Modules\Booking\Http\Requests\StoreCallLogRequest;
 use Modules\Booking\Http\Requests\StorePreBookingRequest;
+use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Booking\Services\CallCenterService;
 use Modules\Doctor\Models\Doctor;
@@ -48,6 +49,7 @@ class CallCenterController extends Controller
             'followUps' => $this->callCenter->dueFollowUps(),
             'services' => Service::active()->orderBy('name')->get(['id', 'name', 'dept']),
             'doctors' => Doctor::orderBy('name')->get(['id', 'name']),
+            'insuranceCompanies' => InsuranceCompany::orderBy('name')->get(['id', 'name']),
             'options' => [
                 'directions' => $this->options(CallDirection::cases()),
                 'reasons' => $this->options(CallReason::cases()),

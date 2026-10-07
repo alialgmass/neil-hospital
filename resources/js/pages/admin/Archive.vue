@@ -4,6 +4,7 @@ import { Barcode, FileText, FolderPlus, Grid, List, Paperclip, Trash2, Upload, X
 import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { usePermissions } from '@/composables/usePermissions';
 import archive from '@/routes/archive';
 import booking from '@/routes/booking';
 
@@ -75,6 +76,12 @@ const payStatusLabels: Record<string, string> = {
     partial: 'جزئي',
     unpaid:  'غير مسدد',
 };
+
+const { can } = usePermissions();
+const canCreate = computed(() => can('archive.create'));
+const canUpload = computed(() => can('archive.upload'));
+const canDeleteFile = computed(() => can('archive.delete_file'));
+const canPrintBarcode = computed(() => can('booking.view'));
 
 const viewMode = ref<'grid' | 'table'>('grid');
 const search    = ref(props.filters.search ?? '');
@@ -201,6 +208,7 @@ function goToPage(page: number) {
                 {{ bookings.total }} سجل
             </span>
             <button
+                v-if="canCreate"
                 class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-hospital-primary/90"
                 @click="showAddModal = true"
             >
@@ -299,9 +307,10 @@ function goToPage(page: number) {
                         @click="openFilesModal(record)"
                     >
                         <Paperclip class="h-3 w-3" />
-                        {{ record.media_files.length > 0 ? `${record.media_files.length} ملف` : 'رفع ملفات' }}
+                        {{ record.media_files.length > 0 ? `${record.media_files.length} ملف` : (canUpload ? 'رفع ملفات' : 'لا ملفات') }}
                     </button>
                     <button
+                        v-if="canPrintBarcode"
                         title="طباعة باركود"
                         class="rounded-lg border border-hospital-border p-1.5 text-hospital-text-2 transition-colors hover:border-hospital-accent hover:text-hospital-accent"
                         @click="printBarcode(record.id)"
@@ -363,6 +372,7 @@ function goToPage(page: number) {
                                 {{ record.media_files.length > 0 ? record.media_files.length : '—' }}
                             </button>
                             <button
+                                v-if="canPrintBarcode"
                                 title="طباعة باركود"
                                 class="text-hospital-text-2 hover:text-hospital-accent"
                                 @click="printBarcode(record.id)"
@@ -407,6 +417,7 @@ function goToPage(page: number) {
                             <p class="text-xs text-hospital-text-3">{{ file.size }}</p>
                         </div>
                         <button
+                            v-if="canDeleteFile"
                             class="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
                             title="حذف"
                             @click="deleteMedia(file.id)"
@@ -423,7 +434,7 @@ function goToPage(page: number) {
             </div>
 
             <!-- Upload new file -->
-            <div class="rounded-lg border border-hospital-border p-4">
+            <div v-if="canUpload" class="rounded-lg border border-hospital-border p-4">
                 <p class="mb-3 text-sm font-medium text-hospital-text-2">رفع ملف جديد</p>
                 <form class="flex items-end gap-3" @submit.prevent="submitUpload">
                     <div class="flex-1">

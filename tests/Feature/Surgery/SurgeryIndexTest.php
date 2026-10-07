@@ -5,6 +5,7 @@ namespace Tests\Feature\Surgery;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Models\BookingDoctorDelegation;
@@ -155,6 +156,24 @@ class SurgeryIndexTest extends TestCase
             ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.0.doctor.name', $delegate->name)
             ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.1.role', 'anesthesia')
             ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.1.doctor.name', $anesthetist->name)
+        );
+    }
+
+    public function test_surgery_bed_card_ships_eye_and_insurance_company(): void
+    {
+        $company = InsuranceCompany::create(['name' => 'التأمين الوطني', 'status' => 'active']);
+        $booking = $this->createBooking('surgery');
+        $booking->update(['pay_method' => 'insurance', 'ins_company_id' => $company->id, 'eye_side' => 'OS']);
+
+        $room = OrRoom::create(['name' => 'Room 1']);
+        $bed = OrBed::create(['room_id' => $room->id, 'bed_number' => 1]);
+        Surgery::create(['booking_id' => $booking->id, 'or_bed_id' => $bed->id, 'dept' => 'surgery', 'status' => 'scheduled', 'scheduled_at' => now()]);
+
+        $this->actingAs($this->user)->get('/surgery')->assertInertia(fn ($page) => $page
+            ->where('orRooms.0.beds.0.surgery.booking.pay_method', 'insurance')
+            ->where('orRooms.0.beds.0.surgery.booking.eye_side', 'OS')
+            ->where('orRooms.0.beds.0.surgery.booking.insurance_company.name', 'التأمين الوطني')
+            ->where('surgeries.data.0.booking.insurance_company.name', 'التأمين الوطني')
         );
     }
 

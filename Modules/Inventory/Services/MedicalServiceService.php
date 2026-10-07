@@ -11,7 +11,9 @@ class MedicalServiceService
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Service::query()
-            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%"))
+            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q
+                ->where('name', 'like', "%{$v}%")
+                ->orWhere('code', 'like', "%{$v}%")))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->orderBy('dept')
@@ -28,6 +30,14 @@ class MedicalServiceService
     public function update(string $id, array $data): Service
     {
         $service = Service::findOrFail($id);
+
+        // A service always keeps a code: a blank one leaves the current code untouched.
+        if (blank($data['code'] ?? null)) {
+            unset($data['code']);
+        } else {
+            $data['code'] = mb_strtoupper(trim($data['code']));
+        }
+
         $service->update($this->calculateShares($data));
 
         return $service;

@@ -23,6 +23,7 @@ class StorePreBookingRequest extends FormRequest
             'dept' => ['required', Rule::enum(Department::class)],
             'service_id' => ['nullable', 'string', 'exists:services,id'],
             'doctor_id' => ['nullable', 'string', 'exists:doctors,id'],
+            'ins_company_id' => ['nullable', 'string', 'exists:insurance_companies,id'],
             'preferred_date' => ['required', 'date', 'after_or_equal:today'],
             'preferred_time' => ['nullable', 'date_format:H:i'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -35,6 +36,7 @@ class StorePreBookingRequest extends FormRequest
             'patient_name' => 'اسم المريض',
             'patient_phone' => 'رقم الهاتف',
             'dept' => 'القسم',
+            'ins_company_id' => 'شركة التأمين',
             'preferred_date' => 'تاريخ الموعد',
             'preferred_time' => 'وقت الموعد',
         ];

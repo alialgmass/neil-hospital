@@ -291,6 +291,32 @@
         direction: rtl;
     }
 
+    /* Clear Arabic print typeface (Cairo/Tajawal are loaded in app.blade.php) */
+    body,
+    #app,
+    table,
+    th,
+    td,
+    input,
+    select,
+    textarea {
+        font-family: 'Cairo', 'Tajawal', 'Segoe UI', 'Tahoma', 'Arial', sans-serif !important;
+        color: #111827 !important;
+        line-height: 1.5;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Soft grey text is unreadable on paper — darken it */
+    [class*="text-t2"],
+    [class*="text-t3"],
+    [class*="text-hospital-text-2"],
+    [class*="text-hospital-text-3"],
+    [class*="text-gray-"],
+    [class*="text-slate-"] {
+        color: #374151 !important;
+    }
+
     /* Improve table legibility */
     table {
         border-collapse: collapse;
@@ -299,12 +325,43 @@
 
     th,
     td {
-        border: 1px solid #dde4ef;
+        border: 1px solid #9ca3af;
         padding: 6px 8px;
         font-size: 11pt;
+        text-align: right;
+        vertical-align: middle;
     }
 
-    /* Avoid page breaks inside rows */
+    th {
+        background: #e5e7eb !important;
+        color: #111827 !important;
+        font-weight: 700;
+        font-size: 11.5pt;
+    }
+
+    tbody tr:nth-child(even) td {
+        background: #f9fafb !important;
+    }
+
+    /* Numbers stay aligned and legible */
+    .font-mono,
+    td[dir="ltr"] {
+        font-family: 'Cairo', 'Segoe UI', 'Tahoma', sans-serif !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    h1,
+    h2,
+    h3 {
+        color: #111827 !important;
+        font-weight: 800;
+    }
+
+    /* Repeat the header on every page; avoid page breaks inside rows */
+    thead {
+        display: table-header-group;
+    }
+
     tr,
     .print-no-break {
         page-break-inside: avoid;
@@ -321,7 +378,7 @@
     .rounded-lg,
     [class*="shadow"] {
         box-shadow: none !important;
-        border: 1px solid #dde4ef !important;
+        border: 1px solid #9ca3af !important;
     }
 
     /* Color adjustments for print */

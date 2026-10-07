@@ -78,19 +78,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Archive
     Route::get('/archive', [ArchiveController::class, 'index'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.view')
         ->name('archive');
 
     Route::post('/archive', [ArchiveController::class, 'store'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.create')
         ->name('archive.store');
 
     Route::post('/archive/{booking}/upload', [ArchiveController::class, 'upload'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.upload')
         ->name('archive.upload');
 
     Route::delete('/archive/media/{media}', [ArchiveController::class, 'destroyMedia'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.delete_file')
         ->name('archive.media.destroy');
 
     // Activity log

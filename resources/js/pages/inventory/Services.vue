@@ -12,6 +12,7 @@ defineOptions({ layout: AppLayout });
 
 interface Service {
     id: string;
+    code: string | null;
     name: string;
     dept: string;
     price: number;
@@ -98,6 +99,7 @@ const showModal = ref(false);
 const editingService = ref<Service | null>(null);
 
 const form = useForm({
+    code: '',
     name: '',
     dept: 'clinic',
     price: 0 as number,
@@ -141,6 +143,7 @@ function openEdit(svc: Service) {
     }
 
     editingService.value = svc;
+    form.code = svc.code ?? '';
     form.name = svc.name;
     form.dept = svc.dept;
     form.price = Number(svc.price);
@@ -327,7 +330,7 @@ function fmt(n: number) {
                     v-model="filters.search"
                     class="w-60 rounded-lg border border-hospital-border bg-hospital-surface pe-9 py-2 ps-3 text-sm text-hospital-text placeholder-hospital-text-3 focus:border-hospital-primary focus:outline-none"
                     type="text"
-                    placeholder="بحث باسم الخدمة..."
+                    placeholder="بحث بالاسم أو الكود..."
                 />
             </div>
             <select
@@ -353,7 +356,8 @@ function fmt(n: number) {
                 <table class="w-full text-sm" dir="rtl">
                     <thead class="border-b border-hospital-border bg-hospital-bg">
                         <tr>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الخدمة</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الكود</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الخدمة</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">القسم</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">السعر</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر العين (واحدة/اثنتان)</th>
@@ -368,7 +372,7 @@ function fmt(n: number) {
                     <tbody>
                         <!-- Empty state -->
                         <tr v-if="services.data.length === 0">
-                            <td colspan="10" class="py-16 text-center">
+                            <td colspan="11" class="py-16 text-center">
                                 <div class="flex flex-col items-center gap-3 text-hospital-text-3">
                                     <Package class="h-14 w-14 opacity-30" />
                                     <p class="text-base font-medium">لا توجد خدمات</p>
@@ -382,7 +386,8 @@ function fmt(n: number) {
                             :key="svc.id"
                             class="border-t border-hospital-border/50 transition-colors hover:bg-hospital-primary-pale/30"
                         >
-                            <td class="px-4 py-3 font-medium text-hospital-text">{{ svc.name }}</td>
+                            <td class="px-4 py-3 font-mono text-xs text-hospital-text-2" dir="ltr">{{ svc.code ?? '—' }}</td>
+                        <td class="px-4 py-3 font-medium text-hospital-text">{{ svc.name }}</td>
                             <td class="px-4 py-3">
                                 <Badge :variant="deptBadgeVariant[svc.dept] ?? 'info'" :label="deptLabels[svc.dept] ?? svc.dept" />
                             </td>
@@ -442,6 +447,19 @@ function fmt(n: number) {
                 <div class="rounded-lg border border-hospital-border p-4">
                     <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-hospital-text-2">المعلومات الأساسية</h3>
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">كود الخدمة <span class="text-xs text-hospital-text-3">(يُولَّد تلقائياً إن تُرك فارغاً)</span></label>
+                            <input
+                                v-model="form.code"
+                                type="text"
+                                dir="ltr"
+                                maxlength="30"
+                                placeholder="مثال: CLN-0001"
+                                class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase text-hospital-text placeholder-hospital-text-3 focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                                :class="form.errors.code ? 'border-hospital-danger focus:border-hospital-danger' : 'border-hospital-border focus:border-hospital-primary'"
+                            />
+                            <p v-if="form.errors.code" class="mt-1 text-xs text-hospital-danger">{{ form.errors.code }}</p>
+                        </div>
                         <div class="sm:col-span-2">
                             <label class="mb-1 block text-sm font-medium text-hospital-text">اسم الخدمة <span class="text-hospital-danger">*</span></label>
                             <input

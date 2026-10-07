@@ -35,7 +35,7 @@ class BookingService
     public function getFormResources(): array
     {
         return [
-            'services' => Service::select('id', 'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price', 'ins_one_eye_price', 'ins_both_eyes_price')->active()->orderBy('name')->get(),
+            'services' => Service::select('id', 'code', 'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price', 'ins_one_eye_price', 'ins_both_eyes_price')->active()->orderBy('name')->get(),
             'insuranceCompanies' => InsuranceCompany::select('id', 'name', 'coverage_pct')->orderBy('name')->get(),
             'priceLists' => PriceList::select('id', 'name', 'ins_company_id', 'ins_coverage')
                 ->where('is_active', true)

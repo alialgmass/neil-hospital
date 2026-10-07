@@ -147,7 +147,7 @@ const navGroups: NavGroup[] = [
         icon: Settings,
         items: [
             { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial', module: 'reports' },
-            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical', module: 'reports' },
+            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'archive.view', module: 'reports' },
             { title: 'تصدير الوحدات', href: '/module-exports', icon: FileSpreadsheet, permission: 'users.manage' },
             { title: 'استيراد الوحدات', href: '/module-imports', icon: FileUp, permission: 'users.manage' },
             { title: 'المستخدمون', href: '/users', icon: Users, permission: 'users.manage' },

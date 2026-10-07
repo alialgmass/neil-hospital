@@ -92,6 +92,8 @@ interface PreBooking {
     dept: string;
     service_id: string | null;
     doctor_id: string | null;
+    ins_company_id: string | null;
+    insurance_company?: { id: string; name: string } | null;
     preferred_date: string;
     preferred_time: string | null;
     notes: string | null;
@@ -138,6 +140,8 @@ function convertPreBooking(pre: PreBooking) {
         dept: pre.dept,
         service_id: pre.service_id ?? '',
         doctor_id: pre.doctor_id ?? '',
+        ins_company_id: pre.ins_company_id ?? '',
+        ...(pre.ins_company_id ? { pay_method: 'insurance' } : {}),
         visit_date: pre.preferred_date,
         visit_time: pre.preferred_time ?? '',
         visit_note: pre.notes ?? '',
@@ -557,6 +561,9 @@ const isDeleteModalOpen = computed({
                     </td>
                     <td class="px-4 py-2 text-hospital-text-2">
                         {{ pre.service?.name ?? pre.dept }}<template v-if="pre.doctor"> — {{ pre.doctor.name }}</template>
+                        <span v-if="pre.insurance_company" class="mr-2 rounded-full bg-hospital-primary/10 px-2 py-0.5 text-[11px] font-bold text-hospital-primary">
+                            {{ pre.insurance_company.name }}
+                        </span>
                     </td>
                     <td class="max-w-xs px-4 py-2 text-hospital-text-3">{{ pre.notes ?? '' }}</td>
                     <td class="px-4 py-2 text-hospital-text-3">{{ pre.creator?.name ?? '' }}</td>

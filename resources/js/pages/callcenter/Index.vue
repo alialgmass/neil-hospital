@@ -37,6 +37,7 @@ interface PreBookingRow {
     status: string;
     service?: { id: string; name: string } | null;
     doctor?: { id: string; name: string } | null;
+    insurance_company?: { id: string; name: string } | null;
     creator?: { id: number; name: string } | null;
     booking?: { id: string; file_no: string } | null;
 }
@@ -71,6 +72,7 @@ const props = defineProps<{
     followUps: CallRow[];
     services: { id: string; name: string; dept: string }[];
     doctors: { id: string; name: string }[];
+    insuranceCompanies: { id: string; name: string }[];
     options: { directions: Option[]; reasons: Option[]; outcomes: Option[]; preStatuses: Option[] };
 }>();
 
@@ -211,6 +213,7 @@ const preForm = useForm({
     dept: 'clinic',
     service_id: '',
     doctor_id: '',
+    ins_company_id: '',
     preferred_date: '',
     preferred_time: '',
     notes: '',
@@ -425,7 +428,10 @@ const reminderPending = computed(() => props.reminders.filter((row) => !row.last
                             {{ deptLabel(row.dept) }}
                             <span v-if="row.service" class="block text-xs text-t3">{{ row.service.name }}</span>
                         </td>
-                        <td class="px-4 py-3 text-t2">{{ row.doctor?.name ?? '—' }}</td>
+                        <td class="px-4 py-3 text-t2">
+                            {{ row.doctor?.name ?? '—' }}
+                            <span v-if="row.insurance_company" class="block text-xs text-t3">تأمين: {{ row.insurance_company.name }}</span>
+                        </td>
                         <td class="px-4 py-3">
                             <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="preStatusClasses[row.status]">
                                 {{ label(options.preStatuses, row.status) }}
@@ -684,6 +690,14 @@ const reminderPending = computed(() => props.reminders.filter((row) => !row.last
                         <option value="">— غير محدد —</option>
                         <option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id">{{ doctor.name }}</option>
                     </select>
+                </div>
+                <div>
+                    <label class="form-label">شركة التأمين</label>
+                    <select v-model="preForm.ins_company_id" class="input-field">
+                        <option value="">— بدون تأمين —</option>
+                        <option v-for="company in insuranceCompanies" :key="company.id" :value="company.id">{{ company.name }}</option>
+                    </select>
+                    <p v-if="preForm.errors.ins_company_id" class="form-error">{{ preForm.errors.ins_company_id }}</p>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>

@@ -2,6 +2,7 @@
 
 namespace Modules\Inventory\Models;
 
+use App\Models\Concerns\HasServiceCode;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,11 +10,13 @@ use Modules\Accounting\Models\Account;
 
 class Service extends Model
 {
+    use HasServiceCode;
     use HasUlids;
 
     protected $table = 'services';
 
     protected $fillable = [
+        'code',
         'name',
         'dept',
         'price',

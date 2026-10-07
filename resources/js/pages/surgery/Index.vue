@@ -46,6 +46,10 @@ interface Surgery {
         patient_name: string;
         service_id?: string | null;
         service_name?: string | null;
+        eye_side?: 'OD' | 'OS' | 'OU' | null;
+        pay_method?: string | null;
+        ins_company_id?: string | null;
+        insurance_company?: { id: string; name: string } | null;
         doctor_delegations?: DelegationRow[];
     };
     procedure: string;
@@ -245,6 +249,19 @@ const completedCount = computed(
 const supplyTotal = computed(() =>
     props.surgeries.data.reduce((s, b) => s + Number(b.supply_total ?? 0), 0),
 );
+
+/** A case is an insurance case when paid by insurance or tied to an insurance company. */
+function isInsuranceCase(surgery: Surgery): boolean {
+    return (
+        surgery.booking?.pay_method === 'insurance' ||
+        Boolean(surgery.booking?.ins_company_id)
+    );
+}
+
+/** The operated eye: the surgery's own value, falling back to the booking's. */
+function eyeFor(surgery: Surgery): string | null {
+    return surgery.eye ?? surgery.booking?.eye_side ?? null;
+}
 
 /** Patient name for the bed-card header — only our own dept's cases carry one. */
 function patientFor(surgery: Surgery | null): string | null {
@@ -967,10 +984,28 @@ if (props.prefill) {
                     <span>الطبيب:</span
                     ><strong>{{ item.surgery.surgeon?.name ?? '—' }}</strong>
                 </p>
-                <p v-if="item.surgery.eye" class="bed-info-row">
+                <p v-if="eyeFor(item.surgery)" class="bed-info-row">
                     <span>العين:</span
                     ><strong>{{
-                        eyeLabel[item.surgery.eye!] ?? item.surgery.eye
+                        eyeLabel[eyeFor(item.surgery)!] ?? eyeFor(item.surgery)
+                    }}</strong>
+                </p>
+                <p class="bed-info-row">
+                    <span>الدفع:</span
+                    ><strong>{{
+                        isInsuranceCase(item.surgery) ? 'تأمين' : 'بدون تأمين'
+                    }}</strong>
+                </p>
+                <p
+                    v-if="
+                        isInsuranceCase(item.surgery) &&
+                        item.surgery.booking?.insurance_company
+                    "
+                    class="bed-info-row"
+                >
+                    <span>الشركة:</span
+                    ><strong>{{
+                        item.surgery.booking.insurance_company.name
                     }}</strong>
                 </p>
                 <p v-if="item.surgery.scheduled_at" class="bed-info-row">

@@ -27,6 +27,7 @@ class PreBooking extends Model
         'dept',
         'service_id',
         'doctor_id',
+        'ins_company_id',
         'preferred_date',
         'preferred_time',
         'notes',
@@ -58,6 +59,11 @@ class PreBooking extends Model
     public function doctor(): BelongsTo
     {
         return $this->belongsTo(Doctor::class);
+    }
+
+    public function insuranceCompany(): BelongsTo
+    {
+        return $this->belongsTo(InsuranceCompany::class, 'ins_company_id');
     }
 
     public function booking(): BelongsTo

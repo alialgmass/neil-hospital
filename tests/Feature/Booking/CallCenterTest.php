@@ -11,6 +11,7 @@ use Modules\Accounting\Models\Account;
 use Modules\Booking\Enums\PreBookingStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\CallLog;
+use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\PreBooking;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -154,6 +155,33 @@ class CallCenterTest extends TestCase
         $this->assertSame($this->reception->id, $preBooking->handled_by);
 
         $this->get('/booking')->assertInertia(fn (Assert $page) => $page->has('preBookings', 0));
+    }
+
+    public function test_agent_attaches_insurance_company_to_pre_booking_and_reception_sees_it(): void
+    {
+        $company = InsuranceCompany::create(['name' => 'التأمين الوطني', 'status' => 'active']);
+
+        $this->actingAs($this->agent)
+            ->get('/call-center')
+            ->assertInertia(fn (Assert $page) => $page->has('insuranceCompanies', 1)->where('insuranceCompanies.0.id', $company->id));
+
+        $this->post('/call-center/pre-bookings', $this->preBookingPayload(['ins_company_id' => $company->id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($company->id, PreBooking::sole()->ins_company_id);
+
+        $this->actingAs($this->reception)
+            ->get('/booking')
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('preBookings.0.ins_company_id', $company->id)
+                ->where('preBookings.0.insurance_company.name', 'التأمين الوطني'));
+    }
+
+    public function test_pre_booking_rejects_unknown_insurance_company(): void
+    {
+        $this->actingAs($this->agent)
+            ->post('/call-center/pre-bookings', $this->preBookingPayload(['ins_company_id' => '01JNONEXISTENT0000000000000']))
+            ->assertSessionHasErrors('ins_company_id');
     }
 
     public function test_converting_an_already_converted_pre_booking_rolls_back_the_booking(): void

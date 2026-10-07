@@ -40,7 +40,7 @@ class CallCenterService
     public function preBookings(?PreBookingStatus $status = null): Collection
     {
         return PreBooking::query()
-            ->with(['service:id,name', 'doctor:id,name', 'creator:id,name', 'booking:id,file_no'])
+            ->with(['service:id,name', 'doctor:id,name', 'insuranceCompany:id,name', 'creator:id,name', 'booking:id,file_no'])
             ->when($status, fn (Builder $query, PreBookingStatus $status) => $query->where('status', $status))
             ->orderBy('preferred_date')
             ->orderBy('preferred_time')
@@ -56,7 +56,7 @@ class CallCenterService
     public function pendingForReception(): Collection
     {
         return PreBooking::pending()
-            ->with(['service:id,name', 'doctor:id,name', 'creator:id,name'])
+            ->with(['service:id,name', 'doctor:id,name', 'insuranceCompany:id,name', 'creator:id,name'])
             ->orderBy('preferred_date')
             ->orderBy('preferred_time')
             ->get();

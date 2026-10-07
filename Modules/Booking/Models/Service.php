@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Models;
 
+use App\Models\Concerns\HasServiceCode;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,10 +10,11 @@ use Modules\Accounting\Models\Account;
 
 class Service extends Model
 {
+    use HasServiceCode;
     use HasUlids;
 
     protected $fillable = [
-        'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price',
+        'code', 'name', 'dept', 'price', 'one_eye_price', 'both_eyes_price', 'ins_price',
         'ins_one_eye_price', 'ins_both_eyes_price',
         'center_type', 'center_val', 'center_share', 'dr_share', 'default_dr_fee',
         'dev_treasury_fee', 'duration_mins', 'status', 'revenue_account_id',
