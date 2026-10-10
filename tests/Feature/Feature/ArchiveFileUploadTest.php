@@ -198,6 +198,23 @@ class ArchiveFileUploadTest extends TestCase
         $this->assertNotNull(Media::find($media->id));
     }
 
+    public function test_archive_staff_can_open_patient_file_without_booking_permission(): void
+    {
+        $this->makeCompletedBooking();
+
+        $this->actingAs($this->userWith(['archive.view']))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertOk();
+
+        $this->actingAs($this->userWith(['booking.view']))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertOk();
+
+        $this->actingAs($this->userWith([]))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertForbidden();
+    }
+
     public function test_each_archive_action_has_its_own_permission(): void
     {
         Storage::fake('public');

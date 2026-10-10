@@ -9,6 +9,7 @@ use Modules\Doctor\Enums\DelegationStatus;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\States\ClaimStatus;
+use Modules\Insurance\States\PaidState;
 
 class ReportingService
 {
@@ -207,6 +208,50 @@ class ReportingService
         }
 
         $rows = $rows->sortByDesc('last_visit')->values()->toArray();
+
+        return compact('rows', 'from', 'to');
+    }
+
+    /**
+     * Labs insurance cases' doctor dues on their own: the amount each doctor
+     * will be owed, and whether it is recognised yet (only once the claim
+     * is settled).
+     *
+     * @return array{rows: array<int, object>, from: string, to: string}
+     */
+    public function labsInsuranceDoctorDues(string $from, string $to, ?string $doctorId = null): array
+    {
+        $bookings = DB::table('bookings')
+            ->leftJoin('insurance_companies', 'bookings.ins_company_id', '=', 'insurance_companies.id')
+            ->leftJoin('insurance_claims', 'insurance_claims.booking_id', '=', 'bookings.id')
+            ->where('bookings.dept', 'labs')
+            ->where('bookings.pay_method', 'insurance')
+            ->whereNotNull('bookings.doctor_id')
+            ->where('bookings.status', '!=', 'cancelled')
+            ->whereBetween('bookings.visit_date', [$from, $to])
+            ->when($doctorId, fn ($q, $v) => $q->where('bookings.doctor_id', $v))
+            ->orderByDesc('bookings.visit_date')
+            ->select('bookings.*', 'insurance_companies.name as company_name', 'insurance_claims.status as claim_status')
+            ->get();
+
+        $doctors = Doctor::whereIn('id', $bookings->pluck('doctor_id')->unique())->get()->keyBy('id');
+
+        $rows = $bookings->map(function ($booking) use ($doctors) {
+            $doctor = $doctors->get($booking->doctor_id);
+            $isSettled = $booking->claim_status === PaidState::$name;
+
+            return (object) [
+                'doctor_name' => $doctor?->name,
+                'file_no' => $booking->file_no,
+                'patient_name' => $booking->patient_name,
+                'visit_date' => $booking->visit_date,
+                'service_name' => $booking->service_name,
+                'company_name' => $booking->company_name,
+                'claim_status' => ClaimStatus::labels()[$booking->claim_status ?? 'draft'] ?? $booking->claim_status,
+                'doctor_due' => $doctor ? $this->doctorClaimsService->insuranceEntitlementAmount($doctor, $booking) : 0.0,
+                'is_recognised' => $isSettled,
+            ];
+        })->filter(fn ($row) => $row->doctor_name !== null)->values()->all();
 
         return compact('rows', 'from', 'to');
     }

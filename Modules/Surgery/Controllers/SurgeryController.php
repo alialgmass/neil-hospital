@@ -175,6 +175,7 @@ class SurgeryController extends Controller
                     $dept,
                     $bundleReq['selected_items'] ?? [],
                     $id,
+                    deductNoItems: array_key_exists('selected_items', $bundleReq) && $bundleReq['selected_items'] === [],
                 );
             }
 

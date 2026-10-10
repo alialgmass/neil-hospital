@@ -454,12 +454,6 @@ function confirmAddBundle() {
         (i) => i.selected && i.inventory_item_id,
     );
 
-    if (selected.length === 0) {
-        toast.error('يرجى تحديد صنف واحد على الأقل من البند');
-
-        return;
-    }
-
     const bundleTotal = selected.reduce((s, i) => s + i.qty * i.unit_cost, 0);
     selectedBundles.value.push({
         bundle_id: expandedBundleId.value,
@@ -469,7 +463,10 @@ function confirmAddBundle() {
             inventory_item_id: i.inventory_item_id!,
             qty: i.qty,
         })),
-        items_label: `${selected.length} ${selected.length === 1 ? 'صنف' : 'أصناف'}`,
+        items_label:
+            selected.length === 0
+                ? 'بدون أصناف'
+                : `${selected.length} ${selected.length === 1 ? 'صنف' : 'أصناف'}`,
         bundle_total: bundleTotal,
     });
     newBundlePick.value = '';
@@ -993,7 +990,7 @@ if (props.prefill) {
                 <p class="bed-info-row">
                     <span>الدفع:</span
                     ><strong>{{
-                        isInsuranceCase(item.surgery) ? 'تأمين' : 'بدون تأمين'
+                        isInsuranceCase(item.surgery) ? 'تأمين' : 'كاش'
                     }}</strong>
                 </p>
                 <p

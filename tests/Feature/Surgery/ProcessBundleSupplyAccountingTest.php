@@ -101,6 +101,21 @@ class ProcessBundleSupplyAccountingTest extends TestCase
         $this->assertEquals(0.0, (float) Account::where('code', '5010')->value('balance'));
     }
 
+    public function test_empty_selection_charges_bundle_price_but_deducts_no_stock(): void
+    {
+        $bundle = $this->makeBundle(ItemCategory::Medical);
+        $item = $bundle->items->first()->inventoryItem;
+        $stockBefore = (float) $item->fresh()->quantity;
+
+        $surgery = $this->makeSurgery();
+        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id, true);
+
+        $this->assertEquals($stockBefore, (float) $item->fresh()->quantity);
+        $supplyRevenue = Account::where('code', '4070')->firstOrFail();
+        $this->assertEquals(200.00, (float) JournalEntry::where('credit_account_id', $supplyRevenue->id)->value('amount'));
+        $this->assertSame(0, JournalEntry::where('source', 'supplies_used')->where('description', 'like', 'بند:%')->count());
+    }
+
     private function makeSurgery(string $dept = 'surgery'): Surgery
     {
         $surgeon = Doctor::create(['name' => 'د. جراح', 'fee_type' => 'percentage', 'fee_value' => 100]);

@@ -45,8 +45,9 @@ class ProcessBundleSupplyAction
      *                                                                              When provided, only those items are deducted with their given quantities.
      *                                                                              When empty, all bundle items are deducted using bundle defaults × $qty.
      * @param  string|null  $surgeryId  Used to resolve the linked booking's pay method (see $isInsurancePaid()).
+     * @param  bool  $deductNoItems  The user explicitly selected no items: charge the bundle price but deduct nothing.
      */
-    public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = [], ?string $surgeryId = null): array
+    public function process(string $bundleId, int $qty, string $dept = 'surgery', array $selectedItems = [], ?string $surgeryId = null, bool $deductNoItems = false): array
     {
         $bundle = SupplyBundle::with('items.inventoryItem')->findOrFail($bundleId);
 
@@ -68,10 +69,10 @@ class ProcessBundleSupplyAction
         // Create the stock-permit shell first — its id anchors the
         // idempotency keys for this specific bundle-consumption event, so a
         // retried/duplicate request can't double-post the same journal lines.
-        $permit = $this->createStockPermit($bundle, $qty, $dept, $selectedMap);
+        $permit = $this->createStockPermit($bundle, $qty, $dept, $selectedMap, $deductNoItems);
 
         foreach ($bundle->items as $item) {
-            if (! $item->inventory_item_id) {
+            if (! $item->inventory_item_id || $deductNoItems) {
                 continue;
             }
 
@@ -158,14 +159,14 @@ class ProcessBundleSupplyAction
         ]);
     }
 
-    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = []): StockPermit
+    private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = [], bool $deductNoItems = false): StockPermit
     {
         $permit = $this->createPermitWithRetry($bundle, $dept);
 
         $hasSelection = ! empty($selectedMap);
 
         foreach ($bundle->items as $item) {
-            if (! $item->inventory_item_id) {
+            if (! $item->inventory_item_id || $deductNoItems) {
                 continue;
             }
 

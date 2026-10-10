@@ -48,6 +48,10 @@ function search() {
 function exportExcel() {
     window.location.href = `/reports/doctor-claims/export?from=${from.value}&to=${to.value}`;
 }
+
+function exportLabsInsuranceExcel() {
+    window.location.href = `/reports/doctor-claims/labs-insurance/export?from=${from.value}&to=${to.value}`;
+}
 </script>
 
 <template>
@@ -116,6 +120,10 @@ function exportExcel() {
         <button class="btn-secondary self-end flex items-center gap-2" @click="exportExcel">
             <Download class="h-4 w-4" />
             Excel
+        </button>
+        <button class="btn-secondary self-end flex items-center gap-2" @click="exportLabsInsuranceExcel">
+            <Download class="h-4 w-4" />
+            مستحقات تأمين الفحوصات
         </button>
         <button class="btn-secondary self-end" @click="() => window.print()">طباعة</button>
     </div>

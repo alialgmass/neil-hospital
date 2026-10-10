@@ -16,6 +16,7 @@ use Modules\Doctor\Enums\FeeType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
 use Modules\Doctor\Models\DoctorPayment;
+use Modules\Insurance\States\PaidState;
 
 class DoctorClaimsService
 {
@@ -307,6 +308,10 @@ class DoctorClaimsService
      */
     public function computeShareForPayment(Doctor $doctor, Booking $booking, float $paymentAmount, bool $isFirstPayment): float
     {
+        if ($this->isDuesDeferredUntilClaimSettled($booking)) {
+            return 0.0;
+        }
+
         $share = $this->doComputeShareForPayment($doctor, $booking, $paymentAmount, $isFirstPayment);
 
         if (! $isFirstPayment) {
@@ -514,8 +519,44 @@ class DoctorClaimsService
         return (float) (Service::whereKey($serviceId)->value('default_dr_fee') ?? 0);
     }
 
+    /**
+     * Labs insurance cases: the doctor's due is only recognised once the
+     * insurance claim is settled (paid) — until then it is held back from
+     * every claims figure. Accepts a Booking model or a bookings table row.
+     */
+    public function isDuesDeferredUntilClaimSettled(object $booking): bool
+    {
+        $dept = $booking->dept instanceof BackedEnum ? $booking->dept->value : $booking->dept;
+        $payMethod = $booking->pay_method instanceof BackedEnum ? $booking->pay_method->value : $booking->pay_method;
+
+        if ($dept !== Department::Labs->value || $payMethod !== PayMethod::Insurance->value) {
+            return false;
+        }
+
+        return ! DB::table('insurance_claims')
+            ->where('booking_id', $booking->id)
+            ->where('status', PaidState::$name)
+            ->exists();
+    }
+
+    /**
+     * What the doctor will be owed on an insurance booking once its claim is
+     * settled — the per-service entitlement fee (same rule as
+     * SyncDoctorEntitlementAction), net of delegated fees.
+     */
+    public function insuranceEntitlementAmount(Doctor $doctor, object $booking): float
+    {
+        $fee = $this->resolveDoctorFixedFee($doctor, $booking->service_id);
+
+        return max(0.0, round($fee - $this->delegatedTotal($booking->id), 2));
+    }
+
     public function computeDrShare(Doctor $doctor, object $booking): float
     {
+        if ($this->isDuesDeferredUntilClaimSettled($booking)) {
+            return 0.0;
+        }
+
         $share = $this->doComputeDrShare($doctor, $booking);
 
         // Whatever was delegated to another doctor (see

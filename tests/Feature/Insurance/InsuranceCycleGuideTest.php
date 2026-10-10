@@ -65,8 +65,9 @@ class InsuranceCycleGuideTest extends TestCase
 
         $this->assertEquals(6500.0, $this->balance('1031'));
         $this->assertEquals(6500.0, $this->balance('4120'));
-        $this->assertEquals(500.0, $this->balance('5130'));
-        $this->assertEquals(-500.0, $this->balance('1010'));
+        // Labs: the doctor's cash fee waits for the claim to be settled.
+        $this->assertEquals(0.0, $this->balance('5130'));
+        $this->assertEquals(0.0, $this->balance('1010'));
         $this->assertSame(0, JournalEntry::whereIn('credit_account_id', $this->doctorSubledgerIds())->orWhereIn('debit_account_id', $this->doctorSubledgerIds())->count());
 
         $recognition = JournalEntry::where('source', 'insurance_claim')->sole();
@@ -95,7 +96,7 @@ class InsuranceCycleGuideTest extends TestCase
         $this->assertTrue($checks['trial_balance']['passed'], implode("\n", $checks['trial_balance']['details']));
     }
 
-    public function test_rejection_reverses_revenue_but_not_the_doctors_cash_fee(): void
+    public function test_rejection_reverses_revenue_and_no_doctor_fee_was_ever_posted(): void
     {
         $booking = $this->bookInsuranceCase();
         $claim = InsuranceClaim::where('booking_id', $booking->id)->sole();
@@ -106,7 +107,7 @@ class InsuranceCycleGuideTest extends TestCase
 
         $this->assertEquals(0.0, $this->balance('1031'));
         $this->assertEquals(0.0, $this->balance('4120'));
-        $this->assertEquals(500.0, $this->balance('5130'));
+        $this->assertEquals(0.0, $this->balance('5130'));
     }
 
     public function test_cancelling_the_booking_reverses_the_claim_recognition(): void

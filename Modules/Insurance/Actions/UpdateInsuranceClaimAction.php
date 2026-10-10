@@ -5,6 +5,7 @@ namespace Modules\Insurance\Actions;
 use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Enums\PayStatus;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\ApprovedState;
 use Modules\Insurance\States\DraftState;
@@ -17,6 +18,7 @@ class UpdateInsuranceClaimAction
     public function __construct(
         private readonly ActivityLogService $activityLogService,
         private readonly AutoPostInsuranceClaimAction $autoPost,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function execute(InsuranceClaim $claim, array $data): InsuranceClaim
@@ -48,6 +50,10 @@ class UpdateInsuranceClaimAction
 
             if ($claim->booking_id) {
                 $claim->booking->update(['pay_status' => PayStatus::Paid->value]);
+
+                // Labs insurance: the doctor's due is recognised only now,
+                // at claim settlement.
+                $this->syncDoctorEntitlement->execute($claim->booking);
             }
         }
 

@@ -48,7 +48,7 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
         ->name('barcode');
 
     Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
-        ->middleware('can:booking.view')
+        ->middleware('permission:booking.view|archive.view')
         ->name('patient-file');
 });
 

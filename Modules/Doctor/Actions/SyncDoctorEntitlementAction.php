@@ -15,6 +15,7 @@ use Modules\Doctor\Enums\EntitlementStatus;
 use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
+use Modules\Doctor\Services\DoctorClaimsService;
 
 /**
  * Keeps a booking's doctor entitlement (مستحق الطبيب) — and its matching
@@ -32,6 +33,7 @@ class SyncDoctorEntitlementAction
         private readonly AutoPostInsuranceDoctorCashPaymentAction $autoPostInsuranceDoctorCash,
         private readonly JournalService $journalService,
         private readonly SyncDelegatedDoctorEntitlementAccrualAction $syncDelegatedAccrual,
+        private readonly DoctorClaimsService $doctorClaimsService,
     ) {}
 
     public function execute(Booking $booking): void
@@ -52,6 +54,15 @@ class SyncDoctorEntitlementAction
 
         $source = EntitlementSource::fromPayMethod($booking->pay_method);
         $doctor = $booking->doctor_id ? Doctor::find($booking->doctor_id) : null;
+
+        // Labs insurance cases: no entitlement/accrual until the claim is
+        // settled; UpdateInsuranceClaimAction re-runs this once it is paid.
+        if ($this->doctorClaimsService->isDuesDeferredUntilClaimSettled($booking)) {
+            $this->clearPending($existing);
+            $this->reverseAccrual($booking);
+
+            return;
+        }
 
         if ($source === null || $doctor === null || $booking->service_id === null) {
             $this->clearPending($existing);
