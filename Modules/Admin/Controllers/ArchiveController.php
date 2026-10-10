@@ -58,7 +58,7 @@ class ArchiveController extends Controller
             'service_name' => ['nullable', 'string', 'max:200'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance,contract'],
             'visit_note' => ['nullable', 'string'],
             'files' => ['nullable', 'array'],
             'files.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],

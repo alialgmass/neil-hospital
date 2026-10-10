@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Modules\Admin\Controllers\ActivityLogController;
 use Modules\Admin\Controllers\ArchiveController;
 use Modules\Admin\Controllers\InsuranceController;
+use Modules\Admin\Controllers\ModuleExportController;
+use Modules\Admin\Controllers\ModuleImportController;
 use Modules\Admin\Controllers\RoleController;
 use Modules\Admin\Controllers\ServicesController;
 use Modules\Admin\Controllers\SettingsController;
@@ -49,6 +51,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [SettingsController::class, 'update'])
             ->middleware('can:settings.manage')
             ->name('update');
+
+        Route::post('/logo', [SettingsController::class, 'updateLogo'])
+            ->middleware('can:settings.manage')
+            ->name('logo');
+
+        Route::delete('/wipe-bookings', [SettingsController::class, 'wipeBookings'])
+            ->middleware('can:settings.manage')
+            ->name('wipe-bookings');
     });
 
     // Roles & permissions
@@ -57,6 +67,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:users.manage')
             ->name('index');
 
+        Route::post('/', [RoleController::class, 'store'])
+            ->middleware('can:users.manage')
+            ->name('store');
+
         Route::put('/{id}/permissions', [RoleController::class, 'updatePermissions'])
             ->middleware('can:users.manage')
             ->name('update-permissions');
@@ -64,19 +78,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Archive
     Route::get('/archive', [ArchiveController::class, 'index'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.view')
         ->name('archive');
 
     Route::post('/archive', [ArchiveController::class, 'store'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.create')
         ->name('archive.store');
 
     Route::post('/archive/{booking}/upload', [ArchiveController::class, 'upload'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.upload')
         ->name('archive.upload');
 
     Route::delete('/archive/media/{media}', [ArchiveController::class, 'destroyMedia'])
-        ->middleware('can:reports.clinical')
+        ->middleware('can:archive.delete_file')
         ->name('archive.media.destroy');
 
     // Activity log
@@ -97,5 +111,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/{id}/role', [UserManagementController::class, 'updateRole'])
             ->middleware('can:users.manage')
             ->name('update-role');
+    });
+
+    // Module-level data exports
+    Route::prefix('module-exports')->name('module-exports.')->group(function () {
+        Route::get('/', [ModuleExportController::class, 'index'])
+            ->middleware('can:users.manage')
+            ->name('index');
+
+        Route::get('/{module}/download', [ModuleExportController::class, 'export'])
+            ->middleware('can:users.manage')
+            ->name('download');
+    });
+
+    // Module-level data imports
+    Route::prefix('module-imports')->name('module-imports.')->group(function () {
+        Route::get('/', [ModuleImportController::class, 'index'])
+            ->middleware('can:users.manage')
+            ->name('index');
+
+        Route::get('/{module}/template', [ModuleImportController::class, 'template'])
+            ->middleware('can:users.manage')
+            ->name('template');
+
+        Route::post('/{module}/import', [ModuleImportController::class, 'import'])
+            ->middleware('can:users.manage')
+            ->name('import');
     });
 });

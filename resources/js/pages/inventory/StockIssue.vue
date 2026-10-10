@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3'
-import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Trash2, TrendingDown } from 'lucide-vue-next'
+import { router, useForm, usePage } from '@inertiajs/vue3'
+import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Pencil, Trash2, TrendingDown } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
 import StatCard from '@/components/shared/StatCard.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -52,6 +53,10 @@ const props = defineProps<{
     selectableItems: SelectableItem[]
 }>()
 
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('inventory.write'))
+
 const selectedDate = ref(props.date)
 const showModal = ref(false)
 const expandedRows = ref<Set<string>>(new Set())
@@ -79,10 +84,10 @@ function formatTime(dateStr: string): string {
 }
 
 function formatMoney(val: number): string {
-    return val.toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const deptOptions = [
+const allDeptOptions = [
     { value: 'surgery', label: 'العمليات' },
     { value: 'lasik', label: 'الليزك' },
     { value: 'laser', label: 'الليزر' },
@@ -90,6 +95,13 @@ const deptOptions = [
     { value: 'labs', label: 'الفحوصات' },
     { value: 'admin', label: 'الإدارة' },
 ]
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>()
+const deptOptions = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {}
+
+    return allDeptOptions.filter((dept) => moduleStatus[dept.value] !== false)
+})
 
 // Issue form
 const form = useForm({
@@ -113,19 +125,64 @@ function removeRow(idx: number) {
 
 function onItemSelect(idx: number) {
     const found = props.selectableItems.find((i) => i.id === form.items[idx].item_id)
+
     if (found) {
         form.items[idx].item_name = found.name
         form.items[idx].unit_cost = found.unit_cost
     }
 }
 
+const editingPermitId = ref<string | null>(null)
+
+function openCreate() {
+    if (!canWrite.value) {
+        return
+    }
+
+    editingPermitId.value = null
+    form.reset()
+    form.clearErrors()
+    showModal.value = true
+}
+
+function openEdit(permit: Permit) {
+    if (!canWrite.value) {
+        return
+    }
+
+    editingPermitId.value = permit.id
+    form.clearErrors()
+    form.department = permit.department ?? ''
+    form.reason = permit.reason ?? ''
+    form.notes = permit.notes ?? ''
+    form.items = permit.items.map((item) => ({
+        item_id: item.item_id ?? '',
+        item_name: item.item_name,
+        qty: Number(item.qty),
+        unit_cost: Number(item.unit_cost),
+    }))
+    showModal.value = true
+}
+
 function submitIssue() {
-    form.post('/stock-issue', {
+    if (!canWrite.value) {
+        return
+    }
+
+    const options = {
+        preserveScroll: true,
         onSuccess: () => {
             showModal.value = false
+            editingPermitId.value = null
             form.reset()
         },
-    })
+    }
+
+    if (editingPermitId.value) {
+        form.put(`/stock-issue/${editingPermitId.value}`, options)
+    } else {
+        form.post('/stock-issue', options)
+    }
 }
 </script>
 
@@ -138,8 +195,10 @@ function submitIssue() {
                 <p class="mt-0.5 text-sm text-gray-500">المستهلكات وأذون الصرف بحسب اليوم</p>
             </div>
             <button
-                class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
-                @click="showModal = true"
+                class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="openCreate"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
             >
                 <PackageOpen class="h-4 w-4" />
                 إذن صرف جديد
@@ -191,6 +250,7 @@ function submitIssue() {
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">القيمة (ج.م)</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">الوقت</th>
                             <th class="px-4 py-3 text-right font-semibold text-gray-600">بواسطة</th>
+                            <th class="w-16 px-4 py-3"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -221,11 +281,23 @@ function submitIssue() {
                                 </td>
                                 <td class="px-4 py-3 text-gray-500">{{ formatTime(permit.created_at) }}</td>
                                 <td class="px-4 py-3 text-gray-500">{{ permit.creator?.name || '—' }}</td>
+                                <td class="px-4 py-3">
+                                    <button
+                                        type="button"
+                                        class="flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                        :disabled="!canWrite"
+                                        :title="canWrite ? 'تعديل الإذن' : NO_PERMISSION_TITLE"
+                                        @click.stop="openEdit(permit)"
+                                    >
+                                        <Pencil class="h-3.5 w-3.5" />
+                                        تعديل
+                                    </button>
+                                </td>
                             </tr>
                             <!-- Expanded items -->
                             <tr v-if="expandedRows.has(permit.id)" class="bg-red-50/40">
                                 <td></td>
-                                <td colspan="7" class="px-4 pb-3 pt-1">
+                                <td colspan="8" class="px-4 pb-3 pt-1">
                                     <table class="w-full text-xs">
                                         <thead>
                                             <tr class="text-gray-500">
@@ -254,7 +326,7 @@ function submitIssue() {
                             </tr>
                         </template>
                         <tr v-if="permits.data.length === 0">
-                            <td class="px-4 py-10 text-center text-gray-400" colspan="8">
+                            <td class="px-4 py-10 text-center text-gray-400" colspan="9">
                                 لا توجد أذون صرف في هذا اليوم
                             </td>
                         </tr>
@@ -316,7 +388,7 @@ function submitIssue() {
         </div>
 
         <!-- Issue Voucher Modal -->
-        <Modal v-model="showModal" title="إذن صرف مخزون" size="lg">
+        <Modal v-model="showModal" :title="editingPermitId ? 'تعديل إذن صرف مخزون' : 'إذن صرف مخزون'" size="lg">
             <form class="space-y-4" @submit.prevent="submitIssue">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -401,8 +473,8 @@ function submitIssue() {
 
                 <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
-                    <button type="submit" class="btn-danger" :disabled="form.processing || form.items.length === 0">
-                        {{ form.processing ? 'جارٍ الحفظ...' : 'إصدار الإذن' }}
+                    <button type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-50" :disabled="form.processing || form.items.length === 0 || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
+                        {{ form.processing ? 'جارٍ الحفظ...' : editingPermitId ? 'حفظ التعديلات' : 'إصدار الإذن' }}
                     </button>
                 </div>
             </form>

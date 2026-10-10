@@ -130,14 +130,14 @@ function goToPage(page: number) {
         <template #cell-status="{ value }">
             <span
                 class="rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="value === 'active' ? 'bg-hospital-success/10 text-hospital-success' : 'bg-hospital-muted/20 text-hospital-muted'"
+                :class="value === 'active' ? 'bg-hospital-success/10 text-hospital-success' : 'bg-hospital-muted/20 text-hospital-text-3'"
             >
                 {{ value === 'active' ? 'نشطة' : 'متوقفة' }}
             </span>
         </template>
         <template #cell-actions="{ row }">
             <button
-                class="rounded p-1.5 text-hospital-muted hover:bg-hospital-bg hover:text-hospital-primary transition-colors"
+                class="rounded p-1.5 text-hospital-text-3 hover:bg-hospital-bg hover:text-hospital-primary transition-colors"
                 @click="openEdit(row as InsuranceCompany)"
             >
                 <Pencil class="h-4 w-4" />

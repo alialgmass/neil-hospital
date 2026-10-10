@@ -1,38 +1,15 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
-import { ShieldCheck } from 'lucide-vue-next';
-import { onUnmounted, ref } from 'vue';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
-import TwoFactorRecoveryCodes from '@/components/TwoFactorRecoveryCodes.vue';
-import TwoFactorSetupModal from '@/components/TwoFactorSetupModal.vue';
-import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import { edit } from '@/routes/security';
-import { disable, enable } from '@/routes/two-factor';
-
-type Props = {
-    canManageTwoFactor?: boolean;
-    requiresConfirmation?: boolean;
-    twoFactorEnabled?: boolean;
-};
-
-withDefaults(defineProps<Props>(), {
-    canManageTwoFactor: false,
-    requiresConfirmation: false,
-    twoFactorEnabled: false,
-});
 
 defineOptions({
     layout: {
         breadcrumbs: [{ title: 'الأمان', href: edit() }],
     },
 });
-
-const { hasSetupData, clearTwoFactorAuthData } = useTwoFactorAuth();
-const showSetupModal = ref<boolean>(false);
-
-onUnmounted(() => clearTwoFactorAuthData());
 </script>
 
 <template>
@@ -87,69 +64,6 @@ onUnmounted(() => clearTwoFactorAuthData());
                 </button>
             </div>
         </Form>
-    </div>
-
-    <!-- ── 2FA section ── -->
-    <div v-if="canManageTwoFactor" class="settings-section">
-        <div class="settings-title">🛡️ المصادقة الثنائية (2FA)</div>
-        <p class="settings-desc">
-            عند تفعيل المصادقة الثنائية، سيُطلب منك إدخال رمز PIN أثناء تسجيل الدخول
-            من تطبيق TOTP على هاتفك.
-        </p>
-
-        <!-- Not enabled -->
-        <div v-if="!twoFactorEnabled" class="mt-4">
-            <div class="tfa-status tfa-status-off">
-                <span>🔓</span>
-                <span>المصادقة الثنائية غير مفعّلة</span>
-            </div>
-            <div class="mt-3">
-                <button
-                    v-if="hasSetupData"
-                    class="settings-btn-primary"
-                    @click="showSetupModal = true"
-                >
-                    <ShieldCheck class="inline h-4 w-4" />
-                    متابعة الإعداد
-                </button>
-                <Form
-                    v-else
-                    v-bind="enable.form()"
-                    @success="showSetupModal = true"
-                    #default="{ processing }"
-                >
-                    <button type="submit" :disabled="processing" class="settings-btn-primary">
-                        {{ processing ? 'جارٍ التفعيل…' : '✅ تفعيل 2FA' }}
-                    </button>
-                </Form>
-            </div>
-        </div>
-
-        <!-- Enabled -->
-        <div v-else class="mt-4">
-            <div class="tfa-status tfa-status-on">
-                <span>🔐</span>
-                <span>المصادقة الثنائية مفعّلة</span>
-            </div>
-            <TwoFactorRecoveryCodes class="mt-3" />
-            <div class="mt-3">
-                <Form v-bind="disable.form()" #default="{ processing }">
-                    <button
-                        type="submit"
-                        :disabled="processing"
-                        class="settings-btn-danger"
-                    >
-                        {{ processing ? 'جارٍ التعطيل…' : '❌ تعطيل 2FA' }}
-                    </button>
-                </Form>
-            </div>
-        </div>
-
-        <TwoFactorSetupModal
-            v-model:isOpen="showSetupModal"
-            :requiresConfirmation="requiresConfirmation"
-            :twoFactorEnabled="twoFactorEnabled"
-        />
     </div>
 </template>
 
@@ -223,38 +137,5 @@ onUnmounted(() => clearTwoFactorAuthData());
 .settings-btn-primary:hover { background: #0B4A98; }
 .settings-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.settings-btn-danger {
-    padding: 8px 22px;
-    background: #DC2626;
-    color: #fff;
-    border: none;
-    border-radius: 7px;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.settings-btn-danger:hover { background: #B91C1C; }
-.settings-btn-danger:disabled { opacity: 0.6; }
 
-.tfa-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 14px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-}
-.tfa-status-off {
-    background: #FEF9C3;
-    color: #854D0E;
-    border: 1px solid #FDE68A;
-}
-.tfa-status-on {
-    background: #DCFCE7;
-    color: #166534;
-    border: 1px solid #86EFAC;
-}
 </style>

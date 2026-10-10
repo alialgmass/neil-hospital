@@ -10,6 +10,8 @@ import {
     Dot,
     UserCog,
     Wallet,
+    FileSpreadsheet,
+    FileUp,
     Calculator,
     BookOpen,
     Library,
@@ -33,14 +35,17 @@ import {
     CalendarCheck,
     Clock,
     ArrowLeftRight,
+    MinusCircle,
     UmbrellaOff,
     Banknote,
     ChevronDown,
     HeartPulse,
     BadgeDollarSign,
     Package,
+    PhoneCall,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import { usePermissions } from '@/composables/usePermissions';
 
 interface NavEntry {
     title: string;
@@ -57,12 +62,9 @@ interface NavGroup {
 }
 
 const page = usePage<{ permissions?: string[]; moduleStatus?: Record<string, boolean> }>();
-const permissions = computed<string[]>(() => (page.props.permissions as string[]) ?? []);
 const moduleStatus = computed<Record<string, boolean>>(() => (page.props.moduleStatus as Record<string, boolean>) ?? {});
 
-function can(permission: string): boolean {
-    return permissions.value.includes('*') || permissions.value.includes(permission);
-}
+const { can } = usePermissions();
 
 function moduleEnabled(module: string): boolean {
     return moduleStatus.value[module] !== false;
@@ -81,6 +83,7 @@ const navGroups: NavGroup[] = [
         icon: HeartPulse,
         items: [
             { title: 'الحجز', href: '/booking', icon: CalendarPlus, permission: 'booking.view', module: 'booking' },
+            { title: 'الكول سنتر', href: '/call-center', icon: PhoneCall, permission: 'callcenter.view', module: 'booking' },
             { title: 'العيادة', href: '/clinic', icon: Stethoscope, permission: 'clinic.view', module: 'clinic' },
             { title: 'الفحوصات', href: '/labs', icon: FlaskConical, permission: 'labs.view', module: 'labs' },
             { title: 'العمليات', href: '/surgery', icon: Scissors, permission: 'surgery.view', module: 'surgery' },
@@ -102,6 +105,7 @@ const navGroups: NavGroup[] = [
         icon: BadgeDollarSign,
         items: [
             { title: 'الخزنة', href: '/treasury', icon: Wallet, permission: 'treasury.view', module: 'accounting' },
+            { title: 'كشف حركة الخزنة', href: '/treasury/statement', icon: FileText, permission: 'treasury.view', module: 'accounting' },
             { title: 'قيود اليومية', href: '/journal', icon: BookOpen, permission: 'journal.view', module: 'accounting' },
             { title: 'الدليل المحاسبي', href: '/accounts', icon: Library, permission: 'journal.view', module: 'accounting' },
             { title: 'ميزان المراجعة', href: '/ledger/trial-balance', icon: Scale, permission: 'reports.financial', module: 'accounting' },
@@ -118,9 +122,10 @@ const navGroups: NavGroup[] = [
             { title: 'المخزن', href: '/inventory', icon: ShoppingCart, permission: 'inventory.view', module: 'inventory' },
             { title: 'الموردون', href: '/suppliers', icon: Truck, permission: 'inventory.view', module: 'inventory' },
             { title: 'فواتير الشراء', href: '/purchases', icon: Receipt, permission: 'inventory.view', module: 'inventory' },
+            { title: 'فواتير البيع', href: '/item-sales', icon: Receipt, permission: 'inventory.view', module: 'inventory' },
             { title: 'أذون الصرف', href: '/stock-issue', icon: ClipboardList, permission: 'inventory.view', module: 'inventory' },
             { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view', module: 'inventory' },
-            { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'inventory.view', module: 'inventory' },
+            { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'stocktake.view', module: 'inventory' },
             { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view', module: 'inventory' },
         ],
     },
@@ -133,6 +138,7 @@ const navGroups: NavGroup[] = [
             { title: 'الورديات', href: '/shifts', icon: Clock, permission: 'hr.view', module: 'hr' },
             { title: 'تسليم الوردية', href: '/shift-handovers', icon: ArrowLeftRight, permission: 'hr.view', module: 'hr' },
             { title: 'الإجازات', href: '/leaves', icon: UmbrellaOff, permission: 'hr.view', module: 'hr' },
+            { title: 'خصومات الموظفين', href: '/employee-deductions', icon: MinusCircle, permission: 'hr.manage', module: 'hr' },
             { title: 'الرواتب', href: '/payroll', icon: Banknote, permission: 'hr.manage', module: 'hr' },
         ],
     },
@@ -141,7 +147,9 @@ const navGroups: NavGroup[] = [
         icon: Settings,
         items: [
             { title: 'التقارير', href: '/reports', icon: BarChart3, permission: 'reports.financial', module: 'reports' },
-            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'reports.clinical', module: 'reports' },
+            { title: 'الأرشيف الطبي', href: '/archive', icon: Archive, permission: 'archive.view', module: 'reports' },
+            { title: 'تصدير الوحدات', href: '/module-exports', icon: FileSpreadsheet, permission: 'users.manage' },
+            { title: 'استيراد الوحدات', href: '/module-imports', icon: FileUp, permission: 'users.manage' },
             { title: 'المستخدمون', href: '/users', icon: Users, permission: 'users.manage' },
             { title: 'الأدوار والصلاحيات', href: '/roles', icon: Shield, permission: 'users.manage' },
             { title: 'الإعدادات', href: '/settings', icon: Settings, permission: 'settings.manage' },
@@ -166,6 +174,7 @@ function isActive(href: string): boolean {
     if (href === '/dashboard') {
         return currentPath.value === '/dashboard';
     }
+
     return currentPath.value.startsWith(href);
 }
 

@@ -6,19 +6,27 @@ import { toast } from 'vue-sonner';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import Badge from '@/components/shared/Badge.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 defineOptions({ layout: AppLayout });
 
 interface Service {
     id: string;
+    code: string | null;
     name: string;
     dept: string;
     price: number;
+    one_eye_price: number;
+    both_eyes_price: number;
     ins_price: number;
+    ins_one_eye_price: number | null;
+    ins_both_eyes_price: number | null;
     center_type: 'pct' | 'fixed';
     center_val: number;
     center_share: number;
     dr_share: number;
+    default_dr_fee: number | null;
+    dev_treasury_fee: number | null;
     duration_mins: number;
     status: 'active' | 'inactive';
     revenue_account_id: string | null;
@@ -36,6 +44,10 @@ const props = defineProps<{
     revenueAccounts: RevenueAccount[];
 }>();
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('services.write'));
+
 // ── Filters ──────────────────────────────────────────────────────────────────
 const filters = ref({ ...props.filters });
 let searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -50,6 +62,11 @@ watch(filters, () => {
     }, 300);
 }, { deep: true });
 
+const page = usePage<{
+    moduleStatus?: Record<string, boolean>;
+    flash?: { importResult?: { created: number; updated: number; skipped: number } };
+}>();
+
 // ── Dept helpers ──────────────────────────────────────────────────────────────
 const deptLabels: Record<string, string> = {
     clinic: 'العيادة',
@@ -57,7 +74,16 @@ const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 };
+
+const visibleDeptLabels = computed<Record<string, string>>(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {};
+
+    return Object.fromEntries(
+        Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false),
+    );
+});
 
 const deptBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'danger' | 'active'> = {
     clinic: 'info',
@@ -65,6 +91,7 @@ const deptBadgeVariant: Record<string, 'info' | 'success' | 'warning' | 'danger'
     surgery: 'danger',
     lasik: 'warning',
     laser: 'success',
+    pentacam: 'info',
 };
 
 // ── Create / Edit form ────────────────────────────────────────────────────────
@@ -72,37 +99,63 @@ const showModal = ref(false);
 const editingService = ref<Service | null>(null);
 
 const form = useForm({
+    code: '',
     name: '',
     dept: 'clinic',
     price: 0 as number,
+    one_eye_price: 0 as number,
+    both_eyes_price: 0 as number,
     ins_price: 0 as number,
+    ins_one_eye_price: null as number | null,
+    ins_both_eyes_price: null as number | null,
     center_type: 'pct' as 'pct' | 'fixed',
     center_val: 40 as number,
+    default_dr_fee: null as number | null,
+    dev_treasury_fee: null as number | null,
     duration_mins: 30 as number,
     status: 'active' as 'active' | 'inactive',
     revenue_account_id: null as string | null,
 });
 
 function openCreate() {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingService.value = null;
     form.reset();
     form.dept = 'clinic';
     form.center_type = 'pct';
     form.center_val = 40;
+    form.default_dr_fee = null;
+    form.dev_treasury_fee = null;
     form.duration_mins = 30;
     form.status = 'active';
     form.revenue_account_id = null;
+    form.ins_one_eye_price = null;
+    form.ins_both_eyes_price = null;
     showModal.value = true;
 }
 
 function openEdit(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     editingService.value = svc;
+    form.code = svc.code ?? '';
     form.name = svc.name;
     form.dept = svc.dept;
     form.price = Number(svc.price);
+    form.one_eye_price = Number(svc.one_eye_price);
+    form.both_eyes_price = Number(svc.both_eyes_price);
     form.ins_price = Number(svc.ins_price);
+    form.ins_one_eye_price = svc.ins_one_eye_price != null ? Number(svc.ins_one_eye_price) : null;
+    form.ins_both_eyes_price = svc.ins_both_eyes_price != null ? Number(svc.ins_both_eyes_price) : null;
     form.center_type = svc.center_type;
     form.center_val = Number(svc.center_val);
+    form.default_dr_fee = svc.default_dr_fee != null ? Number(svc.default_dr_fee) : null;
+    form.dev_treasury_fee = svc.dev_treasury_fee != null ? Number(svc.dev_treasury_fee) : null;
     form.duration_mins = svc.duration_mins ?? 30;
     form.status = svc.status;
     form.revenue_account_id = svc.revenue_account_id;
@@ -116,13 +169,21 @@ function closeModal() {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (editingService.value) {
         form.put(`/services/${editingService.value.id}`, {
-            onSuccess: () => { closeModal(); toast.success('تم تحديث الخدمة بنجاح'); },
+            onSuccess: () => {
+ closeModal(); toast.success('تم تحديث الخدمة بنجاح'); 
+},
         });
     } else {
         form.post('/services', {
-            onSuccess: () => { closeModal(); toast.success('تم إضافة الخدمة بنجاح'); },
+            onSuccess: () => {
+ closeModal(); toast.success('تم إضافة الخدمة بنجاح'); 
+},
         });
     }
 }
@@ -142,6 +203,10 @@ const centerPreview = computed(() => {
 
 // ── Toggle status ─────────────────────────────────────────────────────────────
 function toggleStatus(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     const newStatus = svc.status === 'active' ? 'inactive' : 'active';
     router.patch(`/services/${svc.id}/status`, { status: newStatus }, {
         preserveScroll: true,
@@ -155,11 +220,19 @@ const deletingService = ref<Service | null>(null);
 const deleteForm = useForm({});
 
 function confirmDelete(svc: Service) {
+    if (!canWrite.value) {
+        return;
+    }
+
     deletingService.value = svc;
     showDeleteModal.value = true;
 }
 
 function deleteService() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!deletingService.value) {
         return;
     }
@@ -184,9 +257,11 @@ function onFileChange(e: Event) {
     importFileName.value = file?.name ?? '';
 }
 
-const page = usePage<{ flash?: { importResult?: { created: number; updated: number; skipped: number } } }>();
-
 function submitImport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     if (!importForm.file) {
         toast.error('يرجى اختيار ملف أولاً');
 
@@ -212,7 +287,7 @@ function submitImport() {
 }
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 </script>
 
@@ -226,15 +301,19 @@ function fmt(n: number) {
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <button
-                    class="flex items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface px-4 py-2 text-sm font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg hover:text-hospital-text"
-                    @click="showImportModal = true"
+                    class="flex items-center gap-2 rounded-lg border border-hospital-border bg-hospital-surface px-4 py-2 text-sm font-medium text-hospital-text-2 transition-colors hover:bg-hospital-bg hover:text-hospital-text disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showImportModal = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <FileSpreadsheet class="h-4 w-4 text-hospital-success" />
                     استيراد Excel
                 </button>
                 <button
-                    class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light"
+                    class="flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:cursor-not-allowed disabled:opacity-50"
                     @click="openCreate"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <span class="text-base leading-none">+</span> إضافة خدمة
                 </button>
@@ -251,7 +330,7 @@ function fmt(n: number) {
                     v-model="filters.search"
                     class="w-60 rounded-lg border border-hospital-border bg-hospital-surface pe-9 py-2 ps-3 text-sm text-hospital-text placeholder-hospital-text-3 focus:border-hospital-primary focus:outline-none"
                     type="text"
-                    placeholder="بحث باسم الخدمة..."
+                    placeholder="بحث بالاسم أو الكود..."
                 />
             </div>
             <select
@@ -259,7 +338,7 @@ function fmt(n: number) {
                 class="rounded-lg border border-hospital-border bg-hospital-surface px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none"
             >
                 <option value="">كل الأقسام</option>
-                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
             </select>
             <select
                 v-model="filters.status"
@@ -277,10 +356,13 @@ function fmt(n: number) {
                 <table class="w-full text-sm" dir="rtl">
                     <thead class="border-b border-hospital-border bg-hospital-bg">
                         <tr>
-                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الخدمة</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الكود</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الخدمة</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">القسم</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">السعر</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر العين (واحدة/اثنتان)</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">سعر التأمين</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">تأمين العين (واحدة/اثنتان)</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة المركز</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">حصة الطبيب</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-hospital-text-2">الحالة</th>
@@ -290,7 +372,7 @@ function fmt(n: number) {
                     <tbody>
                         <!-- Empty state -->
                         <tr v-if="services.data.length === 0">
-                            <td colspan="8" class="py-16 text-center">
+                            <td colspan="11" class="py-16 text-center">
                                 <div class="flex flex-col items-center gap-3 text-hospital-text-3">
                                     <Package class="h-14 w-14 opacity-30" />
                                     <p class="text-base font-medium">لا توجد خدمات</p>
@@ -304,12 +386,17 @@ function fmt(n: number) {
                             :key="svc.id"
                             class="border-t border-hospital-border/50 transition-colors hover:bg-hospital-primary-pale/30"
                         >
-                            <td class="px-4 py-3 font-medium text-hospital-text">{{ svc.name }}</td>
+                            <td class="px-4 py-3 font-mono text-xs text-hospital-text-2" dir="ltr">{{ svc.code ?? '—' }}</td>
+                        <td class="px-4 py-3 font-medium text-hospital-text">{{ svc.name }}</td>
                             <td class="px-4 py-3">
                                 <Badge :variant="deptBadgeVariant[svc.dept] ?? 'info'" :label="deptLabels[svc.dept] ?? svc.dept" />
                             </td>
                             <td class="px-4 py-3 font-mono text-hospital-text">{{ fmt(Number(svc.price)) }}</td>
+                            <td class="px-4 py-3 font-mono text-hospital-text-2">{{ fmt(Number(svc.one_eye_price)) }} / {{ fmt(Number(svc.both_eyes_price)) }}</td>
                             <td class="px-4 py-3 font-mono text-hospital-primary">{{ fmt(Number(svc.ins_price)) }}</td>
+                            <td class="px-4 py-3 font-mono text-hospital-primary">
+                                {{ svc.ins_one_eye_price != null ? fmt(Number(svc.ins_one_eye_price)) : '—' }} / {{ svc.ins_both_eyes_price != null ? fmt(Number(svc.ins_both_eyes_price)) : '—' }}
+                            </td>
                             <td class="px-4 py-3 font-mono text-hospital-warning">
                                 {{ svc.center_type === 'pct' ? `${svc.center_val}%` : `${fmt(Number(svc.center_val))} ج` }}
                             </td>
@@ -320,25 +407,28 @@ function fmt(n: number) {
                             <td class="px-4 py-3">
                                 <div class="flex items-center justify-center gap-1">
                                     <button
-                                        class="rounded p-1.5 transition-colors"
+                                        class="rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                         :class="svc.status === 'active' ? 'text-hospital-success hover:bg-hospital-success-pale' : 'text-hospital-text-3 hover:bg-hospital-bg'"
-                                        :title="svc.status === 'active' ? 'إيقاف الخدمة' : 'تفعيل الخدمة'"
+                                        :title="canWrite ? (svc.status === 'active' ? 'إيقاف الخدمة' : 'تفعيل الخدمة') : NO_PERMISSION_TITLE"
                                         @click="toggleStatus(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <ToggleRight v-if="svc.status === 'active'" class="h-5 w-5" />
                                         <ToggleLeft v-else class="h-5 w-5" />
                                     </button>
                                     <button
-                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary"
-                                        title="تعديل"
+                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-primary-pale hover:text-hospital-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE"
                                         @click="openEdit(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <Edit2 class="h-4 w-4" />
                                     </button>
                                     <button
-                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger"
-                                        title="حذف"
+                                        class="rounded p-1.5 text-hospital-text-3 transition-colors hover:bg-hospital-danger-pale hover:text-hospital-danger disabled:cursor-not-allowed disabled:opacity-50"
+                                        :title="canWrite ? 'حذف' : NO_PERMISSION_TITLE"
                                         @click="confirmDelete(svc)"
+                                        :disabled="!canWrite"
                                     >
                                         <Trash2 class="h-4 w-4" />
                                     </button>
@@ -358,6 +448,19 @@ function fmt(n: number) {
                     <h3 class="mb-3 text-xs font-semibold uppercase tracking-wide text-hospital-text-2">المعلومات الأساسية</h3>
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="sm:col-span-2">
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">كود الخدمة <span class="text-xs text-hospital-text-3">(يُولَّد تلقائياً إن تُرك فارغاً)</span></label>
+                            <input
+                                v-model="form.code"
+                                type="text"
+                                dir="ltr"
+                                maxlength="30"
+                                placeholder="مثال: CLN-0001"
+                                class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase text-hospital-text placeholder-hospital-text-3 focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                                :class="form.errors.code ? 'border-hospital-danger focus:border-hospital-danger' : 'border-hospital-border focus:border-hospital-primary'"
+                            />
+                            <p v-if="form.errors.code" class="mt-1 text-xs text-hospital-danger">{{ form.errors.code }}</p>
+                        </div>
+                        <div class="sm:col-span-2">
                             <label class="mb-1 block text-sm font-medium text-hospital-text">اسم الخدمة <span class="text-hospital-danger">*</span></label>
                             <input
                                 v-model="form.name"
@@ -376,7 +479,7 @@ function fmt(n: number) {
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                                 :disabled="!!editingService"
                             >
-                                <option v-for="(label, key) in deptLabels" :key="key" :value="key">{{ label }}</option>
+                                <option v-for="(label, key) in visibleDeptLabels" :key="key" :value="key">{{ label }}</option>
                             </select>
                         </div>
 
@@ -436,6 +539,30 @@ function fmt(n: number) {
                             <p v-if="form.errors.price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.price }}</p>
                         </div>
                         <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر العين الواحدة (ج.م)</label>
+                            <input
+                                v-model.number="form.one_eye_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.one_eye_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.one_eye_price }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر العينين (ج.م)</label>
+                            <input
+                                v-model.number="form.both_eyes_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.both_eyes_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.both_eyes_price }}</p>
+                        </div>
+                        <div>
                             <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين (ج.م)</label>
                             <input
                                 v-model.number="form.ins_price"
@@ -445,6 +572,30 @@ function fmt(n: number) {
                                 placeholder="0.00"
                                 class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
                             />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين - عين واحدة (ج.م)</label>
+                            <input
+                                v-model.number="form.ins_one_eye_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="سعر التأمين"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.ins_one_eye_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.ins_one_eye_price }}</p>
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-sm font-medium text-hospital-text">سعر التأمين - العينين (ج.م)</label>
+                            <input
+                                v-model.number="form.ins_both_eyes_price"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="ضعف سعر العين الواحدة"
+                                class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                            />
+                            <p v-if="form.errors.ins_both_eyes_price" class="mt-1 text-xs text-hospital-danger">{{ form.errors.ins_both_eyes_price }}</p>
                         </div>
                     </div>
                 </div>
@@ -504,6 +655,40 @@ function fmt(n: number) {
                         </div>
                     </div>
 
+                    <!-- Default doctor fee -->
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-hospital-text">
+                            أتعاب الطبيب (افتراضي)
+                            <span class="ms-1 text-xs font-normal text-hospital-text-3">(اختياري — يُستخدم عند عدم تحديد أتعاب خاصة للطبيب في حجوزات التأمين والتعاقد)</span>
+                        </label>
+                        <input
+                            v-model.number="form.default_dr_fee"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                        />
+                        <p v-if="form.errors.default_dr_fee" class="mt-1 text-xs text-hospital-danger">{{ form.errors.default_dr_fee }}</p>
+                    </div>
+
+                    <!-- Development treasury fee -->
+                    <div class="mt-4">
+                        <label class="mb-1 block text-sm font-medium text-hospital-text">
+                            رسوم خزنة التطوير
+                            <span class="ms-1 text-xs font-normal text-hospital-text-3">(اختياري — تُخصم تلقائيًا من الكاش المُحصّل عند الدفع نقدًا وتُحوَّل إلى خزنة التطوير)</span>
+                        </label>
+                        <input
+                            v-model.number="form.dev_treasury_fee"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm text-hospital-text focus:border-hospital-primary focus:outline-none focus:ring-2 focus:ring-hospital-primary/20"
+                        />
+                        <p v-if="form.errors.dev_treasury_fee" class="mt-1 text-xs text-hospital-danger">{{ form.errors.dev_treasury_fee }}</p>
+                    </div>
+
                     <!-- Revenue account -->
                     <div class="mt-4">
                         <label class="mb-1 block text-sm font-medium text-hospital-text">
@@ -530,8 +715,9 @@ function fmt(n: number) {
                     </button>
                     <button
                         type="submit"
-                        :disabled="form.processing"
-                        class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60"
+                        :disabled="form.processing || !canWrite"
+                        class="rounded-lg bg-hospital-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-hospital-primary-light disabled:opacity-60 disabled:cursor-not-allowed"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                     >
                         {{ form.processing ? 'جارٍ الحفظ...' : editingService ? 'حفظ التغييرات' : 'إضافة الخدمة' }}
                     </button>
@@ -580,8 +766,9 @@ function fmt(n: number) {
                     </button>
                     <button
                         type="submit"
-                        :disabled="importForm.processing || !importForm.file"
-                        class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                        :disabled="importForm.processing || !importForm.file || !canWrite"
+                        class="flex items-center gap-2 rounded-lg bg-hospital-success px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                     >
                         <Upload class="h-4 w-4" />
                         {{ importForm.processing ? 'جارٍ الاستيراد...' : 'استيراد' }}
@@ -610,9 +797,10 @@ function fmt(n: number) {
                 </button>
                 <button
                     type="button"
-                    :disabled="deleteForm.processing"
-                    class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60"
+                    :disabled="deleteForm.processing || !canWrite"
+                    class="rounded-lg bg-hospital-danger px-5 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                     @click="deleteService"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     {{ deleteForm.processing ? 'جارٍ الحذف...' : 'حذف الخدمة' }}
                 </button>

@@ -22,12 +22,23 @@ class ArchiveFileUploadTest extends TestCase
     {
         parent::setUp();
 
-        $permission = Permission::firstOrCreate(['name' => 'reports.clinical', 'guard_name' => 'web']);
+        foreach (['archive.view', 'archive.create', 'archive.upload', 'archive.delete_file', 'booking.view', 'reports.clinical'] as $name) {
+            Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+        }
+
         $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $role->givePermissionTo($permission);
+        $role->givePermissionTo(['archive.view', 'archive.create', 'archive.upload', 'archive.delete_file']);
 
         $this->user = User::factory()->create();
         $this->user->assignRole($role);
+    }
+
+    private function userWith(array $permissions): User
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo($permissions);
+
+        return $user;
     }
 
     private function makeCompletedBooking(): Booking
@@ -154,6 +165,75 @@ class ArchiveFileUploadTest extends TestCase
 
         $response->assertRedirect(route('archive'));
         $this->assertDatabaseHas('bookings', ['patient_name' => 'مريض بلا ملفات']);
+    }
+
+    public function test_booking_and_report_permissions_do_not_grant_archive_access(): void
+    {
+        $booking = $this->makeCompletedBooking();
+        $user = $this->userWith(['booking.view', 'reports.clinical']);
+
+        $this->actingAs($user)->get(route('archive'))->assertForbidden();
+        $this->actingAs($user)->post(route('archive.store'), [])->assertForbidden();
+        $this->actingAs($user)
+            ->post(route('archive.upload', $booking), ['file' => UploadedFile::fake()->create('r.pdf', 10, 'application/pdf')])
+            ->assertForbidden();
+    }
+
+    public function test_archive_view_alone_cannot_create_upload_or_delete(): void
+    {
+        Storage::fake('public');
+
+        $booking = $this->makeCompletedBooking();
+        $booking->addMedia(UploadedFile::fake()->image('scan.jpg'))->toMediaCollection('archive-files');
+        $media = $booking->getFirstMedia('archive-files');
+
+        $user = $this->userWith(['archive.view']);
+
+        $this->actingAs($user)->get(route('archive'))->assertOk();
+        $this->actingAs($user)->post(route('archive.store'), [])->assertForbidden();
+        $this->actingAs($user)
+            ->post(route('archive.upload', $booking), ['file' => UploadedFile::fake()->create('r.pdf', 10, 'application/pdf')])
+            ->assertForbidden();
+        $this->actingAs($user)->delete(route('archive.media.destroy', $media))->assertForbidden();
+        $this->assertNotNull(Media::find($media->id));
+    }
+
+    public function test_archive_staff_can_open_patient_file_without_booking_permission(): void
+    {
+        $this->makeCompletedBooking();
+
+        $this->actingAs($this->userWith(['archive.view']))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertOk();
+
+        $this->actingAs($this->userWith(['booking.view']))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertOk();
+
+        $this->actingAs($this->userWith([]))
+            ->get(route('booking.patient-file', 'TST-001'))
+            ->assertForbidden();
+    }
+
+    public function test_each_archive_action_has_its_own_permission(): void
+    {
+        Storage::fake('public');
+
+        $booking = $this->makeCompletedBooking();
+        $booking->addMedia(UploadedFile::fake()->image('scan.jpg'))->toMediaCollection('archive-files');
+        $media = $booking->getFirstMedia('archive-files');
+
+        $this->actingAs($this->userWith(['archive.upload']))
+            ->post(route('archive.upload', $booking), ['file' => UploadedFile::fake()->create('r.pdf', 10, 'application/pdf')])
+            ->assertRedirect();
+
+        $this->actingAs($this->userWith(['archive.upload']))
+            ->delete(route('archive.media.destroy', $media))
+            ->assertForbidden();
+
+        $this->actingAs($this->userWith(['archive.delete_file']))
+            ->delete(route('archive.media.destroy', $media))
+            ->assertRedirect();
     }
 
     public function test_guests_cannot_upload_files(): void

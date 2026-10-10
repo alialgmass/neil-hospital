@@ -17,12 +17,14 @@ class TreasuryEntry extends Model
         'type', 'description', 'amount', 'date',
         'reference_no', 'beneficiary', 'account_id',
         'source', 'booking_id', 'created_by',
+        'reversal_of_id', 'reversed_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'date' => 'date',
         'type' => TreasuryType::class,
+        'reversed_at' => 'datetime',
     ];
 
     public function account(): BelongsTo
@@ -38,5 +40,21 @@ class TreasuryEntry extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Human-readable voucher number: RCV- for receipts (inflows), PAY- for payments (outflows).
+     */
+    public function voucherNumber(): string
+    {
+        $prefix = $this->type === TreasuryType::In ? 'RCV' : 'PAY';
+
+        return $prefix.'-'.$this->date->format('Ymd').'-'.strtoupper(substr($this->id, -5));
+    }
+
+    /** The entry this one reverses, if any. */
+    public function reversalOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reversal_of_id');
     }
 }

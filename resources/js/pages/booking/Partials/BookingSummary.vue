@@ -7,9 +7,10 @@ interface Props {
     visitDate: string;
     visitTime: string;
     netAmount: number;
+    showAmount?: boolean;
 }
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), { showAmount: true });
 </script>
 
 <template>
@@ -36,9 +37,9 @@ defineProps<Props>();
                 <span class="pay-lbl">التاريخ</span>
                 <span class="pay-val">{{ visitDate }} {{ visitTime }}</span>
             </div>
-            <div class="pay-row">
+            <div v-if="showAmount" class="pay-row">
                 <span class="pay-lbl">إجمالي المستحق</span>
-                <span class="pay-val pay-val-total">{{ netAmount.toLocaleString('ar-EG') }} ج</span>
+                <span class="pay-val pay-val-total">{{ netAmount.toLocaleString('en-US') }} ج</span>
             </div>
         </div>
     </div>

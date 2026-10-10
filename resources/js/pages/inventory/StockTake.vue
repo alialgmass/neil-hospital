@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3'
 import { computed, ref } from 'vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 interface InventoryItem {
     id: string
@@ -13,6 +14,10 @@ interface InventoryItem {
 }
 
 const props = defineProps<{ items: InventoryItem[] }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('stocktake.adjust'))
 
 interface CountRow {
     item_id: string
@@ -48,12 +53,16 @@ const filteredCounts = computed(() =>
     form.counts.filter((r) => {
         const matchCat = !selectedCategory.value || r.category === selectedCategory.value
         const matchSearch = !search.value || r.item_name.toLowerCase().includes(search.value.toLowerCase())
+
         return matchCat && matchSearch
     }),
 )
 
 const visibleCategories = computed(() => {
-    if (selectedCategory.value) return [selectedCategory.value]
+    if (selectedCategory.value) {
+return [selectedCategory.value]
+}
+
     return categories.filter((cat) => filteredCounts.value.some((r) => r.category === cat))
 })
 
@@ -63,6 +72,10 @@ const surplusCount = computed(() => form.counts.filter((r) => variance(r) > 0).l
 const deficitCount = computed(() => form.counts.filter((r) => variance(r) < 0).length)
 
 function submit() {
+    if (!canWrite.value) {
+        return
+    }
+
     form.post('/stock-take', {
         onSuccess: () => {
             form.counts.forEach((row) => {
@@ -146,8 +159,9 @@ function submit() {
                 />
                 <button
                     type="submit"
-                    class="btn-primary"
-                    :disabled="form.processing"
+                    class="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    :disabled="form.processing || !canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     {{ form.processing ? 'جارٍ التسوية...' : 'تسجيل الجرد وتحديث المخزون' }}
                 </button>

@@ -2,7 +2,16 @@
 
 namespace Modules\Booking\Http\Requests;
 
+use App\Enums\AnalysisType;
+use App\Enums\KinshipDegree;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\Admin\Enums\SystemModule;
+use Modules\Booking\Enums\PayMethod;
+use Modules\Booking\Enums\PayStatus;
+use Modules\Booking\Models\Booking;
+use Modules\Booking\Services\ServicePricingService;
+use Modules\Booking\States\CompletedElectronicState;
 use Modules\Surgery\Services\SurgeryService;
 
 class UpdateBookingRequest extends FormRequest
@@ -10,6 +19,90 @@ class UpdateBookingRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->user()?->can('booking.edit') ?? false;
+    }
+
+    /**
+     * The booking price is always derived server-side from the selected
+     * service's one-eye / both-eyes prices — the client-submitted price is
+     * not trusted.
+     *
+     * Labs bookings may select several services at once (service_ids); the
+     * price is then the sum of each service's price, and service_id/
+     * service_name are filled with the first/combined values purely for
+     * backward-compat display on screens that still read the single columns.
+     *
+     * Exception: once a booking has been paid (partial or full) the price
+     * typed in the edit form is honoured as-is, so staff can correct the
+     * agreed price after payment. UpdateBookingAction then re-syncs the
+     * revenue/treasury entries and the doctor's dues to the new amounts.
+     */
+    protected function prepareForValidation(): void
+    {
+        $serviceIds = array_filter((array) $this->input('service_ids', []));
+        $keepsClientPrice = $this->isEditingPriceAfterPayment();
+
+        if ($this->input('dept') === 'labs' && count($serviceIds) > 0) {
+            $lines = app(ServicePricingService::class)->priceForMany($serviceIds, $this->input('eye_side'), $this->isInsurance());
+
+            $this->merge([
+                'services' => $lines,
+                'price' => $keepsClientPrice
+                    ? (float) $this->input('price')
+                    : array_sum(array_column($lines, 'price')),
+                'service_id' => $lines[0]['service_id'] ?? null,
+                'service_name' => implode('، ', array_column($lines, 'service_name')),
+            ]);
+
+            return;
+        }
+
+        // Only Labs bookings persist multi-service line items — never trust a
+        // client-supplied `services` array for any other department.
+        $this->merge(['services' => []]);
+
+        if ($keepsClientPrice) {
+            return;
+        }
+
+        $canEditPrices = $this->canEditPrices();
+
+        $price = app(ServicePricingService::class)->priceFor(
+            $this->input('service_id'),
+            $this->input('eye_side'),
+            $canEditPrices && $this->input('price') !== null ? (float) $this->input('price') : null,
+            $this->isInsurance(),
+        );
+
+        if ($price !== null) {
+            $this->merge(['price' => $price]);
+        } elseif (! $canEditPrices) {
+            // No configured price and no right to type one: the stored price stands.
+            $this->merge(['price' => Booking::find($this->route('id'))?->price ?? 0.0]);
+        }
+    }
+
+    /**
+     * Typing or overriding a booking price needs its own permission.
+     */
+    private function canEditPrices(): bool
+    {
+        return $this->user()?->can('booking.edit_prices') ?? false;
+    }
+
+    /**
+     * Whether the booking being edited was already paid (partially or in
+     * full) and the form submitted an explicit price to keep.
+     */
+    private function isEditingPriceAfterPayment(): bool
+    {
+        if (! $this->canEditPrices() || ! is_numeric($this->input('price'))) {
+            return false;
+        }
+
+        $bookingId = $this->route('id');
+        $booking = $bookingId ? Booking::find($bookingId) : null;
+
+        return $booking !== null && $booking->pay_status !== PayStatus::Unpaid;
     }
 
     public function messages(): array
@@ -23,9 +116,13 @@ class UpdateBookingRequest extends FormRequest
             'patient_age.max' => 'السن يجب ألا يتجاوز 150.',
             'national_id.max' => 'الرقم القومي يجب ألا يتجاوز 20 رقماً.',
             'gender.in' => 'الجنس غير صالح.',
+            'kinship_degree.in' => 'درجة القرابة غير صالحة.',
             'dept.required' => 'القسم مطلوب.',
             'dept.in' => 'القسم المحدد غير صالح.',
             'service_id.exists' => 'الخدمة المحددة غير موجودة.',
+            'service_id.required_with' => 'يجب تحديد الخدمة عند اختيار شركة تأمين.',
+            'service_id.required_if' => 'الخدمة مطلوبة عند اختيار طريقة الدفع بالتأمين.',
+            'ins_company_id.required_if' => 'شركة التأمين مطلوبة عند اختيار طريقة الدفع بالتأمين.',
             'service_name.max' => 'اسم الخدمة يجب ألا يتجاوز 200 حرف.',
             'doctor_id.exists' => 'الطبيب المحدد غير موجود.',
             'ins_company_id.exists' => 'شركة التأمين المحددة غير موجودة.',
@@ -48,10 +145,20 @@ class UpdateBookingRequest extends FormRequest
             'visit_note.max' => 'الملاحظات يجب ألا تتجاوز 2000 حرف.',
             'bed_id.required_if' => 'رقم السرير مطلوب لأقسام العمليات والليزك.',
             'bed_id.exists' => 'السرير المحدد غير موجود.',
+            'eye_side.required' => 'يجب تحديد جانب العين.',
             'eye_side.in' => 'جانب العين غير صالح.',
-            'analysis_type.max' => 'نوع التحليل يجب ألا يتجاوز 150 حرفاً.',
+            'analysis_type.in' => 'نوع التحليل يجب أن يكون Negative أو Positive.',
             'analysis_notes.max' => 'ملاحظات التحليل يجب ألا تتجاوز 500 حرف.',
         ];
+    }
+
+    /**
+     * Whether the booking is paid by an insurance company, so the
+     * insurance eye prices apply instead of the cash ones.
+     */
+    private function isInsurance(): bool
+    {
+        return $this->input('pay_method') === PayMethod::Insurance->value;
     }
 
     public function rules(): array
@@ -62,20 +169,41 @@ class UpdateBookingRequest extends FormRequest
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],
-            'dept' => ['required', 'in:clinic,labs,surgery,lasik,laser'],
-            'service_id' => ['nullable', 'exists:services,id'],
+            'kinship_degree' => ['nullable', Rule::in(array_column(KinshipDegree::cases(), 'value'))],
+            'dept' => ['required', Rule::in(SystemModule::enabledDeptValues())],
+            'service_id' => ['nullable', 'required_with:ins_company_id', 'required_if:pay_method,insurance', 'exists:services,id'],
             'service_name' => ['nullable', 'string', 'max:200'],
+            'service_ids' => ['nullable', 'array'],
+            'service_ids.*' => ['string', 'distinct', 'exists:services,id'],
+            'services' => ['nullable', 'array'],
             'doctor_id' => ['nullable', 'exists:doctors,id'],
-            'ins_company_id' => ['nullable', 'exists:insurance_companies,id'],
+            'ins_company_id' => ['nullable', 'required_if:pay_method,insurance', 'exists:insurance_companies,id'],
             'visit_date' => ['required', 'date'],
             'visit_time' => ['nullable', 'date_format:H:i'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'ins_amount' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['required', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['required', 'in:cash,card,transfer,insurance,contract'],
             'pay_status' => ['required', 'in:unpaid,partial,paid'],
-            'status' => ['nullable', 'in:waiting,confirmed,in_progress,completed,cancelled'],
+            'status' => [
+                'nullable',
+                'in:waiting,confirmed,in_progress,completed,completed_electronic,cancelled',
+                // "مكتمل - إلكتروني" is a system-only status (set by surgery completion) —
+                // only accept it here as a no-op resubmission of an already-electronic booking.
+                function ($attribute, $value, $fail) {
+                    if ($value !== CompletedElectronicState::$name) {
+                        return;
+                    }
+
+                    $bookingId = $this->route('booking');
+                    $current = $bookingId ? Booking::find($bookingId)?->status : null;
+
+                    if (! $current instanceof CompletedElectronicState) {
+                        $fail('لا يمكن تعيين هذه الحالة يدوياً.');
+                    }
+                },
+            ],
             'visit_note' => ['nullable', 'string', 'max:2000'],
             'bed_id' => [
                 'nullable',
@@ -95,8 +223,12 @@ class UpdateBookingRequest extends FormRequest
                     }
                 },
             ],
-            'eye_side' => ['nullable', 'in:OD,OS,OU'],
-            'analysis_type' => ['nullable', 'string', 'max:150'],
+            'eye_side' => ['required', 'in:OD,OS,OU'],
+            // A booking saved before the two-value list keeps whatever it already stores.
+            'analysis_type' => ['nullable', Rule::in(array_filter([
+                ...array_column(AnalysisType::cases(), 'value'),
+                Booking::find($this->route('id'))?->analysis_type,
+            ]))],
             'analysis_notes' => ['nullable', 'string', 'max:500'],
         ];
     }

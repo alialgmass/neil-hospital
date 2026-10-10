@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Inventory\Actions\IssueStockPermitAction;
+use Modules\Inventory\Actions\UpdateStockPermitAction;
 use Modules\Inventory\Http\Requests\StoreStockPermitRequest;
 use Modules\Inventory\Services\InventoryService;
 
@@ -16,6 +17,7 @@ class StockIssueController extends Controller
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly IssueStockPermitAction $issueAction,
+        private readonly UpdateStockPermitAction $updateAction,
     ) {}
 
     public function index(Request $request): Response
@@ -44,5 +46,16 @@ class StockIssueController extends Controller
         );
 
         return back()->with('success', 'تم إصدار إذن الصرف بنجاح.');
+    }
+
+    public function update(StoreStockPermitRequest $request, string $id): RedirectResponse
+    {
+        $this->updateAction->execute(
+            $id,
+            $request->only(['department', 'reason', 'notes']),
+            $request->input('items', []),
+        );
+
+        return back()->with('success', 'تم تعديل إذن الصرف بنجاح.');
     }
 }
