@@ -66,6 +66,7 @@ class RolesPermissionsSeeder extends Seeder
         'stocktake.adjust',
         'insurance.view',
         'insurance.write',
+        'insurance.collect',
         'insurance.price_lists.edit',
         'hr.view',
         'hr.manage',

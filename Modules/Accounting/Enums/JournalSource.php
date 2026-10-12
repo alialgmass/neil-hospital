@@ -13,6 +13,7 @@ enum JournalSource: string
     case SETTLEMENT = 'settlement';
     case INSURANCE_CLAIM = 'insurance_claim';
     case INSURANCE_COLLECT = 'insurance_collect';
+    case INSURANCE_DEPOSIT = 'insurance_deposit';
     case SUPPLIES_USED = 'supplies_used';
     case ITEM_SALE = 'item_sale';
     case DOCTOR_SHIFT = 'doctor_shift';
@@ -34,6 +35,7 @@ enum JournalSource: string
             self::SETTLEMENT => 'تسوية',
             self::INSURANCE_CLAIM => 'مطالبة تأمين',
             self::INSURANCE_COLLECT => 'تحصيل تأمين',
+            self::INSURANCE_DEPOSIT => 'أمانة مريض تعاقد',
             self::SUPPLIES_USED => 'صرف مستلزمات',
             self::ITEM_SALE => 'بيع أصناف',
             self::DOCTOR_SHIFT => 'شيفت طبيب',

@@ -127,6 +127,7 @@ const navGroups: NavGroup[] = [
             { title: 'بنود المستلزمات', href: '/supply-bundles', icon: ClipboardList, permission: 'inventory.view', module: 'inventory' },
             { title: 'تسوية الجرد', href: '/stock-take', icon: ClipboardCheck, permission: 'stocktake.view', module: 'inventory' },
             { title: 'شركات التأمين', href: '/insurance', icon: Building2, permission: 'insurance.view', module: 'inventory' },
+            { title: 'تحصيل مطالبات التعاقد', href: '/insurance/collection', icon: Receipt, permission: 'insurance.view', module: 'inventory' },
         ],
     },
     {
