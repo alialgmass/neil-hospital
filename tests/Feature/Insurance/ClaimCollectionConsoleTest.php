@@ -120,6 +120,57 @@ class ClaimCollectionConsoleTest extends TestCase
         $this->advance($claim)->assertSessionHasErrors('stage');
     }
 
+    public function test_deposit_needs_a_contract_booking_and_is_recorded_once(): void
+    {
+        $cash = $this->makeBooking();
+        $cash->update(['ins_company_id' => null]);
+        $this->post(route('insurance.collection.deposits.store'), ['booking_id' => $cash->id, 'amount' => 100])
+            ->assertSessionHasErrors('booking_id');
+
+        $booking = $this->makeBooking();
+        $this->post(route('insurance.collection.deposits.store'), ['booking_id' => $booking->id, 'amount' => 100]);
+        $this->post(route('insurance.collection.deposits.store'), ['booking_id' => $booking->id, 'amount' => 100])
+            ->assertSessionHasErrors('booking_id');
+        $this->assertSame(1, PendingDeposit::count());
+    }
+
+    public function test_approved_deposit_is_not_converted_when_booking_already_has_a_claim(): void
+    {
+        $booking = $this->makeBooking(1000);
+        $this->post(route('insurance.collection.deposits.store'), ['booking_id' => $booking->id, 'amount' => 1000]);
+        $deposit = PendingDeposit::sole();
+        $this->post(route('insurance.collection.deposits.decision', $deposit->id), ['decision' => 'approved']);
+        InsuranceClaim::create([
+            'booking_id' => $booking->id, 'insurance_company_id' => $this->company->id, 'service_id' => $this->service->id,
+            'patient_name' => 'مريض', 'service_name' => 'x', 'invoice_amount' => 1000, 'insurance_share' => 1000,
+            'status' => 'draft', 'service_date' => now()->toDateString(), 'claim_date' => now()->toDateString(),
+        ]);
+
+        $this->post(route('insurance.collection.deposits.convert', $deposit->id))->assertSessionHasErrors('deposit');
+        $this->assertSame(1, InsuranceClaim::where('booking_id', $booking->id)->count());
+    }
+
+    public function test_resubmission_keeps_the_original_submission_date(): void
+    {
+        $original = now()->subDays(40)->toDateString();
+        $claim = $this->makeClaim('rejected', 1000, ['submission_date' => $original, 'claim_reference' => 'R-1']);
+
+        $this->advance($claim);
+
+        $this->assertSame($original, $claim->refresh()->submission_date->toDateString());
+    }
+
+    public function test_partially_rejected_collected_claim_does_not_raise_a_false_gap(): void
+    {
+        $this->makeClaim('paid', 1000, [
+            'approved_amount' => 800, 'rejected_amount' => 200, 'paid_amount' => 800, 'deduction' => 0,
+            'submission_date' => now()->subDays(5)->toDateString(),
+        ]);
+
+        $kinds = collect($this->get(route('insurance.collection.index'))->viewData('page')['props']['flags'])->pluck('kind');
+        $this->assertNotContains('collection_gap', $kinds->all());
+    }
+
     public function test_rejected_claim_can_be_resubmitted(): void
     {
         $claim = $this->makeClaim('rejected', 1000, ['rejection_reason' => 'x']);

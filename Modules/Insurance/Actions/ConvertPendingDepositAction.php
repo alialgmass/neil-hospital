@@ -43,6 +43,10 @@ class ConvertPendingDepositAction
             }
 
             $booking = $deposit->booking;
+            if ($booking->insuranceClaim()->exists()) {
+                throw ValidationException::withMessages(['deposit' => 'الحالة دي ليها مطالبة بالفعل.']);
+            }
+
             $claimAmount = (float) ($booking->ins_amount > 0 ? $booking->ins_amount : $booking->price);
 
             $claim = InsuranceClaim::create([

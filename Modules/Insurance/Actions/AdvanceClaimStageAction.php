@@ -61,7 +61,7 @@ class AdvanceClaimStageAction
     {
         return [
             'status' => SubmittedState::$name,
-            'submission_date' => now()->toDateString(),
+            'submission_date' => ($claim->submission_date ?? now())->toDateString(),
             'claim_reference' => $claim->claim_reference ?: 'REF-'.strtoupper(substr($claim->id, -8)),
         ];
     }

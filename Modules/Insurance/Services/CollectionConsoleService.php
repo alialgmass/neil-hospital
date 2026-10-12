@@ -292,7 +292,8 @@ class CollectionConsoleService
             }
 
             if ($claim->status instanceof PaidState || $claim->status instanceof ClosedState) {
-                $due = ($claim->approved_amount ?? $share) - $claim->rejected_amount;
+                // approved_amount is already net of any rejected portion.
+                $due = $claim->approved_amount ?? $share;
 
                 if ($due > 0 && $claim->deduction / $due > self::DEDUCTION_RATIO) {
                     $add('deduction_high', 'high', 'خصم/ضريبة أعلى من المعتاد',
