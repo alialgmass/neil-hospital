@@ -55,7 +55,7 @@ const props = defineProps<{
 
 // ── Permissions ──
 const { can } = usePermissions()
-const canWrite = computed(() => can('inventory.write'))
+const canWrite = computed(() => can('stock_issue.write'))
 
 const selectedDate = ref(props.date)
 const showModal = ref(false)

@@ -25,7 +25,7 @@ class PurchaseInvoiceSellPriceTest extends TestCase
         $this->seed(AccountsSeeder::class);
 
         $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        foreach (['inventory.view', 'inventory.write', 'purchases.edit'] as $p) {
+        foreach (['inventory.view', 'inventory.write', 'purchases.create', 'purchases.edit'] as $p) {
             $role->givePermissionTo(Permission::firstOrCreate(['name' => $p, 'guard_name' => 'web']));
         }
         $this->user = User::factory()->create();

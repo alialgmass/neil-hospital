@@ -60,15 +60,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('import');
 
         Route::post('/', [SupplierController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:suppliers.write')
             ->name('store');
 
         Route::put('/{id}', [SupplierController::class, 'update'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:suppliers.write')
             ->name('update');
 
         Route::post('/{id}/pay', [SupplierController::class, 'pay'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:suppliers.pay')
             ->name('pay');
     });
 
@@ -93,7 +93,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('items.search');
 
         Route::post('/', [PurchaseInvoiceController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:purchases.create')
             ->name('store');
 
         Route::put('/{id}', [PurchaseInvoiceController::class, 'update'])
@@ -112,11 +112,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [SupplyBundleController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:supply_bundles.write')
             ->name('store');
 
         Route::put('/{id}', [SupplyBundleController::class, 'update'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:supply_bundles.write')
             ->name('update');
     });
 
@@ -127,7 +127,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [ItemSalesInvoiceController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:item_sales.create')
             ->name('store');
 
         Route::get('/customers/search', [ItemSalesInvoiceController::class, 'searchCustomers'])
@@ -146,11 +146,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [StockIssueController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:stock_issue.write')
             ->name('store');
 
         Route::put('/{id}', [StockIssueController::class, 'update'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:stock_issue.write')
             ->name('update');
     });
 
@@ -161,11 +161,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/issue', [StockPermitController::class, 'issue'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:stock_permits.write')
             ->name('issue');
 
         Route::post('/add', [StockPermitController::class, 'add'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:stock_permits.write')
             ->name('add');
     });
 
@@ -176,7 +176,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [PurchaseReturnController::class, 'store'])
-            ->middleware('can:inventory.write')
+            ->middleware('can:purchase_returns.create')
             ->name('store');
     });
 

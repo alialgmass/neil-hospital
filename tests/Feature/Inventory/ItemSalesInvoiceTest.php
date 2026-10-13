@@ -32,9 +32,10 @@ class ItemSalesInvoiceTest extends TestCase
 
         Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'inventory.write', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'item_sales.create', 'guard_name' => 'web']);
 
         $storeKeeperRole = Role::firstOrCreate(['name' => 'store_keeper', 'guard_name' => 'web']);
-        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write']);
+        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write', 'item_sales.create']);
         $this->storeKeeper = User::factory()->create();
         $this->storeKeeper->assignRole($storeKeeperRole);
 

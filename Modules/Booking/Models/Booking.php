@@ -36,6 +36,7 @@ class Booking extends Model implements HasMedia
         'file_no',
         'patient_name',
         'patient_phone',
+        'patient_address',
         'patient_age',
         'national_id',
         'gender',

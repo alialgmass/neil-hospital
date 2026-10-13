@@ -19,10 +19,10 @@ class SupplyBundleValidationTest extends TestCase
     {
         parent::setUp();
 
-        Permission::firstOrCreate(['name' => 'inventory.write', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'supply_bundles.write', 'guard_name' => 'web']);
 
         $this->user = User::factory()->create();
-        $this->user->givePermissionTo('inventory.write');
+        $this->user->givePermissionTo('supply_bundles.write');
     }
 
     private function payload(array $items): array

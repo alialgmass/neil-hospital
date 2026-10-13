@@ -44,6 +44,7 @@ interface Surgery {
         id: string;
         file_no: string;
         patient_name: string;
+        visit_date?: string | null;
         service_id?: string | null;
         service_name?: string | null;
         eye_side?: 'OD' | 'OS' | 'OU' | null;
@@ -317,7 +318,10 @@ const savingDelegations = ref(false);
 
 /** Delegation/anesthesia always run on the booking's own service. */
 function toBookingService(
-    booking: { service_id?: string | null; service_name?: string | null } | null | undefined,
+    booking:
+        | { service_id?: string | null; service_name?: string | null }
+        | null
+        | undefined,
 ): { id: string | null; name: string | null } | null {
     return booking
         ? { id: booking.service_id ?? null, name: booking.service_name ?? null }
@@ -328,13 +332,17 @@ const overlayBookingService = computed(() =>
     toBookingService(selectedCase.value?.booking),
 );
 const scheduleBookingService = computed(() =>
-    toBookingService(props.bookings.find((b) => b.id === scheduleForm.booking_id)),
+    toBookingService(
+        props.bookings.find((b) => b.id === scheduleForm.booking_id),
+    ),
 );
 
 // The primary doctor can't also be the delegate/anesthetist — filter them out
 // of the dropdowns (the backend rejects it too).
 const schedulePrimaryDoctorId = computed(
-    () => props.bookings.find((b) => b.id === scheduleForm.booking_id)?.doctor_id ?? null,
+    () =>
+        props.bookings.find((b) => b.id === scheduleForm.booking_id)
+            ?.doctor_id ?? null,
 );
 
 const delegateLines = computed(() =>
@@ -479,7 +487,12 @@ function removeBundleFromSelected(idx: number) {
 
 function openCase(
     surgery: Surgery,
-    tab: 'supplies' | 'report' | 'status' | 'delegation' | 'anesthesia' = 'supplies',
+    tab:
+        | 'supplies'
+        | 'report'
+        | 'status'
+        | 'delegation'
+        | 'anesthesia' = 'supplies',
 ) {
     if (!canWrite.value) {
         return;
@@ -505,7 +518,9 @@ function openCase(
             service_name: d.service_name,
             amount: Number(d.amount),
         }));
-    settledDelegations.value = allDelegations.filter((d) => d.status === 'settled');
+    settledDelegations.value = allDelegations.filter(
+        (d) => d.status === 'settled',
+    );
 }
 
 function closeOverlay() {
@@ -525,7 +540,16 @@ function supplyLineUrl(index: number): string {
     return `${surgeryRoutes.supplies(selectedCase.value!.id).url}/${index}`;
 }
 
-function applySupplyFlash(page: { props: { flash?: { surgery?: { supplies_used: SupplyUsedItem[]; supply_total: number | string } } } }) {
+function applySupplyFlash(page: {
+    props: {
+        flash?: {
+            surgery?: {
+                supplies_used: SupplyUsedItem[];
+                supply_total: number | string;
+            };
+        };
+    };
+}) {
     const flash = page.props.flash?.surgery;
 
     if (flash && selectedCase.value) {
@@ -548,7 +572,11 @@ function saveSupplyLine(index: number, line: SupplyUsedItem) {
     supplyLineBusy.value = true;
     router.put(
         supplyLineUrl(index),
-        { line_ref: supplyLineRef(line), qty: editSupply.qty, unit_cost: editSupply.unit_cost },
+        {
+            line_ref: supplyLineRef(line),
+            qty: editSupply.qty,
+            unit_cost: editSupply.unit_cost,
+        },
         {
             preserveScroll: true,
             preserveState: true,
@@ -557,7 +585,8 @@ function saveSupplyLine(index: number, line: SupplyUsedItem) {
                 editingSupplyIndex.value = null;
                 toast.success('تم تعديل المستلزم');
             },
-            onError: (errors) => toast.error(Object.values(errors)[0] ?? 'تعذر تعديل المستلزم'),
+            onError: (errors) =>
+                toast.error(Object.values(errors)[0] ?? 'تعذر تعديل المستلزم'),
             onFinish: () => {
                 supplyLineBusy.value = false;
             },
@@ -588,7 +617,8 @@ function deleteSupplyLine(index: number, line: SupplyUsedItem) {
             editingSupplyIndex.value = null;
             toast.success('تم حذف المستلزم');
         },
-        onError: (errors) => toast.error(Object.values(errors)[0] ?? 'تعذر حذف المستلزم'),
+        onError: (errors) =>
+            toast.error(Object.values(errors)[0] ?? 'تعذر حذف المستلزم'),
         onFinish: () => {
             supplyLineBusy.value = false;
         },
@@ -1005,6 +1035,22 @@ if (props.prefill) {
                         item.surgery.booking.insurance_company.name
                     }}</strong>
                 </p>
+                <p
+                    v-if="
+                        item.surgery.scheduled_at ||
+                        item.surgery.booking?.visit_date
+                    "
+                    class="bed-info-row"
+                >
+                    <span>التاريخ:</span
+                    ><strong>{{
+                        (
+                            item.surgery.scheduled_at ??
+                            item.surgery.booking?.visit_date ??
+                            ''
+                        ).slice(0, 10)
+                    }}</strong>
+                </p>
                 <p v-if="item.surgery.scheduled_at" class="bed-info-row">
                     <span>الموعد:</span
                     ><strong>{{
@@ -1180,6 +1226,21 @@ if (props.prefill) {
                     ><strong>التخدير:</strong>
                     {{ selectedCase.anaesthesia }}</span
                 >
+                <span
+                    v-if="
+                        selectedCase.scheduled_at ||
+                        selectedCase.booking?.visit_date
+                    "
+                >
+                    <strong>التاريخ:</strong>
+                    {{
+                        (
+                            selectedCase.scheduled_at ??
+                            selectedCase.booking?.visit_date ??
+                            ''
+                        ).slice(0, 10)
+                    }}
+                </span>
                 <span v-if="selectedCase.scheduled_at">
                     <strong>الموعد:</strong>
                     {{
@@ -1629,57 +1690,121 @@ if (props.prefill) {
                                             >
                                             {{ s.name || '—' }}
                                         </td>
-                                        <template v-if="editingSupplyIndex === i">
+                                        <template
+                                            v-if="editingSupplyIndex === i"
+                                        >
                                             <td>
-                                                <input v-model.number="editSupply.qty" type="number" min="0.01" step="0.01" class="input-field w-20 text-xs" />
+                                                <input
+                                                    v-model.number="
+                                                        editSupply.qty
+                                                    "
+                                                    type="number"
+                                                    min="0.01"
+                                                    step="0.01"
+                                                    class="input-field w-20 text-xs"
+                                                />
                                             </td>
                                             <td>
-                                                <input v-model.number="editSupply.unit_cost" type="number" min="0" step="0.01" class="input-field w-24 text-xs" />
+                                                <input
+                                                    v-model.number="
+                                                        editSupply.unit_cost
+                                                    "
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    class="input-field w-24 text-xs"
+                                                />
                                             </td>
                                             <td class="font-semibold">
-                                                {{ (editSupply.qty * editSupply.unit_cost).toLocaleString('en-US') }}
+                                                {{
+                                                    (
+                                                        editSupply.qty *
+                                                        editSupply.unit_cost
+                                                    ).toLocaleString('en-US')
+                                                }}
                                                 ج
                                             </td>
                                         </template>
                                         <template v-else>
                                             <td>{{ s.qty }}</td>
                                             <td>
-                                                {{ Number(s.unit_cost).toLocaleString('en-US') }}
+                                                {{
+                                                    Number(
+                                                        s.unit_cost,
+                                                    ).toLocaleString('en-US')
+                                                }}
                                                 ج
                                             </td>
                                             <td class="font-semibold">
-                                                {{ Number(s.total).toLocaleString('en-US') }}
+                                                {{
+                                                    Number(
+                                                        s.total,
+                                                    ).toLocaleString('en-US')
+                                                }}
                                                 ج
                                             </td>
                                         </template>
-                                        <td v-if="canWrite" class="whitespace-nowrap">
-                                            <div v-if="editingSupplyIndex === i" class="flex items-center gap-2">
-                                                <button type="button" class="text-green-600 hover:text-green-700 disabled:opacity-40" title="حفظ" :disabled="supplyLineBusy" @click="saveSupplyLine(i, s)">
+                                        <td
+                                            v-if="canWrite"
+                                            class="whitespace-nowrap"
+                                        >
+                                            <div
+                                                v-if="editingSupplyIndex === i"
+                                                class="flex items-center gap-2"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="text-green-600 hover:text-green-700 disabled:opacity-40"
+                                                    title="حفظ"
+                                                    :disabled="supplyLineBusy"
+                                                    @click="
+                                                        saveSupplyLine(i, s)
+                                                    "
+                                                >
                                                     <Check class="h-4 w-4" />
                                                 </button>
-                                                <button type="button" class="text-gray-400 hover:text-gray-600" title="إلغاء" @click="editingSupplyIndex = null">
+                                                <button
+                                                    type="button"
+                                                    class="text-gray-400 hover:text-gray-600"
+                                                    title="إلغاء"
+                                                    @click="
+                                                        editingSupplyIndex =
+                                                            null
+                                                    "
+                                                >
                                                     <X class="h-4 w-4" />
                                                 </button>
                                             </div>
-                                            <div v-else class="flex items-center gap-2">
+                                            <div
+                                                v-else
+                                                class="flex items-center gap-2"
+                                            >
                                                 <button
                                                     v-if="!s.is_bundle"
                                                     type="button"
                                                     class="text-blue-600 hover:text-blue-700 disabled:opacity-40"
                                                     title="تعديل"
                                                     :disabled="supplyLineBusy"
-                                                    @click="startEditSupply(i, s)"
+                                                    @click="
+                                                        startEditSupply(i, s)
+                                                    "
                                                 >
-                                                    <Pencil class="h-3.5 w-3.5" />
+                                                    <Pencil
+                                                        class="h-3.5 w-3.5"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
                                                     class="text-red-500 hover:text-red-600 disabled:opacity-40"
                                                     title="حذف"
                                                     :disabled="supplyLineBusy"
-                                                    @click="deleteSupplyLine(i, s)"
+                                                    @click="
+                                                        deleteSupplyLine(i, s)
+                                                    "
                                                 >
-                                                    <Trash2 class="h-3.5 w-3.5" />
+                                                    <Trash2
+                                                        class="h-3.5 w-3.5"
+                                                    />
                                                 </button>
                                             </div>
                                         </td>
@@ -1934,7 +2059,9 @@ if (props.prefill) {
                                 >
                                     ✓ {{ d.doctor?.name }} —
                                     {{ d.service_name }} —
-                                    {{ Number(d.amount).toLocaleString('ar-EG') }}
+                                    {{
+                                        Number(d.amount).toLocaleString('ar-EG')
+                                    }}
                                     ج (تم الدفع)
                                 </li>
                             </ul>
@@ -1989,7 +2116,9 @@ if (props.prefill) {
                                 >
                                     ✓ {{ d.doctor?.name }} —
                                     {{ d.service_name }} —
-                                    {{ Number(d.amount).toLocaleString('ar-EG') }}
+                                    {{
+                                        Number(d.amount).toLocaleString('ar-EG')
+                                    }}
                                     ج (تم الدفع)
                                 </li>
                             </ul>

@@ -104,6 +104,7 @@ function currentTime(): string {
 const form = useForm({
     patient_name: (props.booking?.patient_name as string) ?? '',
     patient_phone: (props.booking?.patient_phone as string) ?? '',
+    patient_address: (props.booking?.patient_address as string) ?? '',
     patient_age: (props.booking?.patient_age as string) ?? '',
     national_id: (props.booking?.national_id as string) ?? '',
     gender: (props.booking?.gender as string) ?? '',
@@ -111,13 +112,18 @@ const form = useForm({
     dept: (props.booking?.dept as string) ?? 'clinic',
     service_id: (props.booking?.service_id as string) ?? '',
     service_name: (props.booking?.service_name as string) ?? '',
-    service_ids: ((props.booking?.services as { service_id: string }[] | undefined) ?? [])
+    service_ids: (
+        (props.booking?.services as { service_id: string }[] | undefined) ?? []
+    )
         .map((s) => s.service_id)
         .filter(Boolean),
     doctor_id: (props.booking?.doctor_id as string) ?? '',
     ins_company_id: (props.booking?.ins_company_id as string) ?? '',
-    visit_date:
-        ((props.booking?.visit_date as string) ?? props.today ?? '').slice(0, 10),
+    visit_date: (
+        (props.booking?.visit_date as string) ??
+        props.today ??
+        ''
+    ).slice(0, 10),
     visit_time: props.booking
         ? ((props.booking.visit_time as string) ?? '').slice(0, 5)
         : currentTime(),
@@ -150,20 +156,20 @@ const showEyeSide = computed(() => !!form.dept);
 
 const deptExtraTitle = computed(() => {
     if (form.dept === 'surgery') {
-return 'بيانات العملية الجراحية';
-}
+        return 'بيانات العملية الجراحية';
+    }
 
     if (form.dept === 'lasik') {
-return 'بيانات جلسة الليزك';
-}
+        return 'بيانات جلسة الليزك';
+    }
 
     if (form.dept === 'laser') {
-return 'بيانات جلسة الليزر';
-}
+        return 'بيانات جلسة الليزر';
+    }
 
     if (form.dept === 'pentacam') {
-return 'بيانات فحص البنتكام';
-}
+        return 'بيانات فحص البنتكام';
+    }
 
     return 'بيانات الفحص';
 });
@@ -203,7 +209,12 @@ watch(isLabs, (labs) => {
 });
 
 const filteredDoctors = computed(() =>
-    props.doctors.filter((d) => !d.departments || d.departments.length === 0 || d.departments.includes(form.dept)),
+    props.doctors.filter(
+        (d) =>
+            !d.departments ||
+            d.departments.length === 0 ||
+            d.departments.includes(form.dept),
+    ),
 );
 
 const isInsurance = computed(() => form.pay_method === 'insurance');
@@ -231,7 +242,9 @@ const selectedDoctorName = computed(
 );
 
 const selectedDeptLabel = computed(
-    () => (page.props.departments ?? []).find((d) => d.value === form.dept)?.label ?? '—',
+    () =>
+        (page.props.departments ?? []).find((d) => d.value === form.dept)
+            ?.label ?? '—',
 );
 
 // Editing an already-paid booking: the typed price is kept by the server and
@@ -239,7 +252,9 @@ const selectedDeptLabel = computed(
 const isEditingPaidBooking = computed(
     () =>
         !isCreating.value &&
-        ['paid', 'partial'].includes((props.booking?.pay_status as string) ?? ''),
+        ['paid', 'partial'].includes(
+            (props.booking?.pay_status as string) ?? '',
+        ),
 );
 
 // A fully-paid booking stays fully paid when its price is corrected: the
@@ -255,15 +270,17 @@ const canViewPrices = computed(() => can('booking.view_prices'));
 const canEditPrices = computed(() => can('booking.edit_prices'));
 
 const showInvoicePreview = computed(
-    () => canViewPrices.value && (form.pay_status === 'paid' || form.pay_status === 'partial'),
+    () =>
+        canViewPrices.value &&
+        (form.pay_status === 'paid' || form.pay_status === 'partial'),
 );
 
 function recalcPrice() {
     const service = props.services.find((s) => s.id === form.service_id);
 
     if (!service) {
-return;
-}
+        return;
+    }
 
     form.service_name = service.name;
 
@@ -273,14 +290,22 @@ return;
         const itemPrice = item?.price ?? eyeSidePrice(service);
         form.price = String(itemPrice);
         form.ins_amount = pl
-            ? String(Math.round((itemPrice * pl.ins_coverage) / 100 * 100) / 100)
+            ? String(
+                  Math.round(((itemPrice * pl.ins_coverage) / 100) * 100) / 100,
+              )
             : '0';
     } else if (isInsurance.value) {
         form.price = String(eyeSidePrice(service));
         // No dedicated price list for this company — fall back to its general coverage rate.
-        const company = props.insuranceCompanies.find((c) => c.id === form.ins_company_id);
+        const company = props.insuranceCompanies.find(
+            (c) => c.id === form.ins_company_id,
+        );
         form.ins_amount = company
-            ? String(Math.round((Number(form.price) * company.coverage_pct) / 100 * 100) / 100)
+            ? String(
+                  Math.round(
+                      ((Number(form.price) * company.coverage_pct) / 100) * 100,
+                  ) / 100,
+              )
             : '0';
     } else {
         form.price = String(eyeSidePrice(service));
@@ -290,7 +315,9 @@ return;
 
 // Preview price only — the server always recomputes from the service + eye side.
 function eyeSidePrice(service: Service): number {
-    return isInsurance.value ? insuranceEyeSidePrice(service) : cashEyeSidePrice(service);
+    return isInsurance.value
+        ? insuranceEyeSidePrice(service)
+        : cashEyeSidePrice(service);
 }
 
 function cashEyeSidePrice(service: Service): number {
@@ -308,9 +335,16 @@ function cashEyeSidePrice(service: Service): number {
 
 // Mirrors ServicePricingService::resolveInsuranceEyePrice().
 function insuranceEyeSidePrice(service: Service): number {
-    const legacy = Number(service.ins_price) > 0 ? Number(service.ins_price) : null;
-    const oneEye = service.ins_one_eye_price != null ? Number(service.ins_one_eye_price) : legacy;
-    const bothEyes = service.ins_both_eyes_price != null ? Number(service.ins_both_eyes_price) : null;
+    const legacy =
+        Number(service.ins_price) > 0 ? Number(service.ins_price) : null;
+    const oneEye =
+        service.ins_one_eye_price != null
+            ? Number(service.ins_one_eye_price)
+            : legacy;
+    const bothEyes =
+        service.ins_both_eyes_price != null
+            ? Number(service.ins_both_eyes_price)
+            : null;
 
     if (oneEye == null && bothEyes == null) {
         return cashEyeSidePrice(service);
@@ -341,27 +375,33 @@ function eyePrice() {
 }
 
 watch(() => form.service_id, recalcPrice);
-watch(() => form.eye_side, () => {
-    if (isLabs.value) {
-        recalcLabsPrice();
+watch(
+    () => form.eye_side,
+    () => {
+        if (isLabs.value) {
+            recalcLabsPrice();
 
-        return;
-    }
+            return;
+        }
 
-    eyePrice();
-});
-watch(() => form.pay_method, () => {
-    if (isLabs.value) {
-        recalcLabsPrice();
-    } else if (form.service_id) {
-        recalcPrice();
-    }
+        eyePrice();
+    },
+);
+watch(
+    () => form.pay_method,
+    () => {
+        if (isLabs.value) {
+            recalcLabsPrice();
+        } else if (form.service_id) {
+            recalcPrice();
+        }
 
-    if (form.service_id && !isInsurance.value) {
-        form.ins_company_id = '';
-        form.ins_amount = '0';
-    }
-});
+        if (form.service_id && !isInsurance.value) {
+            form.ins_company_id = '';
+            form.ins_amount = '0';
+        }
+    },
+);
 watch(() => form.ins_company_id, recalcPrice);
 
 function submit() {
@@ -384,6 +424,7 @@ function submit() {
                         patient_name: form.patient_name,
                         national_id: form.national_id,
                         patient_phone: form.patient_phone,
+                        patient_address: form.patient_address,
                         patient_age: form.patient_age,
                         gender: form.gender,
                         kinship_degree: form.kinship_degree,
@@ -395,26 +436,48 @@ function submit() {
                 />
 
                 <ServiceSelect
-                    :model-value="{ service_id: form.service_id, doctor_id: form.doctor_id }"
+                    :model-value="{
+                        service_id: form.service_id,
+                        doctor_id: form.doctor_id,
+                    }"
                     :services="filteredServices"
                     :doctors="filteredDoctors"
                     :is-edit-mode="!isCreating"
                     :hide-service="isLabs"
                     :errors="form.errors"
-                    @update:model-value="(v) => { form.service_id = v.service_id; form.doctor_id = v.doctor_id; }"
+                    @update:model-value="
+                        (v) => {
+                            form.service_id = v.service_id;
+                            form.doctor_id = v.doctor_id;
+                        }
+                    "
                 />
 
                 <div v-if="isLabs" class="bk-section">
-                    <span class="bk-title bk-title-teal">خدمات الفحوصات (يمكن اختيار أكثر من خدمة)</span>
+                    <span class="bk-title bk-title-teal"
+                        >خدمات الفحوصات (يمكن اختيار أكثر من خدمة)</span
+                    >
                     <div class="space-y-2">
-                        <div v-for="(serviceId, index) in form.service_ids" :key="index" class="flex items-center gap-2">
+                        <div
+                            v-for="(serviceId, index) in form.service_ids"
+                            :key="index"
+                            class="flex items-center gap-2"
+                        >
                             <select
                                 :value="serviceId"
                                 class="bk-input flex-1"
-                                @change="form.service_ids[index] = ($event.target as HTMLSelectElement).value"
+                                @change="
+                                    form.service_ids[index] = (
+                                        $event.target as HTMLSelectElement
+                                    ).value
+                                "
                             >
                                 <option value="">— اختر الخدمة —</option>
-                                <option v-for="svc in filteredServices" :key="svc.id" :value="svc.id">
+                                <option
+                                    v-for="svc in filteredServices"
+                                    :key="svc.id"
+                                    :value="svc.id"
+                                >
                                     {{ svc.name }}
                                 </option>
                             </select>
@@ -434,7 +497,10 @@ function submit() {
                         >
                             + إضافة خدمة
                         </button>
-                        <p v-if="form.errors.service_ids" class="mt-1 text-xs text-hospital-danger">
+                        <p
+                            v-if="form.errors.service_ids"
+                            class="mt-1 text-xs text-hospital-danger"
+                        >
                             {{ form.errors.service_ids }}
                         </p>
                     </div>
@@ -478,24 +544,47 @@ function submit() {
                 />
 
                 <div v-if="showEyeSide" class="bk-section">
-                    <span class="bk-title bk-title-green">{{ deptExtraTitle }}</span>
+                    <span class="bk-title bk-title-green">{{
+                        deptExtraTitle
+                    }}</span>
                     <div class="bk-grid-2">
-                        <div :class="showBeds && orRooms.length ? 'col-span-2' : ''">
-                            <EyeSideSelector v-model="form.eye_side" :error="form.errors.eye_side" />
+                        <div
+                            :class="
+                                showBeds && orRooms.length ? 'col-span-2' : ''
+                            "
+                        >
+                            <EyeSideSelector
+                                v-model="form.eye_side"
+                                :error="form.errors.eye_side"
+                            />
                         </div>
-                        <div v-if="showBeds" :class="orRooms.length ? 'col-span-2' : ''">
+                        <div
+                            v-if="showBeds"
+                            :class="orRooms.length ? 'col-span-2' : ''"
+                        >
                             <BedPicker
                                 v-model="form.bed_id"
                                 :or-rooms="orRooms"
                                 :dept="form.dept"
-                                :current-surgery-id="(props.booking?.surgery_id as string) ?? undefined"
+                                :current-surgery-id="
+                                    (props.booking?.surgery_id as string) ??
+                                    undefined
+                                "
                                 :error="form.errors.bed_id"
                             />
                         </div>
                         <template v-if="showAnalysis">
                             <AnalysisFields
-                                :model-value="{ analysis_type: form.analysis_type, analysis_notes: form.analysis_notes }"
-                                @update:model-value="(v) => { form.analysis_type = v.analysis_type; form.analysis_notes = v.analysis_notes; }"
+                                :model-value="{
+                                    analysis_type: form.analysis_type,
+                                    analysis_notes: form.analysis_notes,
+                                }"
+                                @update:model-value="
+                                    (v) => {
+                                        form.analysis_type = v.analysis_type;
+                                        form.analysis_notes = v.analysis_notes;
+                                    }
+                                "
                             />
                         </template>
                     </div>
@@ -541,7 +630,7 @@ function submit() {
     border-radius: var(--hospital-rl, 14px);
     padding: 18px 20px;
     margin-bottom: 16px;
-    box-shadow: var(--hospital-sh, 0 2px 12px rgba(10,79,166,.08));
+    box-shadow: var(--hospital-sh, 0 2px 12px rgba(10, 79, 166, 0.08));
 }
 
 .bk-title {
@@ -556,11 +645,21 @@ function submit() {
     text-transform: uppercase;
 }
 
-.bk-title-blue { background: #0a4fa6; }
-.bk-title-teal { background: #00b5a4; }
-.bk-title-purple { background: #7b2fa6; }
-.bk-title-orange { background: #e07c10; }
-.bk-title-green { background: #1a8c5b; }
+.bk-title-blue {
+    background: #0a4fa6;
+}
+.bk-title-teal {
+    background: #00b5a4;
+}
+.bk-title-purple {
+    background: #7b2fa6;
+}
+.bk-title-orange {
+    background: #e07c10;
+}
+.bk-title-green {
+    background: #1a8c5b;
+}
 
 .bk-grid-2 {
     display: grid;
@@ -594,5 +693,4 @@ function submit() {
     border-color: #0a4fa6;
     box-shadow: 0 0 0 3px rgba(10, 79, 166, 0.08);
 }
-
 </style>

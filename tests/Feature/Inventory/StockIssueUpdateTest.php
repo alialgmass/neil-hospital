@@ -30,9 +30,10 @@ class StockIssueUpdateTest extends TestCase
 
         Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'inventory.write', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'stock_issue.write', 'guard_name' => 'web']);
 
         $storeKeeperRole = Role::firstOrCreate(['name' => 'store_keeper', 'guard_name' => 'web']);
-        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write']);
+        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write', 'stock_issue.write']);
         $this->storeKeeper = User::factory()->create();
         $this->storeKeeper->assignRole($storeKeeperRole);
 

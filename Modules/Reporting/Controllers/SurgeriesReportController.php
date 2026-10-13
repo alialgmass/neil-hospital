@@ -20,8 +20,8 @@ class SurgeriesReportController extends Controller
         $rows = DB::table('surgeries')
             ->join('bookings', 'bookings.id', '=', 'surgeries.booking_id')
             ->leftJoin('doctors', 'doctors.id', '=', 'surgeries.surgeon_id')
-            ->when($from, fn ($q) => $q->whereDate('surgeries.scheduled_at', '>=', $from))
-            ->when($to, fn ($q) => $q->whereDate('surgeries.scheduled_at', '<=', $to))
+            ->when($from, fn ($q) => $q->whereRaw('date(coalesce(surgeries.scheduled_at, bookings.visit_date)) >= ?', [$from]))
+            ->when($to, fn ($q) => $q->whereRaw('date(coalesce(surgeries.scheduled_at, bookings.visit_date)) <= ?', [$to]))
             ->when($dept, fn ($q) => $q->where('surgeries.dept', $dept))
             ->whereIn('surgeries.dept', SystemModule::enabledDeptValues())
             ->whereNotIn('bookings.status', ['cancelled'])
@@ -33,12 +33,12 @@ class SurgeriesReportController extends Controller
                 'surgeries.procedure',
                 'surgeries.eye',
                 'surgeries.status',
-                'surgeries.scheduled_at',
+                DB::raw('coalesce(surgeries.scheduled_at, bookings.visit_date) as scheduled_at'),
                 'surgeries.supply_total',
                 'surgeries.complications',
                 DB::raw('doctors.name as surgeon_name'),
             ])
-            ->orderByDesc('surgeries.scheduled_at')
+            ->orderByDesc('scheduled_at')
             ->get()
             ->map(fn ($r) => [
                 'file_no' => $r->file_no,

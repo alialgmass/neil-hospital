@@ -31,16 +31,17 @@ class PurchaseInvoiceEditDeleteTest extends TestCase
 
         Permission::firstOrCreate(['name' => 'inventory.view', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'inventory.write', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'purchases.create', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'purchases.edit', 'guard_name' => 'web']);
         Permission::firstOrCreate(['name' => 'purchases.delete', 'guard_name' => 'web']);
 
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $adminRole->givePermissionTo(['inventory.view', 'inventory.write', 'purchases.edit', 'purchases.delete']);
+        $adminRole->givePermissionTo(['inventory.view', 'inventory.write', 'purchases.create', 'purchases.edit', 'purchases.delete']);
         $this->admin = User::factory()->create();
         $this->admin->assignRole($adminRole);
 
         $storeKeeperRole = Role::firstOrCreate(['name' => 'store_keeper', 'guard_name' => 'web']);
-        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write']);
+        $storeKeeperRole->givePermissionTo(['inventory.view', 'inventory.write', 'purchases.create']);
         $this->storeKeeper = User::factory()->create();
         $this->storeKeeper->assignRole($storeKeeperRole);
     }

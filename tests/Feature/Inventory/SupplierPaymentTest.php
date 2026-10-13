@@ -60,7 +60,7 @@ class SupplierPaymentTest extends TestCase
     {
         $supplier = Supplier::create(['name' => 'مورد', 'is_active' => true, 'balance' => 1000]);
 
-        $permission = Permission::firstOrCreate(['name' => 'inventory.write', 'guard_name' => 'web']);
+        $permission = Permission::firstOrCreate(['name' => 'suppliers.pay', 'guard_name' => 'web']);
         $user = User::factory()->create();
         $user->givePermissionTo($permission);
 

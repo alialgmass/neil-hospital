@@ -98,12 +98,12 @@ class ArchiveFileUploadTest extends TestCase
         $this->assertCount(0, $booking->getMedia('archive-files'));
     }
 
-    public function test_upload_rejects_files_over_20mb(): void
+    public function test_upload_rejects_files_over_200mb(): void
     {
         $this->actingAs($this->user);
         $booking = $this->makeCompletedBooking();
 
-        $file = UploadedFile::fake()->create('large.pdf', 25000, 'application/pdf');
+        $file = UploadedFile::fake()->create('large.pdf', 204801, 'application/pdf');
 
         $response = $this->post(route('archive.upload', $booking), ['file' => $file]);
 

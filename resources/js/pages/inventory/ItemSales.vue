@@ -61,7 +61,7 @@ const props = defineProps<{
 }>()
 
 const { can } = usePermissions()
-const canWrite = computed(() => can('inventory.write'))
+const canWrite = computed(() => can('item_sales.create'))
 
 // ── Filters ──
 const filterForm = reactive({

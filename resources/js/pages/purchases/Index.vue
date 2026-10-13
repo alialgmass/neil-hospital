@@ -67,7 +67,7 @@ const props = defineProps<{
 
 // ── Permissions ──
 const { can } = usePermissions();
-const canCreate = computed(() => can('inventory.write'));
+const canCreate = computed(() => can('purchases.create'));
 const canEdit = computed(() => can('purchases.edit'));
 const canDelete = computed(() => can('purchases.delete'));
 

@@ -6,6 +6,7 @@ interface Props {
         patient_name: string;
         national_id: string;
         patient_phone: string;
+        patient_address: string;
         patient_age: string;
         gender: string;
         kinship_degree: string;
@@ -20,6 +21,7 @@ interface PatientMatch {
     patient_name: string;
     national_id: string | null;
     patient_phone: string | null;
+    patient_address: string | null;
     patient_age: number | null;
     gender: string | null;
     kinship_degree: string | null;
@@ -55,9 +57,12 @@ function onPatientNameInput(value: string) {
 
     debounceTimer = setTimeout(async () => {
         try {
-            const res = await fetch(`/booking/patients/search?q=${encodeURIComponent(value)}`, {
-                headers: { Accept: 'application/json' },
-            });
+            const res = await fetch(
+                `/booking/patients/search?q=${encodeURIComponent(value)}`,
+                {
+                    headers: { Accept: 'application/json' },
+                },
+            );
             patientResults.value = res.ok ? await res.json() : [];
             patientDropdownOpen.value = patientResults.value.length > 0;
         } catch {
@@ -72,7 +77,11 @@ function selectPatient(patient: PatientMatch) {
         patient_name: patient.patient_name,
         national_id: patient.national_id ?? props.modelValue.national_id,
         patient_phone: patient.patient_phone ?? props.modelValue.patient_phone,
-        patient_age: patient.patient_age ? String(patient.patient_age) : props.modelValue.patient_age,
+        patient_address:
+            patient.patient_address ?? props.modelValue.patient_address,
+        patient_age: patient.patient_age
+            ? String(patient.patient_age)
+            : props.modelValue.patient_age,
         gender: patient.gender ?? props.modelValue.gender,
     });
     patientDropdownOpen.value = false;
@@ -100,11 +109,18 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.patient_name }"
                     autocomplete="off"
-                    @input="onPatientNameInput(($event.target as HTMLInputElement).value)"
+                    @input="
+                        onPatientNameInput(
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                     @focus="patientDropdownOpen = patientResults.length > 0"
                     @blur="closePatientDropdown"
                 />
-                <p v-if="errors.patient_name" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.patient_name"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.patient_name }}
                 </p>
                 <ul
@@ -118,13 +134,30 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                         @mousedown.prevent="selectPatient(patient)"
                     >
                         <div class="flex items-center justify-between">
-                            <span class="font-medium text-hospital-text">{{ patient.patient_name }}</span>
-                            <span class="font-mono text-hospital-text-3">{{ patient.file_no }}</span>
+                            <span class="font-medium text-hospital-text">{{
+                                patient.patient_name
+                            }}</span>
+                            <span class="font-mono text-hospital-text-3">{{
+                                patient.file_no
+                            }}</span>
                         </div>
-                        <div v-if="patient.patient_phone || patient.national_id" class="mt-0.5 text-hospital-text-3">
-                            <span v-if="patient.patient_phone">{{ patient.patient_phone }}</span>
-                            <span v-if="patient.patient_phone && patient.national_id"> — </span>
-                            <span v-if="patient.national_id">{{ patient.national_id }}</span>
+                        <div
+                            v-if="patient.patient_phone || patient.national_id"
+                            class="mt-0.5 text-hospital-text-3"
+                        >
+                            <span v-if="patient.patient_phone">{{
+                                patient.patient_phone
+                            }}</span>
+                            <span
+                                v-if="
+                                    patient.patient_phone && patient.national_id
+                                "
+                            >
+                                —
+                            </span>
+                            <span v-if="patient.national_id">{{
+                                patient.national_id
+                            }}</span>
                         </div>
                     </li>
                 </ul>
@@ -137,9 +170,17 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     placeholder="14 رقم"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.national_id }"
-                    @input="update('national_id', ($event.target as HTMLInputElement).value)"
+                    @input="
+                        update(
+                            'national_id',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                 />
-                <p v-if="errors.national_id" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.national_id"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.national_id }}
                 </p>
             </div>
@@ -151,10 +192,42 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     placeholder="01xxxxxxxxx"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.patient_phone }"
-                    @input="update('patient_phone', ($event.target as HTMLInputElement).value)"
+                    @input="
+                        update(
+                            'patient_phone',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                 />
-                <p v-if="errors.patient_phone" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.patient_phone"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.patient_phone }}
+                </p>
+            </div>
+            <div class="col-span-2">
+                <label class="bk-label">العنوان</label>
+                <input
+                    :value="modelValue.patient_address"
+                    type="text"
+                    placeholder="عنوان المريض"
+                    class="bk-input"
+                    :class="{
+                        'border-hospital-danger': errors.patient_address,
+                    }"
+                    @input="
+                        update(
+                            'patient_address',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
+                />
+                <p
+                    v-if="errors.patient_address"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
+                    {{ errors.patient_address }}
                 </p>
             </div>
             <div>
@@ -167,9 +240,17 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     placeholder="سنة"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.patient_age }"
-                    @input="update('patient_age', ($event.target as HTMLInputElement).value)"
+                    @input="
+                        update(
+                            'patient_age',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                 />
-                <p v-if="errors.patient_age" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.patient_age"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.patient_age }}
                 </p>
             </div>
@@ -179,13 +260,21 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     :value="modelValue.gender"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.gender }"
-                    @change="update('gender', ($event.target as HTMLSelectElement).value)"
+                    @change="
+                        update(
+                            'gender',
+                            ($event.target as HTMLSelectElement).value,
+                        )
+                    "
                 >
                     <option value="">— اختر —</option>
                     <option value="male">ذكر</option>
                     <option value="female">أنثى</option>
                 </select>
-                <p v-if="errors.gender" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.gender"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.gender }}
                 </p>
             </div>
@@ -195,7 +284,12 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     :value="modelValue.kinship_degree"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.kinship_degree }"
-                    @change="update('kinship_degree', ($event.target as HTMLSelectElement).value)"
+                    @change="
+                        update(
+                            'kinship_degree',
+                            ($event.target as HTMLSelectElement).value,
+                        )
+                    "
                 >
                     <option value="">— لا يوجد —</option>
                     <option value="father">الوالد</option>
@@ -203,7 +297,10 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     <option value="son">الابن</option>
                     <option value="companion">مرافق</option>
                 </select>
-                <p v-if="errors.kinship_degree" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.kinship_degree"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.kinship_degree }}
                 </p>
             </div>
@@ -214,9 +311,17 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     type="date"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.visit_date }"
-                    @input="update('visit_date', ($event.target as HTMLInputElement).value)"
+                    @input="
+                        update(
+                            'visit_date',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                 />
-                <p v-if="errors.visit_date" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.visit_date"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.visit_date }}
                 </p>
             </div>
@@ -227,9 +332,17 @@ onBeforeUnmount(() => clearTimeout(debounceTimer));
                     type="time"
                     class="bk-input"
                     :class="{ 'border-hospital-danger': errors.visit_time }"
-                    @input="update('visit_time', ($event.target as HTMLInputElement).value)"
+                    @input="
+                        update(
+                            'visit_time',
+                            ($event.target as HTMLInputElement).value,
+                        )
+                    "
                 />
-                <p v-if="errors.visit_time" class="mt-1 text-xs text-hospital-danger">
+                <p
+                    v-if="errors.visit_time"
+                    class="mt-1 text-xs text-hospital-danger"
+                >
                     {{ errors.visit_time }}
                 </p>
             </div>

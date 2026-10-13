@@ -166,6 +166,7 @@ class UpdateBookingRequest extends FormRequest
         return [
             'patient_name' => ['required', 'string', 'max:150'],
             'patient_phone' => ['nullable', 'string', 'max:20'],
+            'patient_address' => ['nullable', 'string', 'max:255'],
             'patient_age' => ['nullable', 'integer', 'min:0', 'max:150'],
             'national_id' => ['nullable', 'string', 'max:20'],
             'gender' => ['nullable', 'in:male,female'],

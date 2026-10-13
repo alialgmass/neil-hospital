@@ -64,6 +64,7 @@ class BookingService
             'file_no' => $fileNo,
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
+            'patient_address' => $data->patientAddress,
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,
@@ -126,6 +127,7 @@ class BookingService
         $booking = $this->bookingRepository->update($id, [
             'patient_name' => $data->patientName,
             'patient_phone' => $data->patientPhone,
+            'patient_address' => $data->patientAddress,
             'patient_age' => $data->patientAge,
             'national_id' => $data->nationalId,
             'gender' => $data->gender,

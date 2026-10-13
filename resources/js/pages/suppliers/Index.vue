@@ -30,7 +30,7 @@ const props = defineProps<{
 
 // ── Permissions ──
 const { can } = usePermissions();
-const canWrite = computed(() => can('inventory.write'));
+const canWrite = computed(() => can('suppliers.write'));
 
 const supplierTypes = ['أدوية وقطرات', 'مستلزمات جراحية', 'معدات وأجهزة', 'مستهلكات', 'متنوع'];
 const paymentTerms = ['فوري', '30 يوم', '60 يوم', '90 يوم'];

@@ -165,7 +165,7 @@ class BookingController extends Controller
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->limit(50)
-            ->get(['file_no', 'patient_name', 'national_id', 'patient_phone', 'patient_age', 'gender', 'kinship_degree']);
+            ->get(['file_no', 'patient_name', 'national_id', 'patient_phone', 'patient_address', 'patient_age', 'gender', 'kinship_degree']);
 
         $patients = $matches
             ->unique(fn (Booking $b) => $b->national_id ?: $b->file_no)
@@ -175,6 +175,7 @@ class BookingController extends Controller
                 'patient_name' => $b->patient_name,
                 'national_id' => $b->national_id,
                 'patient_phone' => $b->patient_phone,
+                'patient_address' => $b->patient_address,
                 'patient_age' => $b->patient_age,
                 'gender' => $b->gender,
                 'kinship_degree' => $b->kinship_degree?->value,
@@ -209,6 +210,7 @@ class BookingController extends Controller
             'patient' => $patient ? [
                 'name' => $patient->patient_name,
                 'phone' => $patient->patient_phone,
+                'address' => $patient->patient_address,
                 'age' => $patient->patient_age,
                 'file_no' => $patient->file_no,
                 'national_id' => $patient->national_id,

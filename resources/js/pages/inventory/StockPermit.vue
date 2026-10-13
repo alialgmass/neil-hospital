@@ -41,7 +41,7 @@ const props = defineProps<{
 
 // ── Permissions ──
 const { can } = usePermissions()
-const canWrite = computed(() => can('inventory.write'))
+const canWrite = computed(() => can('stock_permits.write'))
 
 const showIssueModal = ref(false)
 const showAddModal = ref(false)

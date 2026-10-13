@@ -42,7 +42,7 @@ const props = defineProps<{
 
 // ── Permissions ──
 const { can } = usePermissions()
-const canWrite = computed(() => can('inventory.write'))
+const canWrite = computed(() => can('supply_bundles.write'))
 
 const deptLabels: Record<string, string> = {
     surgery: 'العمليات',

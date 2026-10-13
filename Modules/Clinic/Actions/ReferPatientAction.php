@@ -78,6 +78,7 @@ class ReferPatientAction
                 'patient_name' => $originalBooking->patient_name,
                 'patient_phone' => $originalBooking->patient_phone,
                 'patient_age' => $originalBooking->patient_age,
+                'patient_address' => $originalBooking->patient_address,
                 'national_id' => $originalBooking->national_id,
                 'gender' => $originalBooking->gender,
                 'kinship_degree' => $originalBooking->kinship_degree,
