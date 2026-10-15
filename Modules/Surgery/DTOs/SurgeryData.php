@@ -21,6 +21,8 @@ readonly class SurgeryData
         public string|SurgeryStatus $status = 'scheduled',
         public ?string $preOpNotes = null,
         public ?string $scheduledAt = null,
+        /** @var array<int, array{doctor_id: string, role: string, service_id: ?string, service_name: string, amount: float}> */
+        public array $delegations = [],
     ) {}
 
     public static function fromArray(array $data): self
@@ -37,6 +39,7 @@ readonly class SurgeryData
             status: $data['status'] ?? 'scheduled',
             preOpNotes: $data['pre_op_notes'] ?? null,
             scheduledAt: $data['scheduled_at'] ?? null,
+            delegations: $data['delegations'] ?? [],
         );
     }
 }

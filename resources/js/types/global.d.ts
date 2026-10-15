@@ -23,6 +23,7 @@ declare module '@inertiajs/core' {
             settings: {
                 hospital_name: string;
                 hospital_specialty: string;
+                hospital_logo_url: string | null;
             };
             sidebarOpen: boolean;
             [key: string]: unknown;

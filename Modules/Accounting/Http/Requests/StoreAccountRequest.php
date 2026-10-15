@@ -24,6 +24,7 @@ class StoreAccountRequest extends FormRequest
             'group' => ['required', "in:{$groups}"],
             'nature' => ['required', "in:{$natures}"],
             'parent_id' => ['nullable', 'exists:accounts,id'],
+            'is_postable' => ['boolean'],
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace Modules\Admin\Services;
 
 use App\Models\User;
+use App\Services\PermissionLabelService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
@@ -11,6 +12,10 @@ use Spatie\Permission\Models\Role;
 
 class UserManagementService
 {
+    public function __construct(
+        private readonly PermissionLabelService $labels,
+    ) {}
+
     public function getUsers(int $perPage = 30): LengthAwarePaginator
     {
         return User::with('roles')
@@ -20,12 +25,24 @@ class UserManagementService
 
     public function getRolesWithPermissions(): Collection
     {
-        return Role::with('permissions')->orderBy('name')->get();
+        return Role::with('permissions')->orderBy('name')->get()
+            ->map(fn (Role $role) => $this->labels->describeRole($role));
     }
 
     public function getAllPermissions(): Collection
     {
-        return Permission::orderBy('name')->get();
+        return $this->labels->describePermissions(Permission::orderBy('name')->get());
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    public function createRole(string $name, array $permissions): Role
+    {
+        $role = Role::create(['name' => $name, 'guard_name' => 'web']);
+        $role->syncPermissions($permissions);
+
+        return $role;
     }
 
     public function syncRolePermissions(string|int $roleId, array $permissions): void
@@ -36,7 +53,8 @@ class UserManagementService
 
     public function getRoles(): Collection
     {
-        return Role::orderBy('name')->get(['id', 'name']);
+        return Role::orderBy('name')->get(['id', 'name'])
+            ->map(fn (Role $role) => $this->labels->describeRole($role));
     }
 
     public function createUser(array $data): User

@@ -3,6 +3,7 @@ import { Head, router, useForm } from '@inertiajs/vue3'
 import { CalendarCheck, CalendarX, Clock4, PlusCircle } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import Modal from '@/components/shared/Modal.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 interface Employee { id: string; name: string; dept: string }
 interface Leave {
@@ -22,6 +23,10 @@ const props = defineProps<{
     filters: { employee_id?: string; type?: string; status?: string }
     stats: { pending: number; approved: number; rejected: number; total_days: number }
 }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('hr.manage'))
 
 const leaveTypeConfig: Record<string, { label: string; class: string }> = {
     annual: { label: 'سنوية', class: 'bg-pp text-p' },
@@ -79,6 +84,10 @@ const autodays = computed(() => {
 })
 
 function submitAdd() {
+    if (!canWrite.value) {
+        return
+    }
+
     addForm.post('/leaves', { onSuccess: () => { showAdd.value = false; addForm.reset() } })
 }
 </script>
@@ -147,7 +156,7 @@ function submitAdd() {
                 <option v-for="(cfg, key) in statusConfig" :key="key" :value="key">{{ cfg.label }}</option>
             </select>
         </div>
-        <button class="btn-primary flex items-center gap-1.5" @click="showAdd = true">
+        <button class="btn-primary flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showAdd = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
             <PlusCircle class="h-4 w-4" />
             إجازة جديدة
         </button>
@@ -193,10 +202,10 @@ function submitAdd() {
                     </td>
                     <td class="px-4 py-3">
                         <div v-if="l.status === 'pending'" class="flex gap-1">
-                            <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-s hover:bg-sp hover:border-s/40 transition-colors"
-                                @click="approve(l.id)">موافقة</button>
-                            <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-d hover:bg-dp hover:border-d/40 transition-colors"
-                                @click="reject(l.id)">رفض</button>
+                            <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-s hover:bg-sp hover:border-s/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                @click="approve(l.id)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">موافقة</button>
+                            <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-d hover:bg-dp hover:border-d/40 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                                @click="reject(l.id)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">رفض</button>
                         </div>
                         <span v-else class="text-xs text-t3">—</span>
                     </td>
@@ -259,7 +268,7 @@ function submitAdd() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="btn-primary">
+                <button type="submit" :disabled="addForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ addForm.processing ? 'جارٍ الحفظ...' : 'تسجيل الإجازة' }}
                 </button>
             </div>

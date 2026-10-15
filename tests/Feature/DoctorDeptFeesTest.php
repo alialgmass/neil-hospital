@@ -53,19 +53,19 @@ class DoctorDeptFeesTest extends TestCase
             'fee_type' => 'percentage',
             'fee_value' => 40,
             'dept_fees' => [
-                'laser' => ['fee_type' => 'percentage', 'fee_value' => 25],
+                'clinic' => ['fee_type' => 'percentage', 'fee_value' => 25],
             ],
         ]);
 
-        // Simulate a laser booking
+        // Simulate a clinic booking
         $bookingId = Str::ulid()->toString();
         DB::table('bookings')->insert([
             'id' => $bookingId,
             'doctor_id' => $doctor->id,
             'patient_name' => 'مريض تست',
             'file_no' => 'T001',
-            'dept' => 'laser',
-            'service_name' => 'ليزر علاجي',
+            'dept' => 'clinic',
+            'service_name' => 'كشف عام',
             'price' => 1000,
             'paid_amount' => 1000,
             'ins_amount' => 0,
@@ -99,8 +99,8 @@ class DoctorDeptFeesTest extends TestCase
             'doctor_id' => $doctor->id,
             'patient_name' => 'مريض تست 2',
             'file_no' => 'T002',
-            'dept' => 'laser',
-            'service_name' => 'ليزر',
+            'dept' => 'labs',
+            'service_name' => 'تحليل',
             'price' => 1000,
             'paid_amount' => 1000,
             'ins_amount' => 0,
@@ -113,7 +113,161 @@ class DoctorDeptFeesTest extends TestCase
         $service = app(DoctorClaimsService::class);
         $result = $service->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
 
-        // No laser override → global 40% of 1000 = 400
+        // No labs override → global 40% of 1000 = 400
         $this->assertEquals(400.0, $result['total_claims']);
+    }
+
+    /**
+     * Business rule: Surgery/Lasik/Laser/Pentacam each have their own
+     * dedicated fee strategy (supply-cost deduction, insurance fixed fee,
+     * fixed hospital revenue, or — for Pentacam — always zero), so a
+     * per-department fee override never applies to them even if legacy
+     * data still has one set — the doctor's global fee_type/fee_value (or
+     * the department's own strategy) is used instead.
+     */
+    public function test_dept_fee_override_is_ignored_for_laser(): void
+    {
+        $doctor = Doctor::create([
+            'name' => 'د. ليزر',
+            'fee_type' => 'percentage',
+            'fee_value' => 40,
+            'dept_fees' => [
+                'laser' => ['fee_type' => 'percentage', 'fee_value' => 25],
+            ],
+        ]);
+
+        $bookingId = Str::ulid()->toString();
+        DB::table('bookings')->insert([
+            'id' => $bookingId,
+            'doctor_id' => $doctor->id,
+            'patient_name' => 'مريض ليزر',
+            'file_no' => 'T005',
+            'dept' => 'laser',
+            'service_name' => 'ليزر علاجي',
+            'price' => 1000,
+            'paid_amount' => 1000,
+            'ins_amount' => 0,
+            'pay_status' => 'paid',
+            'visit_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
+
+        // The laser override (25%) is ignored — global 40% of 1000 = 400.
+        $this->assertEquals(400.0, $result['total_claims']);
+    }
+
+    public function test_insurance_paid_surgery_uses_fixed_service_fee_not_supply_deduction(): void
+    {
+        // Regression test: an unreachable match arm in computeDrShare() meant
+        // insurance-paid surgery/lasik bookings were always treated as
+        // ordinary surgery cases (paid − supply_total) instead of using the
+        // doctor's fixed fee for the service — now sourced exclusively from
+        // the Doctors module (doctor_service pivot fee, falling back to the
+        // service's default_dr_fee), never from the service's price/center
+        // split (see DoctorClaimsService::resolveDoctorFixedFee()).
+        $doctor = Doctor::create(['name' => 'د. جراح تأمين', 'fee_type' => 'percentage', 'fee_value' => 50]);
+
+        $serviceId = Str::ulid()->toString();
+        DB::table('services')->insert([
+            'id' => $serviceId,
+            'name' => 'استئصال المياه البيضاء',
+            'dept' => 'surgery',
+            'price' => 2000,
+            'ins_price' => 2000,
+            'center_type' => 'fixed',
+            'center_val' => 500,
+            'center_share' => 500,
+            'default_dr_fee' => 800,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $bookingId = Str::ulid()->toString();
+        DB::table('bookings')->insert([
+            'id' => $bookingId,
+            'doctor_id' => $doctor->id,
+            'patient_name' => 'مريض تأمين',
+            'file_no' => 'T003',
+            'dept' => 'surgery',
+            'service_id' => $serviceId,
+            'service_name' => 'استئصال المياه البيضاء',
+            'pay_method' => 'insurance',
+            'price' => 2000,
+            'paid_amount' => 0,
+            'ins_amount' => 2000,
+            'pay_status' => 'paid',
+            'visit_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('surgeries')->insert([
+            'id' => Str::ulid()->toString(),
+            'booking_id' => $bookingId,
+            'dept' => 'surgery',
+            'status' => 'completed',
+            'supply_total' => 1500,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $service = app(DoctorClaimsService::class);
+        $result = $service->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
+
+        // Fixed default_dr_fee (800) from the Doctors module, not paid(0) − supply_total(1500).
+        $this->assertEquals(800.0, $result['total_claims']);
+    }
+
+    public function test_insurance_paid_surgery_prefers_the_doctors_own_per_service_fee_over_the_default(): void
+    {
+        $doctor = Doctor::create(['name' => 'د. جراح خاص', 'fee_type' => 'percentage', 'fee_value' => 50]);
+
+        $serviceId = Str::ulid()->toString();
+        DB::table('services')->insert([
+            'id' => $serviceId,
+            'name' => 'استئصال المياه البيضاء',
+            'dept' => 'surgery',
+            'price' => 2000,
+            'ins_price' => 2000,
+            'center_type' => 'fixed',
+            'center_val' => 500,
+            'center_share' => 500,
+            'default_dr_fee' => 800,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // The doctor's own per-service rate overrides the service's default.
+        $doctor->syncServiceFees([['service_id' => $serviceId, 'fee' => 950]]);
+
+        $bookingId = Str::ulid()->toString();
+        DB::table('bookings')->insert([
+            'id' => $bookingId,
+            'doctor_id' => $doctor->id,
+            'patient_name' => 'مريض تأمين',
+            'file_no' => 'T004',
+            'dept' => 'surgery',
+            'service_id' => $serviceId,
+            'service_name' => 'استئصال المياه البيضاء',
+            'pay_method' => 'insurance',
+            'price' => 2000,
+            'paid_amount' => 0,
+            'ins_amount' => 2000,
+            'pay_status' => 'paid',
+            'visit_date' => now()->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $result = app(DoctorClaimsService::class)
+            ->calculateClaims($doctor->id, now()->subDay()->toDateString(), now()->addDay()->toDateString());
+
+        $this->assertEquals(950.0, $result['total_claims']);
     }
 }

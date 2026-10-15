@@ -2,10 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Department;
 use App\Services\AlertService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Modules\Admin\Enums\SystemModule;
+use Modules\Admin\Models\Setting;
+use Modules\Booking\States\BookingStatus;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -52,14 +55,21 @@ class HandleInertiaRequests extends Middleware
                 : [],
             // Hospital-wide settings surfaced to every Vue page.
             'settings' => [
-                'hospital_name' => config('app.name', 'مستشفى النور'),
-                'hospital_specialty' => 'طب وجراحة العيون',
+                'hospital_name' => Setting::getValue('hospital_name', config('app.name', 'مستشفى النور')),
+                'hospital_specialty' => Setting::getValue('hospital_specialty', 'طب وجراحة العيون'),
+                'hospital_logo_url' => Setting::logoUrl(),
             ],
             // Alerts for notification bell
             'alerts' => $user ? (new AlertService)->getAlerts() : [],
             'alert_count' => $user ? (new AlertService)->getAlertCount() : 0,
             // Global on/off switches for whole system modules, managed from Settings.
             'moduleStatus' => SystemModule::statuses(),
+            // Single source of truth for the department pickers on the booking
+            // and doctors screens — already filtered to enabled modules.
+            'departments' => Department::optionsForEnabledModules(),
+            // Global on/off switches per booking status. Hidden statuses are
+            // removed from booking listings, filters, and status pickers.
+            'bookingStatusVisibility' => BookingStatus::visibilityMap(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'flash' => [
                 'success' => $request->session()->get('success'),

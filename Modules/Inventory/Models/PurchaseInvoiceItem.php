@@ -9,11 +9,12 @@ class PurchaseInvoiceItem extends Model
 {
     protected $table = 'purchase_invoice_items';
 
-    protected $fillable = ['invoice_id', 'item_id', 'item_name', 'qty', 'unit_cost', 'total'];
+    protected $fillable = ['invoice_id', 'item_id', 'item_name', 'qty', 'unit_cost', 'sell_price', 'total'];
 
     protected $casts = [
         'qty' => 'decimal:2',
         'unit_cost' => 'decimal:2',
+        'sell_price' => 'decimal:2',
         'total' => 'decimal:2',
     ];
 

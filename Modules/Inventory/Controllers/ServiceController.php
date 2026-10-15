@@ -5,6 +5,7 @@ namespace Modules\Inventory\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -36,13 +37,22 @@ class ServiceController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->normalizeCode($request);
+
         $data = $request->validate([
+            'code' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\pN._-]+$/u', 'unique:services,code'],
             'name' => 'required|string|max:200',
-            'dept' => 'required|in:clinic,labs,surgery,lasik,laser',
+            'dept' => 'required|in:clinic,labs,surgery,lasik,laser,pentacam',
             'price' => 'nullable|numeric|min:0',
+            'one_eye_price' => 'nullable|numeric|min:0',
+            'both_eyes_price' => 'nullable|numeric|min:0',
             'ins_price' => 'nullable|numeric|min:0',
+            'ins_one_eye_price' => 'nullable|numeric|min:0',
+            'ins_both_eyes_price' => 'nullable|numeric|min:0',
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',
+            'default_dr_fee' => 'nullable|numeric|min:0',
+            'dev_treasury_fee' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
             'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
@@ -55,13 +65,22 @@ class ServiceController extends Controller
 
     public function update(Request $request, string $id): RedirectResponse
     {
+        $this->normalizeCode($request);
+
         $data = $request->validate([
+            'code' => ['nullable', 'string', 'max:30', 'regex:/^[\pL\pN._-]+$/u', Rule::unique('services', 'code')->ignore($id)],
             'name' => 'required|string|max:200',
-            'dept' => 'required|in:clinic,labs,surgery,lasik,laser',
+            'dept' => 'required|in:clinic,labs,surgery,lasik,laser,pentacam',
             'price' => 'nullable|numeric|min:0',
+            'one_eye_price' => 'nullable|numeric|min:0',
+            'both_eyes_price' => 'nullable|numeric|min:0',
             'ins_price' => 'nullable|numeric|min:0',
+            'ins_one_eye_price' => 'nullable|numeric|min:0',
+            'ins_both_eyes_price' => 'nullable|numeric|min:0',
             'center_type' => 'required|in:pct,fixed',
             'center_val' => 'nullable|numeric|min:0',
+            'default_dr_fee' => 'nullable|numeric|min:0',
+            'dev_treasury_fee' => 'nullable|numeric|min:0',
             'duration_mins' => 'nullable|integer|min:1',
             'status' => 'nullable|in:active,inactive',
             'revenue_account_id' => 'nullable|ulid|exists:accounts,id',
@@ -104,5 +123,15 @@ class ServiceController extends Controller
         ]);
 
         return back();
+    }
+
+    /**
+     * Codes are stored upper-case, so uniqueness is checked on that form.
+     */
+    private function normalizeCode(Request $request): void
+    {
+        if (filled($request->input('code'))) {
+            $request->merge(['code' => mb_strtoupper(trim((string) $request->input('code')))]);
+        }
     }
 }

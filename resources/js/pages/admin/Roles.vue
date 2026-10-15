@@ -7,14 +7,18 @@ import Modal from '@/components/shared/Modal.vue';
 
 defineOptions({ layout: AppLayout });
 
+interface Permission {
+    name: string;
+    label: string;
+    group: string;
+    group_label: string;
+}
+
 interface Role {
     id: number;
     name: string;
-    permissions: { name: string }[];
-}
-
-interface Permission {
-    name: string;
+    label: string;
+    permissions: Permission[];
 }
 
 const props = defineProps<{
@@ -22,101 +26,45 @@ const props = defineProps<{
     allPermissions: Permission[];
 }>();
 
-const roleLabels: Record<string, string> = {
-    admin:        'مدير النظام',
-    doctor:       'طبيب',
-    reception:    'استقبال',
-    accountant:   'محاسب',
-    nurse:        'ممرض / مساعد',
-    store_keeper: 'أمين المخزن',
-};
-
-const permissionLabels: Record<string, string> = {
-    'dashboard':           'لوحة التحكم',
-    'booking.view':        'عرض الحجوزات',
-    'booking.create':      'إنشاء حجوزات',
-    'booking.edit':        'تعديل الحجوزات',
-    'booking.delete':      'حذف الحجوزات',
-    'booking.pay':         'تسجيل المدفوعات',
-    'clinic.view':         'عرض العيادة',
-    'clinic.write':        'تسجيل الفحص السريري',
-    'labs.view':           'عرض الفحوصات',
-    'labs.write':          'تسجيل نتائج الفحوصات',
-    'surgery.view':        'عرض العمليات',
-    'surgery.write':       'تسجيل العمليات',
-    'lasik.view':          'عرض وحدة الليزك',
-    'lasik.write':         'تسجيل جلسات الليزك',
-    'laser.view':          'عرض الليزر',
-    'laser.write':         'تسجيل جلسات الليزر',
-    'treasury.view':       'عرض الخزنة',
-    'treasury.write':      'قيود الخزنة',
-    'journal.view':        'عرض القيود اليومية',
-    'journal.write':       'إضافة قيود يومية',
-    'reports.financial':   'التقارير المالية',
-    'reports.clinical':    'التقارير السريرية',
-    'doctors.view':        'عرض الأطباء',
-    'doctors.write':       'إدارة الأطباء',
-    'drpayments.view':     'عرض مستحقات الأطباء',
-    'drpayments.write':    'صرف مستحقات الأطباء',
-    'services.view':       'عرض الخدمات',
-    'services.write':      'إدارة الخدمات',
-    'inventory.view':      'عرض المخزن',
-    'inventory.write':     'إدارة المخزن',
-    'insurance.view':      'عرض التأمين',
-    'insurance.write':     'إدارة التأمين',
-    'hr.view':             'عرض الموارد البشرية',
-    'hr.manage':           'إدارة الموارد البشرية والرواتب',
-    'users.manage':        'إدارة المستخدمين',
-    'settings.manage':     'إدارة الإعدادات',
-    'hide_amounts':        'إخفاء المبالغ',
-};
-
-// Group permissions by prefix
+// Group permissions by module prefix — labels come translated from the server
+// (lang/ar/permissions.php via PermissionLabelService).
 const permissionGroups = computed(() => {
-    const groups: Record<string, string[]> = {};
+    const groups: Record<string, { label: string; permissions: Permission[] }> = {};
 
     for (const p of props.allPermissions) {
-        const group = p.name.split('.')[0];
+        if (!groups[p.group]) {
+            groups[p.group] = { label: p.group_label, permissions: [] };
+        }
 
-        if (!groups[group]) {
- groups[group] = []; 
-}
-
-        groups[group].push(p.name);
+        groups[p.group].permissions.push(p);
     }
 
     return groups;
 });
 
-const groupLabels: Record<string, string> = {
-    dashboard:  'لوحة التحكم',
-    booking:    'الحجوزات',
-    clinic:     'العيادة',
-    labs:       'الفحوصات',
-    surgery:    'العمليات',
-    lasik:      'الليزك',
-    laser:      'الليزر',
-    treasury:   'الخزنة',
-    journal:    'قيود اليومية',
-    reports:    'التقارير',
-    doctors:    'الأطباء',
-    drpayments: 'مستحقات الأطباء',
-    services:   'الخدمات',
-    inventory:  'المخزن',
-    insurance:  'التأمين',
-    hr:         'الموارد البشرية',
-    users:      'المستخدمون',
-    settings:   'الإعدادات',
-    hide_amounts: 'إخفاء المبالغ',
-};
-
 // Edit permissions for a role
 const editingRole  = ref<Role | null>(null);
-const editForm     = useForm({ permissions: [] as string[] });
+const creating     = ref(false);
+const editForm     = useForm({ name: '', permissions: [] as string[] });
+
+const modalOpen = computed(() => creating.value || editingRole.value !== null);
+
+function openCreate() {
+    editingRole.value = null;
+    creating.value    = true;
+    editForm.reset();
+    editForm.clearErrors();
+}
 
 function openEdit(role: Role) {
+    creating.value       = false;
     editingRole.value    = role;
     editForm.permissions = role.permissions.map(p => p.name);
+}
+
+function closeModal() {
+    editingRole.value = null;
+    creating.value    = false;
 }
 
 function togglePermission(perm: string) {
@@ -130,22 +78,27 @@ function togglePermission(perm: string) {
 }
 
 function submitEdit() {
-    if (!editingRole.value) {
- return; 
-}
+    if (creating.value) {
+        editForm.post('/roles', { onSuccess: closeModal });
 
-    editForm.put(`/roles/${editingRole.value.id}/permissions`, {
-        onSuccess: () => {
- editingRole.value = null; 
-},
-    });
+        return;
+    }
+
+    if (!editingRole.value) {
+        return;
+    }
+
+    editForm.put(`/roles/${editingRole.value.id}/permissions`, { onSuccess: closeModal });
 }
 </script>
 
 <template>
     <Head title="الأدوار والصلاحيات" />
 
-    <h2 class="mb-5 text-lg font-bold text-hospital-text">الأدوار والصلاحيات</h2>
+    <div class="mb-5 flex items-center justify-between">
+        <h2 class="text-lg font-bold text-hospital-text">الأدوار والصلاحيات</h2>
+        <button type="button" class="btn-primary" @click="openCreate">+ إضافة دور</button>
+    </div>
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div
@@ -157,9 +110,9 @@ function submitEdit() {
             <div class="flex items-center justify-between border-b border-hospital-border bg-hospital-bg px-4 py-3">
                 <div class="flex items-center gap-2">
                     <Shield class="h-4 w-4 text-hospital-primary" />
-                    <span class="font-semibold text-hospital-text">{{ roleLabels[role.name] ?? role.name }}</span>
+                    <span class="font-semibold text-hospital-text">{{ role.label }}</span>
                 </div>
-                <span class="text-xs text-hospital-muted">{{ role.permissions.length }} صلاحية</span>
+                <span class="text-xs text-hospital-text-3">{{ role.permissions.length }} صلاحية</span>
             </div>
 
             <!-- Permissions list -->
@@ -170,9 +123,9 @@ function submitEdit() {
                         :key="perm.name"
                         class="rounded-full bg-hospital-primary/10 px-2 py-0.5 text-xs text-hospital-primary"
                     >
-                        {{ permissionLabels[perm.name] ?? perm.name }}
+                        {{ perm.label }}
                     </span>
-                    <span v-if="role.permissions.length === 0" class="text-xs text-hospital-muted">لا توجد صلاحيات</span>
+                    <span v-if="role.permissions.length === 0" class="text-xs text-hospital-text-3">لا توجد صلاحيات</span>
                 </div>
                 <button
                     v-if="role.name !== 'admin'"
@@ -181,60 +134,73 @@ function submitEdit() {
                 >
                     تعديل الصلاحيات
                 </button>
-                <p v-else class="mt-3 text-center text-xs text-hospital-muted">صلاحيات كاملة — لا يمكن تعديلها</p>
+                <p v-else class="mt-3 text-center text-xs text-hospital-text-3">صلاحيات كاملة — لا يمكن تعديلها</p>
             </div>
         </div>
     </div>
 
     <!-- Edit Permissions Modal -->
-    <Modal v-if="editingRole" :model-value="!!editingRole" title="تعديل صلاحيات الدور" size="lg" @update:model-value="editingRole = null">
+    <Modal v-if="modalOpen" :model-value="modalOpen" :title="creating ? 'إضافة دور جديد' : 'تعديل صلاحيات الدور'" size="lg" @update:model-value="closeModal">
         <form class="space-y-4" @submit.prevent="submitEdit">
+            <div v-if="creating">
+                <label class="mb-1 block text-xs font-medium text-t2">اسم الدور</label>
+                <input
+                    v-model="editForm.name"
+                    type="text"
+                    maxlength="100"
+                    required
+                    class="w-full rounded-lg border border-br px-3 py-2 text-sm"
+                    placeholder="مثال: مشرف الاستقبال"
+                />
+                <p v-if="editForm.errors.name" class="mt-1 text-xs text-red-600">{{ editForm.errors.name }}</p>
+            </div>
+
             <div class="flex items-center gap-2 rounded-lg border border-br bg-pp px-3 py-2">
                 <Shield class="h-4 w-4 text-p" />
-                <span class="text-sm font-medium text-pd">{{ roleLabels[editingRole.name] ?? editingRole.name }}</span>
+                <span class="text-sm font-medium text-pd">{{ creating ? (editForm.name || 'دور جديد') : editingRole?.label }}</span>
                 <span class="mr-auto text-xs text-t3">{{ editForm.permissions.length }} صلاحية محددة</span>
             </div>
 
             <div
-                v-for="(perms, group) in permissionGroups"
+                v-for="(groupData, group) in permissionGroups"
                 :key="group"
                 class="overflow-hidden rounded-lg border border-br"
             >
                 <div class="border-b border-br bg-sf2 px-3 py-2">
-                    <p class="text-xs font-bold text-t">{{ groupLabels[group] ?? group }}</p>
+                    <p class="text-xs font-bold text-t">{{ groupData.label }}</p>
                 </div>
                 <div class="flex flex-wrap gap-2 p-3">
                     <label
-                        v-for="perm in perms"
-                        :key="perm"
+                        v-for="perm in groupData.permissions"
+                        :key="perm.name"
                         class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all select-none"
-                        :class="editForm.permissions.includes(perm)
+                        :class="editForm.permissions.includes(perm.name)
                             ? 'border-p bg-pp text-pd shadow-sm'
                             : 'border-br text-t2 hover:border-p/40 hover:bg-pp/50'"
                     >
                         <span
                             class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors"
-                            :class="editForm.permissions.includes(perm) ? 'border-p bg-p' : 'border-t3'"
+                            :class="editForm.permissions.includes(perm.name) ? 'border-p bg-p' : 'border-t3'"
                         >
-                            <svg v-if="editForm.permissions.includes(perm)" class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10">
+                            <svg v-if="editForm.permissions.includes(perm.name)" class="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 10 10">
                                 <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </span>
                         <input
                             type="checkbox"
-                            :checked="editForm.permissions.includes(perm)"
+                            :checked="editForm.permissions.includes(perm.name)"
                             class="sr-only"
-                            @change="togglePermission(perm)"
+                            @change="togglePermission(perm.name)"
                         />
-                        {{ permissionLabels[perm] ?? perm }}
+                        <span :title="perm.name">{{ perm.label }}</span>
                     </label>
                 </div>
             </div>
 
             <div class="flex justify-end gap-2 border-t border-br pt-4">
-                <button type="button" class="btn-secondary" @click="editingRole = null">إلغاء</button>
+                <button type="button" class="btn-secondary" @click="closeModal">إلغاء</button>
                 <button type="submit" :disabled="editForm.processing" class="btn-primary">
-                    {{ editForm.processing ? 'جارٍ الحفظ...' : 'حفظ الصلاحيات' }}
+                    {{ editForm.processing ? 'جارٍ الحفظ...' : creating ? 'إضافة الدور' : 'حفظ الصلاحيات' }}
                 </button>
             </div>
         </form>

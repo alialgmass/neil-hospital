@@ -126,7 +126,16 @@
 
 ## Auto-posting Rules
 
-When a booking payment is confirmed (`pay_status → paid`), `AutoPostBookingPaymentAction` fires:
-1. Treasury entry: `type=in, amount=price-discount, source=booking`
-2. Journal entry: `debit=Cash(1000), credit=Revenue(dept-account), amount=center_share`
-3. Journal entry: `debit=DrEntitlements(3100), credit=Cash(1000), amount=dr_share` (deferred)
+The chart of accounts and the full trigger map (which action posts which entry
+for every business event) are documented authoritatively in
+[`docs/accounts-map.md`](../../../docs/accounts-map.md). Account numbering follows
+الدليل المحاسبي v2.0 as of migration `2026_09_07_120000_restructure_chart_of_accounts_v2`
+(inventory 1051, cash 1010, revenue by dept 4010–4060, doctor share 5110/5120,
+insurance receivable 1030 → revenue 4110–4150, net-salary payable 2030).
+
+When a booking payment is confirmed, `AutoPostBookingPaymentAction` fires:
+1. Treasury entry: `type=in, source=booking`, for the posted amount.
+2. Journal entry: `debit=Cash(1010) or Bank(1020)`, `credit=` the service's
+   `revenue_account_id` or the dept default revenue account, `amount=` the payment.
+3. `AutoPostDoctorDuesAction`: `debit=5110/5120`, `credit=2010`, `amount=` the
+   doctor's share of that payment.

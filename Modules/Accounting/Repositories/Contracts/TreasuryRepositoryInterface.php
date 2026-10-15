@@ -12,4 +12,6 @@ interface TreasuryRepositoryInterface
     public function create(array $data): TreasuryEntry;
 
     public function balance(?string $upToDate = null): array;
+
+    public function findOrFail(string $id): TreasuryEntry;
 }

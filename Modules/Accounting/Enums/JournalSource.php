@@ -13,11 +13,15 @@ enum JournalSource: string
     case SETTLEMENT = 'settlement';
     case INSURANCE_CLAIM = 'insurance_claim';
     case INSURANCE_COLLECT = 'insurance_collect';
+    case INSURANCE_DEPOSIT = 'insurance_deposit';
     case SUPPLIES_USED = 'supplies_used';
+    case ITEM_SALE = 'item_sale';
     case DOCTOR_SHIFT = 'doctor_shift';
     case DOCTOR_PAYMENT = 'doctor_payment';
+    case INSURANCE_DOCTOR_PAYMENT = 'insurance_doctor_payment';
     case SUPPLIER_PAYMENT = 'supplier_payment';
     case REVERSAL = 'reversal';
+    case OPENING_BALANCE = 'opening_balance';
 
     public function label(): string
     {
@@ -31,11 +35,15 @@ enum JournalSource: string
             self::SETTLEMENT => 'تسوية',
             self::INSURANCE_CLAIM => 'مطالبة تأمين',
             self::INSURANCE_COLLECT => 'تحصيل تأمين',
+            self::INSURANCE_DEPOSIT => 'أمانة مريض تعاقد',
             self::SUPPLIES_USED => 'صرف مستلزمات',
+            self::ITEM_SALE => 'بيع أصناف',
             self::DOCTOR_SHIFT => 'شيفت طبيب',
             self::DOCTOR_PAYMENT => 'صرف مستحقات طبيب',
+            self::INSURANCE_DOCTOR_PAYMENT => 'صرف أتعاب طبيب تأمين (كاش فوري)',
             self::SUPPLIER_PAYMENT => 'سداد مورد',
             self::REVERSAL => 'عكس قيد (إلغاء)',
+            self::OPENING_BALANCE => 'قيد افتتاحي',
         };
     }
 }
