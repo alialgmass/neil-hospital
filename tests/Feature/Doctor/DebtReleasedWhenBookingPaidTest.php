@@ -5,6 +5,8 @@ namespace Tests\Feature\Doctor;
 use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Booking\Actions\UpdateBookingAction;
+use Modules\Booking\DTOs\BookingData;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
@@ -182,6 +184,24 @@ class DebtReleasedWhenBookingPaidTest extends TestCase
         $this->assertArrayNotHasKey('debt_settled', $paidRow);
         $this->assertEquals(3000.0, $result['debt_deducted']);
         $this->assertEquals(round($result['gross_claims'] - 3000, 2), $result['total_claims']);
+    }
+
+    public function test_editing_an_unpaid_booking_to_insurance_releases_its_doctor_debt(): void
+    {
+        $booking = $this->makeBooking(10000);
+        $this->doctor->incurDebtForBooking($booking->id, 1328.50);
+
+        app(UpdateBookingAction::class)->execute(
+            $booking->id,
+            BookingData::fromArray([
+                ...$booking->toArray(),
+                'visit_date' => '2026-09-30',
+                'pay_method' => 'insurance',
+            ]),
+        );
+
+        $this->assertEquals(0.0, (float) $this->doctor->fresh()->doctor_debt_balance);
+        $this->assertSame(0, DoctorDebtSettlement::where('booking_id', $booking->id)->count());
     }
 
     public function test_release_never_pushes_the_balance_negative(): void

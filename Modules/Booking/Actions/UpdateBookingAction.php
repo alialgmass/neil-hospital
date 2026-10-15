@@ -16,6 +16,10 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
 use Modules\Doctor\Actions\SyncBookingDoctorDuesAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
+use Modules\Doctor\Enums\DebtEntryType;
+use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Models\DoctorDebtSettlement;
+use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\States\DraftState;
 use Modules\Surgery\Actions\ScheduleSurgeryAction;
@@ -31,6 +35,7 @@ class UpdateBookingAction
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
         private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
         private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
+        private readonly DoctorClaimsService $doctorClaimsService,
     ) {}
 
     public function execute(string $id, BookingData $data): Booking
@@ -38,6 +43,8 @@ class UpdateBookingAction
         $old = $this->bookingService->findOrFail($id);
 
         $booking = $this->bookingService->update($id, $data);
+
+        $this->releaseDoctorDebtNoLongerOwed($booking);
 
         $this->syncInsuranceClaim($booking, $old, $data);
 
@@ -70,6 +77,29 @@ class UpdateBookingAction
         );
 
         return $booking;
+    }
+
+    /**
+     * A booking created as unpaid cash books its uncollected amount as doctor
+     * debt. If the edit turns it into an insurance/contract case, or the
+     * insurer's share now covers what was outstanding, that amount is the
+     * insurer's receivable (settled through the claim), not the doctor's
+     * liability — so the debt booked against this booking is released.
+     */
+    private function releaseDoctorDebtNoLongerOwed(Booking $booking): void
+    {
+        $stillOwed = ! $booking->pay_method->isThirdParty()
+            && $this->doctorClaimsService->debtForZeroPayment($booking) > 0;
+
+        if ($stillOwed) {
+            return;
+        }
+
+        DoctorDebtSettlement::where('booking_id', $booking->id)
+            ->where('type', DebtEntryType::Incurred->value)
+            ->pluck('doctor_id')
+            ->unique()
+            ->each(fn (string|int $doctorId) => Doctor::find($doctorId)?->releaseDebtForBooking($booking->id));
     }
 
     /**
