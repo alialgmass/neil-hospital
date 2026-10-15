@@ -239,6 +239,17 @@ class DoctorClaimsService
         return $this->resolveLaserFixedRevenue($serviceId, $eyeSide);
     }
 
+    /**
+     * An insurance/contract case is settled through its claim, so whatever is
+     * uncollected is the insurer's receivable, never the doctor's debt. Judged
+     * by the insurer link as well as pay_method: the pay screen can overwrite
+     * pay_method with "cash" on a booking that still belongs to an insurer.
+     */
+    public function isInsuranceCase(Booking $booking): bool
+    {
+        return $booking->pay_method->isThirdParty() || filled($booking->ins_company_id);
+    }
+
     /** What is still expected to be collected on this booking. */
     private function outstandingFor(Booking $booking): float
     {
@@ -269,6 +280,10 @@ class DoctorClaimsService
      */
     public function debtForZeroPayment(Booking $booking): float
     {
+        if ($this->isInsuranceCase($booking)) {
+            return 0.0;
+        }
+
         $outstanding = $this->outstandingFor($booking);
 
         if ($outstanding <= 0.0) {

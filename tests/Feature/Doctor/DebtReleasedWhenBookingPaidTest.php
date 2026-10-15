@@ -15,6 +15,7 @@ use Modules\Doctor\Enums\DebtEntryType;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorDebtSettlement;
 use Modules\Doctor\Services\DoctorClaimsService;
+use Modules\Insurance\Models\InsuranceCompany;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -199,6 +200,19 @@ class DebtReleasedWhenBookingPaidTest extends TestCase
                 'pay_method' => 'insurance',
             ]),
         );
+
+        $this->assertEquals(0.0, (float) $this->doctor->fresh()->doctor_debt_balance);
+        $this->assertSame(0, DoctorDebtSettlement::where('booking_id', $booking->id)->count());
+    }
+
+    public function test_zero_payment_on_a_booking_linked_to_an_insurer_incurs_no_doctor_debt(): void
+    {
+        $company = InsuranceCompany::create(['name' => 'شركة تأمين', 'status' => 'active']);
+        $booking = $this->makeBooking(10000);
+        $booking->update(['ins_company_id' => $company->id]);
+
+        // The pay modal defaults to cash, overwriting the insurance method.
+        $this->pay($booking, 0);
 
         $this->assertEquals(0.0, (float) $this->doctor->fresh()->doctor_debt_balance);
         $this->assertSame(0, DoctorDebtSettlement::where('booking_id', $booking->id)->count());

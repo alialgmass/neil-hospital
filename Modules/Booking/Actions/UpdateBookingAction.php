@@ -88,8 +88,7 @@ class UpdateBookingAction
      */
     private function releaseDoctorDebtNoLongerOwed(Booking $booking): void
     {
-        $stillOwed = ! $booking->pay_method->isThirdParty()
-            && $this->doctorClaimsService->debtForZeroPayment($booking) > 0;
+        $stillOwed = $this->doctorClaimsService->debtForZeroPayment($booking) > 0;
 
         if ($stillOwed) {
             return;
