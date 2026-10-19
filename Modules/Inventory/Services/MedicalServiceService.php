@@ -11,7 +11,9 @@ class MedicalServiceService
     public function list(array $filters = [], int $perPage = 30): LengthAwarePaginator
     {
         return Service::query()
-            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where('name', 'like', "%{$v}%"))
+            ->when($filters['search'] ?? null, fn ($q, $v) => $q->where(fn ($q) => $q
+                ->where('name', 'like', "%{$v}%")
+                ->orWhere('code', 'like', "%{$v}%")))
             ->when($filters['dept'] ?? null, fn ($q, $v) => $q->where('dept', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->orderBy('dept')
@@ -28,6 +30,14 @@ class MedicalServiceService
     public function update(string $id, array $data): Service
     {
         $service = Service::findOrFail($id);
+
+        // A service always keeps a code: a blank one leaves the current code untouched.
+        if (blank($data['code'] ?? null)) {
+            unset($data['code']);
+        } else {
+            $data['code'] = mb_strtoupper(trim($data['code']));
+        }
+
         $service->update($this->calculateShares($data));
 
         return $service;
@@ -43,6 +53,12 @@ class MedicalServiceService
         Service::where('id', $id)->update(['status' => $status]);
     }
 
+    /**
+     * Splits the configured price into the hospital's center cut only — the
+     * doctor's fee is never derived from the service price/center split.
+     * It comes exclusively from the Doctors module (per-doctor per-service
+     * fee, falling back to the service's default_dr_fee).
+     */
     private function calculateShares(array $data): array
     {
         $price = (float) ($data['price'] ?? 0);
@@ -55,7 +71,6 @@ class MedicalServiceService
 
         $data['center_share'] = $centerShare;
         $data['center_type'] = $type;
-        $data['dr_share'] = round($price - $centerShare, 2);
 
         return $data;
     }

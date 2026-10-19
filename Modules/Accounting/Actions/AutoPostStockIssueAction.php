@@ -2,31 +2,32 @@
 
 namespace Modules\Accounting\Actions;
 
-use App\Enums\Department;
-use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
+use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
 
 class AutoPostStockIssueAction
 {
-    public function __construct(private readonly JournalService $journalService) {}
+    public function __construct(
+        private readonly JournalService $journalService,
+        private readonly AccountResolver $accountResolver,
+    ) {}
 
     /**
-     * Post journal entries for each item in a stock issue voucher.
-     * Dr [expense account by item category] / Cr 1050 (Inventory)
+     * Post journal entries for each item in a stock issue voucher, at cost.
+     * Dr [consuming department's cost account — 5010 / 5020 / 5030 / 5040,
+     *     or the operating-supplies expense for non-medical items] / Cr 1051
+     * Inventory never leaves the books without its cost being recorded.
      */
     public function execute(StockPermit $permit): void
     {
-        $inventoryAccountId = DB::table('accounts')->where('code', '1050')->value('id');
-
-        if (! $inventoryAccountId) {
-            return;
-        }
-
-        $costCenter = $this->resolveCostCenter($permit->department);
+        $inventoryAccountId = $this->accountResolver->id(AccountCode::INVENTORY);
+        $costCenter = CostCenter::forDepartment($permit->department);
         $date = $permit->created_at->toDateString();
 
         foreach ($permit->items as $item) {
@@ -37,51 +38,30 @@ class AutoPostStockIssueAction
             }
 
             $category = $item->item_id
-                ? InventoryItem::where('id', $item->item_id)->value('category')
+                ? InventoryItem::find($item->item_id, ['id', 'category'])?->category
                 : null;
 
-            $expenseCode = $this->expenseAccountCode($category);
-            $expenseAccountId = DB::table('accounts')->where('code', $expenseCode)->value('id');
-
-            if (! $expenseAccountId) {
-                continue;
-            }
+            $expenseAccountId = $this->accountResolver->id(AccountCode::consumptionCostCode($permit->department, $category));
 
             $this->journalService->record([
                 'date' => $date,
-                'description' => "صرف مخزون: {$item->item_name} — إذن رقم {$permit->permit_no}",
+                'description' => JournalNarration::make('صرف مخزون', [
+                    'الصنف' => $item->item_name,
+                    'الكمية' => (float) $item->qty,
+                    'تكلفة الوحدة' => JournalNarration::money($item->unit_cost),
+                    'الإجمالي' => JournalNarration::money($amount),
+                    'إذن رقم' => $permit->permit_no,
+                    'القسم' => $permit->department,
+                    'السبب' => $permit->reason,
+                ]),
                 'debit_account_id' => $expenseAccountId,
                 'credit_account_id' => $inventoryAccountId,
                 'amount' => $amount,
                 'source' => JournalSource::SUPPLIES_USED,
                 'reference' => $permit->permit_no,
+                'idempotency_key' => "stock_issue:{$permit->id}:{$item->id}",
                 'cost_center' => $costCenter,
             ]);
         }
-    }
-
-    private function expenseAccountCode(?string $category): string
-    {
-        return match ($category) {
-            'office' => '5250', // مصروفات إدارية وتسويقية
-            'cleaning' => '5240', // مصروفات الصيانة
-            'maintenance' => '5240', // مصروفات الصيانة
-            default => '5010', // تكلفة مستلزمات طبية
-        };
-    }
-
-    private function resolveCostCenter(?Department $department): CostCenter
-    {
-        if ($department === null) {
-            return CostCenter::Inventory;
-        }
-
-        return match ($department) {
-            Department::Clinic => CostCenter::Clinic,
-            Department::Labs => CostCenter::Lab,
-            Department::Surgery => CostCenter::Surgery,
-            Department::Lasik => CostCenter::Lasik,
-            Department::Laser => CostCenter::Laser,
-        };
     }
 }

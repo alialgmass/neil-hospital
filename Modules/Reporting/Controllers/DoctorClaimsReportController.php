@@ -36,4 +36,13 @@ class DoctorClaimsReportController extends Controller
 
         return $this->excelExportService->export('doctor-claims', $this->reportingService->doctorClaims($from, $to, $doctorId));
     }
+
+    public function exportLabsInsurance(Request $request)
+    {
+        $from = $request->input('from', today()->subDays(30)->toDateString());
+        $to = $request->input('to', today()->toDateString());
+        $doctorId = $request->input('doctor_id');
+
+        return $this->excelExportService->export('labs-insurance-doctor-dues', $this->reportingService->labsInsuranceDoctorDues($from, $to, $doctorId));
+    }
 }

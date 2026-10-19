@@ -2,50 +2,45 @@
 import { FileText, Plus, Tag } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ModuleImportButton from '@/components/shared/ModuleImportButton.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 import PriceListCard from './Partials/PriceListCard.vue'
 import PriceListModal from './Partials/PriceListModal.vue'
+import type { PriceList, PriceListCompany, PriceListService } from './Partials/types'
 
 defineOptions({ layout: AppLayout })
 
-interface Company {
-    id: string
-    name: string
-    coverage_pct: number
-}
-
-interface ServiceItem {
-    id: string
-    name: string
-    dept: string
-    price: number
-    ins_price: number
-}
-
-interface PriceListItem {
-    service_id: string
-    price: number
-    service?: { id: string; name: string; dept: string }
-}
-
-interface PriceList {
-    id: string
-    name: string
-    type: string
-    ins_coverage?: number
-    discount_pct: number
-    is_active: boolean
-    company?: Company
-    items: PriceListItem[]
-}
-
 const props = defineProps<{
     priceLists: { data: PriceList[]; links: unknown[] }
-    companies: Company[]
-    services: ServiceItem[]
+    companies: PriceListCompany[]
+    services: PriceListService[]
 }>()
 
+const { can } = usePermissions()
+const canCreate = computed(() => can('insurance.write'))
+const canEdit = computed(() => can('insurance.price_lists.edit'))
+
 const showModal = ref(false)
+const editingList = ref<PriceList | null>(null)
 const expandedList = ref<string | null>(null)
+
+function openCreate() {
+    if (!canCreate.value) {
+        return
+    }
+
+    editingList.value = null
+    showModal.value = true
+}
+
+function openEdit(list: PriceList) {
+    if (!canEdit.value) {
+        return
+    }
+
+    editingList.value = list
+    showModal.value = true
+}
 
 const totalActive = computed(() => props.priceLists.data.filter((p) => p.is_active).length)
 const totalServices = computed(() => props.priceLists.data.reduce((s, p) => s + p.items.length, 0))
@@ -63,13 +58,23 @@ function toggleExpand(id: string) {
                 <h1 class="text-xl font-bold text-hospital-text">قوائم الأسعار</h1>
                 <p class="mt-0.5 text-sm text-hospital-text-3">إدارة قوائم أسعار شركات التأمين والزيارات</p>
             </div>
-            <button
-                class="flex items-center gap-2 rounded-xl bg-hospital-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-hospital-primary/90 active:scale-95"
-                @click="showModal = true"
-            >
-                <Plus class="h-4 w-4" />
-                قائمة جديدة
-            </button>
+            <div class="flex items-center gap-2">
+                <ModuleImportButton
+                    permission="insurance.write"
+                    label="قوائم الأسعار"
+                    templateUrl="/insurance/price-lists/import-template"
+                    importUrl="/insurance/price-lists/import"
+                />
+                <button
+                    class="flex items-center gap-2 rounded-xl bg-hospital-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-hospital-primary/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                    :disabled="!canCreate"
+                    :title="canCreate ? undefined : NO_PERMISSION_TITLE"
+                    @click="openCreate"
+                >
+                    <Plus class="h-4 w-4" />
+                    قائمة جديدة
+                </button>
+            </div>
         </div>
 
         <!-- Stats strip -->
@@ -111,6 +116,7 @@ function toggleExpand(id: string) {
                 :list="list"
                 :expanded="expandedList === list.id"
                 @toggle="toggleExpand(list.id)"
+                @edit="openEdit(list)"
             />
 
             <!-- Empty State -->
@@ -118,7 +124,7 @@ function toggleExpand(id: string) {
                 <FileText class="mb-4 h-12 w-12 text-gray-300" />
                 <p class="font-semibold text-gray-400">لا توجد قوائم أسعار</p>
                 <p class="mt-1 text-sm text-gray-300">ابدأ بإنشاء أول قائمة أسعار</p>
-                <button class="mt-4 flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90" @click="showModal = true">
+                <button class="mt-4 flex items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canCreate" :title="canCreate ? undefined : NO_PERMISSION_TITLE" @click="openCreate">
                     <Plus class="h-4 w-4" />
                     قائمة جديدة
                 </button>
@@ -129,6 +135,7 @@ function toggleExpand(id: string) {
             v-model="showModal"
             :companies="companies"
             :services="services"
+            :price-list="editingList"
         />
     </div>
 </template>

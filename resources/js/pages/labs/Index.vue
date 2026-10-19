@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
-import { FlaskConical } from 'lucide-vue-next';
+import { Head, router } from '@inertiajs/vue3';
+import { ClipboardList, Printer } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
-import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
+import { usePermissions } from '@/composables/usePermissions';
+import examinations from '@/routes/examinations';
+import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface DiagnosticResult {
     id: string;
@@ -25,6 +27,7 @@ interface Booking {
     pay_status: string;
     doctor?: { name: string };
     diagnostic_results: DiagnosticResult[];
+    medical_examination?: { id: string; status: 'draft' | 'finalized' } | null;
 }
 
 const props = defineProps<{
@@ -34,17 +37,17 @@ const props = defineProps<{
 }>();
 
 const columns = [
-    { key: 'time',    label: 'الوقت' },
     { key: 'file_no', label: 'رقم الملف',  sortable: true },
     { key: 'patient', label: 'المريض',     sortable: true },
     { key: 'doctor',  label: 'الطبيب' },
-    { key: 'results', label: 'الفحوصات' },
+    { key: 'results', label: 'النتيجة' },
     { key: 'status',  label: 'الحالة' },
     { key: 'pay_status', label: 'السداد' },
 ];
 
 const selectedDate = ref(props.date);
 const search       = ref(props.filters.search ?? '');
+const fallbackDoctor = computed(() => weekdayDoctorFallback(props.date));
 
 function applyFilters() {
     router.get('/labs', { date: selectedDate.value, search: search.value || undefined }, { preserveState: true });
@@ -53,34 +56,17 @@ function goToPage(page: number) {
     router.get('/labs', { date: selectedDate.value, search: search.value || undefined, page }, { preserveState: true });
 }
 
-const showResult    = ref(false);
-const resultBooking = ref<string>('');
+const { can } = usePermissions();
+const canViewExamination = computed(() => can('examinations.view'));
+const canPrintExamination = computed(() => can('examinations.print'));
 
-const form = useForm({
-    test_name:    '',
-    eye:          '',
-    result_text:  '',
-    doctor_notes: '',
-});
+function examinationLabel(booking: Booking): string {
+    if (!booking.medical_examination) {
+        return 'الفحص الطبي';
+    }
 
-function openResult(bookingId: string) {
-    resultBooking.value = bookingId;
-    form.reset();
-    showResult.value = true;
+    return booking.medical_examination.status === 'finalized' ? 'الفحص الطبي (معتمد)' : 'الفحص الطبي (مسودة)';
 }
-
-function submitResult() {
-    form.post(`/labs/${resultBooking.value}/results`, {
-        onSuccess: () => {
- showResult.value = false; 
-},
-    });
-}
-
-const labTests = [
-    'OCT (مقطعية)', 'OCT عصب بصري', 'توبوغرافيا', 'أنجيوغرافيا',
-    'سونار', 'مجال بصري', 'مقاس عدسة (A-Scan)', 'تصوير ملون', 'مقاس نظر أطفال',
-];
 
 const totalToday     = computed(() => props.queue.total);
 const completedToday = computed(() => props.queue.data.filter((b) => b.status === 'completed').length);
@@ -107,7 +93,7 @@ const revenueToday   = computed(() =>
         </div>
         <div class="rounded-xl border border-orange-100 bg-orange-50 p-4">
             <p class="text-xs font-medium text-orange-600">إيراد الفحوصات (ج)</p>
-            <p class="text-2xl font-bold text-orange-700">{{ revenueToday.toLocaleString('ar-EG') }}</p>
+            <p class="text-2xl font-bold text-orange-700">{{ revenueToday.toLocaleString('en-US') }}</p>
             <p class="text-xs text-orange-500">↑ اليوم</p>
         </div>
     </div>
@@ -126,13 +112,38 @@ const revenueToday   = computed(() =>
     </div>
 
     <DataTable :columns="columns" :rows="queue.data" :current-page="queue.current_page" :last-page="queue.last_page" :total="queue.total" empty-text="لا توجد حجوزات فحوصات لهذا اليوم" @page="goToPage">
-        <template #cell-time="{ value }">{{ (value as string)?.slice(0, 5) ?? '—' }}</template>
         <template #cell-patient="{ row }">{{ (row as Booking).patient_name }}</template>
-        <template #cell-doctor="{ row }">{{ (row as Booking).doctor?.name ?? '—' }}</template>
+        <template #cell-doctor="{ row }">{{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}</template>
         <template #cell-results="{ row }">
-            <span class="text-xs text-hospital-text-2">
-                {{ (row as Booking).diagnostic_results?.length ?? 0 }} فحص
-            </span>
+            <div
+                v-if="(row as Booking).medical_examination || (row as Booking).diagnostic_results?.length"
+                class="flex flex-wrap items-center gap-1"
+            >
+                <!-- The medical examination is the result of a labs visit -->
+                <a
+                    v-if="(row as Booking).medical_examination && canPrintExamination"
+                    :href="examinations.print((row as Booking).medical_examination!.id).url"
+                    target="_blank"
+                    class="flex items-center gap-1 rounded bg-hospital-primary-pale px-1.5 py-0.5 text-[11px] font-semibold text-hospital-primary hover:bg-hospital-primary hover:text-white"
+                    title="طباعة نتيجة الفحص"
+                >
+                    <Printer class="h-3 w-3" />
+                    طباعة النتيجة
+                </a>
+                <!-- Results recorded before the medical examination replaced them -->
+                <a
+                    v-for="result in (row as Booking).diagnostic_results"
+                    :key="result.id"
+                    :href="`/labs/results/${result.id}/letter`"
+                    target="_blank"
+                    class="flex items-center gap-1 rounded bg-hospital-bg px-1.5 py-0.5 text-[11px] text-hospital-text-2 hover:bg-hospital-primary-pale hover:text-hospital-primary"
+                    :title="`طباعة خطاب ${result.test_name}`"
+                >
+                    <Printer class="h-3 w-3" />
+                    {{ result.test_name }}
+                </a>
+            </div>
+            <span v-else class="text-xs text-hospital-text-3">—</span>
         </template>
         <template #cell-status="{ value }">
             <Badge :variant="(value as 'confirmed' | 'in_progress' | 'completed' | 'waiting')" />
@@ -141,48 +152,15 @@ const revenueToday   = computed(() =>
             <Badge :variant="(value as 'paid' | 'partial' | 'unpaid')" />
         </template>
         <template #actions="{ row }">
-            <button
-                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale"
-                @click="openResult((row as Booking).id)"
+            <a
+                v-if="canViewExamination"
+                :href="examinations.booking((row as Booking).id).url"
+                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium hover:bg-hospital-primary-pale"
+                :class="(row as Booking).medical_examination?.status === 'finalized' ? 'text-hospital-success' : 'text-hospital-primary'"
             >
-                <FlaskConical class="h-3.5 w-3.5" />
-                تسجيل نتيجة
-            </button>
+                <ClipboardList class="h-3.5 w-3.5" />
+                {{ examinationLabel(row as Booking) }}
+            </a>
         </template>
     </DataTable>
-
-    <!-- Record Result Modal -->
-    <Modal v-model="showResult" title="تسجيل نتيجة فحص" size="md">
-        <form class="space-y-4" @submit.prevent="submitResult">
-            <div>
-                <label class="mb-1 block text-sm font-medium">نوع الفحص</label>
-                <select v-model="form.test_name" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
-                    <option value="">— اختر الفحص —</option>
-                    <option v-for="t in labTests" :key="t" :value="t">{{ t }}</option>
-                </select>
-                <p v-if="form.errors.test_name" class="mt-1 text-xs text-hospital-danger">{{ form.errors.test_name }}</p>
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">العين</label>
-                <select v-model="form.eye" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none">
-                    <option value="">—</option>
-                    <option value="OD">عين يمنى (OD)</option>
-                    <option value="OS">عين يسرى (OS)</option>
-                    <option value="OU">كلاهما (OU)</option>
-                </select>
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">نتيجة الفحص</label>
-                <textarea v-model="form.result_text" rows="4" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
-            </div>
-            <div>
-                <label class="mb-1 block text-sm font-medium">ملاحظات الطبيب</label>
-                <textarea v-model="form.doctor_notes" rows="2" class="w-full rounded-lg border border-hospital-border px-3 py-2 text-sm focus:border-hospital-primary focus:outline-none" />
-            </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showResult = false">إلغاء</button>
-                <button type="submit" :disabled="form.processing" class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60">تسجيل النتيجة</button>
-            </div>
-        </form>
-    </Modal>
 </template>

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Admin\Controllers\ModuleImportActionController;
 use Modules\Doctor\Controllers\DoctorClaimsController;
 use Modules\Doctor\Controllers\DoctorController;
 use Modules\Doctor\Controllers\DoctorPaymentController;
@@ -13,6 +14,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:doctors.view')
             ->name('index');
 
+        Route::get('/import-template', [ModuleImportActionController::class, 'template'])
+            ->defaults('module', 'doctors')
+            ->middleware('can:doctors.write')
+            ->name('import-template');
+
+        Route::post('/import', [ModuleImportActionController::class, 'import'])
+            ->defaults('module', 'doctors')
+            ->middleware('can:doctors.write')
+            ->name('import');
+
         Route::post('/', [DoctorController::class, 'store'])
             ->middleware('can:doctors.write')
             ->name('store');
@@ -20,6 +31,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [DoctorController::class, 'update'])
             ->middleware('can:doctors.write')
             ->name('update');
+
+        Route::delete('/{id}', [DoctorController::class, 'destroy'])
+            ->middleware('can:doctors.delete')
+            ->name('destroy');
     });
 
     // Doctor claims

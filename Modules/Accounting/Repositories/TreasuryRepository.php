@@ -13,6 +13,7 @@ class TreasuryRepository implements TreasuryRepositoryInterface
         return TreasuryEntry::query()
             ->with(['account', 'creator'])
             ->when($filters['type'] ?? null, fn ($q, $v) => $q->where('type', $v))
+            ->when($filters['source'] ?? null, fn ($q, $v) => $q->where('source', $v))
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('date', '>=', $v))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('date', '<=', $v))
             ->orderByDesc('date')
@@ -23,6 +24,11 @@ class TreasuryRepository implements TreasuryRepositoryInterface
     public function create(array $data): TreasuryEntry
     {
         return TreasuryEntry::create($data);
+    }
+
+    public function findOrFail(string $id): TreasuryEntry
+    {
+        return TreasuryEntry::findOrFail($id);
     }
 
     public function balance(?string $upToDate = null): array

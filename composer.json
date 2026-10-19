@@ -17,7 +17,7 @@
         "laravel/telescope": "^5.20",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1.14",
-        "maatwebsite/excel": "^3.1",
+        "maatwebsite/excel": "^4.0@dev",
         "nwidart/laravel-modules": "^13.0",
         "spatie/laravel-medialibrary": "^11.21",
         "spatie/laravel-model-states": "^2.14",

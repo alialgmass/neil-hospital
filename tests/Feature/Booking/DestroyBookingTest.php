@@ -55,14 +55,14 @@ class DestroyBookingTest extends TestCase
         $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
     }
 
-    public function test_destroy_is_blocked_when_booking_is_completed(): void
+    public function test_destroy_deletes_a_completed_booking(): void
     {
         $booking = $this->createBooking(['status' => 'completed']);
 
         $this->actingAs($this->user)
             ->delete("/booking/{$booking->id}")
-            ->assertSessionHasErrors('status');
+            ->assertRedirect();
 
-        $this->assertDatabaseHas('bookings', ['id' => $booking->id]);
+        $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
     }
 }

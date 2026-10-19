@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3'
 import { Clock, PlusCircle } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import Modal from '@/components/shared/Modal.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 interface Shift {
     id: string
@@ -27,6 +28,10 @@ defineProps<{
     recent_handovers: Handover[]
 }>()
 
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('hr.manage'))
+
 const handoverStatusConfig: Record<string, { label: string; class: string }> = {
     pending: { label: 'معلق', class: 'bg-wp text-w' },
     accepted: { label: 'مقبول', class: 'bg-sp text-s' },
@@ -36,6 +41,10 @@ const handoverStatusConfig: Record<string, { label: string; class: string }> = {
 const showAdd = ref(false)
 const addForm = useForm({ name: '', start_time: '', end_time: '', is_active: true })
 function submitAdd() {
+    if (!canWrite.value) {
+        return
+    }
+
     addForm.post('/shifts', { onSuccess: () => { showAdd.value = false; addForm.reset() } })
 }
 
@@ -44,6 +53,10 @@ const showEdit = ref(false)
 const editingId = ref('')
 const editForm = useForm({ name: '', start_time: '', end_time: '', is_active: true })
 function openEdit(s: Shift) {
+    if (!canWrite.value) {
+        return
+    }
+
     editingId.value = s.id
     editForm.name = s.name
     editForm.start_time = s.start_time
@@ -52,6 +65,10 @@ function openEdit(s: Shift) {
     showEdit.value = true
 }
 function submitEdit() {
+    if (!canWrite.value) {
+        return
+    }
+
     editForm.put(`/shifts/${editingId.value}`, { onSuccess: () => { showEdit.value = false } })
 }
 </script>
@@ -69,7 +86,7 @@ function submitEdit() {
         <div class="col-span-1">
             <div class="mb-3 flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-t">الورديات المعرفة</h2>
-                <button class="btn-primary flex items-center gap-1 text-xs px-3 py-1.5" @click="showAdd = true">
+                <button class="btn-primary flex items-center gap-1 text-xs px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showAdd = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     <PlusCircle class="h-3.5 w-3.5" />
                     إضافة
                 </button>
@@ -90,7 +107,7 @@ function submitEdit() {
                         <span class="rounded-full px-2 py-0.5 text-xs" :class="s.is_active ? 'bg-sp text-s' : 'bg-sf2 text-t3'">
                             {{ s.is_active ? 'نشطة' : 'موقوفة' }}
                         </span>
-                        <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:border-p/40 hover:bg-pp hover:text-p transition-colors" @click="openEdit(s)">
+                        <button class="rounded-lg border border-br px-2.5 py-1 text-xs text-t2 hover:border-p/40 hover:bg-pp hover:text-p transition-colors disabled:cursor-not-allowed disabled:opacity-50" @click="openEdit(s)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                             تعديل
                         </button>
                     </div>
@@ -165,7 +182,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showAdd = false">إلغاء</button>
-                <button type="submit" :disabled="addForm.processing" class="btn-primary">
+                <button type="submit" :disabled="addForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ addForm.processing ? 'جارٍ الحفظ...' : 'إضافة الوردية' }}
                 </button>
             </div>
@@ -197,7 +214,7 @@ function submitEdit() {
             </div>
             <div class="flex justify-end gap-2 border-t border-br pt-4">
                 <button type="button" class="btn-secondary" @click="showEdit = false">إلغاء</button>
-                <button type="submit" :disabled="editForm.processing" class="btn-primary">
+                <button type="submit" :disabled="editForm.processing || !canWrite" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                     {{ editForm.processing ? 'جارٍ الحفظ...' : 'حفظ التعديلات' }}
                 </button>
             </div>

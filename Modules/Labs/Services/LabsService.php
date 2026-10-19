@@ -12,7 +12,7 @@ class LabsService
         $date = $date ?? today()->toDateString();
 
         return Booking::query()
-            ->with(['doctor:id,name', 'diagnosticResults'])
+            ->with(['doctor:id,name', 'diagnosticResults', 'medicalExamination:id,booking_id,status'])
             ->where('dept', 'labs')
             ->whereDate('visit_date', $date)
             ->when($search, function ($q, $v) {

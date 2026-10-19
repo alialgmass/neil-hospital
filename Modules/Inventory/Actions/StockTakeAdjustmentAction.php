@@ -3,6 +3,7 @@
 namespace Modules\Inventory\Actions;
 
 use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Actions\AutoPostStockTakeAdjustmentAction;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Inventory\Models\InventoryItem;
 use Modules\Inventory\Models\StockPermit;
@@ -11,6 +12,7 @@ class StockTakeAdjustmentAction
 {
     public function __construct(
         private readonly ActivityLogService $activityLogService,
+        private readonly AutoPostStockTakeAdjustmentAction $autoPost,
     ) {}
 
     /**
@@ -29,6 +31,7 @@ class StockTakeAdjustmentAction
             // Determine dominant direction (in or out) based on net variance
             $netVariance = 0;
             $adjustItems = [];
+            $variances = [];
 
             foreach ($counts as $count) {
                 $item = InventoryItem::findOrFail($count['item_id']);
@@ -39,6 +42,14 @@ class StockTakeAdjustmentAction
                     'item_name' => $item->name,
                     'qty' => abs($variance),
                     'unit_cost' => $item->unit_cost,
+                ];
+
+                $variances[] = [
+                    'item_id' => $item->id,
+                    'item_name' => $item->name,
+                    'variance' => (float) $variance,
+                    'unit_cost' => (float) $item->unit_cost,
+                    'category' => $item->category,
                 ];
 
                 $netVariance += $variance;
@@ -58,6 +69,8 @@ class StockTakeAdjustmentAction
             foreach ($adjustItems as $item) {
                 $permit->items()->create($item);
             }
+
+            $this->autoPost->execute($permit, $variances);
 
             $this->activityLogService->log(
                 action: 'adjust',

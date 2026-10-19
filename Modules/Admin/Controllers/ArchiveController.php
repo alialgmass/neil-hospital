@@ -16,6 +16,10 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class ArchiveController extends Controller
 {
+    private const MAX_FILE_KB = 204800;
+
+    private const ALLOWED_MIMES = 'jpg,jpeg,png,gif,bmp,tif,tiff,webp,pdf,doc,docx,xls,xlsx,mp4,zip';
+
     public function __construct(
         private readonly BookingService $bookingService,
     ) {}
@@ -58,11 +62,11 @@ class ArchiveController extends Controller
             'service_name' => ['nullable', 'string', 'max:200'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
-            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance'],
+            'pay_method' => ['nullable', 'in:cash,card,transfer,insurance,contract'],
             'visit_note' => ['nullable', 'string'],
             'files' => ['nullable', 'array'],
-            'files.*' => ['file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
-        ]);
+            'files.*' => ['file', 'max:'.self::MAX_FILE_KB, 'mimes:'.self::ALLOWED_MIMES],
+        ], self::uploadMessages());
 
         $price = (float) ($data['price'] ?? 0);
         $paid = (float) ($data['paid_amount'] ?? 0);
@@ -88,11 +92,28 @@ class ArchiveController extends Controller
         return redirect()->route('archive')->with('success', 'تم إضافة السجل إلى الأرشيف بنجاح.');
     }
 
+    /**
+     * @return array<string, string>
+     */
+    private static function uploadMessages(): array
+    {
+        $maxMb = self::MAX_FILE_KB / 1024;
+
+        return [
+            'file.max' => "حجم الملف يجب ألا يتجاوز {$maxMb} ميجابايت.",
+            'files.*.max' => "حجم الملف يجب ألا يتجاوز {$maxMb} ميجابايت.",
+            'file.mimes' => 'نوع الملف غير مدعوم.',
+            'files.*.mimes' => 'نوع الملف غير مدعوم.',
+            'file.uploaded' => 'فشل رفع الملف، حاول مرة أخرى.',
+            'files.*.uploaded' => 'فشل رفع الملف، حاول مرة أخرى.',
+        ];
+    }
+
     public function upload(Request $request, Booking $booking): RedirectResponse
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:20480', 'mimes:jpg,jpeg,png,gif,pdf,doc,docx,xls,xlsx'],
-        ]);
+            'file' => ['required', 'file', 'max:'.self::MAX_FILE_KB, 'mimes:'.self::ALLOWED_MIMES],
+        ], self::uploadMessages());
 
         $booking->addMediaFromRequest('file')->toMediaCollection('archive-files');
 
