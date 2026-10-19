@@ -123,6 +123,28 @@ class InsuranceClaimAccountingTest extends TestCase
         $this->assertEquals(0.00, (float) $receivable->fresh()->balance);
     }
 
+    public function test_settlement_difference_between_due_and_paid_is_posted_as_tax(): void
+    {
+        $claim = $this->makeClaim(1000);
+        app(UpdateInsuranceClaimAction::class)->execute($claim, ['status' => 'submitted']);
+        $claim->refresh();
+        app(UpdateInsuranceClaimAction::class)->execute($claim, ['status' => 'approved', 'approved_amount' => 1000]);
+        $claim->refresh();
+
+        app(UpdateInsuranceClaimAction::class)->execute($claim, ['status' => 'paid', 'paid_amount' => 920]);
+
+        $bank = Account::where('code', '1020')->firstOrFail();
+        $withholding = Account::where('code', '1080')->firstOrFail();
+        $receivable = Account::where('code', '1031')->firstOrFail();
+
+        $bankEntry = JournalEntry::where('source', 'insurance_collect')->where('debit_account_id', $bank->id)->sole();
+        $taxEntry = JournalEntry::where('source', 'insurance_collect')->where('debit_account_id', $withholding->id)->sole();
+
+        $this->assertEquals(920.00, (float) $bankEntry->amount);
+        $this->assertEquals(80.00, (float) $taxEntry->amount);
+        $this->assertEquals(0.00, (float) $receivable->fresh()->balance);
+    }
+
     public function test_partial_approval_collection_splits_bank_withholding_and_bad_debt(): void
     {
         $claim = $this->makeClaim(6500, 'surgery');

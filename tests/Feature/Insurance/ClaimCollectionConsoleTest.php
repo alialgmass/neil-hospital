@@ -194,7 +194,10 @@ class ClaimCollectionConsoleTest extends TestCase
         $this->assertSame($this->user->id, $claim->collected_by);
         $this->assertNotNull($claim->collected_at);
         $this->assertSame('paid', (string) $claim->booking->refresh()->pay_status->value);
-        $this->assertSame(1, JournalEntry::where('source', 'insurance_collect')->count());
+        // Bank receives the 950 paid; the 50 gap is posted as tax (1080).
+        $this->assertSame(2, JournalEntry::where('source', 'insurance_collect')->count());
+        $this->assertEquals(50, (float) JournalEntry::where('source', 'insurance_collect')
+            ->where('debit_account_id', Account::where('code', '1080')->value('id'))->sole()->amount);
         $this->assertTrue(ActivityLog::where('module', 'insurance_collection')->where('record_id', $claim->id)->exists());
     }
 

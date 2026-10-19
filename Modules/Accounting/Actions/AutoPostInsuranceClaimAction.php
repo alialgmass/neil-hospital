@@ -132,7 +132,8 @@ class AutoPostInsuranceClaimAction
      * Basis is the APPROVED amount (falls back to the full insurance_share
      * when no partial approval was recorded), never the raw paid_amount:
      *   Dr 1020 (Bank)                     [approved − withholding]
-     *   Dr 1080 (Withholding Tax Prepaid)  [approved × company withholding_pct] — an ASSET, not an expense
+     *   Dr 1080 (Withholding Tax Prepaid)  [approved − paid_amount when a settlement was recorded,
+     *                                       else approved × company withholding_pct] — an ASSET, not an expense
      *   Dr 5300 (Bad Debt)                 [claim amount − approved]           — only if partially approved
      *   Cr {company's 1031–1047 receivable} — full original claim amount, split across the legs above
      */
@@ -146,9 +147,17 @@ class AutoPostInsuranceClaimAction
         $claimAmount = (float) $claim->insurance_share;
         $approvedAmount = $claim->approved_amount !== null ? (float) $claim->approved_amount : $claimAmount;
 
-        $withholdingPct = (float) ($claim->company?->withholding_pct ?? 0);
-        $withholdingAmount = round($approvedAmount * $withholdingPct / 100, 2);
-        $netBank = round($approvedAmount - $withholdingAmount, 2);
+        if ((float) $claim->paid_amount > 0) {
+            // Settlement recorded: whatever was due but not actually paid is
+            // the tax the company withheld.
+            $netBank = round(min((float) $claim->paid_amount, $approvedAmount), 2);
+            $withholdingAmount = round($approvedAmount - $netBank, 2);
+            $withholdingPct = $approvedAmount > 0 ? round($withholdingAmount / $approvedAmount * 100, 2) : 0.0;
+        } else {
+            $withholdingPct = (float) ($claim->company?->withholding_pct ?? 0);
+            $withholdingAmount = round($approvedAmount * $withholdingPct / 100, 2);
+            $netBank = round($approvedAmount - $withholdingAmount, 2);
+        }
 
         if ($netBank > 0) {
             $bankId = $this->accountResolver->id(AccountCode::BANK);
