@@ -29,7 +29,7 @@ class InsuranceClaimAccountingTest extends TestCase
 
     private function makeClaim(float $insuranceShare = 800, string $dept = 'clinic', ?InsuranceCompany $company = null): InsuranceClaim
     {
-        $company ??= InsuranceCompany::create(['name' => 'شركة تأمين', 'status' => 'active']);
+        $company ??= InsuranceCompany::create(['name' => 'نفقة الدولة', 'status' => 'active']);
         $service = Service::create([
             'name' => 'كشف', 'dept' => $dept, 'price' => 1000,
             'center_type' => 'pct', 'center_val' => 40, 'center_share' => 400, 'dr_share' => 600,

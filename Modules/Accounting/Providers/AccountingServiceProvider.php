@@ -4,6 +4,7 @@ namespace Modules\Accounting\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
+use Modules\Accounting\Console\Commands\FixInsuranceReceivablesCommand;
 use Modules\Accounting\Console\Commands\PostMonthlyDepreciationCommand;
 use Modules\Accounting\Console\Commands\PostOpeningBalancesCommand;
 use Modules\Accounting\Console\Commands\VerifyGuideConformanceCommand;
@@ -26,6 +27,7 @@ class AccountingServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
+                FixInsuranceReceivablesCommand::class,
                 PostMonthlyDepreciationCommand::class,
                 PostOpeningBalancesCommand::class,
                 VerifyGuideConformanceCommand::class,
