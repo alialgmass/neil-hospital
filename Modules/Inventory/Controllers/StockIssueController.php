@@ -24,11 +24,14 @@ class StockIssueController extends Controller
     {
         $date = $request->input('date', today()->toDateString());
 
-        $permits = $this->inventoryService->getIssuedPermits($date);
+        $search = $request->input('search');
+
+        $permits = $this->inventoryService->getIssuedPermits($date, 20, $search);
         $consumption = $this->inventoryService->getDailyConsumption($date);
 
         return Inertia::render('inventory/StockIssue', [
             'date' => $date,
+            'filters' => ['search' => $search],
             'permits' => $permits,
             'consumption' => $consumption,
             'voucherCount' => $permits->total(),

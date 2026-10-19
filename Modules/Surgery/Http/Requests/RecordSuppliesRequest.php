@@ -4,6 +4,7 @@ namespace Modules\Surgery\Http\Requests;
 
 use App\Enums\Department;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use Modules\Surgery\Models\Surgery;
 
@@ -31,7 +32,7 @@ class RecordSuppliesRequest extends FormRequest
         return [
             'surgery_id' => ['required', 'string', 'in:'.$this->route('id'), 'exists:surgeries,id'],
             'items' => ['nullable', 'array', 'required_without:bundles'],
-            'items.*.inventory_item_id' => ['required', 'string', 'exists:inventory,id'],
+            'items.*.inventory_item_id' => ['required', 'string', Rule::exists('inventory', 'id')->where('is_active', true)],
             'items.*.name' => ['required', 'string', 'max:255'],
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],

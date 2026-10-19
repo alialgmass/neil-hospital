@@ -41,6 +41,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{id}', [InventoryController::class, 'update'])
             ->middleware('can:inventory.write')
             ->name('update');
+
+        Route::patch('/{id}/active', [InventoryController::class, 'toggleActive'])
+            ->middleware('can:inventory.write')
+            ->name('toggleActive');
     });
 
     // Suppliers

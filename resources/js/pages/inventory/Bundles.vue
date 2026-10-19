@@ -4,6 +4,7 @@ import { PackagePlus, Pencil, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
@@ -38,7 +39,14 @@ interface Bundle {
 const props = defineProps<{
     bundles: { data: Bundle[]; links: unknown[]; total: number }
     inventoryItems: InventoryItem[]
+    filters: { search?: string }
 }>()
+
+const search = ref(props.filters.search ?? '')
+
+function applySearch() {
+    router.get('/supply-bundles', { search: search.value || undefined }, { preserveState: true })
+}
 
 // ── Permissions ──
 const { can } = usePermissions()
@@ -113,6 +121,7 @@ function removeItemRow(idx: number) {
 
 function onInventorySelect(idx: number) {
     const inv = props.inventoryItems.find((i) => i.id === form.items[idx].inventory_item_id)
+
     if (inv) {
         form.items[idx].item_name = inv.name
         form.items[idx].unit_cost = inv.unit_cost
@@ -171,6 +180,10 @@ function formatMoney(val: number) {
                 <PackagePlus class="h-4 w-4" />
                 إنشاء بند جديد
             </button>
+        </div>
+
+        <div class="mb-4 max-w-sm">
+            <SearchBar v-model="search" placeholder="ابحث باسم البند أو الكود..." @update:model-value="applySearch" />
         </div>
 
         <!-- Bundles table -->

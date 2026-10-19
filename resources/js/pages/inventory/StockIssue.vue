@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Pencil, Trash2, T
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
 import StatCard from '@/components/shared/StatCard.vue'
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
@@ -45,6 +46,7 @@ interface ConsumptionRow {
 
 const props = defineProps<{
     date: string
+    filters: { search?: string }
     permits: { data: Permit[]; links: unknown[]; total: number; current_page: number; last_page: number }
     consumption: ConsumptionRow[]
     voucherCount: number
@@ -58,13 +60,18 @@ const { can } = usePermissions()
 const canWrite = computed(() => can('stock_issue.write'))
 
 const selectedDate = ref(props.date)
+const search = ref(props.filters.search ?? '')
 const showModal = ref(false)
 const expandedRows = ref<Set<string>>(new Set())
 
 const isToday = computed(() => selectedDate.value === new Date().toISOString().slice(0, 10))
 
 function navigateDate() {
-    router.get('/stock-issue', { date: selectedDate.value }, { preserveState: false })
+    router.get('/stock-issue', { date: selectedDate.value, search: search.value || undefined }, { preserveState: false })
+}
+
+function applySearch() {
+    router.get('/stock-issue', { date: selectedDate.value, search: search.value || undefined }, { preserveState: true })
 }
 
 function toggleRow(id: string) {
@@ -214,6 +221,9 @@ function submitIssue() {
                 class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
                 @change="navigateDate"
             />
+            <div class="w-72">
+                <SearchBar v-model="search" placeholder="رقم الإذن أو السبب أو الصنف..." @update:model-value="applySearch" />
+            </div>
             <span
                 v-if="isToday"
                 class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700"

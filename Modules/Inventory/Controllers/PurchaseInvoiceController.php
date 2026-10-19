@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Admin\Services\ActivityLogService;
@@ -25,7 +26,7 @@ class PurchaseInvoiceController extends Controller
 
     public function index(): Response
     {
-        $filters = request()->only(['from', 'to', 'supplier_id', 'status']);
+        $filters = request()->only(['from', 'to', 'supplier_id', 'status', 'search']);
 
         $stats = [
             'invoice_count' => PurchaseInvoice::count(),
@@ -54,10 +55,11 @@ class PurchaseInvoiceController extends Controller
             'notes' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.item_name' => ['required', 'string', 'max:200'],
-            'items.*.item_id' => ['nullable', 'exists:inventory,id'],
+            'items.*.item_id' => ['nullable', Rule::exists('inventory', 'id')->where('is_active', true)],
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
             'items.*.sell_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.expiry_date' => ['nullable', 'date'],
         ]);
 
         // Auto-generate invoice number if not provided
@@ -84,6 +86,7 @@ class PurchaseInvoiceController extends Controller
         }
 
         $items = InventoryItem::search($term)
+            ->active()
             ->select('id', 'name', 'code', 'unit_cost', 'sell_price', 'expiry_date')
             ->orderBy('name')
             ->limit(10)
@@ -107,6 +110,7 @@ class PurchaseInvoiceController extends Controller
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['required', 'numeric', 'min:0'],
             'items.*.sell_price' => ['nullable', 'numeric', 'min:0'],
+            'items.*.expiry_date' => ['nullable', 'date'],
         ]);
 
         $invoice = $this->purchaseService->update($id, $data, $data['items']);

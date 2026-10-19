@@ -27,8 +27,16 @@ class PurchaseInvoiceService
             ->with(['supplier', 'creator', 'items'])
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->whereDate('invoice_date', '>=', $v))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->whereDate('invoice_date', '<=', $v))
+            ->when($filters['search'] ?? null, function ($q, $v) {
+                $q->where(function ($iq) use ($v) {
+                    $iq->where('invoice_no', 'like', "%{$v}%")
+                        ->orWhereHas('supplier', fn ($sq) => $sq->where('name', 'like', "%{$v}%"))
+                        ->orWhereHas('items', fn ($itq) => $itq->where('item_name', 'like', "%{$v}%"));
+                });
+            })
             ->orderByDesc('invoice_date')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     public function create(array $data, array $items): PurchaseInvoice
@@ -64,6 +72,7 @@ class PurchaseInvoiceService
                     'qty' => $item['qty'],
                     'unit_cost' => $item['unit_cost'],
                     'sell_price' => $item['sell_price'] ?? null,
+                    'expiry_date' => $item['expiry_date'] ?? null,
                     'total' => $item['qty'] * $item['unit_cost'],
                 ]);
 
@@ -143,6 +152,7 @@ class PurchaseInvoiceService
                     'qty' => $item['qty'],
                     'unit_cost' => $item['unit_cost'],
                     'sell_price' => $item['sell_price'] ?? null,
+                    'expiry_date' => $item['expiry_date'] ?? null,
                     'total' => $item['qty'] * $item['unit_cost'],
                 ]);
 
@@ -236,6 +246,10 @@ class PurchaseInvoiceService
 
         if (array_key_exists('sell_price', $item) && $item['sell_price'] !== null) {
             $priceUpdates['sell_price'] = $item['sell_price'];
+        }
+
+        if (! empty($item['expiry_date'])) {
+            $priceUpdates['expiry_date'] = $item['expiry_date'];
         }
 
         if ($priceUpdates !== []) {

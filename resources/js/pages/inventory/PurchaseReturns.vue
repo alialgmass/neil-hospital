@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import { Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
@@ -35,7 +36,14 @@ interface Return {
 const props = defineProps<{
     returns: { data: Return[]; links: unknown[] }
     invoices: Invoice[]
+    filters: { search?: string }
 }>()
+
+const search = ref(props.filters.search ?? '')
+
+function applySearch() {
+    router.get('/purchase-returns', { search: search.value || undefined }, { preserveState: true })
+}
 
 // ── Permissions ──
 const { can } = usePermissions()
@@ -109,6 +117,10 @@ const totalValue   = computed(() => props.returns.data.reduce((s, r) => s + Numb
         <div class="mb-6 flex items-center justify-between">
             <h1 class="text-xl font-bold text-gray-800">سجل مردودات المشتريات</h1>
             <button class="rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white hover:bg-hospital-primary/90 disabled:cursor-not-allowed disabled:opacity-50" @click="canWrite && (showModal = true)" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">+ تسجيل مرتجع</button>
+        </div>
+
+        <div class="mb-4 max-w-sm">
+            <SearchBar v-model="search" placeholder="رقم الفاتورة أو المورد..." @update:model-value="applySearch" />
         </div>
 
         <!-- Returns Table -->

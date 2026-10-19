@@ -131,6 +131,7 @@ class SurgeryController extends Controller
         }
 
         $items = InventoryItem::search($term)
+            ->active()
             ->where('quantity', '>', 0)
             ->select('id', 'name', 'code', 'sell_price', 'quantity')
             ->orderBy('name')

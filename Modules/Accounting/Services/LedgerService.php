@@ -5,8 +5,11 @@ namespace Modules\Accounting\Services;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Accounting\Enums\AccountNature;
+use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\Subledger;
 use Modules\Accounting\Models\Account;
+use Modules\Inventory\Models\ItemSalesInvoice;
+use Modules\Inventory\Models\PurchaseInvoice;
 
 class LedgerService
 {
@@ -109,22 +112,24 @@ class LedgerService
             ->whereIn('debit_account_id', $accountIds)
             ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
-            ->select('date', 'description', 'amount as debit', DB::raw('0 as credit'), 'reference', 'created_at')
+            ->select('date', 'description', 'amount as debit', DB::raw('0 as credit'), 'reference', 'source', 'created_at')
             ->get();
 
         $creditRows = DB::table('journal_entries')
             ->whereIn('credit_account_id', $accountIds)
             ->when($from, fn ($q) => $q->whereDate('date', '>=', $from))
             ->when($to, fn ($q) => $q->whereDate('date', '<=', $to))
-            ->select('date', 'description', DB::raw('0 as debit'), 'amount as credit', 'reference', 'created_at')
+            ->select('date', 'description', DB::raw('0 as debit'), 'amount as credit', 'reference', 'source', 'created_at')
             ->get();
 
         $rows = $debitRows->concat($creditRows)
             ->sortBy(['date', 'created_at'])
             ->values();
 
+        $invoiceLines = $this->invoiceLines($rows);
+
         $runningBalance = 0.0;
-        $statement = $rows->map(function ($row) use (&$runningBalance, $account) {
+        $statement = $rows->map(function ($row) use (&$runningBalance, $account, $invoiceLines) {
             $debit = (float) $row->debit;
             $credit = (float) $row->credit;
 
@@ -141,6 +146,7 @@ class LedgerService
                 'credit' => $credit,
                 'balance' => $runningBalance,
                 'reference' => $row->reference,
+                'lines' => $this->isInvoiceHeaderRow($row) ? ($invoiceLines[$row->source][$row->reference] ?? []) : [],
             ];
         });
 
@@ -148,5 +154,65 @@ class LedgerService
             'account' => ['code' => $account->code, 'name' => $account->name],
             'statement' => $statement->toArray(),
         ];
+    }
+
+    /**
+     * Purchase / item-sale postings that carry an invoice number; the per-line
+     * cost entries of a sale are excluded since their بيان already names the item.
+     */
+    private function isInvoiceHeaderRow(object $row): bool
+    {
+        return in_array($row->source, [JournalSource::PURCHASE->value, JournalSource::ITEM_SALE->value], true)
+            && filled($row->reference)
+            && ! str_starts_with($row->description, 'تكلفة بضاعة مباعة');
+    }
+
+    /**
+     * Item lines of the invoices referenced by the statement rows.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return array<string, array<string, array<int, array{name:string, qty:float, unit_price:float, total:float}>>>
+     */
+    private function invoiceLines(Collection $rows): array
+    {
+        $referencesFor = fn (JournalSource $source) => $rows
+            ->filter(fn ($row) => $this->isInvoiceHeaderRow($row) && $row->source === $source->value)
+            ->pluck('reference')
+            ->unique()
+            ->values();
+
+        $lines = [];
+
+        $purchaseNumbers = $referencesFor(JournalSource::PURCHASE);
+        if ($purchaseNumbers->isNotEmpty()) {
+            $lines[JournalSource::PURCHASE->value] = PurchaseInvoice::whereIn('invoice_no', $purchaseNumbers)
+                ->with('items')
+                ->get()
+                ->mapWithKeys(fn (PurchaseInvoice $invoice) => [
+                    $invoice->invoice_no => $invoice->items->map(fn ($item) => [
+                        'name' => $item->item_name,
+                        'qty' => (float) $item->qty,
+                        'unit_price' => (float) $item->unit_cost,
+                        'total' => (float) $item->total,
+                    ])->all(),
+                ])->all();
+        }
+
+        $saleNumbers = $referencesFor(JournalSource::ITEM_SALE);
+        if ($saleNumbers->isNotEmpty()) {
+            $lines[JournalSource::ITEM_SALE->value] = ItemSalesInvoice::whereIn('invoice_no', $saleNumbers)
+                ->with('items')
+                ->get()
+                ->mapWithKeys(fn (ItemSalesInvoice $invoice) => [
+                    $invoice->invoice_no => $invoice->items->map(fn ($item) => [
+                        'name' => $item->item_name,
+                        'qty' => (float) $item->qty,
+                        'unit_price' => (float) $item->unit_price,
+                        'total' => (float) $item->line_total,
+                    ])->all(),
+                ])->all();
+        }
+
+        return $lines;
     }
 }

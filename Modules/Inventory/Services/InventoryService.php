@@ -43,6 +43,7 @@ class InventoryService
                 });
             })
             ->when($filters['category'] ?? null, fn ($q, $v) => $q->where('category', $v))
+            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('is_active', $v === 'active'))
             ->when($filters['low_stock'] ?? null, fn ($q) => $q->whereColumn('quantity', '<=', 'min_quantity')->where('min_quantity', '>', 0))
             ->orderBy('name');
     }
@@ -59,6 +60,7 @@ class InventoryService
     public function lowStockCount(): int
     {
         return InventoryItem::query()
+            ->active()
             ->whereColumn('quantity', '<=', 'min_quantity')
             ->where('min_quantity', '>', 0)
             ->count();
@@ -87,6 +89,14 @@ class InventoryService
         return $item;
     }
 
+    public function setActive(string $id, bool $isActive): InventoryItem
+    {
+        $item = InventoryItem::findOrFail($id);
+        $item->update(['is_active' => $isActive]);
+
+        return $item;
+    }
+
     public function getStockTakeItems(): Collection
     {
         return InventoryItem::orderBy('category')->orderBy('name')->get([
@@ -96,17 +106,33 @@ class InventoryService
 
     // --- Stock Permit Methods ---
 
-    public function getStockPermits(int $perPage = 20): LengthAwarePaginator
+    public function getStockPermits(int $perPage = 20, ?string $search = null): LengthAwarePaginator
     {
         return StockPermit::query()
             ->with(['items', 'creator'])
+            ->tap(fn ($q) => $this->applyPermitSearch($q, $search))
             ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    private function applyPermitSearch(Builder $query, ?string $search): void
+    {
+        if (! $search) {
+            return;
+        }
+
+        $query->where(function ($iq) use ($search) {
+            $iq->where('permit_no', 'like', "%{$search}%")
+                ->orWhere('reason', 'like', "%{$search}%")
+                ->orWhere('notes', 'like', "%{$search}%")
+                ->orWhereHas('items', fn ($itq) => $itq->where('item_name', 'like', "%{$search}%"));
+        });
     }
 
     public function getSelectableItems(): Collection
     {
-        return InventoryItem::orderBy('name')->get(['id', 'name', 'unit', 'quantity', 'unit_cost']);
+        return InventoryItem::active()->orderBy('name')->get(['id', 'name', 'unit', 'quantity', 'unit_cost']);
     }
 
     public function adjustQuantity(string $id, float $delta): void
@@ -114,11 +140,12 @@ class InventoryService
         InventoryItem::where('id', $id)->increment('quantity', $delta);
     }
 
-    public function getIssuedPermits(?string $date, int $perPage = 20): LengthAwarePaginator
+    public function getIssuedPermits(?string $date, int $perPage = 20, ?string $search = null): LengthAwarePaginator
     {
         return StockPermit::query()
             ->where('type', 'out')
             ->whereDate('created_at', $date)
+            ->tap(fn ($q) => $this->applyPermitSearch($q, $search))
             ->with(['items', 'creator:id,name'])
             ->orderByDesc('created_at')
             ->paginate($perPage)

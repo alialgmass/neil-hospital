@@ -12,6 +12,7 @@ import { computed, ref } from 'vue';
 import ItemAutocomplete from '@/components/shared/ItemAutocomplete.vue';
 import Modal from '@/components/shared/Modal.vue';
 import ModuleImportButton from '@/components/shared/ModuleImportButton.vue';
+import SearchBar from '@/components/shared/SearchBar.vue';
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Supplier {
@@ -25,6 +26,7 @@ interface InvoiceItem {
     qty: number;
     unit_cost: number;
     sell_price?: number | null;
+    expiry_date?: string | null;
 }
 
 interface PurchaseInvoice {
@@ -55,6 +57,7 @@ const props = defineProps<{
         to?: string;
         supplier_id?: string;
         status?: string;
+        search?: string;
     };
     stats: {
         invoice_count: number;
@@ -75,6 +78,7 @@ const fromFilter = ref(props.filters.from ?? '');
 const toFilter = ref(props.filters.to ?? '');
 const supplierFilter = ref(props.filters.supplier_id ?? '');
 const statusFilter = ref(props.filters.status ?? '');
+const searchFilter = ref(props.filters.search ?? '');
 
 function applyFilters() {
     router.get(
@@ -84,6 +88,7 @@ function applyFilters() {
             to: toFilter.value || undefined,
             supplier_id: supplierFilter.value || undefined,
             status: statusFilter.value || undefined,
+            search: searchFilter.value || undefined,
         },
         { preserveState: true },
     );
@@ -97,6 +102,7 @@ function goToPage(page: number) {
             to: toFilter.value || undefined,
             supplier_id: supplierFilter.value || undefined,
             status: statusFilter.value || undefined,
+            search: searchFilter.value || undefined,
             page,
         },
         { preserveState: true },
@@ -119,7 +125,14 @@ const formData = ref({
     notes: '',
 });
 const items = ref<InvoiceItem[]>([
-    { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+    {
+        item_id: '',
+        item_name: '',
+        qty: 1,
+        unit_cost: 0,
+        sell_price: 0,
+        expiry_date: '',
+    },
 ]);
 
 const subtotal = computed(() =>
@@ -139,6 +152,7 @@ function addItem() {
         qty: 1,
         unit_cost: 0,
         sell_price: 0,
+        expiry_date: '',
     });
 }
 
@@ -163,7 +177,14 @@ function openAdd() {
         notes: '',
     };
     items.value = [
-        { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+        {
+            item_id: '',
+            item_name: '',
+            qty: 1,
+            unit_cost: 0,
+            sell_price: 0,
+            expiry_date: '',
+        },
     ];
     showAdd.value = true;
 }
@@ -188,11 +209,19 @@ function openEdit(inv: PurchaseInvoice) {
         qty: Number(i.qty),
         unit_cost: Number(i.unit_cost),
         sell_price: i.sell_price != null ? Number(i.sell_price) : 0,
+        expiry_date: i.expiry_date ? i.expiry_date.slice(0, 10) : '',
     }));
 
     if (items.value.length === 0) {
         items.value = [
-            { item_id: '', item_name: '', qty: 1, unit_cost: 0, sell_price: 0 },
+            {
+                item_id: '',
+                item_name: '',
+                qty: 1,
+                unit_cost: 0,
+                sell_price: 0,
+                expiry_date: '',
+            },
         ];
     }
 
@@ -335,6 +364,10 @@ const statusConfig: Record<string, { label: string; class: string }> = {
 
     <!-- Toolbar -->
     <div class="mb-4 flex flex-wrap items-end gap-3">
+        <div class="flex min-w-60 flex-col gap-1">
+            <label class="form-label">بحث</label>
+            <SearchBar v-model="searchFilter" placeholder="رقم الفاتورة أو المورد أو الصنف..." @update:model-value="applyFilters" />
+        </div>
         <div class="flex flex-col gap-1">
             <label class="form-label">من</label>
             <input
@@ -593,11 +626,12 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                 <div
                     class="mb-2 grid grid-cols-12 gap-2 text-xs font-semibold text-t2"
                 >
-                    <span class="col-span-4">الصنف</span>
+                    <span class="col-span-3">الصنف</span>
                     <span class="col-span-1 text-center">الكمية</span>
                     <span class="col-span-2 text-center">سعر الشراء (ج)</span>
                     <span class="col-span-2 text-center">سعر البيع (ج)</span>
-                    <span class="col-span-2 text-center">الإجمالي</span>
+                    <span class="col-span-2 text-center">تاريخ الصلاحية</span>
+                    <span class="col-span-1 text-center">الإجمالي</span>
                     <span class="col-span-1" />
                 </div>
                 <div class="space-y-2">
@@ -606,7 +640,7 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                         :key="idx"
                         class="grid grid-cols-12 items-center gap-2"
                     >
-                        <div class="col-span-4">
+                        <div class="col-span-3">
                             <ItemAutocomplete
                                 v-model="item.item_name"
                                 @select="
@@ -614,6 +648,9 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                                         item.item_id = matched.id;
                                         item.unit_cost = matched.unit_cost;
                                         item.sell_price = matched.sell_price;
+                                        item.expiry_date = matched.expiry_date
+                                            ? matched.expiry_date.slice(0, 10)
+                                            : '';
                                     }
                                 "
                             />
@@ -641,8 +678,13 @@ const statusConfig: Record<string, { label: string; class: string }> = {
                             class="input-field col-span-2"
                             placeholder="سعر البيع"
                         />
+                        <input
+                            v-model="item.expiry_date"
+                            type="date"
+                            class="input-field col-span-2"
+                        />
                         <span
-                            class="col-span-2 text-center font-mono text-xs text-t2"
+                            class="col-span-1 text-center font-mono text-xs text-t2"
                         >
                             {{
                                 (item.qty * item.unit_cost).toLocaleString(

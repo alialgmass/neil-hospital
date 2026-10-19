@@ -17,7 +17,7 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'name', 'code', 'category', 'unit', 'quantity', 'min_quantity',
-        'unit_cost', 'sell_price', 'supplier_id', 'expiry_date', 'location', 'notes',
+        'unit_cost', 'sell_price', 'supplier_id', 'expiry_date', 'location', 'notes', 'is_active',
     ];
 
     protected $appends = ['unit_label', 'category_label'];
@@ -28,6 +28,7 @@ class InventoryItem extends Model
         'unit_cost' => 'decimal:2',
         'sell_price' => 'decimal:2',
         'expiry_date' => 'date',
+        'is_active' => 'boolean',
         'category' => ItemCategory::class,
         'unit' => ItemUnit::class,
     ];
@@ -40,6 +41,14 @@ class InventoryItem extends Model
     public function getCategoryLabelAttribute(): string
     {
         return $this->category?->label() ?? '';
+    }
+
+    /**
+     * Items that can still be picked for new transactions (purchases, sales, issues, surgery supplies).
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
     }
 
     public function supplier(): BelongsTo

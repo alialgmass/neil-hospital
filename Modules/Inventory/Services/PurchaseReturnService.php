@@ -14,13 +14,20 @@ class PurchaseReturnService
 {
     public function __construct(private readonly AutoPostPurchaseReturnAction $autoPostReturn) {}
 
-    public function list(int $perPage = 20): LengthAwarePaginator
+    public function list(int $perPage = 20, ?string $search = null): LengthAwarePaginator
     {
         return PurchaseInvoice::query()
             ->with('supplier')
             ->where('status', 'cancelled')
+            ->when($search, function ($q, $v) {
+                $q->where(function ($iq) use ($v) {
+                    $iq->where('invoice_no', 'like', "%{$v}%")
+                        ->orWhereHas('supplier', fn ($sq) => $sq->where('name', 'like', "%{$v}%"));
+                });
+            })
             ->orderByDesc('created_at')
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     public function getEligibleInvoices(): Collection

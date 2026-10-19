@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, Edit2, Package, PlusCircle, ShoppingCart, TrendingDown } from 'lucide-vue-next';
+import { AlertTriangle, Edit2, Package, PlusCircle, ShoppingCart, ToggleLeft, ToggleRight, TrendingDown } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
+import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import ExportBar from '@/components/shared/ExportBar.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -23,6 +24,7 @@ interface InventoryItem {
     supplier?: Supplier;
     expiry_date?: string;
     location?: string;
+    is_active: boolean;
 }
 
 const props = defineProps<{
@@ -32,7 +34,7 @@ const props = defineProps<{
     lowStockCount: number;
     totalValue: number;
     openOrdersCount: number;
-    filters: { search?: string; category?: string; low_stock?: string };
+    filters: { search?: string; category?: string; low_stock?: string; status?: string };
 }>();
 
 // ── Permissions ──
@@ -54,17 +56,20 @@ const columns = [
     { key: 'sell_price',   label: 'سعر البيع' },
     { key: 'expiry_date',  label: 'تاريخ الانتهاء' },
     { key: 'supplier',     label: 'المورد' },
+    { key: 'is_active',    label: 'الحالة' },
 ];
 
 const search    = ref(props.filters.search   ?? '');
 const catFilter = ref(props.filters.category ?? '');
 const lowStock  = ref(!!props.filters.low_stock);
+const statusFilter = ref(props.filters.status ?? '');
 
 function applyFilters() {
     router.get('/inventory', {
         search:    search.value    || undefined,
         category:  catFilter.value || undefined,
         low_stock: lowStock.value  ? '1' : undefined,
+        status:    statusFilter.value || undefined,
     }, { preserveState: true });
 }
 function goToPage(page: number) {
@@ -72,6 +77,7 @@ function goToPage(page: number) {
         search:    search.value    || undefined,
         category:  catFilter.value || undefined,
         low_stock: lowStock.value  ? '1' : undefined,
+        status:    statusFilter.value || undefined,
         page,
     }, { preserveState: true });
 }
@@ -127,6 +133,15 @@ function openEdit(item: InventoryItem) {
     showModal.value = true;
 }
 
+function toggleActive(item: InventoryItem) {
+    if (!canWrite.value) {
+        return;
+    }
+
+    const isActive = !item.is_active;
+    router.patch(`/inventory/${item.id}/active`, { is_active: isActive }, { preserveScroll: true });
+}
+
 function closeModal() {
     showModal.value = false;
     form.reset();
@@ -154,6 +169,7 @@ function exportExcel() {
         search:    search.value    || '',
         category:  catFilter.value || '',
         low_stock: lowStock.value  ? '1' : '',
+        status:    statusFilter.value || '',
     }).toString();
 
     window.location.href = `/inventory/export${params ? '?' + params : ''}`;
@@ -233,6 +249,11 @@ function exportExcel() {
                 <input v-model="lowStock" type="checkbox" class="rounded border-br" @change="applyFilters" />
                 منخفض فقط
             </label>
+            <select v-model="statusFilter" class="input-field w-auto py-1.5 text-sm" @change="applyFilters">
+                <option value="">كل الحالات</option>
+                <option value="active">نشط</option>
+                <option value="inactive">غير نشط</option>
+            </select>
         </div>
         <div class="flex items-center gap-2">
             <ModuleImportButton
@@ -277,7 +298,20 @@ function exportExcel() {
             <template #cell-unit_cost="{ value }">{{ fmt(Number(value)) }}</template>
             <template #cell-sell_price="{ value }">{{ fmt(Number(value)) }}</template>
             <template #cell-supplier="{ row }">{{ (row as InventoryItem).supplier?.name ?? '—' }}</template>
+            <template #cell-is_active="{ row }">
+                <Badge :variant="(row as InventoryItem).is_active ? 'active' : 'inactive'" />
+            </template>
             <template #actions="{ row }">
+                <button
+                    class="rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                    :class="(row as InventoryItem).is_active ? 'text-hospital-success hover:bg-hospital-success-pale' : 'text-hospital-text-3 hover:bg-hospital-bg'"
+                    :title="canWrite ? ((row as InventoryItem).is_active ? 'إيقاف الصنف' : 'تفعيل الصنف') : NO_PERMISSION_TITLE"
+                    :disabled="!canWrite"
+                    @click="toggleActive(row as InventoryItem)"
+                >
+                    <ToggleRight v-if="(row as InventoryItem).is_active" class="h-5 w-5" />
+                    <ToggleLeft v-else class="h-5 w-5" />
+                </button>
                 <button
                     class="rounded p-1.5 text-t3 transition-colors hover:bg-hospital-primary-pale hover:text-p disabled:cursor-not-allowed disabled:opacity-50"
                     :title="canWrite ? 'تعديل' : NO_PERMISSION_TITLE"

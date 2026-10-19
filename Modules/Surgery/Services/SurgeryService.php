@@ -241,6 +241,7 @@ class SurgeryService
     public function getActiveInventoryItems(): Collection
     {
         return InventoryItem::select('id', 'name', 'code', 'sell_price', 'quantity')
+            ->active()
             ->where('quantity', '>', 0)
             ->orderBy('name')
             ->get();

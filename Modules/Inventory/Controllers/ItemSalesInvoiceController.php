@@ -67,7 +67,7 @@ class ItemSalesInvoiceController extends Controller
                 'total' => (float) $totals->total,
                 'profit' => round((float) $totals->total - (float) $totals->cost_total, 2),
             ],
-            'selectableItems' => InventoryItem::where('quantity', '>', 0)
+            'selectableItems' => InventoryItem::active()->where('quantity', '>', 0)
                 ->orderBy('name')
                 ->get(['id', 'name', 'code', 'unit', 'quantity', 'sell_price']),
             'deptOptions' => Department::optionsForEnabledModules(),

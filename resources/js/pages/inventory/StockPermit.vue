@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Badge from '@/components/shared/Badge.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
@@ -36,12 +37,19 @@ interface Permit {
 
 const props = defineProps<{
     permits: { data: Permit[]; links: unknown[] }
+    filters: { search?: string }
     items: InventoryItem[]
 }>()
 
 // ── Permissions ──
 const { can } = usePermissions()
 const canWrite = computed(() => can('stock_permits.write'))
+
+const search = ref(props.filters.search ?? '')
+
+function applySearch() {
+    router.get('/stock-permits', { search: search.value || undefined }, { preserveState: true })
+}
 
 const showIssueModal = ref(false)
 const showAddModal = ref(false)
@@ -129,6 +137,10 @@ function submitAdd() {
                     إذن إضافة
                 </button>
             </div>
+        </div>
+
+        <div class="mb-4 max-w-sm">
+            <SearchBar v-model="search" placeholder="رقم الإذن أو السبب أو اسم الصنف..." @update:model-value="applySearch" />
         </div>
 
         <!-- Permits Table -->

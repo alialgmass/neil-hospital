@@ -60,6 +60,48 @@ class PurchaseInvoiceSellPriceTest extends TestCase
         $this->assertEquals(55.0, (float) $item->fresh()->sell_price);
     }
 
+    public function test_expiry_date_is_stored_on_the_line_and_synced_to_the_item(): void
+    {
+        $item = InventoryItem::create([
+            'name' => 'محلول', 'code' => 'SOL-1', 'category' => 'medical', 'unit' => 'piece',
+            'quantity' => 0, 'min_quantity' => 0, 'unit_cost' => 5, 'sell_price' => 10,
+        ]);
+
+        $this->actingAs($this->user)->post('/purchases', [
+            'invoice_date' => now()->toDateString(),
+            'paid_amount' => 50,
+            'items' => [
+                ['item_id' => $item->id, 'item_name' => $item->name, 'qty' => 10, 'unit_cost' => 5, 'expiry_date' => '2028-03-15'],
+            ],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $invoice = PurchaseInvoice::with('items')->latest('id')->first();
+
+        $this->assertSame('2028-03-15', $invoice->items->first()->expiry_date->toDateString());
+        $this->assertSame('2028-03-15', $item->fresh()->expiry_date->toDateString());
+
+        $this->actingAs($this->user)->put("/purchases/{$invoice->id}", [
+            'invoice_date' => now()->toDateString(),
+            'paid_amount' => 50,
+            'items' => [
+                ['item_id' => $item->id, 'item_name' => $item->name, 'qty' => 10, 'unit_cost' => 5, 'expiry_date' => '2029-01-01'],
+            ],
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertSame('2029-01-01', $invoice->fresh()->items->first()->expiry_date->toDateString());
+        $this->assertSame('2029-01-01', $item->fresh()->expiry_date->toDateString());
+    }
+
+    public function test_expiry_date_must_be_a_valid_date(): void
+    {
+        $this->actingAs($this->user)->post('/purchases', [
+            'invoice_date' => now()->toDateString(),
+            'items' => [
+                ['item_name' => 'x', 'qty' => 1, 'unit_cost' => 1, 'expiry_date' => 'not-a-date'],
+            ],
+        ])->assertSessionHasErrors('items.0.expiry_date');
+    }
+
     public function test_updating_prices_on_an_invoice_does_not_change_historical_data_of_other_invoices(): void
     {
         $supplier = Supplier::create(['name' => 'مورد 2', 'is_active' => true, 'balance' => 0]);

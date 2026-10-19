@@ -26,7 +26,7 @@ class StoreItemSalesInvoiceRequest extends FormRequest
             'discount' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|string|exists:inventory,id',
+            'items.*.item_id' => ['required', 'string', Rule::exists('inventory', 'id')->where('is_active', true)],
             'items.*.qty' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
         ];
