@@ -30,13 +30,32 @@ class SupplyBundleValidationTest extends TestCase
         return ['name' => 'بند تجريبي', 'price' => 100, 'items' => $items];
     }
 
-    public function test_bundle_without_items_is_rejected(): void
+    public function test_bundle_without_items_is_saved(): void
     {
         $this->actingAs($this->user)
             ->post(route('supply-bundles.store'), $this->payload([]))
-            ->assertSessionHasErrors('items');
+            ->assertSessionHasNoErrors();
 
-        $this->assertSame(0, SupplyBundle::count());
+        $bundle = SupplyBundle::firstOrFail();
+        $this->assertSame(0, $bundle->items()->count());
+    }
+
+    public function test_bundle_can_be_updated_to_have_no_items(): void
+    {
+        $item = InventoryItem::create(['name' => 'خيط', 'quantity' => 10]);
+
+        $this->actingAs($this->user)
+            ->post(route('supply-bundles.store'), $this->payload([
+                ['inventory_item_id' => $item->id, 'item_name' => 'خيط', 'qty' => 2, 'unit_cost' => 5],
+            ]));
+
+        $bundle = SupplyBundle::firstOrFail();
+
+        $this->actingAs($this->user)
+            ->put(route('supply-bundles.update', $bundle->id), $this->payload([]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $bundle->items()->count());
     }
 
     public function test_bundle_item_not_linked_to_inventory_is_rejected(): void
