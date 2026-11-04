@@ -15,7 +15,7 @@ import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 import SearchBar from '@/components/shared/SearchBar.vue';
 import { usePermissions } from '@/composables/usePermissions';
-import archive from '@/routes/archive';
+import { chunk, complete, init } from '@/routes/archive/upload';
 import booking from '@/routes/booking';
 
 interface MediaFile {
@@ -139,9 +139,12 @@ const activeBooking = computed(
         props.bookings.data.find((b) => b.id === activeBookingId.value) ?? null,
 );
 const showFilesModal = ref(false);
-const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 const uploadForm = useForm({ file: null as File | null });
 const fileInput = ref<HTMLInputElement | null>(null);
+const uploadProgress = ref(0);
+const chunkUploading = ref(false);
+const CHUNK_SIZE = 5 * 1024 * 1024;
 
 function openFilesModal(booking: Booking) {
     activeBookingId.value = booking.id;
@@ -165,22 +168,60 @@ function onFileChange(event: Event) {
     uploadForm.file = file;
 }
 
-function submitUpload() {
+async function submitUpload() {
     if (!activeBooking.value || !uploadForm.file) {
         return;
     }
 
-    uploadForm.post(archive.upload(activeBookingId.value!).url, {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            uploadForm.reset();
+    const file = uploadForm.file;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+    chunkUploading.value = true;
+    uploadProgress.value = 0;
 
-            if (fileInput.value) {
-                fileInput.value.value = '';
-            }
-        },
-    });
+    try {
+        const initResponse = await fetch(init({ booking: activeBookingId.value! }).url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
+            body: JSON.stringify({ file_name: file.name, mime_type: file.type || 'application/octet-stream', file_size: file.size, chunk_size: CHUNK_SIZE, total_chunks: totalChunks }),
+        });
+
+        if (!initResponse.ok) {
+throw new Error('init');
+}
+
+        const { upload_id: uploadId } = await initResponse.json();
+
+        for (let index = 0; index < totalChunks; index++) {
+            const body = new FormData();
+            body.append('index', String(index));
+            body.append('chunk', file.slice(index * CHUNK_SIZE, Math.min(file.size, (index + 1) * CHUNK_SIZE)), file.name);
+            const response = await fetch(chunk({ booking: activeBookingId.value!, upload: uploadId }).url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body });
+
+            if (!response.ok) {
+throw new Error('chunk');
+}
+
+            uploadProgress.value = Math.round(((index + 1) / totalChunks) * 100);
+        }
+
+        const completeResponse = await fetch(complete({ booking: activeBookingId.value!, upload: uploadId }).url, { method: 'POST', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf } });
+
+        if (!completeResponse.ok) {
+throw new Error('complete');
+}
+
+        router.reload({ preserveScroll: true });
+        uploadForm.reset();
+
+        if (fileInput.value) {
+fileInput.value.value = '';
+}
+    } catch {
+        uploadForm.setError('file', 'فشل رفع الملف، حاول مرة أخرى.');
+    } finally {
+        chunkUploading.value = false;
+    }
 }
 
 function deleteMedia(mediaId: number) {
@@ -697,11 +738,11 @@ function goToPage(page: number) {
                     <button
                         type="submit"
                         class="flex shrink-0 items-center gap-2 rounded-lg bg-hospital-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                        :disabled="!uploadForm.file || uploadForm.processing"
+                        :disabled="!uploadForm.file || uploadForm.processing || chunkUploading"
                     >
                         <Upload class="h-4 w-4" />
                         {{
-                            uploadForm.processing
+                            chunkUploading
                                 ? `جارٍ الرفع... ${uploadForm.progress?.percentage ?? 0}%`
                                 : 'رفع'
                         }}

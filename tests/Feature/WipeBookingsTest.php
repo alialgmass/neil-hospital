@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\Account;
@@ -17,6 +18,7 @@ use Modules\Clinic\Models\ClinicSheet;
 use Modules\Clinic\Models\MedicalExamination;
 use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Models\DoctorDebtSettlement;
 use Modules\Doctor\Models\DoctorEntitlement;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Labs\Models\DiagnosticResult;
@@ -171,12 +173,40 @@ class WipeBookingsTest extends TestCase
 
         $this->assertDatabaseHas('bookings', ['id' => $booking->id]);
 
+        $debtDoctor = Doctor::create(['name' => 'Debt Doctor', 'is_active' => true, 'fee_type' => 'fixed', 'fee_value' => 10]);
+        DoctorDebtSettlement::create([
+            'doctor_id' => $debtDoctor->id,
+            'booking_id' => $booking->id,
+            'amount' => 25,
+            'type' => 'incurred',
+        ]);
+        DB::table('monthly_settlements')->insert([
+            'month_period' => '2026-11', 'total_revenue' => 1, 'total_expenses' => 1,
+            'total_doctor_claims' => 1, 'net_surplus_deficit' => 0, 'is_locked' => false,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $accounts = Account::query()->limit(2)->pluck('id')->values();
+        DB::table('journal_entries')->insert([
+            'id' => (string) Str::ulid(), 'date' => today(), 'description' => 'wipe',
+            'debit_account_id' => $accounts[0], 'credit_account_id' => $accounts[1],
+            'amount' => 1, 'source' => 'manual', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        DB::table('treasury_entries')->insert([
+            'id' => (string) Str::ulid(), 'type' => 'in', 'description' => 'wipe',
+            'amount' => 1, 'date' => today(), 'source' => 'manual',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
         $response = $this->actingAs($admin)->delete(route('settings.wipe-bookings'));
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
 
         $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
+        $this->assertDatabaseCount('journal_entries', 0);
+        $this->assertDatabaseCount('treasury_entries', 0);
+        $this->assertDatabaseCount('doctor_debt_settlements', 0);
+        $this->assertDatabaseCount('monthly_settlements', 0);
         $this->assertDatabaseMissing('booking_services', ['booking_id' => $booking->id]);
         $this->assertDatabaseMissing('clinic_sheets', ['booking_id' => $booking->id]);
         $this->assertDatabaseMissing('medical_examinations', ['booking_id' => $booking->id]);

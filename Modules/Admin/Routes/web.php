@@ -89,6 +89,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:archive.upload')
         ->name('archive.upload');
 
+    Route::post('/archive/{booking}/upload/init', [ArchiveController::class, 'initializeChunkedUpload'])
+        ->middleware('can:archive.upload')
+        ->name('archive.upload.init');
+
+    Route::post('/archive/{booking}/upload/{upload}/chunk', [ArchiveController::class, 'uploadChunk'])
+        ->middleware('can:archive.upload')
+        ->name('archive.upload.chunk');
+
+    Route::post('/archive/{booking}/upload/{upload}/complete', [ArchiveController::class, 'completeChunkedUpload'])
+        ->middleware('can:archive.upload')
+        ->name('archive.upload.complete');
+
     Route::delete('/archive/media/{media}', [ArchiveController::class, 'destroyMedia'])
         ->middleware('can:archive.delete_file')
         ->name('archive.media.destroy');

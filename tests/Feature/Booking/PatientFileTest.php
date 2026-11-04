@@ -27,8 +27,9 @@ class PatientFileTest extends TestCase
         parent::setUp();
 
         $permission = Permission::firstOrCreate(['name' => 'booking.view', 'guard_name' => 'web']);
+        $uploadPermission = Permission::firstOrCreate(['name' => 'archive.upload', 'guard_name' => 'web']);
         $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $role->givePermissionTo($permission);
+        $role->givePermissionTo([$permission, $uploadPermission]);
         $this->user = User::factory()->create();
         $this->user->assignRole($role);
     }
@@ -78,6 +79,34 @@ class PatientFileTest extends TestCase
         $response->assertInertia(fn ($page) => $page->component('booking/PatientFile')
             ->where('bookings.0.media_files.0.name', 'scan.jpg')
         );
+    }
+
+    public function test_archive_upload_can_be_completed_in_chunks(): void
+    {
+        Storage::fake('local');
+        $this->actingAs($this->user);
+        $booking = $this->makeBooking('TST-CHUNK');
+        $file = UploadedFile::fake()->image('large-scan.jpg');
+
+        $init = $this->postJson(route('archive.upload.init', $booking), [
+            'file_name' => 'large-scan.jpg',
+            'mime_type' => 'image/jpeg',
+            'file_size' => $file->getSize(),
+            'chunk_size' => 1048576,
+            'total_chunks' => 1,
+        ])->assertOk();
+        $uploadId = $init->json('upload_id');
+
+        $this->post(route('archive.upload.chunk', [$booking, $uploadId]), [
+            'index' => 0,
+            'chunk' => $file,
+        ])->assertOk();
+
+        $this->post(route('archive.upload.complete', [$booking, $uploadId]))
+            ->assertRedirect();
+
+        $this->assertCount(1, $booking->fresh()->getMedia('archive-files'));
+        $this->assertDatabaseMissing('archive_upload_sessions', ['id' => $uploadId]);
     }
 
     public function test_patient_file_exposes_full_patient_identity_fields(): void

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Surgery;
 
+use App\Enums\Department;
 use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
@@ -114,6 +116,37 @@ class RecordSuppliesBulkTest extends TestCase
         $this->assertCount(1, $surgery->supplies_used);
         $this->assertEquals(10, $surgery->supplies_used[0]['qty']);
         $this->assertEquals(50.0, (float) $surgery->supply_total);
+    }
+
+    public function test_empty_bundle_resyncs_already_posted_doctor_dues(): void
+    {
+        $surgery = $this->makeSurgery();
+        $surgery->booking->update(['paid_amount' => 1000, 'pay_status' => 'paid']);
+        $bundle = SupplyBundle::create(['name' => 'Ø¨Ù†Ø¯ ÙØ§Ø±Øº', 'code' => 'B-'.uniqid(), 'price' => 200, 'is_active' => true]);
+
+        app(AutoPostDoctorDuesAction::class)->execute(
+            Department::Surgery,
+            1000,
+            $surgery->surgeon_id,
+            $surgery->surgeon->name,
+            $surgery->booking->file_no,
+            idempotencyKey: 'doctor_dues:'.$surgery->booking->file_no.':initial',
+        );
+
+        $this->actingAs($this->userWithPermissions(['surgery.write']))
+            ->post("/surgery/{$surgery->id}/supplies", [
+                'bundles' => [['bundle_id' => $bundle->id, 'qty' => 1, 'selected_items' => []]],
+            ])
+            ->assertRedirect();
+
+        $liveAmount = JournalEntry::query()
+            ->where('reference', $surgery->booking->file_no)
+            ->where('source', 'doctor_shift')
+            ->whereNull('reversed_at')
+            ->whereNull('reversal_of_id')
+            ->sum('amount');
+
+        $this->assertEquals(800.0, (float) $liveAmount);
     }
 
     public function test_adds_many_supplies_in_one_request_and_appends_to_existing_lines(): void

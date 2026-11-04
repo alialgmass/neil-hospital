@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ClipboardList, PackageOpen, Pencil, Trash2, T
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchableSelect from '@/components/shared/SearchableSelect.vue'
 import SearchBar from '@/components/shared/SearchBar.vue'
 import StatCard from '@/components/shared/StatCard.vue'
 import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
@@ -115,7 +116,7 @@ const form = useForm({
     department: '',
     reason: '',
     notes: '',
-    items: [] as { item_id: string; item_name: string; qty: number; unit_cost: number }[],
+    items: [] as { item_id: string; item_name: string; item_search: string; qty: number; unit_cost: number }[],
 })
 
 const formTotal = computed(() =>
@@ -123,20 +124,18 @@ const formTotal = computed(() =>
 )
 
 function addRow() {
-    form.items.push({ item_id: '', item_name: '', qty: 1, unit_cost: 0 })
+    form.items.push({ item_id: '', item_name: '', item_search: '', qty: 1, unit_cost: 0 })
 }
 
 function removeRow(idx: number) {
     form.items.splice(idx, 1)
 }
 
-function onItemSelect(idx: number) {
-    const found = props.selectableItems.find((i) => i.id === form.items[idx].item_id)
-
-    if (found) {
-        form.items[idx].item_name = found.name
-        form.items[idx].unit_cost = found.unit_cost
-    }
+function onSearchableItemSelect(idx: number, selected: { id: string; name: string; unit_cost?: number }) {
+    form.items[idx].item_id = selected.id
+    form.items[idx].item_name = selected.name
+    form.items[idx].item_search = selected.name
+    form.items[idx].unit_cost = Number(selected.unit_cost ?? 0)
 }
 
 const editingPermitId = ref<string | null>(null)
@@ -165,6 +164,7 @@ function openEdit(permit: Permit) {
     form.items = permit.items.map((item) => ({
         item_id: item.item_id ?? '',
         item_name: item.item_name,
+        item_search: item.item_name,
         qty: Number(item.qty),
         unit_cost: Number(item.unit_cost),
     }))
@@ -443,12 +443,8 @@ function submitIssue() {
                             <tbody>
                                 <tr v-for="(item, idx) in form.items" :key="idx" class="border-t border-hospital-border">
                                     <td class="px-3 py-2">
-                                        <select v-model="item.item_id" class="input-field text-xs" @change="onItemSelect(idx)">
+                                        <SearchableSelect v-model="item.item_search" endpoint="/purchases/items/search" placeholder="Ø§Ø¨Ø­Ø« Ø¨Ø§Ù„Ø§Ø³Ù… Ø£Ùˆ Ø§Ù„ÙƒÙˆØ¯..." @select="onSearchableItemSelect(idx, $event)" />
                                             <option value="">— اختر صنف —</option>
-                                            <option v-for="inv in selectableItems" :key="inv.id" :value="inv.id">
-                                                {{ inv.name }} ({{ inv.quantity }} {{ inv.unit }})
-                                            </option>
-                                        </select>
                                     </td>
                                     <td class="px-3 py-2">
                                         <input v-model.number="item.qty" class="input-field text-center text-xs" type="number" min="0.01" step="0.01" placeholder="0" />

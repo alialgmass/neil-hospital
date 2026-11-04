@@ -4,9 +4,6 @@ namespace Modules\Admin\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Modules\Accounting\Enums\JournalSource;
-use Modules\Accounting\Models\JournalEntry;
-use Modules\Accounting\Models\TreasuryEntry;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\BookingService;
 use Modules\Clinic\Models\ClinicSheet;
@@ -28,12 +25,14 @@ class WipeBookingsAction
         return DB::transaction(function () {
             $totalBookings = Booking::count();
 
-            if ($totalBookings === 0) {
-                return 0;
-            }
-
             $bookingIds = Booking::pluck('id')->all();
-            $fileNumbers = Booking::whereNotNull('file_no')->pluck('file_no')->all();
+            // Remove accounting children before the booking cleanup. This
+            // also clears accounting-only history when there are no bookings.
+            DB::table('journal_entries')->delete();
+            DB::table('treasury_entries')->delete();
+            DB::table('doctor_debt_settlements')->delete();
+            DB::table('monthly_settlements')->delete();
+            DB::table('accounting_alignment_log')->delete();
 
             // 1. Spatie Media Library files associated with Booking and related clinical models
             $modelTypes = [
@@ -79,46 +78,13 @@ class WipeBookingsAction
             // 9. Booking services
             BookingService::whereIn('booking_id', $bookingIds)->delete();
 
-            // 10. Treasury entries linked to bookings
-            TreasuryEntry::whereIn('booking_id', $bookingIds)
-                ->orWhereIn('source', [
-                    JournalSource::BOOKING->value,
-                    JournalSource::AUTO_BOOKING->value,
-                ])
-                ->delete();
-
-            // 11. Journal entries linked to bookings (by reference file numbers or booking source or idempotency keys)
-            if (! empty($fileNumbers)) {
-                JournalEntry::whereIn('reference', $fileNumbers)
-                    ->orWhere(function ($q) use ($fileNumbers) {
-                        foreach ($fileNumbers as $fileNo) {
-                            $q->orWhere('reference', 'REV-'.$fileNo);
-                        }
-                    })
-                    ->orWhereIn('source', [
-                        JournalSource::BOOKING->value,
-                        JournalSource::AUTO_BOOKING->value,
-                    ])
-                    ->orWhere(function ($q) {
-                        $q->where('idempotency_key', 'like', 'booking_%')
-                            ->orWhere('idempotency_key', 'like', 'doctor_entitlement:%')
-                            ->orWhere('idempotency_key', 'like', 'insurance_claim:%');
-                    })
-                    ->delete();
-            } else {
-                JournalEntry::whereIn('source', [
-                    JournalSource::BOOKING->value,
-                    JournalSource::AUTO_BOOKING->value,
-                ])->delete();
-            }
-
-            // 12. Activity logs for bookings
+            // 10. Activity logs for bookings
             DB::table('activity_logs')
                 ->where('module', 'booking')
                 ->orWhereIn('record_id', $bookingIds)
                 ->delete();
 
-            // 13. Delete all bookings
+            // 11. Delete all bookings
             Booking::query()->delete();
 
             return $totalBookings;
