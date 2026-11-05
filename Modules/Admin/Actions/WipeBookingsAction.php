@@ -33,6 +33,8 @@ class WipeBookingsAction
             DB::table('doctor_debt_settlements')->delete();
             DB::table('monthly_settlements')->delete();
             DB::table('accounting_alignment_log')->delete();
+            DB::table('dr_payments')->delete();
+            DB::table('insurance_claims')->delete();
 
             // 1. Spatie Media Library files associated with Booking and related clinical models
             $modelTypes = [

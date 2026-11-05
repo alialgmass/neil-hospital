@@ -180,6 +180,11 @@ class WipeBookingsTest extends TestCase
             'amount' => 25,
             'type' => 'incurred',
         ]);
+        DB::table('dr_payments')->insert([
+            'id' => (string) Str::ulid(), 'doctor_id' => $debtDoctor->id, 'amount' => 50,
+            'paid_at' => today(), 'method' => 'cash',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
         DB::table('monthly_settlements')->insert([
             'month_period' => '2026-11', 'total_revenue' => 1, 'total_expenses' => 1,
             'total_doctor_claims' => 1, 'net_surplus_deficit' => 0, 'is_locked' => false,
@@ -207,6 +212,8 @@ class WipeBookingsTest extends TestCase
         $this->assertDatabaseCount('treasury_entries', 0);
         $this->assertDatabaseCount('doctor_debt_settlements', 0);
         $this->assertDatabaseCount('monthly_settlements', 0);
+        $this->assertDatabaseCount('dr_payments', 0);
+        $this->assertDatabaseCount('insurance_claims', 0);
         $this->assertDatabaseMissing('booking_services', ['booking_id' => $booking->id]);
         $this->assertDatabaseMissing('clinic_sheets', ['booking_id' => $booking->id]);
         $this->assertDatabaseMissing('medical_examinations', ['booking_id' => $booking->id]);
