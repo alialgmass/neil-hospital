@@ -212,6 +212,8 @@ class WipeBookingsTest extends TestCase
         $this->assertDatabaseCount('treasury_entries', 0);
         $this->assertDatabaseCount('doctor_debt_settlements', 0);
         $this->assertDatabaseCount('monthly_settlements', 0);
+        $this->assertDatabaseCount('doctor_entitlements', 0);
+        $this->assertDatabaseCount('booking_doctor_delegations', 0);
         $this->assertDatabaseCount('dr_payments', 0);
         $this->assertDatabaseCount('insurance_claims', 0);
         $this->assertDatabaseMissing('booking_services', ['booking_id' => $booking->id]);

@@ -57,10 +57,10 @@ class WipeBookingsAction
                 });
 
             // 2. Doctor delegations
-            BookingDoctorDelegation::whereIn('booking_id', $bookingIds)->delete();
+            BookingDoctorDelegation::query()->delete();
 
             // 3. Doctor entitlements
-            DoctorEntitlement::whereIn('booking_id', $bookingIds)->delete();
+            DoctorEntitlement::query()->delete();
 
             // 4. Insurance claims
             InsuranceClaim::whereIn('booking_id', $bookingIds)->delete();
