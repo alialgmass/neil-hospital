@@ -78,6 +78,7 @@ return [
         'settings.manage' => 'إدارة الإعدادات',
         'hide_amounts' => 'إخفاء المبالغ',
         'transfer_medical_record' => 'نقل الملف الطبي',
+        'insurance.audit' => 'Ø§Ù„ØªØ¯Ù‚ÙŠÙ‚ ÙˆØ§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„ØªØ­ØµÙŠÙ„',
     ],
 
     /* Labels for permission groups (the prefix before the first dot). */

@@ -6,6 +6,10 @@ import {
     collect,
     convertDeposit,
     decideDeposit,
+    approveCollection,
+    rejectCollection,
+    closeDay,
+    collectCash,
 } from '@/actions/Modules/Insurance/Controllers/CollectionConsoleController';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import Modal from '@/components/shared/Modal.vue';
@@ -31,14 +35,21 @@ const props = defineProps<{
     deposits: { id: string; patient: string | null; company: string | null; service: string | null; amount: number; paid_on: string | null; decision: string; decision_label: string; refunded: boolean; converted: boolean }[];
     flags: { kind: string; severity: 'high' | 'medium'; title: string; detail: string }[];
     log: { time: string | null; user: string | null; action: string; detail: string | null; record_id: string | null }[];
+    approvals: { id: string; claim_id: string; reference: string | null; amount: number; discount: number; net: number; reason: string | null; why: string; recorded_by: string | null; recorded_at: string | null }[];
+    cash: { id: string; patient: string | null; company: string | null; description: string; department: string; amount: number; entry_date: string | null; status: string }[];
+    closures: { date: string; user: string | null }[];
+    todayCollection: { count: number; sum: number; closed: boolean };
+    auditIntact: boolean;
 }>();
 
 const { can } = usePermissions();
 const canCollect = computed(() => can('insurance.collect'));
+const canAudit = computed(() => can('insurance.audit'));
 
 const tabs = [
     ['dash', 'لوحة التحكم'], ['reception', 'الاستقبال'], ['deposits', 'الدفع المؤقت'],
     ['board', 'دورة التحصيل'], ['companies', 'متابعة الشركات'], ['claims', 'كل المطالبات'], ['audit', 'الرقابة والتدقيق'],
+    ['cash', 'نقدي المرضى'],
 ] as const;
 const activeTab = ref<(typeof tabs)[number][0]>('dash');
 
@@ -81,6 +92,23 @@ function decide(id: string, decision: 'approved' | 'rejected') {
 
 function convert(id: string) {
     router.post(convertDeposit(id).url, {}, { preserveScroll: true });
+}
+
+function approve(id: string) {
+    router.post(approveCollection(id).url, {}, { preserveScroll: true });
+}
+function reject(id: string) {
+    const reason = window.prompt('سبب الرفض');
+
+    if (reason) {
+router.post(rejectCollection(id).url, { reason }, { preserveScroll: true });
+}
+}
+function closeCollectionDay() {
+    router.post(closeDay().url, {}, { preserveScroll: true });
+}
+function collectPatientCash(id: string) {
+    router.post(collectCash(id).url, {}, { preserveScroll: true });
 }
 
 const ageClass = (age: number | null) => (age === null ? '' : age <= 30 ? 'text-hospital-success' : age <= 60 ? 'text-hospital-warning' : 'text-hospital-danger');
@@ -224,8 +252,28 @@ const ageClass = (age: number | null) => (age === null ? '' : age <= 30 ? 'text-
             </table>
         </section>
 
+        <!-- Patient cash -->
+        <section v-else-if="activeTab === 'cash'" class="space-y-4">
+            <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <div class="rounded-xl border bg-white p-3"><div class="text-xs text-gray-500">مبالغ نقدية مستحقة</div><div class="text-2xl font-bold">{{ cash.filter((entry) => entry.status === 'due').length }}</div></div>
+                <div class="rounded-xl border bg-white p-3"><div class="text-xs text-gray-500">إجمالي المستحق</div><div class="text-2xl font-bold">{{ egp(cash.filter((entry) => entry.status === 'due').reduce((sum, entry) => sum + entry.amount, 0)) }}</div></div>
+                <div class="rounded-xl border bg-white p-3"><div class="text-xs text-gray-500">مبالغ محصلة</div><div class="text-2xl font-bold">{{ cash.filter((entry) => entry.status === 'paid').length }}</div></div>
+            </div>
+            <div class="overflow-x-auto rounded-xl border bg-white"><table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-500"><tr><th class="p-2 text-start">المريض</th><th class="p-2 text-start">البيان</th><th class="p-2 text-end">المبلغ</th><th class="p-2 text-start">الحالة</th><th class="p-2" /></tr></thead>
+                <tbody><tr v-for="entry in cash" :key="entry.id" class="border-t"><td class="p-2">{{ entry.patient }}</td><td class="p-2">{{ entry.description }}</td><td class="p-2 text-end">{{ egp(entry.amount) }}</td><td class="p-2">{{ entry.status === 'due' ? 'مستحق' : 'مدفوع' }}</td><td class="p-2 text-end"><button v-if="canCollect && entry.status === 'due'" class="rounded bg-hospital-primary px-2 py-1 text-white" @click="collectPatientCash(entry.id)">تحصيل</button></td></tr></tbody>
+            </table></div>
+        </section>
+
         <!-- Audit -->
         <section v-else class="space-y-4">
+            <div v-if="canAudit" class="flex flex-wrap items-center gap-3 text-sm">
+                <div class="rounded-xl border bg-white p-3">تحصيل اليوم: <b>{{ todayCollection.count }}</b> / {{ egp(todayCollection.sum) }}</div>
+                <div class="rounded-xl border bg-white p-3" :class="auditIntact ? 'text-hospital-success' : 'text-hospital-danger'">{{ auditIntact ? 'سجل التدقيق سليم' : 'سجل التدقيق تم العبث به' }}</div>
+                <button v-if="!todayCollection.closed" class="rounded bg-hospital-danger px-3 py-2 font-bold text-white" @click="closeCollectionDay">إغلاق اليوم</button>
+            </div>
+            <div v-if="canAudit && approvals.length" class="rounded-xl border bg-white p-3"><h3 class="mb-2 font-bold">تحصيلات بانتظار الاعتماد</h3><div v-for="approval in approvals" :key="approval.id" class="flex flex-wrap items-center justify-between gap-2 border-t py-2 text-sm"><span>{{ approval.reference || approval.claim_id }} · {{ egp(approval.net) }} · {{ approval.recorded_by }}</span><span class="flex gap-2"><button class="rounded bg-hospital-primary px-2 py-1 text-white" @click="approve(approval.id)">اعتماد</button><button class="rounded border px-2 py-1" @click="reject(approval.id)">رفض</button></span></div></div>
+            <div v-if="canAudit" class="rounded-xl border bg-white p-3 text-sm"><h3 class="mb-2 font-bold">أيام الإغلاق</h3><div v-for="closure in closures" :key="closure.date" class="border-t py-1">{{ closure.date }} · {{ closure.user }}</div><div v-if="!closures.length" class="text-gray-500">لا توجد أيام مغلقة.</div></div>
             <div class="flex gap-3 text-sm">
                 <div class="rounded-xl border bg-white p-3">إجمالي التنبيهات <b class="mr-2 text-lg">{{ flags.length }}</b></div>
                 <div class="rounded-xl border bg-white p-3">خطر عالي <b class="mr-2 text-lg text-hospital-danger">{{ highFlags }}</b></div>

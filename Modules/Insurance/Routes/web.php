@@ -22,9 +22,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('can:insurance.collect')->prefix('collection')->name('collection.')->group(function () {
             Route::post('/claims/{id}/advance', [CollectionConsoleController::class, 'advance'])->name('claims.advance');
             Route::post('/claims/{id}/collect', [CollectionConsoleController::class, 'collect'])->name('claims.collect');
+            Route::post('/cash/{id}/collect', [CollectionConsoleController::class, 'collectCash'])->name('cash.collect');
+            Route::post('/reception/{id}/decision', [CollectionConsoleController::class, 'setDecision'])->name('reception.decision');
             Route::post('/deposits', [CollectionConsoleController::class, 'storeDeposit'])->name('deposits.store');
             Route::post('/deposits/{id}/decision', [CollectionConsoleController::class, 'decideDeposit'])->name('deposits.decision');
             Route::post('/deposits/{id}/convert', [CollectionConsoleController::class, 'convertDeposit'])->name('deposits.convert');
+        });
+
+        Route::middleware('can:insurance.audit')->prefix('collection')->name('collection.')->group(function () {
+            Route::post('/claims/approvals/{id}/approve', [CollectionConsoleController::class, 'approveCollection'])->name('approvals.approve');
+            Route::post('/claims/approvals/{id}/reject', [CollectionConsoleController::class, 'rejectCollection'])->name('approvals.reject');
+            Route::post('/close-day', [CollectionConsoleController::class, 'closeDay'])->name('close-day');
         });
 
         Route::middleware('can:insurance.price_lists.edit')->group(function () {

@@ -204,6 +204,7 @@ class BookingService
             'pay_status' => $payStatus,
             'pay_method' => $data['pay_method'],
             'ins_company_id' => $isInsurance ? ($data['ins_company_id'] ?? null) : null,
+            'insurance_decision' => $isInsurance ? 'issued' : 'not_required',
             'ins_amount' => $insAmount,
             'discount' => $discount,
         ]);

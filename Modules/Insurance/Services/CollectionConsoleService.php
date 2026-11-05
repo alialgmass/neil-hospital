@@ -7,8 +7,12 @@ use Modules\Admin\Models\ActivityLog;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Insurance\Enums\DepositDecision;
+use Modules\Insurance\Models\InsuranceAuditLog;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\Models\InsuranceCollectionApproval;
+use Modules\Insurance\Models\InsuranceCollectionClosure;
 use Modules\Insurance\Models\InsuranceCompany;
+use Modules\Insurance\Models\PatientCashEntry;
 use Modules\Insurance\Models\PendingDeposit;
 use Modules\Insurance\States\ApprovedState;
 use Modules\Insurance\States\ClaimStatus;
@@ -44,6 +48,9 @@ class CollectionConsoleService
         $claims = InsuranceClaim::with(['company', 'booking', 'service'])->latest('created_at')->get();
         $reception = $this->reception();
         $deposits = PendingDeposit::with(['booking', 'company'])->latest('created_at')->get();
+        $auditLog = $this->log();
+        $approvals = InsuranceCollectionApproval::with(['claim', 'recorder'])->where('status', 'pending')->latest()->get();
+        $cash = PatientCashEntry::with(['booking', 'company'])->latest()->get();
 
         return [
             'counts' => $this->counts($claims),
@@ -53,8 +60,22 @@ class CollectionConsoleService
             'claims' => $claims->map(fn (InsuranceClaim $c) => $this->claimRow($c))->values()->all(),
             'reception' => $reception->map(fn (Booking $b) => $this->receptionRow($b))->values()->all(),
             'deposits' => $deposits->map(fn (PendingDeposit $d) => $this->depositRow($d))->values()->all(),
+            'approvals' => $approvals->map(fn (InsuranceCollectionApproval $a) => [
+                'id' => $a->id, 'claim_id' => $a->claim_id, 'reference' => $a->claim?->claim_reference,
+                'amount' => $a->amount, 'discount' => $a->discount, 'tax' => $a->tax, 'net' => $a->net,
+                'reason' => $a->reason, 'why' => $a->why, 'recorded_by' => $a->recorder?->name, 'recorded_at' => $a->recorded_at?->toDateTimeString(),
+            ])->values()->all(),
+            'cash' => $cash->map(fn (PatientCashEntry $e) => [
+                'id' => $e->id, 'booking_id' => $e->booking_id, 'patient' => $e->booking?->patient_name,
+                'company' => $e->company?->name, 'description' => $e->description, 'department' => $e->department,
+                'amount' => $e->amount, 'entry_date' => $e->entry_date?->toDateString(), 'status' => $e->status,
+            ])->values()->all(),
+            'closures' => InsuranceCollectionClosure::with('user')->latest('collection_date')->limit(30)->get()->map(fn (InsuranceCollectionClosure $c) => ['date' => $c->collection_date->toDateString(), 'user' => $c->user?->name])->all(),
+            'todayCollection' => ['count' => InsuranceClaim::whereDate('collected_at', today())->count(), 'sum' => (float) InsuranceClaim::whereDate('collected_at', today())->sum('paid_amount'), 'closed' => InsuranceCollectionClosure::whereDate('collection_date', today())->exists()],
             'flags' => $this->flags($claims, $reception),
-            'log' => $this->log(),
+            'log' => $auditLog['data'],
+            'logPagination' => $auditLog['meta'],
+            'auditIntact' => app(InsuranceAuditService::class)->verify(),
             'stageLabels' => ClaimStatus::labels(),
         ];
     }
@@ -199,6 +220,7 @@ class CollectionConsoleService
             'service' => $booking->service_name,
             'dept' => $booking->dept?->value,
             'date' => $booking->visit_date?->toDateString(),
+            'insurance_decision' => $booking->insurance_decision?->value,
             'price' => $this->num($price),
             'status' => $price > 0 ? 'ready' : 'waiting_pricing',
         ];
@@ -268,6 +290,17 @@ class CollectionConsoleService
                 $add('reception_late', 'high', 'حالة استقبال متأخرة التحويل',
                     "{$booking->patient_name} ({$booking->insuranceCompany?->name}) مسجّلة من {$days} يوم ولسه ما اتحوّلتش لمطالبة — خطر ضياع إيراد.");
             }
+            if ($days > self::RECEPTION_LATE_DAYS && in_array($booking->insurance_decision?->value, ['none', 'deferred'], true)) {
+                $add('insurance_decision_late', 'high', 'قرار التأمين متأخر', "{$booking->patient_name}: لم يُحسم قرار التأمين منذ {$days} أيام.");
+            }
+        }
+
+        foreach (InsuranceCollectionApproval::where('status', 'pending')->get() as $approval) {
+            $add('pending_approval', 'high', 'تحصيل بانتظار الاعتماد', "المطالبة {$approval->claim_id} بانتظار قرار المراجع.");
+        }
+
+        foreach (PendingDeposit::where('decision', DepositDecision::Approved->value)->where('refunded', false)->where('created_at', '<', now()->subDays(7))->get() as $deposit) {
+            $add('deposit_unreturned', 'medium', 'أمانة معتمدة لم تُرد', "الأمانة {$deposit->id} معتمدة منذ أكثر من 7 أيام.");
         }
 
         foreach ($claims as $claim) {
@@ -345,7 +378,15 @@ class CollectionConsoleService
      */
     private function log(): array
     {
-        return ActivityLog::where('module', 'insurance_collection')
+        $logs = InsuranceAuditLog::query()->latest('seq')->paginate(50, ['*'], 'audit_page');
+        if ($logs->isNotEmpty()) {
+            return ['data' => $logs->getCollection()->map(fn (InsuranceAuditLog $l) => [
+                'time' => $l->created_at?->format('Y-m-d H:i'), 'user' => $l->user_name,
+                'action' => $l->action, 'detail' => $l->detail, 'record_id' => $l->claim_id,
+            ])->all(), 'meta' => ['current_page' => $logs->currentPage(), 'last_page' => $logs->lastPage(), 'total' => $logs->total()]];
+        }
+
+        $legacy = ActivityLog::where('module', 'insurance_collection')
             ->latest('created_at')
             ->limit(100)
             ->get()
@@ -356,6 +397,8 @@ class CollectionConsoleService
                 'detail' => $l->description,
                 'record_id' => $l->record_id,
             ])->all();
+
+        return ['data' => $legacy, 'meta' => ['current_page' => 1, 'last_page' => 1, 'total' => count($legacy)]];
     }
 
     private function num(float|int $value): int|float

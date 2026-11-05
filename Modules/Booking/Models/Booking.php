@@ -19,6 +19,7 @@ use Modules\Clinic\Models\MedicalExamination;
 use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorEntitlement;
+use Modules\Insurance\Enums\InsuranceDecision;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Surgery\Models\Surgery;
@@ -46,6 +47,7 @@ class Booking extends Model implements HasMedia
         'service_id',
         'doctor_id',
         'ins_company_id',
+        'insurance_decision',
         'visit_date',
         'visit_time',
         'price',
@@ -77,6 +79,7 @@ class Booking extends Model implements HasMedia
         'status' => BookingStatus::class,
         'eye_side' => EyeSide::class,
         'kinship_degree' => KinshipDegree::class,
+        'insurance_decision' => InsuranceDecision::class,
     ];
 
     public function doctor(): BelongsTo

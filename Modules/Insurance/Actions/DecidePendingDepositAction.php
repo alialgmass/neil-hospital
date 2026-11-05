@@ -12,6 +12,7 @@ use Modules\Accounting\Services\JournalService;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Insurance\Enums\DepositDecision;
 use Modules\Insurance\Models\PendingDeposit;
+use Modules\Insurance\Services\InsuranceAuditService;
 
 class DecidePendingDepositAction
 {
@@ -19,6 +20,7 @@ class DecidePendingDepositAction
         private readonly JournalService $journal,
         private readonly AccountResolver $accounts,
         private readonly ActivityLogService $activityLog,
+        private readonly InsuranceAuditService $audit,
     ) {}
 
     /**
@@ -64,6 +66,7 @@ class DecidePendingDepositAction
                 recordId: $deposit->id,
                 description: "قرار شركة على دفع مؤقت: {$decision->label()}",
             );
+            $this->audit->record('pending_deposit_decision', "قرار الأمانة: {$decision->value}", auth()->user());
 
             return $deposit;
         });

@@ -68,6 +68,7 @@ return [
         'insurance.write' => 'Manage insurance companies and claims',
         'insurance.price_lists.edit' => 'Edit insurance price lists',
         'insurance.collect' => 'Collect contract claims and manage deposits',
+        'insurance.audit' => 'Audit and approve insurance collections',
         'hr.view' => 'View human resources',
         'hr.manage' => 'Manage human resources and payroll',
         'users.manage' => 'Manage users and roles',

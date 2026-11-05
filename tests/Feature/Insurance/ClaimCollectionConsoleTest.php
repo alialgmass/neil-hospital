@@ -10,8 +10,11 @@ use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Admin\Models\ActivityLog;
 use Modules\Booking\Models\Booking;
+use Modules\Insurance\Models\InsuranceAuditLog;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\Models\InsuranceCollectionApproval;
 use Modules\Insurance\Models\InsuranceCompany;
+use Modules\Insurance\Models\PatientCashEntry;
 use Modules\Insurance\Models\PendingDeposit;
 use Modules\Inventory\Models\Service;
 use Spatie\Permission\Models\Permission;
@@ -35,7 +38,7 @@ class ClaimCollectionConsoleTest extends TestCase
         $this->seed(AccountsSeeder::class);
 
         $this->user = User::factory()->create();
-        foreach (['insurance.view', 'insurance.collect'] as $name) {
+        foreach (['insurance.view', 'insurance.collect', 'insurance.audit'] as $name) {
             Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
             $this->user->givePermissionTo($name);
         }
@@ -213,7 +216,8 @@ class ClaimCollectionConsoleTest extends TestCase
         $this->post(route('insurance.collection.claims.collect', $claim->id), [
             'amount' => 1000, 'discount' => 150, 'reason' => 'خصم تعاقدي موثق',
         ])->assertSessionHasNoErrors();
-        $this->assertEquals('خصم تعاقدي موثق', $claim->refresh()->deduction_reason);
+        $this->assertSame('approved', (string) $claim->refresh()->status);
+        $this->assertDatabaseHas('insurance_collection_approvals', ['claim_id' => $claim->id, 'status' => 'pending']);
     }
 
     public function test_collection_rejects_invalid_amounts_and_unapproved_claims(): void
@@ -239,6 +243,40 @@ class ClaimCollectionConsoleTest extends TestCase
         $this->post(route('insurance.collection.claims.collect', $claim->id), $payload)->assertSessionHasErrors('stage');
 
         $this->assertSame(1, JournalEntry::where('source', 'insurance_collect')->count());
+    }
+
+    public function test_large_collection_waits_for_different_auditor_then_posts_once(): void
+    {
+        $claim = $this->makeClaim('approved', 25000, ['approved_amount' => 25000]);
+        $this->post(route('insurance.collection.claims.collect', $claim->id), ['amount' => 25000, 'discount' => 0])->assertSessionHasNoErrors();
+        $this->assertSame('approved', (string) $claim->refresh()->status);
+        $approval = InsuranceCollectionApproval::sole();
+        $approver = User::factory()->create();
+        $approver->givePermissionTo('insurance.audit');
+        $this->actingAs($approver)->post(route('insurance.collection.approvals.approve', $approval->id))->assertSessionHasNoErrors();
+        $this->assertSame('paid', (string) $claim->refresh()->status);
+        $this->assertSame(1, JournalEntry::where('source', 'insurance_collect')->count());
+    }
+
+    public function test_same_recorder_cannot_approve_and_closed_day_rejects_collection(): void
+    {
+        $claim = $this->makeClaim('approved', 25000, ['approved_amount' => 25000]);
+        $this->post(route('insurance.collection.claims.collect', $claim->id), ['amount' => 25000, 'discount' => 0]);
+        $approval = InsuranceCollectionApproval::sole();
+        $this->post(route('insurance.collection.approvals.approve', $approval->id))->assertSessionHasErrors('approval');
+        $this->post(route('insurance.collection.close-day'))->assertSessionHasNoErrors();
+        $small = $this->makeClaim('approved', 1000, ['approved_amount' => 1000]);
+        $this->post(route('insurance.collection.claims.collect', $small->id), ['amount' => 1000, 'discount' => 0])->assertSessionHasErrors('collection_date');
+    }
+
+    public function test_patient_cash_collection_is_idempotent_and_audited(): void
+    {
+        $booking = $this->makeBooking(400);
+        $entry = PatientCashEntry::create(['booking_id' => $booking->id, 'insurance_company_id' => $this->company->id, 'description' => 'خدمة غير مغطاة', 'department' => 'surgery', 'amount' => 400, 'entry_date' => today(), 'status' => 'due']);
+        $this->post(route('insurance.collection.cash.collect', $entry->id))->assertSessionHasNoErrors();
+        $this->assertSame('paid', $entry->refresh()->status);
+        $this->post(route('insurance.collection.cash.collect', $entry->id))->assertSessionHasErrors('entry');
+        $this->assertTrue(InsuranceAuditLog::where('action', 'cash_collection')->exists());
     }
 
     public function test_actions_require_collect_permission(): void

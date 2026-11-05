@@ -19,6 +19,7 @@ class RecordClaimCollectionRequest extends FormRequest
         return [
             'amount' => ['required', 'numeric', 'gt:0'],
             'discount' => ['required', 'numeric', 'min:0', 'lte:amount'],
+            'discount_reason' => ['nullable', 'string', 'max:1000'],
             'reason' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -11,6 +11,7 @@ use Modules\Accounting\Services\JournalService;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Booking\Models\Booking;
 use Modules\Insurance\Models\PendingDeposit;
+use Modules\Insurance\Services\InsuranceAuditService;
 
 class RecordPendingDepositAction
 {
@@ -18,6 +19,7 @@ class RecordPendingDepositAction
         private readonly JournalService $journal,
         private readonly AccountResolver $accounts,
         private readonly ActivityLogService $activityLog,
+        private readonly InsuranceAuditService $audit,
     ) {}
 
     /**
@@ -56,6 +58,7 @@ class RecordPendingDepositAction
                 recordId: $deposit->id,
                 description: "تسجيل أمانة {$booking->patient_name} — ".number_format($amount).' ج.م',
             );
+            $this->audit->record('pending_deposit', 'تسجيل أمانة مريض', auth()->user());
 
             return $deposit;
         });

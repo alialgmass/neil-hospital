@@ -16,6 +16,8 @@ use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\Models\PatientCashEntry;
+use Modules\Insurance\Models\PriceList;
 use Modules\Insurance\States\DraftState;
 use Modules\Surgery\DTOs\SurgeryData;
 use Modules\Surgery\Services\SurgeryService;
@@ -40,29 +42,41 @@ class CreateBookingAction
         if ($data->insCompanyId) {
             $patientShare = max(0, $data->price - $data->discount - $data->insAmount);
 
-            $claim = InsuranceClaim::create([
-                'booking_id' => $booking->id,
-                'insurance_company_id' => $data->insCompanyId,
-                'service_id' => $data->serviceId,
-                'patient_name' => $data->patientName,
-                'file_no' => $booking->file_no,
-                'service_name' => $data->serviceName ?? '',
-                'invoice_amount' => $data->price,
-                'discount' => $data->discount,
-                'insurance_share' => $data->insAmount,
-                'patient_share' => $patientShare,
-                'approved_amount' => 0,
-                'paid_amount' => 0,
-                'status' => DraftState::class,
-                'service_date' => $data->visitDate,
-                'claim_date' => today()->toDateString(),
-                'created_by' => $createdBy,
-            ]);
+            $hasContractPrice = PriceList::query()->where('ins_company_id', $data->insCompanyId)->where('is_active', true)->whereHas('items', fn ($query) => $query->where('service_id', $data->serviceId))->exists();
+            $hasAnyContract = PriceList::query()->where('ins_company_id', $data->insCompanyId)->where('is_active', true)->exists();
 
-            // Guide §2.3 (1أ): insurance revenue + receivable on the service
-            // day — before the doctor's same-day cash fee below, which
-            // requires it.
-            $this->autoPostInsuranceClaim->recognize($claim);
+            if ($hasAnyContract && ! $hasContractPrice) {
+                PatientCashEntry::create([
+                    'booking_id' => $booking->id, 'insurance_company_id' => $data->insCompanyId,
+                    'description' => "خدمة غير مغطاة: {$booking->service_name}", 'department' => $booking->dept->value,
+                    'amount' => max(0, $data->price - $data->discount), 'entry_date' => $booking->visit_date,
+                    'status' => 'due',
+                ]);
+            } else {
+                $claim = InsuranceClaim::create([
+                    'booking_id' => $booking->id,
+                    'insurance_company_id' => $data->insCompanyId,
+                    'service_id' => $data->serviceId,
+                    'patient_name' => $data->patientName,
+                    'file_no' => $booking->file_no,
+                    'service_name' => $data->serviceName ?? '',
+                    'invoice_amount' => $data->price,
+                    'discount' => $data->discount,
+                    'insurance_share' => $data->insAmount,
+                    'patient_share' => $patientShare,
+                    'approved_amount' => 0,
+                    'paid_amount' => 0,
+                    'status' => DraftState::class,
+                    'service_date' => $data->visitDate,
+                    'claim_date' => today()->toDateString(),
+                    'created_by' => $createdBy,
+                ]);
+
+                // Guide §2.3 (1أ): insurance revenue + receivable on the service
+                // day — before the doctor's same-day cash fee below, which
+                // requires it.
+                $this->autoPostInsuranceClaim->recognize($claim);
+            }
         }
 
         if (in_array($data->dept, [Department::Surgery, Department::Lasik])) {

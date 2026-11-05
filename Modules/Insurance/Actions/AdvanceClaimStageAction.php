@@ -5,6 +5,7 @@ namespace Modules\Insurance\Actions;
 use Illuminate\Validation\ValidationException;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Insurance\Models\InsuranceClaim;
+use Modules\Insurance\Services\InsuranceAuditService;
 use Modules\Insurance\States\ApprovedState;
 use Modules\Insurance\States\ClosedState;
 use Modules\Insurance\States\DraftState;
@@ -18,6 +19,7 @@ class AdvanceClaimStageAction
     public function __construct(
         private readonly UpdateInsuranceClaimAction $updateClaim,
         private readonly ActivityLogService $activityLog,
+        private readonly InsuranceAuditService $audit,
     ) {}
 
     /**
@@ -50,6 +52,7 @@ class AdvanceClaimStageAction
             recordId: $claim->id,
             description: "نقل مرحلة: من \"{$from->label()}\" إلى \"{$claim->status->label()}\"",
         );
+        $this->audit->record('stage_move', "نقل المرحلة من {$from->label()} إلى {$claim->status->label()}", auth()->user(), $claim);
 
         return $claim;
     }

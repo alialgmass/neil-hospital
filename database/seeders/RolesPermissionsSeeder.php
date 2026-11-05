@@ -75,6 +75,7 @@ class RolesPermissionsSeeder extends Seeder
         'insurance.view',
         'insurance.write',
         'insurance.collect',
+        'insurance.audit',
         'insurance.price_lists.edit',
         'hr.view',
         'hr.manage',

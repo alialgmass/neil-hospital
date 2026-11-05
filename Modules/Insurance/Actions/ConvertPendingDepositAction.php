@@ -14,6 +14,7 @@ use Modules\Admin\Services\ActivityLogService;
 use Modules\Insurance\Enums\DepositDecision;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Insurance\Models\PendingDeposit;
+use Modules\Insurance\Services\InsuranceAuditService;
 use Modules\Insurance\States\SubmittedState;
 
 class ConvertPendingDepositAction
@@ -23,6 +24,7 @@ class ConvertPendingDepositAction
         private readonly AccountResolver $accounts,
         private readonly AutoPostInsuranceClaimAction $autoPost,
         private readonly ActivityLogService $activityLog,
+        private readonly InsuranceAuditService $audit,
     ) {}
 
     /**
@@ -92,6 +94,7 @@ class ConvertPendingDepositAction
                 recordId: $claim->id,
                 description: "تحويل أمانة {$booking->patient_name} لمطالبة واسترداد ".number_format($deposit->amount).' ج.م للمريض',
             );
+            $this->audit->record('pending_deposit_convert', 'تحويل الأمانة إلى مطالبة واستردادها', auth()->user(), $claim);
 
             return $claim;
         });
