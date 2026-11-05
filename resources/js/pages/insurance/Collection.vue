@@ -1,4 +1,26 @@
 <script setup lang="ts">
+const ACTION_LABELS: Record<string, string> = {
+    collect: 'تحصيل',
+    advance_stage: 'نقل مرحلة',
+    stage_move: 'نقل مرحلة',
+    create: 'إنشاء',
+    update: 'تعديل',
+    delete: 'حذف',
+    deposit: 'دفع مؤقت',
+    deposit_convert: 'تحويل دفع مؤقت لمطالبة',
+    deposit_decision: 'قرار على دفع مؤقت',
+    pending_deposit: 'دفع مؤقت',
+    pending_deposit_convert: 'تحويل دفع مؤقت لمطالبة',
+    pending_deposit_decision: 'قرار على دفع مؤقت',
+    collection_recorded: 'تسجيل تحصيل',
+    collection_pending: 'تحصيل بانتظار الاعتماد',
+    collection_approved: 'اعتماد تحصيل',
+    collection_rejected: 'رفض تحصيل',
+    day_close: 'إقفال يومي',
+    cash_collection: 'تحصيل نقدي من مريض',
+    reception_decision: 'قرار التأمين',
+};
+const actionLabel = (action: string): string => ACTION_LABELS[action] ?? action;
 import { router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import {
@@ -287,7 +309,7 @@ const ageClass = (age: number | null) => (age === null ? '' : age <= 30 ? 'text-
             <div class="overflow-x-auto rounded-xl border bg-white">
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-gray-500"><tr><th class="p-2 text-start">الوقت</th><th class="p-2 text-start">المستخدم</th><th class="p-2 text-start">الحركة</th><th class="p-2 text-start">التفاصيل</th></tr></thead>
-                    <tbody><tr v-for="(l, i) in log" :key="i" class="border-t"><td class="p-2 tabular-nums">{{ l.time }}</td><td class="p-2">{{ l.user }}</td><td class="p-2">{{ l.action }}</td><td class="p-2">{{ l.detail }}</td></tr></tbody>
+                    <tbody><tr v-for="(l, i) in log" :key="i" class="border-t"><td class="p-2 tabular-nums">{{ l.time }}</td><td class="p-2">{{ l.user }}</td><td class="p-2">{{ actionLabel(l.action) }}</td><td class="p-2">{{ l.detail }}</td></tr></tbody>
                 </table>
             </div>
         </section>

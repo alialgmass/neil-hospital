@@ -185,6 +185,11 @@ class WipeBookingsTest extends TestCase
             'paid_at' => today(), 'method' => 'cash',
             'created_at' => now(), 'updated_at' => now(),
         ]);
+        $supplierId = (string) Str::ulid();
+        DB::table('suppliers')->insert(['id' => $supplierId, 'name' => 'S', 'balance' => 500, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('purchase_invoices')->insert(['id' => (string) Str::ulid(), 'supplier_id' => $supplierId, 'invoice_no' => 'PI-WIPE', 'invoice_date' => today(), 'total' => 500, 'status' => 'posted', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('activity_logs')->insert(['module' => 'insurance_collection', 'action' => 'collect', 'description' => 'x', 'created_at' => now()]);
+        DB::table('insurance_audit_logs')->insert(['seq' => 1, 'user_name' => 'u', 'action' => 'collection_recorded', 'detail' => 'x', 'prev_hash' => '0', 'hash' => 'h', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('monthly_settlements')->insert([
             'month_period' => '2026-11', 'total_revenue' => 1, 'total_expenses' => 1,
             'total_doctor_claims' => 1, 'net_surplus_deficit' => 0, 'is_locked' => false,
@@ -214,6 +219,12 @@ class WipeBookingsTest extends TestCase
         $this->assertDatabaseCount('monthly_settlements', 0);
         $this->assertDatabaseCount('doctor_entitlements', 0);
         $this->assertDatabaseCount('booking_doctor_delegations', 0);
+        $this->assertDatabaseCount('purchase_invoices', 0);
+        $this->assertDatabaseCount('purchase_invoice_items', 0);
+        $this->assertDatabaseCount('supplier_payments', 0);
+        $this->assertDatabaseHas('suppliers', ['id' => $supplierId, 'balance' => 0]);
+        $this->assertDatabaseMissing('activity_logs', ['module' => 'insurance_collection']);
+        $this->assertDatabaseCount('insurance_audit_logs', 0);
         $this->assertDatabaseCount('dr_payments', 0);
         $this->assertDatabaseCount('insurance_claims', 0);
         $this->assertDatabaseMissing('booking_services', ['booking_id' => $booking->id]);

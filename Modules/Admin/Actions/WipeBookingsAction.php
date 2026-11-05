@@ -4,6 +4,7 @@ namespace Modules\Admin\Actions;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\BookingService;
 use Modules\Clinic\Models\ClinicSheet;
@@ -35,6 +36,18 @@ class WipeBookingsAction
             DB::table('accounting_alignment_log')->delete();
             DB::table('dr_payments')->delete();
             DB::table('insurance_claims')->delete();
+            // Insurance collection audit trail, approvals and day closures.
+            DB::table('activity_logs')->where('module', 'insurance_collection')->delete();
+            foreach (['insurance_audit_logs', 'insurance_collection_approvals', 'insurance_collection_closures', 'patient_cash_entries'] as $table) {
+                if (Schema::hasTable($table)) {
+                    DB::table($table)->delete();
+                }
+            }
+            // Purchases (returns are cancelled invoices) and supplier payments.
+            DB::table('supplier_payments')->delete();
+            DB::table('purchase_invoice_items')->delete();
+            DB::table('purchase_invoices')->delete();
+            DB::table('suppliers')->update(['balance' => 0]);
 
             // 1. Spatie Media Library files associated with Booking and related clinical models
             $modelTypes = [
