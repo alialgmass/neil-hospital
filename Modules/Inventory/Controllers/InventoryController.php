@@ -9,8 +9,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
 use Modules\Inventory\Enums\ItemCategory;
 use Modules\Inventory\Enums\ItemUnit;
+use Modules\Inventory\Exports\InventoryExport;
 use Modules\Inventory\Services\InventoryService;
 
 class InventoryController extends Controller
@@ -22,7 +24,7 @@ class InventoryController extends Controller
 
     public function index(): Response
     {
-        $filters = request()->only(['search', 'category', 'low_stock']);
+        $filters = request()->only(['search', 'category', 'low_stock', 'status']);
 
         return Inertia::render('inventory/Index', [
             'items' => $this->inventoryService->list($filters, 30),
@@ -33,6 +35,13 @@ class InventoryController extends Controller
             'openOrdersCount' => $this->inventoryService->openOrdersCount(),
             'filters' => $filters,
         ]);
+    }
+
+    public function export()
+    {
+        $filters = request()->only(['search', 'category', 'low_stock', 'status']);
+
+        return Excel::download(new InventoryExport($this->inventoryService->all($filters)), 'inventory.xlsx');
     }
 
     public function store(Request $request): RedirectResponse
@@ -78,5 +87,23 @@ class InventoryController extends Controller
         $this->activityLog->log('item_updated', 'inventory', $id, "تعديل صنف: {$item->name}");
 
         return back()->with('success', 'تم تعديل الصنف بنجاح.');
+    }
+
+    public function toggleActive(Request $request, string $id): RedirectResponse
+    {
+        $data = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $item = $this->inventoryService->setActive($id, (bool) $data['is_active']);
+
+        $this->activityLog->log(
+            $item->is_active ? 'item_activated' : 'item_deactivated',
+            'inventory',
+            $id,
+            ($item->is_active ? 'تفعيل صنف: ' : 'إيقاف صنف: ').$item->name,
+        );
+
+        return back()->with('success', $item->is_active ? 'تم تفعيل الصنف.' : 'تم إيقاف الصنف.');
     }
 }

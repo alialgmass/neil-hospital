@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Eye, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
+import { FileText, Stethoscope, CheckCircle, TrendingUp } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
+import booking from '@/routes/booking';
+import { weekdayDoctorFallback } from '@/utils/weekdayDoctor';
 
 interface Booking {
     id: string;
@@ -15,8 +17,12 @@ interface Booking {
     pay_status: 'unpaid' | 'partial' | 'paid';
     price: number;
     doctor?: { name: string };
-    clinic_sheet?: { diagnosis?: string } | null;
+    clinic_sheet?: { diagnosis?: string; referral_to?: string | null } | null;
 }
+
+const referralLabels: Record<string, string> = {
+    labs: 'الفحوصات', surgery: 'العمليات', lasik: 'الليزك', laser: 'الليزر', pentacam: 'البنتكام',
+};
 
 const props = defineProps<{
     queue: {
@@ -29,6 +35,7 @@ const props = defineProps<{
 }>();
 
 const selectedDate = ref(props.date);
+const fallbackDoctor = computed(() => weekdayDoctorFallback(props.date));
 
 const totalToday    = computed(() => props.queue.total);
 const completedToday = computed(() => props.queue.data.filter((b) => b.status === 'completed').length);
@@ -39,7 +46,6 @@ const revenueToday  = computed(() =>
 );
 
 const columns = [
-    { key: 'visit_time',    label: 'الوقت' },
     { key: 'file_no',       label: 'رقم الملف',   sortable: true },
     { key: 'patient_name',  label: 'المريض',       sortable: true },
     { key: 'patient_phone', label: 'الهاتف' },
@@ -47,6 +53,7 @@ const columns = [
     { key: 'status',        label: 'الحالة' },
     { key: 'pay_status',    label: 'السداد' },
     { key: 'diagnosis',     label: 'التشخيص' },
+    { key: 'referral',      label: 'التوجيه' },
 ];
 
 function changeDate() {
@@ -87,7 +94,7 @@ function goToPage(page: number) {
             </div>
             <div>
                 <p class="text-xs font-medium text-teal-600">إيراد العيادة (ج)</p>
-                <p class="text-2xl font-bold text-teal-700">{{ revenueToday.toLocaleString('ar-EG') }}</p>
+                <p class="text-2xl font-bold text-teal-700">{{ revenueToday.toLocaleString('en-US') }}</p>
             </div>
         </div>
     </div>
@@ -120,11 +127,8 @@ function goToPage(page: number) {
         empty-text="لا يوجد مرضى في قائمة اليوم"
         @page="goToPage"
     >
-        <template #cell-visit_time="{ value }">
-            {{ (value as string)?.slice(0, 5) ?? '—' }}
-        </template>
         <template #cell-doctor="{ row }">
-            {{ (row as Booking).doctor?.name ?? '—' }}
+            {{ (row as Booking).doctor?.name ?? fallbackDoctor ?? '—' }}
         </template>
         <template #cell-status="{ value }">
             <Badge :variant="(value as 'waiting' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled')" />
@@ -137,14 +141,32 @@ function goToPage(page: number) {
                 {{ (row as Booking).clinic_sheet?.diagnosis ?? '—' }}
             </span>
         </template>
-        <template #actions="{ row }">
-            <Link
-                :href="`/clinic/${(row as Booking).id}`"
-                class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
+        <template #cell-referral="{ row }">
+            <span
+                v-if="(row as Booking).clinic_sheet?.referral_to"
+                class="rounded-full bg-hospital-accent-pale px-2 py-0.5 text-xs font-medium text-hospital-accent"
             >
-                <Eye class="h-3.5 w-3.5" />
-                فتح الملف
-            </Link>
+                → {{ referralLabels[(row as Booking).clinic_sheet!.referral_to!] ?? (row as Booking).clinic_sheet!.referral_to }}
+            </span>
+            <span v-else class="text-xs text-hospital-text-3">—</span>
+        </template>
+        <template #actions="{ row }">
+            <div class="flex items-center gap-1">
+                <Link
+                    :href="`/clinic/${(row as Booking).id}`"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
+                >
+                    <Stethoscope class="h-3.5 w-3.5" />
+                    تسجيل الكشف
+                </Link>
+                <a
+                    :href="booking.patientFile((row as Booking).file_no).url"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-hospital-primary hover:bg-hospital-primary-pale transition-colors"
+                >
+                    <FileText class="h-3.5 w-3.5" />
+                    فتح الملف
+                </a>
+            </div>
         </template>
     </DataTable>
 </template>

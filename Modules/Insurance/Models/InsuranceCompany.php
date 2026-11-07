@@ -5,22 +5,25 @@ namespace Modules\Insurance\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Accounting\Concerns\HasReceivableAccount;
 use Modules\Insurance\Enums\CompanyStatus;
 
 class InsuranceCompany extends Model
 {
-    use HasUlids;
+    use HasReceivableAccount, HasUlids;
 
     protected $table = 'insurance_companies';
 
     protected $fillable = [
         'name',
         'code',
+        'receivable_account_id',
         'phone',
         'address',
         'contract_no',
         'coverage_pct',
         'disc_pct',
+        'withholding_pct',
         'contact_person',
         'email',
         'status',
@@ -32,6 +35,7 @@ class InsuranceCompany extends Model
         return [
             'coverage_pct' => 'float',
             'disc_pct' => 'float',
+            'withholding_pct' => 'float',
             'status' => CompanyStatus::class,
         ];
     }

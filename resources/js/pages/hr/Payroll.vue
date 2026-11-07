@@ -73,8 +73,8 @@ function goToPage(page: number) {
     }, { preserveState: true })
 }
 
-function fmt(n: number) { return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 0 }) }
-function fmtDec(n: number) { return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 }) }
+function fmt(n: number) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0 }) }
+function fmtDec(n: number) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 }) }
 function monthLabel(m: number) { return months.find((x) => x.value === m)?.label ?? String(m) }
 
 // Generate
@@ -338,7 +338,7 @@ function attendanceColor(s: AttendanceSummary) {
                 <div class="col-span-2 rounded-xl border border-br bg-sf2 p-3 text-center">
                     <p class="text-xs text-t3">الراتب الصافي المحسوب</p>
                     <p class="text-2xl font-bold" :class="previewNet() >= 0 ? 'text-s' : 'text-d'">
-                        {{ previewNet().toLocaleString('ar-EG', { minimumFractionDigits: 2 }) }} ج.م
+                        {{ previewNet().toLocaleString('en-US', { minimumFractionDigits: 2 }) }} ج.م
                     </p>
                 </div>
                 <div class="col-span-2">

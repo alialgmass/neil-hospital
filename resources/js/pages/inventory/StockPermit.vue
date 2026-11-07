@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3'
 import { Minus, Plus, Trash2 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Badge from '@/components/shared/Badge.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -35,8 +37,19 @@ interface Permit {
 
 const props = defineProps<{
     permits: { data: Permit[]; links: unknown[] }
+    filters: { search?: string }
     items: InventoryItem[]
 }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('stock_permits.write'))
+
+const search = ref(props.filters.search ?? '')
+
+function applySearch() {
+    router.get('/stock-permits', { search: search.value || undefined }, { preserveState: true })
+}
 
 const showIssueModal = ref(false)
 const showAddModal = ref(false)
@@ -73,6 +86,10 @@ function onItemSelect(form: typeof issueForm | typeof addForm, index: number) {
 }
 
 function submitIssue() {
+    if (!canWrite.value) {
+        return
+    }
+
     issueForm.post('/stock-permits/issue', {
         onSuccess: () => {
             showIssueModal.value = false
@@ -82,6 +99,10 @@ function submitIssue() {
 }
 
 function submitAdd() {
+    if (!canWrite.value) {
+        return
+    }
+
     addForm.post('/stock-permits/add', {
         onSuccess: () => {
             showAddModal.value = false
@@ -98,20 +119,28 @@ function submitAdd() {
             <h1 class="text-2xl font-bold text-gray-800">أذونات المخزن</h1>
             <div class="flex gap-3">
                 <button
-                    class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-                    @click="showIssueModal = true"
+                    class="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showIssueModal = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <Minus class="h-4 w-4" />
                     إذن صرف
                 </button>
                 <button
-                    class="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
-                    @click="showAddModal = true"
+                    class="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showAddModal = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <Plus class="h-4 w-4" />
                     إذن إضافة
                 </button>
             </div>
+        </div>
+
+        <div class="mb-4 max-w-sm">
+            <SearchBar v-model="search" placeholder="رقم الإذن أو السبب أو اسم الصنف..." @update:model-value="applySearch" />
         </div>
 
         <!-- Permits Table -->
@@ -186,7 +215,7 @@ function submitAdd() {
 
                 <div class="flex justify-end gap-3">
                     <button type="button" class="btn-secondary" @click="showIssueModal = false">إلغاء</button>
-                    <button type="submit" class="btn-danger" :disabled="issueForm.processing">
+                    <button type="submit" class="btn-danger disabled:cursor-not-allowed disabled:opacity-50" :disabled="issueForm.processing || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                         {{ issueForm.processing ? 'جارٍ الحفظ...' : 'إصدار الإذن' }}
                     </button>
                 </div>
@@ -227,7 +256,7 @@ function submitAdd() {
 
                 <div class="flex justify-end gap-3">
                     <button type="button" class="btn-secondary" @click="showAddModal = false">إلغاء</button>
-                    <button type="submit" class="btn-primary" :disabled="addForm.processing">
+                    <button type="submit" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :disabled="addForm.processing || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                         {{ addForm.processing ? 'جارٍ الحفظ...' : 'إصدار الإذن' }}
                     </button>
                 </div>

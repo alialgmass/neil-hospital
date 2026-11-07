@@ -5,6 +5,14 @@ namespace Tests\Feature\Surgery;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\Models\InsuranceCompany;
+use Modules\Booking\Models\Service;
+use Modules\Doctor\Enums\DelegationStatus;
+use Modules\Doctor\Models\BookingDoctorDelegation;
+use Modules\Doctor\Models\Doctor;
+use Modules\Surgery\Models\OrBed;
+use Modules\Surgery\Models\OrRoom;
+use Modules\Surgery\Models\Surgery;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -97,6 +105,75 @@ class SurgeryIndexTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->where('dept', 'lasik')
+        );
+    }
+
+    public function test_surgery_index_ships_each_cases_saved_delegate_and_anesthesia_lines(): void
+    {
+        $booking = $this->createBooking('surgery');
+        $service = Service::create(['name' => 'إعتام عدسة', 'dept' => 'surgery', 'price' => 5000, 'ins_price' => 5000]);
+        $booking->update(['service_id' => $service->id, 'service_name' => $service->name]);
+
+        $room = OrRoom::create(['name' => 'Room 1']);
+        $bed = OrBed::create(['room_id' => $room->id, 'bed_number' => 1]);
+
+        $surgery = Surgery::create([
+            'booking_id' => $booking->id,
+            'or_bed_id' => $bed->id,
+            'dept' => 'surgery',
+            'status' => 'scheduled',
+            'scheduled_at' => now(),
+        ]);
+
+        $anesthetist = Doctor::create(['name' => 'د. تخدير', 'fee_type' => 'fixed', 'fee_value' => 0]);
+        $delegate = Doctor::create(['name' => 'د. مفوَّض', 'fee_type' => 'fixed', 'fee_value' => 0]);
+
+        foreach ([['delegate', $delegate, 300], ['anesthesia', $anesthetist, 200]] as [$role, $doctor, $amount]) {
+            BookingDoctorDelegation::create([
+                'booking_id' => $booking->id,
+                'doctor_id' => $doctor->id,
+                'role' => $role,
+                'service_id' => $booking->service_id,
+                'service_name' => $booking->service_name,
+                'amount' => $amount,
+                'status' => DelegationStatus::Pending,
+            ]);
+        }
+
+        // The overlay form is seeded from surgery.booking.doctor_delegations, so
+        // without this eager load the case silently reopens with an empty form
+        // even though both lines are in the database.
+        $response = $this->actingAs($this->user)->get('/surgery');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('orRooms.0.beds.0.surgery.id', $surgery->id)
+            // The bed card renders the service name under the patient name.
+            ->where('orRooms.0.beds.0.surgery.booking.service_name', 'إعتام عدسة')
+            ->has('orRooms.0.beds.0.surgery.booking.doctor_delegations', 2)
+            ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.0.role', 'delegate')
+            ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.0.status', 'pending')
+            ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.0.doctor.name', $delegate->name)
+            ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.1.role', 'anesthesia')
+            ->where('orRooms.0.beds.0.surgery.booking.doctor_delegations.1.doctor.name', $anesthetist->name)
+        );
+    }
+
+    public function test_surgery_bed_card_ships_eye_and_insurance_company(): void
+    {
+        $company = InsuranceCompany::create(['name' => 'التأمين الوطني', 'status' => 'active']);
+        $booking = $this->createBooking('surgery');
+        $booking->update(['pay_method' => 'insurance', 'ins_company_id' => $company->id, 'eye_side' => 'OS']);
+
+        $room = OrRoom::create(['name' => 'Room 1']);
+        $bed = OrBed::create(['room_id' => $room->id, 'bed_number' => 1]);
+        Surgery::create(['booking_id' => $booking->id, 'or_bed_id' => $bed->id, 'dept' => 'surgery', 'status' => 'scheduled', 'scheduled_at' => now()]);
+
+        $this->actingAs($this->user)->get('/surgery')->assertInertia(fn ($page) => $page
+            ->where('orRooms.0.beds.0.surgery.booking.pay_method', 'insurance')
+            ->where('orRooms.0.beds.0.surgery.booking.eye_side', 'OS')
+            ->where('orRooms.0.beds.0.surgery.booking.insurance_company.name', 'التأمين الوطني')
+            ->where('surgeries.data.0.booking.insurance_company.name', 'التأمين الوطني')
         );
     }
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { UmbrellaOff, CheckCircle, Clock, XCircle, CalendarDays } from 'lucide-vue-next';
+import { UmbrellaOff, CheckCircle, Clock, XCircle, CalendarDays, EyeOff, Search, X } from 'lucide-vue-next';
 import { ref } from 'vue';
+import { useReportRowFilter } from '@/composables/useReportRowFilter';
 
 interface LeaveRow {
     employee_name: string;
@@ -38,6 +39,12 @@ const fromFilter = ref(props.filters.from);
 const toFilter = ref(props.filters.to);
 const employeeFilter = ref(props.filters.employeeId ?? '');
 const typeFilter = ref(props.filters.type ?? '');
+
+const { search: rowSearch, visibleRows, excludedCount, exclude, restoreAll } = useReportRowFilter(
+    () => props.data.rows,
+    ['employee_name', 'employee_no'],
+    (r) => `${r.employee_no}-${r.from_date}-${r.to_date}`,
+);
 
 function apply() {
     router.get('/reports/hr-leaves', {
@@ -80,6 +87,7 @@ const deptLabels: Record<string, string> = {
     clinic: 'العيادة', labs: 'الفحوصات', surgery: 'العمليات',
     lasik: 'الليزك', laser: 'الليزر', reception: 'الاستقبال',
     admin: 'الإدارة', pharmacy: 'الصيدلية', hr: 'الموارد البشرية',
+    pentacam: 'وحدة البنتكام',
 };
 </script>
 
@@ -140,7 +148,7 @@ const deptLabels: Record<string, string> = {
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-br px-5 py-4">
             <div>
                 <h3 class="font-semibold text-t">سجل الإجازات</h3>
-                <p class="text-xs text-t3">{{ data.rows.length }} طلب إجازة</p>
+                <p class="text-xs text-t3">{{ visibleRows.length }} طلب إجازة</p>
             </div>
             <div class="flex flex-wrap items-end gap-2">
                 <select v-model="employeeFilter" class="input-field w-auto">
@@ -159,8 +167,20 @@ const deptLabels: Record<string, string> = {
             </div>
         </div>
 
-        <div v-if="data.rows.length === 0" class="py-16 text-center text-sm text-t3">
-            لا توجد إجازات في هذه الفترة
+        <!-- Row search + exclusion status -->
+        <div class="flex flex-wrap items-center gap-3 border-b border-br px-5 py-3">
+            <div class="relative">
+                <Search class="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t3" />
+                <input v-model="rowSearch" type="text" placeholder="ابحث باسم الموظف أو الرقم..." class="input-field h-9 w-64 pr-9" />
+            </div>
+            <button v-if="excludedCount > 0" type="button" class="flex items-center gap-1.5 rounded-lg border border-br px-3 py-1.5 text-xs text-t2 hover:bg-sf2" @click="restoreAll">
+                <EyeOff class="h-3.5 w-3.5" />
+                {{ excludedCount }} صف مستبعد من العرض — إظهار الكل
+            </button>
+        </div>
+
+        <div v-if="visibleRows.length === 0" class="py-16 text-center text-sm text-t3">
+            {{ data.rows.length === 0 ? 'لا توجد إجازات في هذه الفترة' : 'لا توجد نتائج مطابقة' }}
         </div>
         <div v-else class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -174,10 +194,11 @@ const deptLabels: Record<string, string> = {
                         <th class="px-4 py-3 text-center font-semibold">الأيام</th>
                         <th class="px-4 py-3 font-semibold">السبب</th>
                         <th class="px-4 py-3 text-center font-semibold">الحالة</th>
+                        <th class="w-8 px-2 py-3 print:hidden" />
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-br/50">
-                    <tr v-for="(row, i) in data.rows" :key="i" class="hover:bg-sf2">
+                    <tr v-for="row in visibleRows" :key="`${row.employee_no}-${row.from_date}-${row.to_date}`" class="hover:bg-sf2">
                         <td class="px-4 py-3">
                             <p class="font-medium text-t">{{ row.employee_name }}</p>
                             <p class="text-xs text-t3">{{ row.employee_no }}</p>
@@ -196,6 +217,11 @@ const deptLabels: Record<string, string> = {
                             <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusClass[row.status]">
                                 {{ statusLabel[row.status] ?? row.status }}
                             </span>
+                        </td>
+                        <td class="px-2 py-3 print:hidden">
+                            <button type="button" title="استبعاد من التقرير" class="rounded p-1 text-t3 hover:bg-hospital-danger-pale hover:text-hospital-danger" @click="exclude(row)">
+                                <X class="h-3.5 w-3.5" />
+                            </button>
                         </td>
                     </tr>
                 </tbody>

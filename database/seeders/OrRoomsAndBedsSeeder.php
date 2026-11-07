@@ -10,12 +10,12 @@ class OrRoomsAndBedsSeeder extends Seeder
     public function run(): void
     {
         $rooms = [
-            ['name' => 'غرفة 1', 'total_beds' => 5],
-            ['name' => 'غرفة 2', 'total_beds' => 5],
-            ['name' => 'غرفة 3', 'total_beds' => 5],
-            ['name' => 'غرفة 4', 'total_beds' => 5],
-            ['name' => 'غرفة 5', 'total_beds' => 5],
-            ['name' => 'غرفة 6', 'total_beds' => 5],
+            ['name' => 'غرفة 1', 'total_beds' => 10],
+            ['name' => 'غرفة 2', 'total_beds' => 10],
+            ['name' => 'غرفة 3', 'total_beds' => 10],
+            ['name' => 'غرفة 4', 'total_beds' => 10],
+            ['name' => 'غرفة 5', 'total_beds' => 10],
+            ['name' => 'غرفة 6', 'total_beds' => 10],
         ];
 
         foreach ($rooms as $room) {

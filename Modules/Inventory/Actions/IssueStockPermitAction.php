@@ -2,6 +2,7 @@
 
 namespace Modules\Inventory\Actions;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostStockIssueAction;
@@ -13,6 +14,8 @@ use Modules\Inventory\Services\InventoryService;
 
 class IssueStockPermitAction
 {
+    private const MAX_ATTEMPTS = 3;
+
     public function __construct(
         private readonly InventoryService $inventoryService,
         private readonly ActivityLogService $activityLogService,
@@ -20,6 +23,25 @@ class IssueStockPermitAction
     ) {}
 
     public function execute(array $data, array $items): StockPermit
+    {
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            try {
+                return $this->attempt($data, $items);
+            } catch (UniqueConstraintViolationException $e) {
+                if ($attempt === self::MAX_ATTEMPTS || ! str_contains($e->getMessage(), 'permit_no')) {
+                    throw ValidationException::withMessages([
+                        'items' => 'تعذر إصدار رقم الإذن بسبب طلب متزامن، يرجى المحاولة مرة أخرى.',
+                    ]);
+                }
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'items' => 'تعذر إصدار رقم الإذن بسبب طلب متزامن، يرجى المحاولة مرة أخرى.',
+        ]);
+    }
+
+    private function attempt(array $data, array $items): StockPermit
     {
         return DB::transaction(function () use ($data, $items) {
             foreach ($items as $item) {
@@ -65,9 +87,16 @@ class IssueStockPermitAction
 
     private function generatePermitNo(): string
     {
-        $last = StockPermit::where('type', 'out')->latest()->value('permit_no');
+        $prefix = 'OUT-'.date('Y').'-';
+
+        $last = StockPermit::where('type', 'out')
+            ->where('permit_no', 'like', $prefix.'%')
+            ->lockForUpdate()
+            ->orderByDesc('permit_no')
+            ->value('permit_no');
+
         $seq = $last ? ((int) substr($last, -5) + 1) : 1;
 
-        return 'OUT-'.date('Y').'-'.str_pad($seq, 5, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($seq, 5, '0', STR_PAD_LEFT);
     }
 }

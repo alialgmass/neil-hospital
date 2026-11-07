@@ -21,7 +21,7 @@ class ReportController extends Controller
             'date' => $date,
             'revenueByDept' => $this->dashboardService->revenueByDept($from, $to),
             'revenueByDoc' => $this->dashboardService->revenueByDoctor($from, $to),
-            'treasury' => $this->dashboardService->treasuryBalance(),
+            'treasury' => $this->dashboardService->treasuryBalance($from, $to),
         ]);
     }
 

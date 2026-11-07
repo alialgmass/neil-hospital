@@ -58,4 +58,33 @@ class InsuranceRepository implements InsuranceRepositoryInterface
 
         return $priceList->load('items.service');
     }
+
+    /**
+     * Update header fields and sync items by service_id: existing services get
+     * their price updated, new services are added, omitted services are removed.
+     *
+     * @param  array<int, array{service_id: string, price: float|int|string}>  $items
+     */
+    public function updatePriceList(PriceList $priceList, array $data, array $items): PriceList
+    {
+        $priceList->update($data);
+
+        $pricesByService = collect($items)->mapWithKeys(fn (array $item) => [$item['service_id'] => $item['price']]);
+
+        $priceList->items()->whereNotIn('service_id', $pricesByService->keys())->delete();
+
+        $existing = $priceList->items()->get()->keyBy('service_id');
+
+        foreach ($pricesByService as $serviceId => $price) {
+            $item = $existing->get($serviceId);
+
+            if ($item) {
+                $item->update(['price' => $price]);
+            } else {
+                $priceList->items()->create(['service_id' => $serviceId, 'price' => $price]);
+            }
+        }
+
+        return $priceList->load('items.service');
+    }
 }

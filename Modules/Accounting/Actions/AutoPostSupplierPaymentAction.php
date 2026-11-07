@@ -2,61 +2,73 @@
 
 namespace Modules\Accounting\Actions;
 
-use Illuminate\Support\Facades\DB;
+use Modules\Accounting\Enums\AccountCode;
 use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Enums\TreasuryType;
+use Modules\Accounting\Services\AccountResolver;
+use Modules\Accounting\Services\JournalNarration;
 use Modules\Accounting\Services\JournalService;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Accounting\Services\TreasuryService;
+use Modules\Inventory\Models\SupplierPayment;
 
 class AutoPostSupplierPaymentAction
 {
     public function __construct(
         private readonly JournalService $journalService,
         private readonly TreasuryService $treasuryService,
+        private readonly AccountResolver $accountResolver,
+        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
      * Post when a supplier is paid.
-     * Dr 2020 (Suppliers) / Cr 1010 (Cash)
+     * Dr the supplier's sub-ledger (2301–2399) / Cr 1010 (Cash) or 1020 (Bank), by payment method.
      */
-    public function execute(
-        float $amount,
-        string $supplierName,
-        string $reference,
-        ?string $date = null,
-    ): void {
+    public function execute(SupplierPayment $payment, string $supplierName): void
+    {
+        $amount = (float) $payment->amount;
+
         if ($amount <= 0) {
             return;
         }
 
-        $date ??= now()->toDateString();
+        $date = $payment->paid_at?->toDateString() ?? now()->toDateString();
+        $isBank = $payment->method === 'transfer';
 
-        // Treasury outflow
         $this->treasuryService->record([
             'type' => TreasuryType::Out,
-            'description' => "سداد مورد: {$supplierName}",
+            'description' => $this->narration($payment, $supplierName),
             'amount' => $amount,
             'date' => $date,
             'source' => JournalSource::SUPPLIER_PAYMENT,
         ]);
 
-        $suppliersId = DB::table('accounts')->where('code', '2020')->value('id');
-        $cashId = DB::table('accounts')->where('code', '1010')->value('id');
-
-        if (! $suppliersId || ! $cashId) {
-            return;
-        }
+        $suppliersId = $this->subledgers->forSupplier($payment->supplier_id);
+        $creditId = $this->accountResolver->id($isBank ? AccountCode::BANK : AccountCode::CASH);
 
         $this->journalService->record([
             'date' => $date,
-            'description' => "سداد مستحقات مورد: {$supplierName}",
+            'description' => $this->narration($payment, $supplierName),
             'debit_account_id' => $suppliersId,
-            'credit_account_id' => $cashId,
+            'credit_account_id' => $creditId,
             'amount' => $amount,
             'source' => JournalSource::SUPPLIER_PAYMENT,
-            'reference' => $reference,
+            'reference' => (string) $payment->id,
+            'idempotency_key' => "supplier_payment:{$payment->id}",
             'cost_center' => CostCenter::Inventory,
+        ]);
+    }
+
+    private function narration(SupplierPayment $payment, string $supplierName): string
+    {
+        return JournalNarration::make('سداد مستحقات مورد', [
+            'المورد' => $supplierName,
+            'المبلغ' => JournalNarration::money($payment->amount),
+            'طريقة الدفع' => $payment->method === 'transfer' ? 'تحويل بنكي' : 'نقدي',
+            'سند' => 'VCH-'.$payment->id,
+            'تاريخ السداد' => $payment->paid_at?->toDateString(),
         ]);
     }
 }

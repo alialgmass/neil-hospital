@@ -5,6 +5,7 @@ namespace Modules\Booking\Actions;
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Accounting\Actions\ReverseBookingPaymentAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
@@ -12,6 +13,7 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\BookingStatus;
 use Modules\Booking\States\CancelledState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 use Spatie\ModelStates\Exceptions\CouldNotPerformTransition;
 
@@ -23,19 +25,27 @@ class UpdateBookingStatusAction
         private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly ReverseBookingPaymentAction $reversal,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     public function execute(string $id, string|BookingStatus $newStatus, ?string $cancelReason = null): Booking
     {
         $booking = $this->bookingRepository->findOrFail($id);
         $oldStatus = (string) $booking->status;
+        $newStatusStr = $newStatus instanceof BookingStatus ? (string) $newStatus : $newStatus;
+
+        if (! BookingStatus::isVisible($newStatusStr)) {
+            throw ValidationException::withMessages([
+                'status' => 'هذه الحالة مخفية من إعدادات النظام ولا يمكن الانتقال إليها.',
+            ]);
+        }
 
         try {
             $booking->status->transitionTo($newStatus);
         } catch (CouldNotPerformTransition $e) {
-            $statusStr = $newStatus instanceof BookingStatus ? (string) $newStatus : $newStatus;
             throw ValidationException::withMessages([
-                'status' => "لا يمكن الانتقال من حالة \"{$oldStatus}\" إلى \"{$statusStr}\".",
+                'status' => "لا يمكن الانتقال من حالة \"{$oldStatus}\" إلى \"{$newStatusStr}\".",
             ]);
         }
 
@@ -55,6 +65,8 @@ class UpdateBookingStatusAction
 
         if ($booking->status instanceof CancelledState) {
             $this->reversal->execute($booking);
+            $this->syncDoctorEntitlement->voidFor($booking);
+            $this->autoPostInsuranceClaim->reverseForBooking($booking->id, 'إلغاء الحجز');
         }
 
         $this->activityLog->log(

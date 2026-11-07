@@ -3,8 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Modules\Reporting\Controllers\CasesReportController;
+use Modules\Reporting\Controllers\CostCenterProfitabilityController;
 use Modules\Reporting\Controllers\DashboardController;
 use Modules\Reporting\Controllers\DeptRevenueReportController;
+use Modules\Reporting\Controllers\DoctorCasesReportController;
 use Modules\Reporting\Controllers\DoctorClaimsReportController;
 use Modules\Reporting\Controllers\DoctorPaymentsReportController;
 use Modules\Reporting\Controllers\ExpenseAnalysisController;
@@ -16,6 +18,7 @@ use Modules\Reporting\Controllers\InsuranceReportController;
 use Modules\Reporting\Controllers\InventoryMovementController;
 use Modules\Reporting\Controllers\ProfitLossController;
 use Modules\Reporting\Controllers\PurchasePriceReportController;
+use Modules\Reporting\Controllers\ReceptionReportController;
 use Modules\Reporting\Controllers\ReportController;
 use Modules\Reporting\Controllers\SurgeriesReportController;
 
@@ -62,9 +65,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:reports.financial')
             ->name('doctor-claims.export');
 
+        Route::get('/doctor-claims/labs-insurance/export', [DoctorClaimsReportController::class, 'exportLabsInsurance'])
+            ->middleware('can:reports.financial')
+            ->name('doctor-claims.labs-insurance.export');
+
+        Route::get('/doctor-cases', DoctorCasesReportController::class)
+            ->middleware('can:reports.financial')
+            ->name('doctor-cases');
+
+        Route::get('/doctor-cases/export', [DoctorCasesReportController::class, 'export'])
+            ->middleware('can:reports.financial')
+            ->name('doctor-cases.export');
+
+        Route::get('/reception', ReceptionReportController::class)
+            ->middleware('can:booking.view')
+            ->name('reception');
+
+        Route::get('/reception/export', [ReceptionReportController::class, 'export'])
+            ->middleware('can:booking.view')
+            ->name('reception.export');
+
         Route::get('/doctor-payments', DoctorPaymentsReportController::class)
             ->middleware('can:reports.financial')
             ->name('doctor-payments');
+
+        Route::get('/doctor-payments/export', [DoctorPaymentsReportController::class, 'export'])
+            ->middleware('can:reports.financial')
+            ->name('doctor-payments.export');
 
         Route::get('/insurance', InsuranceReportController::class)
             ->middleware('can:reports.financial')
@@ -89,6 +116,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/expense-analysis', ExpenseAnalysisController::class)
             ->middleware('can:reports.financial')
             ->name('expense-analysis');
+
+        Route::get('/cost-center-profitability', CostCenterProfitabilityController::class)
+            ->middleware('can:reports.financial')
+            ->name('cost-center-profitability');
 
         Route::get('/surgeries', SurgeriesReportController::class)
             ->middleware('can:reports.clinical')

@@ -20,7 +20,7 @@ class StoreStockPermitRequest extends FormRequest
             'reason' => 'nullable|string|max:300',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.item_id' => 'required|string|exists:inventory,id',
+            'items.*.item_id' => ['required', 'string', Rule::exists('inventory', 'id')->where('is_active', true)],
             'items.*.qty' => 'required|numeric|min:0.01',
             'items.*.item_name' => 'nullable|string|max:200',
             'items.*.unit_cost' => 'nullable|numeric|min:0',

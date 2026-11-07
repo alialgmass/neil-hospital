@@ -15,9 +15,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:treasury.view')
             ->name('index');
 
+        Route::get('/statement', [TreasuryController::class, 'statement'])
+            ->middleware('can:treasury.view')
+            ->name('statement');
+
+        Route::get('/{id}/voucher', [TreasuryController::class, 'voucher'])
+            ->middleware('can:treasury.view')
+            ->name('voucher');
+
+        Route::post('/vouchers', [TreasuryController::class, 'storeVoucher'])
+            ->middleware('can:treasury.write')
+            ->name('vouchers.store');
+
         Route::post('/', [TreasuryController::class, 'store'])
             ->middleware('can:treasury.write')
             ->name('store');
+
+        Route::put('/{id}', [TreasuryController::class, 'update'])
+            ->middleware('can:treasury.edit')
+            ->name('update');
+
+        Route::delete('/{id}', [TreasuryController::class, 'destroy'])
+            ->middleware('can:treasury.delete')
+            ->name('destroy');
     });
 
     // Journal
@@ -29,6 +49,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/', [JournalController::class, 'store'])
             ->middleware('can:journal.write')
             ->name('store');
+
+        Route::delete('/{id}', [JournalController::class, 'destroy'])
+            ->middleware('can:journal.delete')
+            ->name('destroy');
     });
 
     // Daily journal alias
@@ -41,16 +65,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('index');
 
         Route::post('/', [ChartOfAccountsController::class, 'store'])
-            ->middleware('can:journal.write')
+            ->middleware('can:accounting.write')
             ->name('store');
 
         Route::put('/{id}', [ChartOfAccountsController::class, 'update'])
-            ->middleware('can:journal.write')
+            ->middleware('can:accounting.write')
             ->name('update');
     });
 
     // Sales Invoices (Billing)
     Route::prefix('sales-invoices')->name('sales-invoices.')->group(function () {
+        // Sales invoices are inventory item sales — the list lives under item-sales.
+        Route::redirect('/', '/item-sales')->name('index');
+
         Route::get('/booking/{bookingId}', [SalesInvoiceController::class, 'show'])
             ->middleware('can:booking.view')
             ->name('show');
@@ -74,6 +101,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/income-statement', [LedgerController::class, 'incomeStatement'])
             ->middleware('can:reports.financial')
             ->name('income-statement');
+
+        Route::get('/balance-sheet', [LedgerController::class, 'balanceSheet'])
+            ->middleware('can:reports.financial')
+            ->name('balance-sheet');
 
         Route::get('/account-statement', [LedgerController::class, 'accountStatement'])
             ->middleware('can:reports.financial')

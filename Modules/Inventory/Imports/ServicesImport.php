@@ -30,10 +30,14 @@ class ServicesImport implements ToCollection, WithHeadingRow
             $centerVal = (float) ($row['center_val'] ?? $row['نسبة_المركز'] ?? 0);
             $centerType = $centerVal > 1 ? 'pct' : 'fixed';
 
-            $existing = Service::where('name', $name)->first();
+            $code = mb_strtoupper(trim((string) ($row['code'] ?? $row['الكود'] ?? '')));
+
+            $existing = ($code !== '' ? Service::where('code', $code)->first() : null)
+                ?? Service::where('name', $name)->first();
 
             if ($existing) {
                 $existing->update([
+                    'name' => $name,
                     'dept' => $dept,
                     'price' => (float) ($row['price'] ?? $row['السعر'] ?? 0),
                     'ins_price' => (float) ($row['ins_price'] ?? 0),
@@ -43,6 +47,7 @@ class ServicesImport implements ToCollection, WithHeadingRow
                 $this->updated++;
             } else {
                 Service::create([
+                    'code' => $code !== '' ? $code : null,
                     'name' => $name,
                     'dept' => $dept,
                     'price' => (float) ($row['price'] ?? $row['السعر'] ?? 0),

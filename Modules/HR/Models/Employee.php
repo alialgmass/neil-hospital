@@ -2,8 +2,10 @@
 
 namespace Modules\HR\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\HR\Enums\ContractType;
 use Modules\HR\Enums\EmployeeStatus;
@@ -13,7 +15,7 @@ class Employee extends Model
     use HasUlids;
 
     protected $fillable = [
-        'employee_no', 'name', 'national_id', 'phone', 'email',
+        'user_id', 'employee_no', 'name', 'national_id', 'phone', 'email',
         'dept', 'position', 'hire_date', 'base_salary', 'allowances',
         'contract_type', 'status', 'notes',
     ];
@@ -25,6 +27,11 @@ class Employee extends Model
         'contract_type' => ContractType::class,
         'status' => EmployeeStatus::class,
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function attendances(): HasMany
     {
