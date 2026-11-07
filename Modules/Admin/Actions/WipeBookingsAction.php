@@ -48,6 +48,13 @@ class WipeBookingsAction
             DB::table('purchase_invoice_items')->delete();
             DB::table('purchase_invoices')->delete();
             DB::table('suppliers')->update(['balance' => 0]);
+            // Item sales invoices post to the ledger, so they go with it.
+            DB::table('item_sales_invoice_items')->delete();
+            DB::table('item_sales_invoices')->delete();
+            // Reset running balances: accounts (ledgers) and doctor debt.
+            DB::table('accounts')->update(['balance' => 0]);
+            DB::table('doctors')->update(['doctor_debt_balance' => 0]);
+            DB::table('fixed_assets')->update(['accumulated_depreciation' => 0]);
 
             // 1. Spatie Media Library files associated with Booking and related clinical models
             $modelTypes = [

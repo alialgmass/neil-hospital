@@ -189,7 +189,7 @@ class WipeBookingsTest extends TestCase
         DB::table('suppliers')->insert(['id' => $supplierId, 'name' => 'S', 'balance' => 500, 'created_at' => now(), 'updated_at' => now()]);
         DB::table('purchase_invoices')->insert(['id' => (string) Str::ulid(), 'supplier_id' => $supplierId, 'invoice_no' => 'PI-WIPE', 'invoice_date' => today(), 'total' => 500, 'status' => 'posted', 'created_at' => now(), 'updated_at' => now()]);
         DB::table('activity_logs')->insert(['module' => 'insurance_collection', 'action' => 'collect', 'description' => 'x', 'created_at' => now()]);
-        DB::table('insurance_audit_logs')->insert(['seq' => 1, 'user_name' => 'u', 'action' => 'collection_recorded', 'detail' => 'x', 'prev_hash' => '0', 'hash' => 'h', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('insurance_audit_logs')->insert(['seq' => 1, 'user_name' => 'u', 'action' => 'collection_recorded', 'detail' => 'x', 'prev_hash' => '0', 'hash' => 'h', 'created_at' => now()]);
         DB::table('monthly_settlements')->insert([
             'month_period' => '2026-11', 'total_revenue' => 1, 'total_expenses' => 1,
             'total_doctor_claims' => 1, 'net_surplus_deficit' => 0, 'is_locked' => false,
@@ -207,10 +207,24 @@ class WipeBookingsTest extends TestCase
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
+        DB::table('accounts')->where('id', $acc1->id)->update(['balance' => 900]);
+        DB::table('doctors')->where('id', $debtDoctor->id)->update(['doctor_debt_balance' => 75]);
+        DB::table('fixed_assets')->insert(['id' => (string) Str::ulid(), 'name' => 'FA', 'asset_class' => 'equipment', 'cost' => 1000, 'useful_life_months' => 60, 'accumulated_depreciation' => 200, 'acquired_at' => today(), 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('item_sales_invoices')->insert([
+            'id' => (string) Str::ulid(), 'invoice_no' => 'SI-WIPE', 'invoice_date' => today(),
+            'customer_name' => 'C', 'pay_method' => 'cash', 'total' => 10,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
         $response = $this->actingAs($admin)->delete(route('settings.wipe-bookings'));
 
         $response->assertRedirect();
         $response->assertSessionHas('success');
+
+        $this->assertDatabaseCount('item_sales_invoices', 0);
+        $this->assertDatabaseHas('fixed_assets', ['name' => 'FA', 'accumulated_depreciation' => 0]);
+        $this->assertDatabaseHas('accounts', ['id' => $acc1->id, 'balance' => 0]);
+        $this->assertDatabaseHas('doctors', ['id' => $debtDoctor->id, 'doctor_debt_balance' => 0]);
 
         $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
         $this->assertDatabaseCount('journal_entries', 0);
