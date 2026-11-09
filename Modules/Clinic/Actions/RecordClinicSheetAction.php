@@ -7,6 +7,7 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Clinic\DTOs\ClinicSheetData;
 use Modules\Clinic\Models\ClinicSheet;
 use Modules\Clinic\Repositories\Contracts\ClinicSheetRepositoryInterface;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 
 class RecordClinicSheetAction
 {
@@ -14,6 +15,7 @@ class RecordClinicSheetAction
         private readonly ClinicSheetRepositoryInterface $clinicSheetRepository,
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function execute(ClinicSheetData $data): ClinicSheet
@@ -53,7 +55,8 @@ class RecordClinicSheetAction
         ]);
 
         // Auto-advance booking to completed
-        $this->bookingRepository->updateStatus($data->bookingId, 'completed');
+        $booking = $this->bookingRepository->updateStatus($data->bookingId, 'completed');
+        $this->syncDoctorEntitlement->execute($booking);
 
         $this->activityLog->log(
             action: 'clinic_sheet_recorded',

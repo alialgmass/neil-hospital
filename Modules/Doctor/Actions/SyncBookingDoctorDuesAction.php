@@ -32,6 +32,10 @@ class SyncBookingDoctorDuesAction
 
     public function execute(Booking $booking): void
     {
+        if (! $booking->canAccrueDoctorDues()) {
+            return;
+        }
+
         $duesEntries = JournalEntry::where('reference', $booking->file_no)
             ->where('source', JournalSource::DOCTOR_SHIFT->value)
             ->where('idempotency_key', 'like', "doctor_dues:{$booking->file_no}:%");

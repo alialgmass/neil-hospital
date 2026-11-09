@@ -63,6 +63,10 @@ class UpdateBookingStatusAction
             $this->autoPost->execute($booking);
         }
 
+        if ($booking->isCompleted()) {
+            $this->syncDoctorEntitlement->execute($booking);
+        }
+
         if ($booking->status instanceof CancelledState) {
             $this->reversal->execute($booking);
             $this->syncDoctorEntitlement->voidFor($booking);

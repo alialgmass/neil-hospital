@@ -6,6 +6,7 @@ use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\JournalEntry;
+use Modules\Booking\Actions\UpdateBookingStatusAction;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
@@ -197,7 +198,7 @@ class BookingDoctorDelegationTest extends TestCase
         $this->assertEquals(4700.0, $result['debt_deducted']);
     }
 
-    public function test_insurance_booking_accrues_the_delegate_immediately_and_nets_the_primary_entitlement(): void
+    public function test_insurance_booking_keeps_the_delegate_pending_until_completion(): void
     {
         $this->primaryDoctor->services()->attach($this->service->id, ['fee' => 1000]);
 
@@ -208,7 +209,13 @@ class BookingDoctorDelegationTest extends TestCase
         $this->assertEquals(700.0, (float) $entitlement->amount);
 
         $delegation = BookingDoctorDelegation::where('booking_id', $booking->id)->firstOrFail();
-        $this->assertEquals(DelegationStatus::Settled, $delegation->status);
+        $this->assertEquals(DelegationStatus::Pending, $delegation->status);
+
+        foreach (['confirmed', 'in_progress', 'completed'] as $status) {
+            app(UpdateBookingStatusAction::class)->execute($booking->id, $status);
+        }
+
+        $this->assertEquals(DelegationStatus::Settled, $delegation->fresh()->status);
     }
 
     public function test_claims_service_surfaces_the_delegated_doctors_dues_even_though_they_are_not_the_bookings_doctor(): void

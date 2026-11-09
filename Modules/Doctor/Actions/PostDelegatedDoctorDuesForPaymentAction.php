@@ -24,7 +24,7 @@ class PostDelegatedDoctorDuesForPaymentAction
 
     public function execute(Booking $booking, bool $isFirstPayment, float $newPaidTotal): void
     {
-        if (! $isFirstPayment) {
+        if (! $isFirstPayment || ! $booking->canAccrueDoctorDues()) {
             return;
         }
 

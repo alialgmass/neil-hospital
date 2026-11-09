@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
+use Modules\Booking\States\CompletedElectronicState;
+use Modules\Booking\States\CompletedState;
 use Modules\Clinic\Models\ClinicSheet;
 use Modules\Clinic\Models\MedicalExamination;
 use Modules\Doctor\Models\BookingDoctorDelegation;
@@ -160,5 +162,21 @@ class Booking extends Model implements HasMedia
     public function getRemainingAmountAttribute(): float
     {
         return max(0, $this->getNetAmountAttribute() - (float) $this->paid_amount);
+    }
+
+    public function isInsurance(): bool
+    {
+        return $this->pay_method === PayMethod::Insurance;
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status instanceof CompletedState
+            || $this->status instanceof CompletedElectronicState;
+    }
+
+    public function canAccrueDoctorDues(): bool
+    {
+        return ! $this->isInsurance() || $this->isCompleted();
     }
 }

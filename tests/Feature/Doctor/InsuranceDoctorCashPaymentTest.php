@@ -51,7 +51,22 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $this->company = InsuranceCompany::create(['name' => 'شركة تأمين', 'coverage_pct' => 100]);
     }
 
-    public function test_insurance_doctor_fee_posts_cash_and_never_touches_doctor_payable(): void
+    private function completeBooking(Booking $booking): void
+    {
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'confirmed',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'in_progress',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'completed',
+        ])->assertRedirect();
+    }
+
+    public function test_insurance_doctor_fee_posts_cash_on_completion_and_never_touches_doctor_payable(): void
     {
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض تأمين', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
@@ -65,6 +80,13 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         $insuranceDoctorFees = Account::where('code', '5130')->firstOrFail();
         $cash = Account::where('code', '1010')->firstOrFail();
         $doctorPayable = Account::where('code', '2010')->firstOrFail();
+
+        $this->assertDatabaseMissing('journal_entries', [
+            'reference' => $booking->file_no,
+            'source' => 'insurance_doctor_payment',
+        ]);
+
+        $this->completeBooking($booking);
 
         $entry = JournalEntry::where('reference', $booking->file_no)
             ->where('source', 'insurance_doctor_payment')
@@ -88,6 +110,13 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         ])->assertRedirect();
 
         $booking = Booking::latest('id')->first();
+
+        $this->assertDatabaseMissing('journal_entries', [
+            'reference' => $booking->file_no,
+            'source' => 'insurance_doctor_payment',
+        ]);
+
+        $this->completeBooking($booking);
 
         $this->actingAs($this->user)->put("/booking/{$booking->id}", [
             'patient_name' => $booking->patient_name, 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',

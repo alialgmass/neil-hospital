@@ -37,6 +37,10 @@ class SyncDelegatedDoctorEntitlementAccrualAction
             return;
         }
 
+        if (! $booking->canAccrueDoctorDues()) {
+            return;
+        }
+
         $delegations = BookingDoctorDelegation::where('booking_id', $booking->id)
             ->where('status', DelegationStatus::Pending)
             ->get();

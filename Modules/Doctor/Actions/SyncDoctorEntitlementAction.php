@@ -169,6 +169,10 @@ class SyncDoctorEntitlementAction
      */
     private function syncAccrual(Booking $booking, Doctor $doctor, float $amount, EntitlementSource $source): void
     {
+        if (! $booking->canAccrueDoctorDues()) {
+            return;
+        }
+
         $key = $this->idempotencyKey($booking, $amount, $source);
 
         $alreadyPosted = JournalEntry::where('idempotency_key', $key)

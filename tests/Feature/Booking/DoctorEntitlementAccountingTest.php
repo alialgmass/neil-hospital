@@ -10,6 +10,7 @@ use Modules\Accounting\Models\JournalEntry;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Doctor\Models\Doctor;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -102,11 +103,30 @@ class DoctorEntitlementAccountingTest extends TestCase
             ->first();
     }
 
-    public function test_creating_an_insurance_booking_posts_the_doctor_cash_payment_once(): void
+    private function completeBooking(Booking $booking): void
+    {
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'confirmed',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'in_progress',
+        ])->assertRedirect();
+
+        $this->actingAs($this->user)->patch("/booking/{$booking->id}/status", [
+            'status' => 'completed',
+        ])->assertRedirect();
+    }
+
+    public function test_an_incomplete_insurance_booking_has_no_doctor_accrual_until_completion(): void
     {
         $booking = $this->createInsuranceBooking();
 
-        $entry = $this->liveAccrual($booking);
+        $this->assertNull($this->liveAccrual($booking));
+
+        $this->completeBooking($booking);
+
+        $entry = $this->liveAccrual($booking->fresh());
         $this->assertNotNull($entry);
         $this->assertEquals(750.0, (float) $entry->amount);
         $this->assertSame($this->cashId(), $entry->credit_account_id);
@@ -119,6 +139,15 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->editBooking($booking, []);
         $this->editBooking($booking, []);
 
+        $this->assertSame(0, JournalEntry::where('reference', $booking->file_no)
+            ->where('idempotency_key', 'like', 'doctor_entitlement:%')
+            ->count());
+
+        $this->completeBooking($booking);
+
+        app(SyncDoctorEntitlementAction::class)->execute($booking->fresh());
+        app(SyncDoctorEntitlementAction::class)->execute($booking->fresh());
+
         $count = JournalEntry::where('reference', $booking->file_no)
             ->where('idempotency_key', 'like', 'doctor_entitlement:%')
             ->count();
@@ -126,26 +155,16 @@ class DoctorEntitlementAccountingTest extends TestCase
         $this->assertSame(1, $count);
     }
 
-    public function test_recalculation_reverses_the_old_accrual_and_posts_the_new_amount(): void
+    public function test_editing_an_incomplete_insurance_booking_uses_the_final_fee_on_completion(): void
     {
         $booking = $this->createInsuranceBooking();
 
         $this->editBooking($booking, ['doctor_id' => $this->sara->id]);
+        $this->completeBooking($booking);
 
         $live = $this->liveAccrual($booking);
         $this->assertNotNull($live);
         $this->assertEquals(900.0, (float) $live->amount);
-
-        // Original 750 entry is now reversed
-        $this->assertDatabaseHas('journal_entries', [
-            'reference' => $booking->file_no,
-            'amount' => 750,
-        ]);
-        $original = JournalEntry::where('reference', $booking->file_no)
-            ->where('amount', 750)
-            ->where('idempotency_key', 'like', 'doctor_entitlement:%')
-            ->first();
-        $this->assertNotNull($original->reversed_at);
     }
 
     public function test_switching_away_from_insurance_reverses_the_accrual(): void

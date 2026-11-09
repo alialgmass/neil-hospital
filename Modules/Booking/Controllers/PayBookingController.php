@@ -100,7 +100,7 @@ class PayBookingController extends Controller
         $this->autoPostAction->execute($booking, $paymentAmount);
         $this->autoPostDevelopmentFee->execute($booking);
 
-        if ($booking->doctor_id) {
+        if ($booking->doctor_id && $booking->canAccrueDoctorDues()) {
             $doctor = Doctor::find($booking->doctor_id);
 
             if ($doctor) {
