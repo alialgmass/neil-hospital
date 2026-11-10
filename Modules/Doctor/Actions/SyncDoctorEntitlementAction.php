@@ -114,7 +114,13 @@ class SyncDoctorEntitlementAction
      */
     public function voidFor(Booking $booking): void
     {
-        $this->clearPending(DoctorEntitlement::where('booking_id', $booking->id)->first());
+        $existing = DoctorEntitlement::where('booking_id', $booking->id)->first();
+
+        if ($existing?->status === EntitlementStatus::Settled) {
+            return;
+        }
+
+        $this->clearPending($existing);
         $this->reverseAccrual($booking);
     }
 
@@ -125,6 +131,12 @@ class SyncDoctorEntitlementAction
      */
     public function onBookingDeleted(Booking $booking): void
     {
+        if (DoctorEntitlement::where('booking_id', $booking->id)
+            ->where('status', EntitlementStatus::Settled)
+            ->exists()) {
+            return;
+        }
+
         $this->reverseAccrual($booking);
 
         DoctorEntitlement::where('booking_id', $booking->id)

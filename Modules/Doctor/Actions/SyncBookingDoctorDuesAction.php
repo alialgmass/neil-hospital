@@ -8,8 +8,10 @@ use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalService;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Enums\DebtEntryType;
+use Modules\Doctor\Enums\EntitlementStatus;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Models\DoctorDebtSettlement;
+use Modules\Doctor\Models\DoctorEntitlement;
 use Modules\Doctor\Services\DoctorClaimsService;
 
 /**
@@ -32,6 +34,12 @@ class SyncBookingDoctorDuesAction
 
     public function execute(Booking $booking): void
     {
+        if (DoctorEntitlement::where('booking_id', $booking->id)
+            ->where('status', EntitlementStatus::Settled)
+            ->exists()) {
+            return;
+        }
+
         if (! $booking->canAccrueDoctorDues()) {
             return;
         }
