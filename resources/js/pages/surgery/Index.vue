@@ -1349,7 +1349,7 @@ if (props.prefill) {
 
                                 <!-- Bundle items expansion -->
                                 <div
-                                    v-if="expandedBundleItems.length"
+                                    v-if="newBundlePick && expandedBundleId"
                                     class="mt-3 rounded-lg border border-purple-300 bg-white p-3"
                                 >
                                     <div

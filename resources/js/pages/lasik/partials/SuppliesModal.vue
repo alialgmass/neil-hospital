@@ -105,10 +105,6 @@ function confirmAddBundle() {
         (i) => i.selected && i.inventory_item_id,
     );
 
-    if (selected.length === 0) {
-        return;
-    }
-
     const bundleTotal = selected.reduce((s, i) => s + i.qty * i.unit_cost, 0);
     selectedBundles.value.push({
         bundle_id: expandedBundleId.value,
@@ -118,7 +114,10 @@ function confirmAddBundle() {
             inventory_item_id: i.inventory_item_id!,
             qty: i.qty,
         })),
-        items_label: `${selected.length} ${selected.length === 1 ? 'صنف' : 'أصناف'}`,
+        items_label:
+            selected.length === 0
+                ? 'بدون أصناف'
+                : `${selected.length} ${selected.length === 1 ? 'صنف' : 'أصناف'}`,
         bundle_total: bundleTotal,
     });
     newBundlePick.value = '';
@@ -219,7 +218,7 @@ function close() {
 
                 <!-- Bundle items expansion -->
                 <div
-                    v-if="expandedBundleItems.length"
+                    v-if="newBundlePick && expandedBundleId"
                     class="mt-3 rounded-lg border border-purple-300 bg-white p-3"
                 >
                     <div class="mb-2 text-xs font-semibold text-purple-800">
