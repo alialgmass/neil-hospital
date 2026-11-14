@@ -7,6 +7,7 @@ use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CompletedElectronicState;
+use Modules\Doctor\Actions\SyncBookingDoctorDuesAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Models\Surgery;
 use Modules\Surgery\Services\SurgeryService;
@@ -21,6 +22,7 @@ class UpdateSurgeryStatusAction
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly AutoPostBookingPaymentAction $autoPost,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
     ) {}
 
     public function execute(string $id, string|SurgeryStatus $status): Surgery
@@ -52,6 +54,8 @@ class UpdateSurgeryStatusAction
                 if ($booking->pay_status === PayStatus::Paid) {
                     $this->autoPost->execute($booking);
                 }
+
+                $this->syncBookingDoctorDues->execute($booking->fresh());
             }
         }
 

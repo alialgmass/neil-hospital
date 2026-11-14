@@ -10,7 +10,6 @@ use Modules\Accounting\Enums\CostCenter;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Services\AccountResolver;
 use Modules\Accounting\Services\JournalService;
-use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Inventory\Enums\PermitType;
 use Modules\Inventory\Models\StockPermit;
 use Modules\Inventory\Models\SupplyBundle;
@@ -25,7 +24,6 @@ class ProcessBundleSupplyAction
         private readonly InventoryService $inventoryService,
         private readonly JournalService $journalService,
         private readonly AccountResolver $accountResolver,
-        private readonly SubledgerAccountResolver $subledgers,
     ) {}
 
     /**
@@ -34,12 +32,13 @@ class ProcessBundleSupplyAction
      *
      * Inventory consumption posts regardless of pay method, at PURCHASE price,
      * to the department's cost account (Dr 5010 surgery / 5020 lasik — Cr
-     * 1051). The doctor-charge leg (Dr doctor sub-ledger 22xx / Cr 4070, at
-     * SELLING price — postBundleChargeEntry()) is skipped for an
-     * insurance-paid case, whose doctor fee is a fixed cash amount (Dr 5130 /
-     * Cr 1010, see AutoPostInsuranceDoctorCashPaymentAction) that never
-     * touches 2010 and is never supplies-adjusted; an insurance case's
-     * consumption is tagged CC-INS (guide §2.5).
+     * 1051); an insurance case's consumption is tagged CC-INS (guide §2.5).
+     *
+     * No supplies charge is ever posted against the doctor (Dr 22xx / Cr
+     * 4070): on a cash case the supplies are already deducted from the
+     * doctor's share before it is accrued (DoctorClaimsService::
+     * surgeryShareForPayment()), so charging them again would bill the doctor
+     * twice; on an insurance case the supplies are the center's own cost.
      *
      * @param  array<array{inventory_item_id: string, qty: float}>  $selectedItems
      *                                                                              When provided, only those items are deducted with their given quantities.
@@ -105,10 +104,6 @@ class ProcessBundleSupplyAction
             }
         }
 
-        if (! $isInsurancePaid) {
-            $this->postBundleChargeEntry($bundle, $qty, $costCenter, $permit->id, $surgery, $reference);
-        }
-
         return [
             'bundle_id' => $bundle->id,
             'permit_id' => $permit->id,
@@ -119,44 +114,6 @@ class ProcessBundleSupplyAction
             'total' => (float) $bundle->price * $qty,
             'is_bundle' => true,
         ];
-    }
-
-    /**
-     * Dr the doctor's payable sub-ledger (22xx) / Cr 4070 (إيراد بيع مستهلكات للأطباء)
-     * Records the bundle price charged against the doctor's dues at selling
-     * price — guide §1.4 / §2.7: revenue to the center (the spread over
-     * purchase cost is the center's supplies profit), NOT a patient sale
-     * (4210) and NOT a contra-expense (5115 is retired).
-     */
-    private function postBundleChargeEntry(SupplyBundle $bundle, int $qty, CostCenter $costCenter, string $permitId, ?Surgery $surgery, string $reference): void
-    {
-        $bundlePrice = round((float) $bundle->price * $qty, 2);
-        if ($bundlePrice <= 0) {
-            return;
-        }
-
-        $doctorId = $surgery?->surgeon_id ?? $surgery?->booking?->doctor_id;
-
-        if (! $doctorId) {
-            throw ValidationException::withMessages([
-                'bundles' => 'لا يمكن تحميل المستهلكات على الطبيب: الحالة غير مرتبطة بطبيب.',
-            ]);
-        }
-
-        $doctorPayableId = $this->subledgers->forDoctor($doctorId);
-        $revenueId = $this->accountResolver->id(AccountCode::SUPPLIES_SALE_REVENUE);
-
-        $this->journalService->record([
-            'date' => now()->toDateString(),
-            'description' => "تحميل مستهلكات على الطبيب بسعر البيع: {$bundle->name} × {$qty}",
-            'debit_account_id' => $doctorPayableId,
-            'credit_account_id' => $revenueId,
-            'amount' => $bundlePrice,
-            'source' => JournalSource::SUPPLIES_USED,
-            'reference' => $reference,
-            'idempotency_key' => "bundle_supply_charge:{$permitId}",
-            'cost_center' => $costCenter,
-        ]);
     }
 
     private function createStockPermit(SupplyBundle $bundle, int $qty, string $dept, array $selectedMap = [], bool $deductNoItems = false): StockPermit

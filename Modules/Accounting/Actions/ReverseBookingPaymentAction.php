@@ -16,6 +16,7 @@ class ReverseBookingPaymentAction
     public function __construct(
         private readonly JournalService $journalService,
         private readonly TreasuryService $treasuryService,
+        private readonly ReverseTreasuryEntryAction $reverseTreasuryEntry,
     ) {}
 
     /**
@@ -62,7 +63,16 @@ class ReverseBookingPaymentAction
             );
         }
 
-        // 2. Reverse treasury inflows linked to this booking (refund) — only
+        // 2. The development-fund transfer's treasury outflow goes back into
+        // the main till, mirroring the reversal of its journal entry above.
+        TreasuryEntry::where('booking_id', $booking->id)
+            ->where('type', TreasuryType::Out->value)
+            ->where('source', JournalSource::AUTO_BOOKING->value)
+            ->whereNull('reversed_at')
+            ->get()
+            ->each(fn (TreasuryEntry $entry) => $this->reverseTreasuryEntry->execute($entry));
+
+        // 3. Reverse treasury inflows linked to this booking (refund) — only
         // for entries not already reversed (idempotent double-cancel guard).
         $alreadyRefunded = (float) TreasuryEntry::where('booking_id', $booking->id)
             ->where('type', TreasuryType::Out->value)

@@ -90,7 +90,7 @@ class InsuranceSuppliesConsumptionTest extends TestCase
         $this->assertSame(0, JournalEntry::where('credit_account_id', $supplyRevenue->id)->count());
     }
 
-    public function test_cash_surgery_still_charges_the_doctor_for_supplies(): void
+    public function test_cash_surgery_never_charges_the_doctor_for_supplies_already_deducted_from_his_share(): void
     {
         $bundle = $this->makeBundle();
         $surgery = $this->makeSurgery('cash');
@@ -100,10 +100,8 @@ class InsuranceSuppliesConsumptionTest extends TestCase
         $surgeonPayable = DB::table('doctors')->where('id', $surgery->surgeon_id)->value('payable_account_id');
         $supplyRevenue = Account::where('code', '4070')->firstOrFail();
 
-        $entry = JournalEntry::where('credit_account_id', $supplyRevenue->id)->first();
-        $this->assertNotNull($entry);
-        $this->assertSame($surgeonPayable, $entry->debit_account_id);
-        $this->assertSame('2010', Account::find($surgeonPayable)->parent->code);
-        $this->assertEquals(200.0, (float) $entry->amount);
+        $this->assertSame(0, JournalEntry::where('credit_account_id', $supplyRevenue->id)->count());
+        $this->assertSame(0, JournalEntry::where('debit_account_id', $surgeonPayable)->count());
+        $this->assertSame(1, JournalEntry::where('credit_account_id', Account::where('code', '1051')->value('id'))->count());
     }
 }

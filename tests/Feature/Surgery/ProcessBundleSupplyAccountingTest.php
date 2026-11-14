@@ -72,23 +72,22 @@ class ProcessBundleSupplyAccountingTest extends TestCase
         $this->assertSame(0, JournalEntry::where('debit_account_id', $utilities->id)->count());
     }
 
-    public function test_bundle_charge_posts_to_supplies_sale_revenue_not_patient_sales_or_contra_expense(): void
+    public function test_bundle_posts_no_supplies_charge_against_the_doctor(): void
     {
         $bundle = $this->makeBundle(ItemCategory::Medical);
 
         $surgery = $this->makeSurgery();
-        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id);
+        $result = app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id);
 
-        $supplyRevenue = Account::where('code', '4070')->firstOrFail();
-        $patientSales = Account::where('code', '4210')->firstOrFail();
         $surgeonPayable = DB::table('doctors')->where('id', $surgery->surgeon_id)->value('payable_account_id');
 
-        $chargeEntry = JournalEntry::where('credit_account_id', $supplyRevenue->id)->first();
-        $this->assertNotNull($chargeEntry, 'Bundle charge should credit 4070 (supplies-sale revenue), not 5115 or 4210');
-        $this->assertSame($surgeonPayable, $chargeEntry->debit_account_id, 'charged to the surgeon\'s own 22xx sub-ledger');
-        $this->assertSame($surgery->booking->file_no, $chargeEntry->reference);
-        $this->assertEquals(200.00, (float) $chargeEntry->amount);
-        $this->assertSame(0, JournalEntry::where('credit_account_id', $patientSales->id)->count());
+        // Supplies are deducted from the doctor's share before it is accrued,
+        // so charging them to his account (Dr 22xx / Cr 4070) bills him twice.
+        $this->assertSame(0, JournalEntry::where('credit_account_id', Account::where('code', '4070')->value('id'))->count());
+        $this->assertSame(0, JournalEntry::where('credit_account_id', Account::where('code', '4210')->value('id'))->count());
+        $this->assertSame(0, JournalEntry::where('debit_account_id', $surgeonPayable)->count());
+        // The bundle price still feeds supply_total (the share deduction).
+        $this->assertEquals(200.00, (float) $result['total']);
     }
 
     public function test_lasik_consumption_is_costed_to_lasik_supplies(): void
@@ -101,18 +100,18 @@ class ProcessBundleSupplyAccountingTest extends TestCase
         $this->assertEquals(0.0, (float) Account::where('code', '5010')->value('balance'));
     }
 
-    public function test_empty_selection_charges_bundle_price_but_deducts_no_stock(): void
+    public function test_empty_selection_keeps_bundle_price_but_deducts_no_stock(): void
     {
         $bundle = $this->makeBundle(ItemCategory::Medical);
         $item = $bundle->items->first()->inventoryItem;
         $stockBefore = (float) $item->fresh()->quantity;
 
         $surgery = $this->makeSurgery();
-        app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id, true);
+        $result = app(ProcessBundleSupplyAction::class)->process($bundle->id, 1, 'surgery', [], $surgery->id, true);
+        $this->assertEquals(200.00, (float) $result['total']);
 
         $this->assertEquals($stockBefore, (float) $item->fresh()->quantity);
-        $supplyRevenue = Account::where('code', '4070')->firstOrFail();
-        $this->assertEquals(200.00, (float) JournalEntry::where('credit_account_id', $supplyRevenue->id)->value('amount'));
+        $this->assertSame(0, JournalEntry::where('credit_account_id', Account::where('code', '4070')->value('id'))->count());
         $this->assertSame(0, JournalEntry::where('source', 'supplies_used')->where('description', 'like', 'بند:%')->count());
     }
 

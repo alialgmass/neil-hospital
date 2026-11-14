@@ -7,6 +7,7 @@ use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
@@ -129,8 +130,10 @@ class DoctorEntitlementAccountingTest extends TestCase
         $entry = $this->liveAccrual($booking->fresh());
         $this->assertNotNull($entry);
         $this->assertEquals(750.0, (float) $entry->amount);
-        $this->assertSame($this->cashId(), $entry->credit_account_id);
-        $this->assertNotSame($this->payableId(), $entry->credit_account_id);
+        // Accrued to the doctor's own payable sub-ledger — never the till, so
+        // the fee leaves the cash box only once, when the doctor is paid.
+        $this->assertSame(app(SubledgerAccountResolver::class)->forDoctor($booking->doctor_id), $entry->credit_account_id);
+        $this->assertNotSame($this->cashId(), $entry->credit_account_id);
     }
 
     public function test_re_saving_the_booking_unchanged_posts_no_new_entry(): void

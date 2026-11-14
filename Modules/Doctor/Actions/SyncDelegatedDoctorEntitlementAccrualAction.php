@@ -61,6 +61,7 @@ class SyncDelegatedDoctorEntitlementAccrualAction
             if ($source === EntitlementSource::Insurance) {
                 $this->autoPostInsuranceDoctorCash->execute(
                     amount: $amount,
+                    doctorId: $doctor->id,
                     doctorName: $doctor->name,
                     reference: $booking->file_no,
                     date: $booking->visit_date?->toDateString(),
