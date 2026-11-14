@@ -4,6 +4,7 @@ namespace Modules\Inventory\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Inventory\Actions\AddStockPermitAction;
@@ -19,10 +20,13 @@ class StockPermitController extends Controller
         private readonly AddStockPermitAction $addAction,
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $filters = $request->only(['search']);
+
         return Inertia::render('inventory/StockPermit', [
-            'permits' => $this->inventoryService->getStockPermits(20),
+            'filters' => $filters,
+            'permits' => $this->inventoryService->getStockPermits(20, $filters['search'] ?? null),
             'items' => $this->inventoryService->getSelectableItems(),
         ]);
     }

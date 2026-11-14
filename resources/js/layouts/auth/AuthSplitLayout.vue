@@ -4,7 +4,8 @@ import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { home } from '@/routes';
 
 const page = usePage();
-const name = page.props.name;
+const name = page.props.settings?.hospital_name ?? page.props.name;
+const logoUrl = page.props.settings?.hospital_logo_url ?? null;
 
 defineProps<{
     title?: string;
@@ -24,7 +25,8 @@ defineProps<{
                 :href="home()"
                 class="relative z-20 flex items-center text-lg font-medium"
             >
-                <AppLogoIcon class="mr-2 size-8 fill-current text-white" />
+                <img v-if="logoUrl" :src="logoUrl" alt="" class="mr-2 size-8 rounded object-cover" />
+                <AppLogoIcon v-else class="mr-2 size-8 fill-current text-white" />
                 {{ name }}
             </Link>
         </div>

@@ -139,8 +139,9 @@
 
                         <button 
                             type="submit" 
-                            class="w-full rounded-[8px] bg-hospital-primary py-3 text-[13px] font-bold text-white shadow-lg shadow-hospital-primary/20 transition-all hover:bg-hospital-primary-dark hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60" 
-                            :disabled="form.processing"
+                            class="w-full rounded-[8px] bg-hospital-primary py-3 text-[13px] font-bold text-white shadow-lg shadow-hospital-primary/20 transition-all hover:bg-hospital-primary-dark hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed" 
+                            :disabled="form.processing || !canWrite"
+                            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                         >
                             <div class="flex items-center justify-center gap-2">
                                 <Save class="h-4 w-4" v-if="!form.processing" />
@@ -159,6 +160,7 @@ import { Head, useForm } from '@inertiajs/vue3'
 import { Printer, Receipt, Save } from 'lucide-vue-next'
 import { computed, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -189,6 +191,10 @@ interface Booking {
 }
 
 const props = defineProps<{ booking: Booking; insuranceCompanies: InsuranceCompany[] }>()
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('booking.edit'))
 
 const form = useForm({
     booking_id: props.booking.id,
@@ -234,6 +240,10 @@ watch([() => form.ins_company_id, () => form.discount], () => {
 })
 
 function submit() {
+    if (!canWrite.value) {
+        return
+    }
+
     form.post('/sales-invoices')
 }
 

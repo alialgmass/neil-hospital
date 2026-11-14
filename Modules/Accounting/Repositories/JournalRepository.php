@@ -25,4 +25,9 @@ class JournalRepository implements JournalRepositoryInterface
     {
         return JournalEntry::create($data);
     }
+
+    public function findOrFail(string $id): JournalEntry
+    {
+        return JournalEntry::findOrFail($id);
+    }
 }

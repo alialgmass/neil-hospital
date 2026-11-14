@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { Save } from 'lucide-vue-next';
+import { Save, Trash2, AlertTriangle } from 'lucide-vue-next';
 import { ref } from 'vue';
 
 interface Setting {
@@ -15,22 +15,85 @@ interface SystemModuleOption {
     enabled: boolean;
 }
 
+interface BookingStatusOption {
+    value: string;
+    label: string;
+    visible: boolean;
+}
+
 const props = defineProps<{
-    settings: Record<string, Setting>;
+    allSettings: Record<string, Setting>;
+    hospitalLogoUrl: string | null;
     systemModules: SystemModuleOption[];
+    bookingStatuses: BookingStatusOption[];
 }>();
 
 const form = ref<Record<string, string>>({});
-Object.values(props.settings).forEach((s) => {
+Object.values(props.allSettings).forEach((s) => {
     form.value[s.key] = s.value ?? '';
 });
+
+const logoPreview = ref<string | null>(props.hospitalLogoUrl);
+const logoFile = ref<File | null>(null);
+const uploadingLogo = ref(false);
+
+const showWipeModal = ref(false);
+const wiping = ref(false);
+
+function confirmWipe() {
+    wiping.value = true;
+    router.delete('/settings/wipe-bookings', {
+        preserveScroll: true,
+        onFinish: () => {
+            wiping.value = false;
+            showWipeModal.value = false;
+        },
+    });
+}
+
+function onLogoSelected(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null;
+    logoFile.value = file;
+
+    if (file) {
+        logoPreview.value = URL.createObjectURL(file);
+    }
+}
+
+function uploadLogo() {
+    if (!logoFile.value) {
+        return;
+    }
+
+    uploadingLogo.value = true;
+    router.post(
+        '/settings/logo',
+        { logo: logoFile.value },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => {
+                uploadingLogo.value = false;
+                logoFile.value = null;
+            },
+        },
+    );
+}
 
 function moduleKey(module: string): string {
     return `module_enabled_${module}`;
 }
 
+function bookingStatusKey(status: string): string {
+    return `booking_status_visible_${status}`;
+}
+
 props.systemModules.forEach((m) => {
     form.value[moduleKey(m.value)] = form.value[moduleKey(m.value)] ?? (m.enabled ? 'true' : 'false');
+});
+
+props.bookingStatuses.forEach((s) => {
+    form.value[bookingStatusKey(s.value)] = form.value[bookingStatusKey(s.value)] ?? (s.visible ? 'true' : 'false');
 });
 
 function submit() {
@@ -48,6 +111,14 @@ function isModuleEnabled(module: string): boolean {
 
 function toggleModule(module: string): void {
     form.value[moduleKey(module)] = isModuleEnabled(module) ? 'false' : 'true';
+}
+
+function isBookingStatusVisible(status: string): boolean {
+    return form.value[bookingStatusKey(status)] !== 'false';
+}
+
+function toggleBookingStatus(status: string): void {
+    form.value[bookingStatusKey(status)] = isBookingStatusVisible(status) ? 'false' : 'true';
 }
 </script>
 
@@ -75,6 +146,24 @@ function toggleModule(module: string): void {
         <div class="settings-section">
             <div class="settings-title">🏥 بيانات المستشفى</div>
             <div class="settings-grid">
+                <div class="fg col-span-2">
+                    <label>شعار المستشفى</label>
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border border-hospital-border bg-hospital-bg">
+                            <img v-if="logoPreview" :src="logoPreview" alt="" class="h-full w-full object-cover" />
+                            <span v-else class="text-xs text-hospital-text-3">لا يوجد</span>
+                        </div>
+                        <input type="file" accept="image/*" class="s-input" @change="onLogoSelected" />
+                        <button
+                            type="button"
+                            class="rounded-lg bg-hospital-primary px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+                            :disabled="!logoFile || uploadingLogo"
+                            @click="uploadLogo"
+                        >
+                            رفع الشعار
+                        </button>
+                    </div>
+                </div>
                 <div class="fg col-span-2">
                     <label>اسم المستشفى</label>
                     <input v-model="form['hospital_name']" type="text" class="s-input" placeholder="مستشفى النور" />
@@ -229,6 +318,93 @@ function toggleModule(module: string): void {
             </div>
         </div>
 
+        <!-- ── Booking Status Visibility ── -->
+        <div class="settings-section lg:col-span-2">
+            <div class="settings-title">🗂️ إظهار حالات الحجز</div>
+            <p class="mb-3 text-xs text-hospital-text-3">
+                اختر الحالات التي تظهر في شاشة الحجز وقوائم التصفية وقوائم تغيير الحالة. الحالات المخفية تُستبعد من كل النظام.
+            </p>
+            <div class="module-toggle-list">
+                <div v-for="s in bookingStatuses" :key="s.value" class="module-toggle-row">
+                    <span class="module-toggle-label">{{ s.label }}</span>
+                    <button
+                        type="button"
+                        class="module-toggle-switch"
+                        :class="{ 'module-toggle-switch--on': isBookingStatusVisible(s.value) }"
+                        :aria-pressed="isBookingStatusVisible(s.value)"
+                        @click="toggleBookingStatus(s.value)"
+                    >
+                        <span class="module-toggle-knob" />
+                    </button>
+                    <span class="module-toggle-state" :class="{ 'module-toggle-state--off': !isBookingStatusVisible(s.value) }">
+                        {{ isBookingStatusVisible(s.value) ? 'ظاهر' : 'مخفي' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Danger Zone / Data Management ── -->
+        <div class="settings-section border-red-200 bg-red-50/20 lg:col-span-2">
+            <div class="settings-title !border-red-200 !text-red-700">⚠️ منطقة الخطر (إدارة البيانات)</div>
+            <div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div>
+                    <h4 class="text-xs font-bold text-red-900">حذف جميع الحجوزات وجميع متعلقاتها</h4>
+                    <p class="mt-1 text-xs text-red-600/80">
+                        حذف كافة الحجوزات المسجلة بالنظام بما في ذلك الشيتات الطبية، الفحوصات والتشخيص، العمليات، مطالبات التأمين، استحقاقات الأطباء، والقيود المحاسبية المتعلقة بها.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                    @click="showWipeModal = true"
+                >
+                    <Trash2 class="h-4 w-4" />
+                    حذف جميع الحجوزات ومتعلقاتها
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Confirm Wipe Modal ── -->
+    <div v-if="showWipeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-2xl">
+            <div class="flex items-center gap-3 text-red-600">
+                <AlertTriangle class="h-6 w-6 shrink-0" />
+                <h3 class="text-base font-bold">تأكيد حذف جميع الحجوزات</h3>
+            </div>
+            <div class="mt-3 text-xs leading-relaxed text-gray-600">
+                <p class="font-bold text-red-700">تحذير: هذا الإجراء نهائي ولا يمكن التراجع عنه!</p>
+                <p class="mt-2">سيتم حذف كافة الحجوزات بجميع حالاتها وأقسامها، بالإضافة إلى المتعلقات الآتية:</p>
+                <ul class="mt-2 space-y-1 pr-4 list-disc text-gray-700">
+                    <li>الشيتات الطبية والفحوصات بالكامل</li>
+                    <li>نتائج التشخيص والعمليات الجراحية</li>
+                    <li>مطالبات الشركات واستحقاقات الأطباء</li>
+                    <li>حركة الخزينة والقيود المحاسبية التابعة للحجوزات</li>
+                    <li>جميع الملفات والمرفقات المرفوعة</li>
+                </ul>
+                <p class="mt-3 font-semibold text-gray-800">هل أنت متأكد تماماً من رغبتك في الاستمرار؟</p>
+            </div>
+            <div class="mt-5 flex items-center justify-end gap-2 border-t pt-3">
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    :disabled="wiping"
+                    @click="showWipeModal = false"
+                >
+                    إلغاء
+                </button>
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+                    :disabled="wiping"
+                    @click="confirmWipe"
+                >
+                    <Trash2 class="h-3.5 w-3.5" />
+                    {{ wiping ? 'جاري الحذف...' : 'نعم، حذف الكل نهائياً' }}
+                </button>
+            </div>
+        </div>
     </div>
 </template>
 

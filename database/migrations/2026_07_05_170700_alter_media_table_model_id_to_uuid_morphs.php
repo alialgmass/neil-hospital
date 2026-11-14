@@ -11,12 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('media', function (Blueprint $table) {
-            $table->dropIndex('media_model_type_model_id_index');
-        });
+        if (Schema::hasIndex('media', ['model_type', 'model_id'])) {
+            Schema::table('media', function (Blueprint $table) {
+                $table->dropIndex('media_model_type_model_id_index');
+            });
+        }
 
         Schema::table('media', function (Blueprint $table) {
-            $table->string('model_id')->change();
+            $table->string('model_type', 191)->change();
+            $table->uuid('model_id')->change();
             $table->index(['model_type', 'model_id'], 'media_model_type_model_id_index');
         });
     }
@@ -26,13 +29,17 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('media', function (Blueprint $table) {
-            $table->dropIndex('media_model_type_model_id_index');
-        });
+        if (Schema::hasIndex('media', ['model_type', 'model_id'])) {
+            Schema::table('media', function (Blueprint $table) {
+                $table->dropIndex('media_model_type_model_id_index');
+            });
+        }
 
         Schema::table('media', function (Blueprint $table) {
             $table->unsignedBigInteger('model_id')->change();
-            $table->index(['model_type', 'model_id'], 'media_model_type_model_id_index');
+            if (Schema::hasIndex('media', ['model_type', 'model_id'])) {
+                $table->index(['model_type', 'model_id'], 'media_model_type_model_id_index');
+            }
         });
     }
 };

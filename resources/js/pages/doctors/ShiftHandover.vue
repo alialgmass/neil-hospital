@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { Users, TrendingUp, Clock, CheckCircle } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import Modal from '@/components/shared/Modal.vue';
 import StatCard from '@/components/shared/StatCard.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface ShiftSummary {
     id: string;
@@ -21,8 +22,12 @@ const props = defineProps<{
     pending_bookings?: Array<{ id: string; patient_name: string; dept: string; status: string }>;
 }>();
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('doctors.write'));
+
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 
 const showHandover = ref(false);
@@ -32,6 +37,10 @@ const handoverForm = useForm({
 });
 
 function submitHandover() {
+    if (!canWrite.value) {
+        return;
+    }
+
     handoverForm.post(`/doctor-shifts/${props.shift.id}/handover`, {
         onSuccess: () => {
  showHandover.value = false; 
@@ -47,20 +56,22 @@ function submitHandover() {
     <div class="mb-5 flex items-center justify-between">
         <div>
             <h2 class="text-lg font-bold text-hospital-text">تسليم الوردية</h2>
-            <p class="text-sm text-hospital-muted">
+            <p class="text-sm text-hospital-text-3">
                 {{ shift.doctor?.name }} — {{ shift.shift_date }}
             </p>
         </div>
         <button
             v-if="shift.status === 'open'"
-            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white hover:bg-hospital-success/90 transition-colors"
-            @click="showHandover = true"
+            class="flex items-center gap-1.5 rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white hover:bg-hospital-success/90 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            @click="canWrite && (showHandover = true)"
+            :disabled="!canWrite"
+            :title="canWrite ? undefined : NO_PERMISSION_TITLE"
         >
             <CheckCircle class="h-4 w-4" /> تسليم الوردية
         </button>
         <span
             v-else
-            class="rounded-full bg-hospital-muted/20 px-3 py-1 text-sm text-hospital-muted"
+            class="rounded-full bg-hospital-muted/20 px-3 py-1 text-sm text-hospital-text-3"
         >
             تم التسليم
         </span>
@@ -121,7 +132,7 @@ function submitHandover() {
             </div>
             <div class="flex justify-end gap-2 pt-2">
                 <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showHandover = false">إلغاء</button>
-                <button type="submit" :disabled="handoverForm.processing" class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:opacity-60">تأكيد التسليم</button>
+                <button type="submit" :disabled="handoverForm.processing || !canWrite" class="rounded-lg bg-hospital-success px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed" :title="canWrite ? undefined : NO_PERMISSION_TITLE">تأكيد التسليم</button>
             </div>
         </form>
     </Modal>

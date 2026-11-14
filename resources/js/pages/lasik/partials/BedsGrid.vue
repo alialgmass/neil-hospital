@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CalendarPlus } from 'lucide-vue-next';
 import { computed } from 'vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Surgery {
     id: string;
@@ -39,6 +40,9 @@ const emit = defineEmits<{
     openReport: [id: string];
     openSupplies: [id: string];
 }>();
+
+const { can } = usePermissions();
+const canWrite = computed(() => can(`${props.dept}.write`));
 
 const statusColor: Record<string, string> = {
     scheduled: '#7B2FA6',
@@ -98,7 +102,7 @@ function isOwnDept(surgery: Surgery): boolean {
                     <span class="legend-item"><span class="legend-dot" style="background:#E67E22" />قسم آخر</span>
                 </div>
             </div>
-            <button class="schedule-btn" @click="emit('scheduleNew')">
+            <button class="schedule-btn" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE" @click="emit('scheduleNew')">
                 <CalendarPlus class="h-4 w-4" />
                 جدولة ليزك
             </button>
@@ -114,7 +118,7 @@ function isOwnDept(surgery: Surgery): boolean {
                         ? { background: isOwnDept(item.surgery) ? (statusColor[item.surgery.status] ?? '#7B2FA6') : '#E67E22' }
                         : { background: '#BDC3C7', opacity: '0.75' }
                 "
-                @click="item.surgery && isOwnDept(item.surgery) ? emit('openCase', item.surgery) : emit('scheduleNew')"
+                @click="item.surgery && isOwnDept(item.surgery) ? emit('openCase', item.surgery) : canWrite && emit('scheduleNew')"
             >
                 <div class="bed-card-hd">
                     <span class="text-[13px] font-black">سرير {{ item.displayNumber }}</span>
@@ -138,10 +142,10 @@ function isOwnDept(surgery: Surgery): boolean {
                         <span>الموعد:</span><strong>{{ item.surgery.scheduled_at.slice(0, 16).replace('T', ' ') }}</strong>
                     </p>
                     <div class="mt-2 flex gap-1.5" @click.stop>
-                        <button class="bed-action-btn" @click="emit('openReport', item.surgery!.id)">
+                        <button class="bed-action-btn" :disabled="!canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE" @click="emit('openReport', item.surgery!.id)">
                             📋 تقرير
                         </button>
-                        <button class="bed-action-btn" @click="emit('openSupplies', item.surgery!.id)">
+                        <button class="bed-action-btn" :disabled="!canWrite" :title="canWrite ? 'إضافة مستلزمات' : NO_PERMISSION_TITLE" @click="emit('openSupplies', item.surgery!.id)">
                             💊 مستلزمات
                         </button>
                     </div>
@@ -234,6 +238,7 @@ function isOwnDept(surgery: Surgery): boolean {
     transition: background 0.15s;
 }
 .schedule-btn:hover { background: #6A2890; }
+.schedule-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .beds-grid {
     padding: 14px;
@@ -290,6 +295,7 @@ function isOwnDept(surgery: Surgery): boolean {
     white-space: nowrap;
 }
 .bed-action-btn:hover { background: rgba(255,255,255,0.35); }
+.bed-action-btn:disabled { cursor: not-allowed; opacity: 0.45; }
 .bed-card-empty {
     padding: 20px 12px;
     text-align: center;

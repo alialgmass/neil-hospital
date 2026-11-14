@@ -4,6 +4,7 @@ namespace Modules\Inventory\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Modules\Inventory\Http\Requests\StoreSupplyBundleRequest;
@@ -12,14 +13,23 @@ use Modules\Inventory\Models\SupplyBundle;
 
 class SupplyBundleController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $filters = $request->only(['search']);
+
         return Inertia::render('inventory/Bundles', [
+            'filters' => $filters,
             'bundles' => SupplyBundle::with('items.inventoryItem')
+                ->when($filters['search'] ?? null, function ($q, $v) {
+                    $q->where(function ($iq) use ($v) {
+                        $iq->where('name', 'like', "%{$v}%")
+                            ->orWhere('code', 'like', "%{$v}%");
+                    });
+                })
                 ->orderBy('name')
                 ->paginate(30)
                 ->withQueryString(),
-            'inventoryItems' => InventoryItem::orderBy('name')
+            'inventoryItems' => InventoryItem::active()->orderBy('name')
                 ->get(['id', 'name', 'code', 'unit', 'unit_cost', 'quantity']),
         ]);
     }
