@@ -37,7 +37,8 @@ use Tests\TestCase;
 /**
  * Golden scenario — الدليل المحاسبي v2.0, part 3: the full month of May 2026
  * replayed through the real posting paths (opening balances, doctor dues on
- * each doctor's sub-ledger, consumables charged at selling price to 4070,
+ * each doctor's sub-ledger, surgery/lasik dues accrued net of consumables (no
+ * 4070 charge on the doctor — the supplies are deducted from his share once),
  * the insurance case's three service-day entries, a credit purchase from
  * "عمار مستلزمات" (2313) and its settlement, month-end salaries, utilities
  * and the 500 stock-count shortage). The resulting trial balance, income
@@ -69,7 +70,7 @@ class GuideMayMonthScenarioTest extends TestCase
         $expected = [
             '1010' => 11833, '1011' => 500, '1031' => 6500, '1051' => 125970, '3010' => 150000,
             '4010' => 1500, '4020' => 650, '4030' => 10000, '4040' => 15000, '4050' => 1000, '4060' => 500,
-            '4070' => 4720, '4130' => 6500, '5010' => 3265, '5020' => 765, '5110' => 1137, '5120' => 24900,
+            '4130' => 6500, '5010' => 3265, '5020' => 765, '5110' => 1137, '5120' => 20180,
             '5130' => 500, '5210' => 10000, '5230' => 4500,
         ];
 
@@ -89,15 +90,15 @@ class GuideMayMonthScenarioTest extends TestCase
             return [$carry[0] + max($net, 0), $carry[1] + max(-$net, 0)];
         }, [0.0, 0.0]);
 
-        $this->assertEquals(189870.0, round($debitSide, 2));
-        $this->assertEquals(189870.0, round($creditSide, 2));
+        $this->assertEquals(185150.0, round($debitSide, 2));
+        $this->assertEquals(185150.0, round($creditSide, 2));
     }
 
     public function test_income_statement_matches_the_guide(): void
     {
         $statement = app(IncomeStatementService::class)->get();
 
-        $this->assertEquals(39870.0, $statement['totalRevenue']);
+        $this->assertEquals(35150.0, $statement['totalRevenue']);
         $this->assertEquals(-5197.0, $statement['netBeforeTax']);
     }
 
@@ -133,7 +134,7 @@ class GuideMayMonthScenarioTest extends TestCase
         // 5 May — cash cataract 10,000; consumables 2,360 at sale / 765 at cost.
         $surgeon = $this->doctor('د. جراح');
         $this->cashService('4030', 10000, 50, 'CC-SURG', '2026-05-05');
-        app(AutoPostDoctorDuesAction::class)->execute(Department::Surgery, 9950, $surgeon->id, $surgeon->name, 'P-SURG', '2026-05-05', 'may:surgery:dues');
+        app(AutoPostDoctorDuesAction::class)->execute(Department::Surgery, 7590, $surgeon->id, $surgeon->name, 'P-SURG', '2026-05-05', 'may:surgery:dues');
         $this->consumables('surgery', $surgeon);
         $this->payDoctor($surgeon, 7590, '2026-05-05');
 
@@ -150,7 +151,7 @@ class GuideMayMonthScenarioTest extends TestCase
         // 12 May — cash lasik 15,000; same consumables, costed to lasik.
         $lasikDoctor = $this->doctor('د. ليزك');
         $this->cashService('4040', 15000, 50, 'CC-LASIK', '2026-05-12');
-        app(AutoPostDoctorDuesAction::class)->execute(Department::Lasik, 14950, $lasikDoctor->id, $lasikDoctor->name, 'P-LASIK', '2026-05-12', 'may:lasik:dues');
+        app(AutoPostDoctorDuesAction::class)->execute(Department::Lasik, 12590, $lasikDoctor->id, $lasikDoctor->name, 'P-LASIK', '2026-05-12', 'may:lasik:dues');
         $this->consumables('lasik', $lasikDoctor);
         $this->payDoctor($lasikDoctor, 12590, '2026-05-12');
 
@@ -224,7 +225,8 @@ class GuideMayMonthScenarioTest extends TestCase
 
         app(AutoPostInsuranceClaimAction::class)->recognize($claim);                                            // 1أ
         $this->journal->record($this->line('5010', '1051', 2000, 'CC-INS', '2026-05-08', JournalSource::SUPPLIES_USED)); // 1ب
-        app(AutoPostInsuranceDoctorCashPaymentAction::class)->execute(500, $doctor->name, 'P-INS', '2026-05-08', 'may:insurance:doctor'); // 1ج
+        app(AutoPostInsuranceDoctorCashPaymentAction::class)->execute(500, $doctor->id, $doctor->name, 'P-INS', '2026-05-08', 'may:insurance:doctor'); // 1ج
+        $this->payDoctor($doctor, 500, '2026-05-08');
     }
 
     private function manual(string $debit, string $credit, float $amount, string $costCenter, string $date): void

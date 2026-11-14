@@ -12,6 +12,7 @@ use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Services\BookingService;
+use Modules\Doctor\Actions\SyncBookingDoctorDuesAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
@@ -33,6 +34,7 @@ class CreateBookingAction
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
         private readonly DoctorClaimsService $doctorClaimsService,
         private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
+        private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
     ) {}
 
     public function execute(BookingData $data, int $createdBy): Booking
@@ -98,6 +100,14 @@ class CreateBookingAction
 
         // Automatic doctor entitlement for insurance / contract deals
         $this->syncDoctorEntitlement->execute($booking);
+
+        // A booking collected in full at creation never goes through the pay
+        // screen, so its doctor's share (e.g. a clinic doctor's 50%) must be
+        // accrued here — otherwise the doctor is later paid from the till
+        // with no matching accrual and his account turns debit.
+        if ($booking->pay_status === PayStatus::Paid) {
+            $this->syncBookingDoctorDues->execute($booking->fresh());
+        }
 
         // Business rule: when the patient pays nothing on a cash booking,
         // the full service price (net of the dev-treasury fee) becomes a

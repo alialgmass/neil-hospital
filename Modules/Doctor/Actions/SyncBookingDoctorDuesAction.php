@@ -40,7 +40,7 @@ class SyncBookingDoctorDuesAction
             return;
         }
 
-        if (! $booking->canAccrueDoctorDues()) {
+        if (! $booking->canAccrueDoctorDues() || $booking->defersDoctorDuesUntilCompletion()) {
             return;
         }
 

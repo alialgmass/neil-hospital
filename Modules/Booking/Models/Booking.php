@@ -179,4 +179,16 @@ class Booking extends Model implements HasMedia
     {
         return ! $this->isInsurance() || $this->isCompleted();
     }
+
+    /**
+     * A surgery's doctor share is the paid amount net of its supplies, and
+     * supplies are recorded on the surgery after the patient pays. Accruing
+     * at payment time posted the gross share and later reversed it once the
+     * supplies arrived; instead the primary doctor's share is accrued once,
+     * already net, when the surgery is completed.
+     */
+    public function defersDoctorDuesUntilCompletion(): bool
+    {
+        return $this->dept === Department::Surgery && ! $this->isCompleted();
+    }
 }

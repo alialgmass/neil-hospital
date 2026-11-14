@@ -153,8 +153,9 @@ class SupplyLineEditDeleteTest extends TestCase
 
         $this->assertEquals(98, (float) $gloves->fresh()->quantity);
         $this->assertNotEmpty($surgery->fresh()->supplies_used[0]['permit_id']);
+        // Consumption only (Dr 5010 / Cr 1051) — no supplies charge on the doctor.
         $postedEntries = JournalEntry::where('source', JournalSource::SUPPLIES_USED)->count();
-        $this->assertSame(2, $postedEntries);
+        $this->assertSame(1, $postedEntries);
 
         $this->actingAs($this->writer)
             ->delete("/surgery/{$surgery->id}/supplies/0", ['line_ref' => $bundle->id])
@@ -166,7 +167,7 @@ class SupplyLineEditDeleteTest extends TestCase
         $this->assertEquals(100, (float) $gloves->fresh()->quantity);
         $this->assertSame(0, StockPermit::count());
         $this->assertSame(0, JournalEntry::where('source', JournalSource::SUPPLIES_USED)->whereNull('reversed_at')->count());
-        $this->assertSame(2, JournalEntry::where('source', JournalSource::REVERSAL)->count());
+        $this->assertSame(1, JournalEntry::where('source', JournalSource::REVERSAL)->count());
     }
 
     public function test_deleting_a_legacy_bundle_line_without_permit_id_finds_its_permit(): void
@@ -242,6 +243,8 @@ class SupplyLineEditDeleteTest extends TestCase
         $surgery = $this->makeSurgery();
         $gloves = $this->makeItem('جوانتي');
         $this->addItem($surgery, $gloves, 10, 10);
+        // Surgery dues only post once the case is completed.
+        $surgery->booking->update(['status' => 'completed']);
 
         $this->actingAs($this->userWithPermissions(['booking.pay']))
             ->patch("/booking/{$surgery->booking_id}/pay", ['paid_amount' => 6500, 'pay_method' => 'cash'])

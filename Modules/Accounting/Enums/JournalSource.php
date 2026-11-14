@@ -40,7 +40,7 @@ enum JournalSource: string
             self::ITEM_SALE => 'بيع أصناف',
             self::DOCTOR_SHIFT => 'شيفت طبيب',
             self::DOCTOR_PAYMENT => 'صرف مستحقات طبيب',
-            self::INSURANCE_DOCTOR_PAYMENT => 'صرف أتعاب طبيب تأمين (كاش فوري)',
+            self::INSURANCE_DOCTOR_PAYMENT => 'استحقاق أتعاب طبيب تأمين',
             self::SUPPLIER_PAYMENT => 'سداد مورد',
             self::REVERSAL => 'عكس قيد (إلغاء)',
             self::OPENING_BALANCE => 'قيد افتتاحي',

@@ -2,6 +2,7 @@
 
 namespace Modules\Booking\Actions;
 
+use App\Enums\Department;
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
 use Modules\Accounting\Actions\AutoPostBookingPaymentAction;
@@ -13,6 +14,7 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\BookingStatus;
 use Modules\Booking\States\CancelledState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncBookingDoctorDuesAction;
 use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 use Spatie\ModelStates\Exceptions\CouldNotPerformTransition;
@@ -27,6 +29,7 @@ class UpdateBookingStatusAction
         private readonly ActivityLogService $activityLog,
         private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
         private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
+        private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
     ) {}
 
     public function execute(string $id, string|BookingStatus $newStatus, ?string $cancelReason = null): Booking
@@ -65,6 +68,12 @@ class UpdateBookingStatusAction
 
         if ($booking->isCompleted()) {
             $this->syncDoctorEntitlement->execute($booking);
+
+            // Surgery dues are deferred to completion so they post once, net
+            // of the supplies (see Booking::defersDoctorDuesUntilCompletion()).
+            if ($booking->dept === Department::Surgery) {
+                $this->syncBookingDoctorDues->execute($booking->fresh());
+            }
         }
 
         if ($booking->status instanceof CancelledState) {
