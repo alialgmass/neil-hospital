@@ -2,6 +2,7 @@
 
 namespace Modules\Doctor\Actions;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Admin\Services\ActivityLogService;
 use Modules\Doctor\Models\Doctor;
 
@@ -9,6 +10,7 @@ class UpdateDoctorAction
 {
     public function __construct(
         private readonly ActivityLogService $activityLogService,
+        private readonly SyncBookingDoctorDuesAction $syncBookingDoctorDues,
     ) {}
 
     public function execute(Doctor $doctor, array $data): Doctor
@@ -17,15 +19,21 @@ class UpdateDoctorAction
         $delegationServices = $data['delegation_services'] ?? null;
         unset($data['services'], $data['delegation_services']);
 
-        $doctor->update($data);
+        DB::transaction(function () use ($doctor, $data, $services, $delegationServices): void {
+            $doctor->update($data);
 
-        if ($services !== null) {
-            $doctor->syncServiceFees($services);
-        }
+            if ($services !== null) {
+                $doctor->syncServiceFees($services);
+            }
 
-        if ($delegationServices !== null) {
-            $doctor->syncDelegationFees($delegationServices);
-        }
+            if ($delegationServices !== null) {
+                $doctor->syncDelegationFees($delegationServices);
+            }
+
+            // The claims screen prices every case from the live fees — keep
+            // the accrued dues in the ledger in step with a fee change.
+            $this->syncBookingDoctorDues->resyncForDoctor($doctor->id);
+        });
 
         $this->activityLogService->log(
             action: 'update',

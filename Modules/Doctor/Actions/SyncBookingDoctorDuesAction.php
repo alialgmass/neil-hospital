@@ -6,7 +6,9 @@ use Modules\Accounting\Actions\AutoPostDoctorDuesAction;
 use Modules\Accounting\Enums\JournalSource;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\JournalService;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
+use Modules\Booking\States\CancelledState;
 use Modules\Doctor\Enums\DebtEntryType;
 use Modules\Doctor\Enums\EntitlementStatus;
 use Modules\Doctor\Models\Doctor;
@@ -31,6 +33,22 @@ class SyncBookingDoctorDuesAction
         private readonly AutoPostDoctorDuesAction $autoPostDoctorDues,
         private readonly JournalService $journalService,
     ) {}
+
+    /**
+     * Re-align every paid cash booking of a doctor with their current fee
+     * setup. The claims screen always computes shares from the live fees, so
+     * after a fee change the ledger must follow — otherwise the doctor is paid
+     * dues that were never accrued and their payable account turns debit.
+     * Insurance / contract bookings are settled through persisted entitlements.
+     */
+    public function resyncForDoctor(string $doctorId): void
+    {
+        Booking::where('doctor_id', $doctorId)
+            ->where('paid_amount', '>', 0)
+            ->whereNotIn('pay_method', [PayMethod::Insurance->value, PayMethod::Contract->value])
+            ->where('status', '!=', CancelledState::$name)
+            ->chunkById(200, fn ($bookings) => $bookings->each(fn (Booking $booking) => $this->execute($booking)));
+    }
 
     public function execute(Booking $booking): void
     {
