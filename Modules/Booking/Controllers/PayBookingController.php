@@ -111,18 +111,19 @@ class PayBookingController extends Controller
                 // describes a loss — the money arrived. Release it rather
                 // than netting it off the share, which used to leave a
                 // fully-paid case still showing a "خصم مديونية الطبيب" line.
-                $released = $payStatus === PayStatus::Paid
-                    ? $doctor->releaseDebtForBooking($booking->id)
-                    : 0.0;
+                if ($payStatus === PayStatus::Paid) {
+                    $doctor->releaseDebtForBooking($booking->id);
+                }
 
                 // Debt raised by *other* still-unpaid cases is different: it is
                 // a real outstanding liability, so it is settled out of this
                 // share before the rest is posted as dues. Logged per booking
                 // (DoctorDebtSettlement) so the claims report can net it out of
                 // "مستحق" instead of double-counting it.
-                $settleable = max(0.0, $drShare - $released);
-                $settled = $settleable > 0 ? $doctor->settleDebtForBooking($booking->id, $settleable) : 0.0;
-                $netShare = $drShare - $released - $settled;
+                // The released debt is never taken out of the share: it was
+                // only a placeholder for money that has now been collected.
+                $settled = $drShare > 0 ? $doctor->settleDebtForBooking($booking->id, $drShare) : 0.0;
+                $netShare = $drShare - $settled;
 
                 // Surgery: accrued once, net of supplies, on completion
                 // (SyncBookingDoctorDuesAction) — never gross-then-reversed.

@@ -8,10 +8,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
 use Modules\Accounting\Services\LedgerService;
+use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Actions\UpdateDoctorAction;
 use Modules\Doctor\Models\Doctor;
 use Modules\Doctor\Services\DoctorClaimsService;
+use Modules\Surgery\Models\OrBed;
+use Modules\Surgery\Models\OrRoom;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -94,6 +98,51 @@ class DoctorPaymentEndToEndTest extends TestCase
     }
 
     private const CLINIC_HALF = ['clinic' => ['fee_type' => 'percentage', 'fee_value' => 50]];
+
+    /**
+     * @return array<string, array{0: string, 1: array<string, mixed>, 2: array<string, mixed>, 3: float, 4: float}>
+     */
+    public static function unpaidThenCollectedCases(): array
+    {
+        return [
+            'clinic 50%' => ['clinic', ['price' => 200, 'both_eyes_price' => 200], self::CLINIC_HALF, 200.0, 100.0],
+            'labs 27% after dev fee' => ['labs', ['price' => 650, 'both_eyes_price' => 650, 'dev_treasury_fee' => 50], ['labs' => ['fee_type' => 'percentage', 'fee_value' => 27]], 650.0, 162.0],
+            'laser above center price' => ['laser', ['price' => 1150, 'one_eye_price' => 550, 'both_eyes_price' => 1150, 'dev_treasury_fee' => 50], [], 2500.0, 1300.0],
+            'lasik above center price' => ['lasik', ['price' => 2500, 'one_eye_price' => 1500, 'both_eyes_price' => 2500, 'dev_treasury_fee' => 50], [], 10000.0, 7450.0],
+        ];
+    }
+
+    #[DataProvider('unpaidThenCollectedCases')]
+    public function test_a_booking_created_unpaid_then_collected_accrues_the_doctors_full_share(string $dept, array $service, array $deptFees, float $collected, float $expectedShare): void
+    {
+        $this->seed(AccountsSeeder::class);
+
+        $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        foreach (['booking.create', 'booking.pay', 'drpayments.write'] as $permission) {
+            $role->givePermissionTo(Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']));
+        }
+        $user = User::factory()->create();
+        $user->assignRole($role);
+
+        $service = Service::create(['name' => 'خدمة', 'dept' => $dept, ...$service]);
+        $doctor = Doctor::create(['name' => 'د. خالد', 'fee_type' => 'percentage', 'fee_value' => 0, 'is_active' => true, 'dept_fees' => $deptFees]);
+        $bedId = $dept === 'lasik' ? OrBed::create(['room_id' => OrRoom::create(['name' => 'Room 1'])->id, 'bed_number' => 1])->id : null;
+
+        $this->actingAs($user)->post('/booking', [
+            'patient_name' => 'محمد', 'dept' => $dept, 'eye_side' => 'OU', 'visit_date' => today()->toDateString(),
+            'service_id' => $service->id, 'service_name' => $service->name, 'doctor_id' => $doctor->id, 'bed_id' => $bedId,
+            'pay_method' => 'cash', 'pay_status' => 'unpaid', 'status' => 'waiting',
+            ...($dept === 'labs' ? ['service_ids' => [$service->id]] : []),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->actingAs($user)->patch(route('booking.pay', Booking::firstOrFail()->id), [
+            'paid_amount' => $collected, 'pay_method' => 'cash',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $this->assertEquals($expectedShare, app(DoctorClaimsService::class)->calculateClaims($doctor->id, null, null)['net_due']);
+        $this->assertEquals($expectedShare, $this->payableBalance($doctor));
+        $this->assertEquals(0.0, (float) $doctor->fresh()->doctor_debt_balance);
+    }
 
     public function test_changing_a_doctors_fees_accrues_the_dues_of_his_already_paid_bookings(): void
     {
