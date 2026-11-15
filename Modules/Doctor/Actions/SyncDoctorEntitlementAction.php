@@ -191,7 +191,20 @@ class SyncDoctorEntitlementAction
         $doctor = Doctor::find($entitlement->doctor_id);
         $amount = (float) $entitlement->amount;
 
-        if ($doctor === null || $amount <= 0) {
+        // Only insurance accruals are deferred to completion; every other
+        // source accrued when the entitlement was raised, before it settled.
+        if ($doctor === null || $amount <= 0 || $entitlement->source !== EntitlementSource::Insurance) {
+            return;
+        }
+
+        $alreadyAccrued = JournalEntry::where('reference', $booking->file_no)
+            ->whereIn('source', [JournalSource::DOCTOR_SHIFT->value, JournalSource::INSURANCE_DOCTOR_PAYMENT->value])
+            ->where('idempotency_key', 'like', 'doctor_entitlement:%')
+            ->whereNull('reversed_at')
+            ->whereNull('reversal_of_id')
+            ->exists();
+
+        if ($alreadyAccrued) {
             return;
         }
 

@@ -14,6 +14,7 @@ use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Services\DoctorClaimsService;
 use Modules\Insurance\Models\InsuranceClaim;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -80,6 +81,8 @@ class RepairInsurancePostingGapsTest extends TestCase
     public function test_insurance_dues_paid_before_completion_are_accrued_when_the_booking_completes(): void
     {
         $booking = $this->bookInsurance('clinic');
+
+        $this->assertTrue(app(DoctorClaimsService::class)->calculateClaims($this->doctor->id, null, null)['rows'][0]['is_insurance']);
 
         $this->payDoctor(750);
         $this->assertEquals(-750.0, $this->doctorPayableBalance());

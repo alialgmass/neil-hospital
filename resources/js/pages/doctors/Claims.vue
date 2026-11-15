@@ -58,6 +58,7 @@ interface ClaimRow {
     service: string;
     paid: number | null;
     ins_amount: number | null;
+    is_insurance?: boolean;
     dr_share: number;
     debt_incurred?: number;
     delegated_total?: number;
@@ -837,6 +838,11 @@ function printInvoice() {
                                                 >{{ row.patient_name }}</span
                                             >
                                             <span
+                                                v-if="row.is_insurance"
+                                                class="rounded bg-hospital-success px-1.5 py-0.5 text-[9px] font-bold text-white"
+                                                >تأمين</span
+                                            >
+                                            <span
                                                 v-if="row.role"
                                                 class="rounded px-1.5 py-0.5 text-[9px] font-bold text-white"
                                                 :class="
@@ -1567,6 +1573,11 @@ function printInvoice() {
                             <td class="mono muted">{{ row.file_no }}</td>
                             <td class="bold">
                                 {{ row.patient_name }}
+                                <span
+                                    v-if="row.is_insurance"
+                                    class="ph-role-badge"
+                                    >تأمين</span
+                                >
                                 <span v-if="row.role" class="ph-role-badge">{{
                                     roleLabel[row.role]
                                 }}</span>

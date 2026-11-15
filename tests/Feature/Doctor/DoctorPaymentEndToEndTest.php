@@ -41,6 +41,7 @@ class DoctorPaymentEndToEndTest extends TestCase
 
         $claims = app(DoctorClaimsService::class)->calculateClaims($doctor->id, null, null);
         $this->assertGreaterThan(0, $claims['net_due']);
+        $this->assertFalse($claims['rows'][0]['is_insurance']);
 
         $payableCode = fn () => $doctor->fresh()->payableAccount?->code ?? Account::find($doctor->fresh()->payable_account_id)->code;
         $balance = fn () => collect(app(LedgerService::class)->trialBalance())->firstWhere('code', $payableCode())['balance'] ?? 0.0;

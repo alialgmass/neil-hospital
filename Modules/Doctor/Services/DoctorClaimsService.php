@@ -106,6 +106,7 @@ class DoctorClaimsService
                 'service' => $booking->service_name,
                 'paid' => (float) $booking->paid_amount,
                 'ins_amount' => (float) $booking->ins_amount,
+                'is_insurance' => $booking->pay_method === PayMethod::Insurance->value,
                 'dr_share' => $drShare,
                 'debt_incurred' => $writtenOff ? (float) $debtIncurred[$booking->id] : 0.0,
                 // Delegated/anesthesia fees withheld from this booking's own
@@ -152,6 +153,7 @@ class DoctorClaimsService
                 'bookings.patient_name',
                 'bookings.visit_date',
                 'bookings.dept',
+                'bookings.pay_method',
             ]);
 
         foreach ($delegationRows as $delegation) {
@@ -168,6 +170,7 @@ class DoctorClaimsService
                 'service' => $delegation->service_name,
                 'paid' => null,
                 'ins_amount' => null,
+                'is_insurance' => $delegation->pay_method === PayMethod::Insurance->value,
                 'dr_share' => $drShare,
                 'delegated_total' => 0.0,
                 'delegation_lines' => [],
