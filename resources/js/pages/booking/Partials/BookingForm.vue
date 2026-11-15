@@ -194,11 +194,29 @@ function recalcLabsPrice() {
     }, 0);
 
     form.price = String(total);
-    form.ins_amount = '0';
+    form.ins_amount = String(labsInsuranceShare(total));
     form.service_name = form.service_ids
         .map((id) => props.services.find((s) => s.id === id)?.name)
         .filter(Boolean)
         .join('، ');
+}
+
+// The insurer's share of a labs booking: the company's price-list coverage,
+// falling back to its general coverage rate (same rule as recalcPrice()).
+function labsInsuranceShare(total: number): number {
+    if (form.pay_method !== 'insurance' || !form.ins_company_id) {
+        return 0;
+    }
+
+    const coverage =
+        props.priceLists?.find(
+            (pl) => pl.ins_company_id === form.ins_company_id,
+        )?.ins_coverage ??
+        props.insuranceCompanies.find((c) => c.id === form.ins_company_id)
+            ?.coverage_pct ??
+        0;
+
+    return Math.round(((total * coverage) / 100) * 100) / 100;
 }
 
 watch(() => form.service_ids, recalcLabsPrice, { deep: true });
@@ -402,7 +420,10 @@ watch(
         }
     },
 );
-watch(() => form.ins_company_id, recalcPrice);
+watch(
+    () => form.ins_company_id,
+    () => (isLabs.value ? recalcLabsPrice() : recalcPrice()),
+);
 
 function submit() {
     const method = props.submitMethod === 'put' ? form.put : form.post;

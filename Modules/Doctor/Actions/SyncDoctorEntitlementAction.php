@@ -49,6 +49,8 @@ class SyncDoctorEntitlementAction
         if ($existing && $existing->status === EntitlementStatus::Settled) {
             session()->flash('warning', 'مستحق الطبيب لهذا الحجز تم تسويته بالفعل ولم يتم تعديله.');
 
+            $this->ensureSettledAccrual($booking, $existing);
+
             return;
         }
 
@@ -178,6 +180,24 @@ class SyncDoctorEntitlementAction
      * contract bookings use the regular accrual (Dr 5110/5120 / Cr 22xx).
      * Either way the till is only credited when the doctor is paid.
      */
+    /**
+     * An insurance entitlement paid out before its booking was completed is
+     * already settled, but its accrual (Dr 5130 / Cr the doctor's payable) is
+     * only allowed on completion — post it then at the frozen settled amount,
+     * otherwise the payout leaves the doctor's account in debit forever.
+     */
+    public function ensureSettledAccrual(Booking $booking, DoctorEntitlement $entitlement): void
+    {
+        $doctor = Doctor::find($entitlement->doctor_id);
+        $amount = (float) $entitlement->amount;
+
+        if ($doctor === null || $amount <= 0) {
+            return;
+        }
+
+        $this->syncAccrual($booking, $doctor, $amount, $entitlement->source);
+    }
+
     private function syncAccrual(Booking $booking, Doctor $doctor, float $amount, EntitlementSource $source): void
     {
         if (! $booking->canAccrueDoctorDues()) {
