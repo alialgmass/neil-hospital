@@ -5,6 +5,7 @@ namespace Tests\Feature\Insurance;
 use App\Models\User;
 use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Modules\Accounting\Actions\AutoPostInsuranceDoctorCashPaymentAction;
 use Modules\Accounting\Exceptions\AccountingException;
 use Modules\Accounting\Models\Account;
@@ -140,7 +141,7 @@ class InsuranceCycleGuideTest extends TestCase
 
         $this->expectException(AccountingException::class);
 
-        app(AutoPostInsuranceDoctorCashPaymentAction::class)->execute(500, 'د. تأمين', $booking->file_no);
+        app(AutoPostInsuranceDoctorCashPaymentAction::class)->execute(500, (string) Str::ulid(), 'د. تأمين', $booking->file_no);
     }
 
     public function test_5130_cannot_be_posted_outside_the_insurance_cycle(): void

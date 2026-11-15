@@ -173,11 +173,10 @@ class SyncDoctorEntitlementAction
      * reversing any earlier accrual for this booking first. A no-op when the
      * accrual for this exact amount is already live.
      *
-     * Insurance bookings never accrue to 2010 (doctor payable) — the fixed
-     * fee is paid cash, immediately, via AutoPostInsuranceDoctorCashPaymentAction
-     * (Dr 5130 / Cr 1010). Contract bookings keep the existing accrual path
-     * (Dr 5110/5120 / Cr 2010) — the spec's cash-immediate rule is specific
-     * to insurance companies, not every third-party payer.
+     * Insurance bookings accrue the fixed fee to 5130 via
+     * AutoPostInsuranceDoctorCashPaymentAction (Dr 5130 / Cr doctor 22xx);
+     * contract bookings use the regular accrual (Dr 5110/5120 / Cr 22xx).
+     * Either way the till is only credited when the doctor is paid.
      */
     private function syncAccrual(Booking $booking, Doctor $doctor, float $amount, EntitlementSource $source): void
     {
@@ -200,6 +199,7 @@ class SyncDoctorEntitlementAction
         if ($source === EntitlementSource::Insurance) {
             $this->autoPostInsuranceDoctorCash->execute(
                 amount: $amount,
+                doctorId: $doctor->id,
                 doctorName: $doctor->name,
                 reference: $booking->file_no,
                 date: $booking->visit_date?->toDateString(),

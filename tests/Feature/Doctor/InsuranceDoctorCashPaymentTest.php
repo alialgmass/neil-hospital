@@ -7,6 +7,7 @@ use Database\Seeders\AccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Accounting\Models\Account;
 use Modules\Accounting\Models\JournalEntry;
+use Modules\Accounting\Services\SubledgerAccountResolver;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Models\InsuranceCompany;
 use Modules\Booking\Models\Service;
@@ -16,9 +17,9 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Business rule: insurance doctor fees are a fixed amount per case, paid
- * cash immediately (Dr 5130 / Cr 1010) — never accrued to 2010 (doctor
- * payable), unlike every cash department.
+ * Business rule: insurance doctor fees are a fixed amount per case, accrued
+ * on completion to the doctor's own payable (Dr 5130 / Cr 22xx). The till is
+ * credited only when the doctor is actually paid, so the fee leaves it once.
  */
 class InsuranceDoctorCashPaymentTest extends TestCase
 {
@@ -66,7 +67,7 @@ class InsuranceDoctorCashPaymentTest extends TestCase
         ])->assertRedirect();
     }
 
-    public function test_insurance_doctor_fee_posts_cash_on_completion_and_never_touches_doctor_payable(): void
+    public function test_insurance_doctor_fee_accrues_to_the_doctor_on_completion_and_never_touches_the_till(): void
     {
         $this->actingAs($this->user)->post('/booking', [
             'patient_name' => 'مريض تأمين', 'dept' => 'clinic', 'eye_side' => 'OD', 'visit_date' => '2026-05-10',
@@ -79,7 +80,6 @@ class InsuranceDoctorCashPaymentTest extends TestCase
 
         $insuranceDoctorFees = Account::where('code', '5130')->firstOrFail();
         $cash = Account::where('code', '1010')->firstOrFail();
-        $doctorPayable = Account::where('code', '2010')->firstOrFail();
 
         $this->assertDatabaseMissing('journal_entries', [
             'reference' => $booking->file_no,
@@ -93,11 +93,11 @@ class InsuranceDoctorCashPaymentTest extends TestCase
             ->sole();
 
         $this->assertSame($insuranceDoctorFees->id, $entry->debit_account_id);
-        $this->assertSame($cash->id, $entry->credit_account_id);
+        $this->assertSame(app(SubledgerAccountResolver::class)->forDoctor($this->doctor->id), $entry->credit_account_id);
         $this->assertEquals(500.0, (float) $entry->amount);
 
-        // 2010 (doctor payable) balance untouched by this posting.
-        $this->assertEquals(0.0, (float) $doctorPayable->fresh()->balance);
+        // The till is only credited when the doctor is actually paid.
+        $this->assertSame(0, JournalEntry::where('reference', $booking->file_no)->where('credit_account_id', $cash->id)->count());
     }
 
     public function test_resaving_the_booking_unchanged_does_not_duplicate_the_cash_payment(): void

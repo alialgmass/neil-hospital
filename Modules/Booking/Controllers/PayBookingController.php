@@ -124,7 +124,9 @@ class PayBookingController extends Controller
                 $settled = $settleable > 0 ? $doctor->settleDebtForBooking($booking->id, $settleable) : 0.0;
                 $netShare = $drShare - $released - $settled;
 
-                if ($netShare > 0) {
+                // Surgery: accrued once, net of supplies, on completion
+                // (SyncBookingDoctorDuesAction) — never gross-then-reversed.
+                if ($netShare > 0 && ! $booking->defersDoctorDuesUntilCompletion()) {
                     $this->autoPostDoctorDues->execute(
                         dept: $booking->dept,
                         amount: $netShare,

@@ -121,7 +121,9 @@ class RecordSuppliesBulkTest extends TestCase
     public function test_empty_bundle_resyncs_already_posted_doctor_dues(): void
     {
         $surgery = $this->makeSurgery();
-        $surgery->booking->update(['paid_amount' => 1000, 'pay_status' => 'paid']);
+        // Surgery dues only post once the case is completed; a supply edit
+        // after that must still re-align them.
+        $surgery->booking->update(['paid_amount' => 1000, 'pay_status' => 'paid', 'status' => 'completed']);
         $bundle = SupplyBundle::create(['name' => 'Ø¨Ù†Ø¯ ÙØ§Ø±Øº', 'code' => 'B-'.uniqid(), 'price' => 200, 'is_active' => true]);
 
         app(AutoPostDoctorDuesAction::class)->execute(
