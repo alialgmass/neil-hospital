@@ -15,10 +15,13 @@ class PurchaseReturnController extends Controller
         private readonly PurchaseReturnService $service
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $filters = $request->only(['search']);
+
         return Inertia::render('inventory/PurchaseReturns', [
-            'returns' => $this->service->list(20),
+            'filters' => $filters,
+            'returns' => $this->service->list(20, $filters['search'] ?? null),
             'invoices' => $this->service->getEligibleInvoices(),
         ]);
     }

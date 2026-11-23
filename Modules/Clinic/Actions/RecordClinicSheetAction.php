@@ -7,6 +7,7 @@ use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Clinic\DTOs\ClinicSheetData;
 use Modules\Clinic\Models\ClinicSheet;
 use Modules\Clinic\Repositories\Contracts\ClinicSheetRepositoryInterface;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 
 class RecordClinicSheetAction
 {
@@ -14,6 +15,7 @@ class RecordClinicSheetAction
         private readonly ClinicSheetRepositoryInterface $clinicSheetRepository,
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
     ) {}
 
     public function execute(ClinicSheetData $data): ClinicSheet
@@ -31,10 +33,30 @@ class RecordClinicSheetAction
             'plan' => $data->plan,
             'referral_to' => $data->referralTo,
             'notes' => $data->notes,
+            'patient_contact' => $data->patientContact,
+            'allergies_status' => $data->allergiesStatus,
+            'allergies_specify' => $data->allergiesSpecify,
+            'current_medications' => $data->currentMedications,
+            'plan_medications' => $data->planMedications,
+            'visual_exam' => $data->visualExam,
+            'eye_exam_grid' => $data->eyeExamGrid,
+            'plan_education' => $data->planEducation,
+            'plan_followup' => $data->planFollowup,
+            'nursing_assessment' => $data->nursingAssessment,
+            'nursing_history_answers' => $data->nursingHistoryAnswers,
+            'fall_screening' => $data->fallScreening,
+            'fall_screening_score' => array_sum(array_map('intval', $data->fallScreening)),
+            'drops_given' => $data->dropsGiven,
+            'critical_results' => $data->criticalResults,
+            'nursing_notes' => $data->nursingNotes,
+            'nurse_signature_name' => $data->nurseSignatureName,
+            'evaluator_name' => $data->evaluatorName,
+            'evaluated_at' => $data->evaluatedAt,
         ]);
 
         // Auto-advance booking to completed
-        $this->bookingRepository->updateStatus($data->bookingId, 'completed');
+        $booking = $this->bookingRepository->updateStatus($data->bookingId, 'completed');
+        $this->syncDoctorEntitlement->execute($booking);
 
         $this->activityLog->log(
             action: 'clinic_sheet_recorded',

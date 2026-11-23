@@ -4,6 +4,7 @@ namespace Modules\Booking\Models;
 
 use App\Enums\Department;
 use App\Enums\EyeSide;
+use App\Enums\KinshipDegree;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -13,8 +14,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\States\BookingStatus;
+use Modules\Booking\States\CompletedElectronicState;
+use Modules\Booking\States\CompletedState;
 use Modules\Clinic\Models\ClinicSheet;
+use Modules\Clinic\Models\MedicalExamination;
+use Modules\Doctor\Models\BookingDoctorDelegation;
 use Modules\Doctor\Models\Doctor;
+use Modules\Doctor\Models\DoctorEntitlement;
+use Modules\Insurance\Enums\InsuranceDecision;
 use Modules\Insurance\Models\InsuranceClaim;
 use Modules\Labs\Models\DiagnosticResult;
 use Modules\Surgery\Models\Surgery;
@@ -32,14 +39,17 @@ class Booking extends Model implements HasMedia
         'file_no',
         'patient_name',
         'patient_phone',
+        'patient_address',
         'patient_age',
         'national_id',
         'gender',
+        'kinship_degree',
         'dept',
         'service_name',
         'service_id',
         'doctor_id',
         'ins_company_id',
+        'insurance_decision',
         'visit_date',
         'visit_time',
         'price',
@@ -70,6 +80,8 @@ class Booking extends Model implements HasMedia
         'pay_status' => PayStatus::class,
         'status' => BookingStatus::class,
         'eye_side' => EyeSide::class,
+        'kinship_degree' => KinshipDegree::class,
+        'insurance_decision' => InsuranceDecision::class,
     ];
 
     public function doctor(): BelongsTo
@@ -82,6 +94,16 @@ class Booking extends Model implements HasMedia
         return $this->belongsTo(Service::class);
     }
 
+    /**
+     * Multiple selected services for departments that allow more than one
+     * service per booking (currently: Labs). Single-service departments
+     * keep using service_id/service_name on the booking row itself.
+     */
+    public function services(): HasMany
+    {
+        return $this->hasMany(BookingService::class);
+    }
+
     public function insuranceCompany(): BelongsTo
     {
         return $this->belongsTo(InsuranceCompany::class, 'ins_company_id');
@@ -92,9 +114,24 @@ class Booking extends Model implements HasMedia
         return $this->hasOne(InsuranceClaim::class, 'booking_id');
     }
 
+    public function doctorEntitlement(): HasOne
+    {
+        return $this->hasOne(DoctorEntitlement::class, 'booking_id');
+    }
+
+    public function doctorDelegations(): HasMany
+    {
+        return $this->hasMany(BookingDoctorDelegation::class, 'booking_id');
+    }
+
     public function clinicSheet(): HasOne
     {
         return $this->hasOne(ClinicSheet::class);
+    }
+
+    public function medicalExamination(): HasOne
+    {
+        return $this->hasOne(MedicalExamination::class);
     }
 
     public function diagnosticResults(): HasMany
@@ -125,5 +162,33 @@ class Booking extends Model implements HasMedia
     public function getRemainingAmountAttribute(): float
     {
         return max(0, $this->getNetAmountAttribute() - (float) $this->paid_amount);
+    }
+
+    public function isInsurance(): bool
+    {
+        return $this->pay_method === PayMethod::Insurance;
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->status instanceof CompletedState
+            || $this->status instanceof CompletedElectronicState;
+    }
+
+    public function canAccrueDoctorDues(): bool
+    {
+        return ! $this->isInsurance() || $this->isCompleted();
+    }
+
+    /**
+     * A surgery's doctor share is the paid amount net of its supplies, and
+     * supplies are recorded on the surgery after the patient pays. Accruing
+     * at payment time posted the gross share and later reversed it once the
+     * supplies arrived; instead the primary doctor's share is accrued once,
+     * already net, when the surgery is completed.
+     */
+    public function defersDoctorDuesUntilCompletion(): bool
+    {
+        return $this->dept === Department::Surgery && ! $this->isCompleted();
     }
 }

@@ -40,6 +40,7 @@ const categories = [
         reports: [
             { title: 'التقرير اليومي',            desc: 'ملخص إيرادات وحالات اليوم فورياً',        href: '/reports/daily',     icon: Calendar },
             { title: 'تقرير الحالات',             desc: 'قائمة كل الحالات خلال الفترة المحددة',    href: '/reports/cases',     icon: FileText },
+            { title: 'تقرير الاستقبال',           desc: 'مواعيد الحجز وإحصائيات الحجوزات',        href: '/reports/reception', icon: Calendar },
             { title: 'تقرير العمليات والجراحات',  desc: 'تفاصيل العمليات والليزك خلال الفترة',     href: '/reports/surgeries', icon: Scissors },
         ],
     },
@@ -49,6 +50,7 @@ const categories = [
         iconBg: 'bg-ap',
         reports: [
             { title: 'مستحقات الأطباء',           desc: 'احتساب وعرض مستحقات كل طبيب بالتفصيل',  href: '/reports/doctor-claims',   icon: Users },
+            { title: 'حالات الأطباء',              desc: 'حالات كل طبيب بالمدفوع والمتبقي',        href: '/reports/doctor-cases',    icon: Users },
             { title: 'مدفوعات الأطباء',           desc: 'سجل الدفعات المصروفة للأطباء',           href: '/reports/doctor-payments', icon: Wallet },
         ],
     },

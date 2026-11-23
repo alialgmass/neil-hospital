@@ -38,7 +38,7 @@ class InventoryRepository implements InventoryRepositoryInterface
 
     public function lowStockCount(): int
     {
-        return InventoryItem::whereRaw('quantity <= min_quantity AND min_quantity > 0')->count();
+        return InventoryItem::active()->whereRaw('quantity <= min_quantity AND min_quantity > 0')->count();
     }
 
     public function adjustQuantity(string $id, float $delta): void

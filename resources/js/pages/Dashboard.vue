@@ -2,7 +2,7 @@
     <Head title="لوحة التحكم" />
 
     <!-- Today Stats Grid -->
-    <div class="stats-row grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+    <div v-if="canViewStats && todayStats && treasury" class="stats-row grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
         <StatCard label="حجوزات اليوم" :value="todayStats.today_bookings" color="primary">
             <template #icon><Users class="h-4 w-4" /></template>
         </StatCard>
@@ -27,9 +27,9 @@
     </div>
 
     <!-- Dashboard Content Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div :class="['grid grid-cols-1 gap-4', canViewStats ? 'lg:grid-cols-3' : '']">
         <!-- Right Column: Queue / Main Ops (2/3) -->
-        <div class="lg:col-span-2 space-y-4">
+        <div :class="['space-y-4', canViewStats ? 'lg:col-span-2' : '']">
             <div class="card bg-white border border-hospital-border rounded-[var(--rl)] overflow-hidden [box-shadow:var(--sh)]">
                 <div class="card-hd flex items-center justify-between px-4 py-3 border-b border-hospital-border bg-hospital-surface-2">
                     <div>
@@ -81,8 +81,8 @@
             </div>
         </div>
 
-        <!-- Left Column: Reports / Summary (1/3) -->
-        <div class="space-y-4">
+        <!-- Left Column: Reports / Summary (1/3) — admin only -->
+        <div v-if="canViewStats" class="space-y-4">
             <!-- Monthly Progress -->
             <div class="card bg-white border border-hospital-border rounded-[var(--rl)] overflow-hidden [box-shadow:var(--sh)]">
                 <div class="card-hd px-4 py-3 border-b border-hospital-border bg-hospital-surface-2">
@@ -151,10 +151,11 @@ interface Treasury { total_in: number; total_out: number; balance: number }
 interface QueueEntry { id: string; file_no: string; patient_name: string; dept: string; status: string; pay_status: string; time?: string; doctor_name?: string }
 
 defineProps<{
-    todayStats:    TodayStats;
+    canViewStats:  boolean;
+    todayStats:    TodayStats | null;
     revenueByDept: DeptRow[];
     revenueByDoc:  DocRow[];
-    treasury:      Treasury;
+    treasury:      Treasury | null;
     lowStockCount: number;
     todayQueue:    QueueEntry[];
     filters:       { from?: string; to?: string };
@@ -165,7 +166,7 @@ const deptLabels: Record<string, string> = {
 };
 
 function fmt(n: number) {
-    return Number(n).toLocaleString('ar-EG', { maximumFractionDigits: 0 }); 
+    return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 }); 
 }
 
 function getDeptClass(dept: string) {
@@ -176,6 +177,7 @@ function getDeptClass(dept: string) {
         lasik: 'bg-[#FEF0E0] border-[#FCD8B0] text-[#7A3E00]',
         laser: 'bg-[#E2F5EC] border-[#B8E6CF] text-[#1A8C5B]',
     };
+
     return map[dept] || 'bg-gray-100 border-gray-200 text-gray-600';
 }
 </script>

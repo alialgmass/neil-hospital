@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage } from '@inertiajs/vue3'
 import { PackagePlus, Pencil, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Modal from '@/components/shared/Modal.vue'
+import SearchBar from '@/components/shared/SearchBar.vue'
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions'
 
 defineOptions({ layout: AppLayout })
 
@@ -37,13 +39,32 @@ interface Bundle {
 const props = defineProps<{
     bundles: { data: Bundle[]; links: unknown[]; total: number }
     inventoryItems: InventoryItem[]
+    filters: { search?: string }
 }>()
+
+const search = ref(props.filters.search ?? '')
+
+function applySearch() {
+    router.get('/supply-bundles', { search: search.value || undefined }, { preserveState: true })
+}
+
+// ── Permissions ──
+const { can } = usePermissions()
+const canWrite = computed(() => can('supply_bundles.write'))
 
 const deptLabels: Record<string, string> = {
     surgery: 'العمليات',
     lasik: 'الليزك',
     laser: 'الليزر',
+    pentacam: 'البنتكام',
 }
+
+const page = usePage<{ moduleStatus?: Record<string, boolean> }>()
+const availableDeptLabels = computed(() => {
+    const moduleStatus = (page.props.moduleStatus as Record<string, boolean>) ?? {}
+
+    return Object.fromEntries(Object.entries(deptLabels).filter(([key]) => moduleStatus[key] !== false))
+})
 
 const showModal = ref(false)
 const editingBundle = ref<Bundle | null>(null)
@@ -59,6 +80,10 @@ const form = useForm({
 })
 
 function openCreate() {
+    if (!canWrite.value) {
+        return
+    }
+
     editingBundle.value = null
     form.reset()
     form.items = []
@@ -66,6 +91,10 @@ function openCreate() {
 }
 
 function openEdit(bundle: Bundle) {
+    if (!canWrite.value) {
+        return
+    }
+
     editingBundle.value = bundle
     form.name = bundle.name
     form.code = bundle.code ?? ''
@@ -92,6 +121,7 @@ function removeItemRow(idx: number) {
 
 function onInventorySelect(idx: number) {
     const inv = props.inventoryItems.find((i) => i.id === form.items[idx].inventory_item_id)
+
     if (inv) {
         form.items[idx].item_name = inv.name
         form.items[idx].unit_cost = inv.unit_cost
@@ -99,6 +129,10 @@ function onInventorySelect(idx: number) {
 }
 
 function submit() {
+    if (!canWrite.value) {
+        return
+    }
+
     if (editingBundle.value) {
         form.put(`/supply-bundles/${editingBundle.value.id}`, {
             onSuccess: () => {
@@ -123,7 +157,7 @@ const itemsSubtotal = computed(() =>
 )
 
 function formatMoney(val: number) {
-    return Number(val).toLocaleString('ar-EG', { minimumFractionDigits: 2 })
+    return Number(val).toLocaleString('en-US', { minimumFractionDigits: 2 })
 }
 </script>
 
@@ -138,12 +172,18 @@ function formatMoney(val: number) {
                 </p>
             </div>
             <button
-                class="flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-800"
+                class="flex items-center gap-2 rounded-lg bg-purple-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-50"
                 @click="openCreate"
+                :disabled="!canWrite"
+                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
             >
                 <PackagePlus class="h-4 w-4" />
                 إنشاء بند جديد
             </button>
+        </div>
+
+        <div class="mb-4 max-w-sm">
+            <SearchBar v-model="search" placeholder="ابحث باسم البند أو الكود..." @update:model-value="applySearch" />
         </div>
 
         <!-- Bundles table -->
@@ -189,8 +229,10 @@ function formatMoney(val: number) {
                         </td>
                         <td class="px-4 py-3 text-left">
                             <button
-                                class="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                class="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 @click="openEdit(bundle)"
+                                :disabled="!canWrite"
+                                :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                             >
                                 <Pencil class="h-4 w-4" />
                             </button>
@@ -223,9 +265,7 @@ function formatMoney(val: number) {
                         <label class="form-label">القسم</label>
                         <select v-model="form.dept" class="input-field">
                             <option value="">الكل (جميع الأقسام)</option>
-                            <option value="surgery">العمليات</option>
-                            <option value="lasik">الليزك</option>
-                            <option value="laser">الليزر</option>
+                            <option v-for="(label, key) in availableDeptLabels" :key="key" :value="key">{{ label }}</option>
                         </select>
                     </div>
                     <div>
@@ -315,7 +355,7 @@ function formatMoney(val: number) {
 
                 <div class="flex justify-end gap-3 border-t border-hospital-border pt-4">
                     <button type="button" class="btn-secondary" @click="showModal = false">إلغاء</button>
-                    <button type="submit" class="btn-primary" :disabled="form.processing">
+                    <button type="submit" class="btn-primary disabled:cursor-not-allowed disabled:opacity-50" :disabled="form.processing || !canWrite" :title="canWrite ? undefined : NO_PERMISSION_TITLE">
                         {{ form.processing ? 'جارٍ الحفظ...' : (editingBundle ? 'تحديث البند' : 'إنشاء البند') }}
                     </button>
                 </div>

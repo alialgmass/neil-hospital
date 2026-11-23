@@ -16,6 +16,7 @@ interface StatementRow {
     credit: number;
     balance: number;
     reference?: string;
+    lines?: { name: string; qty: number; unit_price: number; total: number }[];
 }
 
 interface Statement {
@@ -42,10 +43,10 @@ function applyFilters() {
 }
 
 function fmt(n: number) {
-    return n > 0 ? n.toLocaleString('ar-EG', { minimumFractionDigits: 2 }) : '—';
+    return n > 0 ? n.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—';
 }
 function fmtBal(n: number) {
-    return n.toLocaleString('ar-EG', { minimumFractionDigits: 2 });
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2 });
 }
 function printPage() {
  window.print(); 
@@ -86,16 +87,41 @@ function printPage() {
                 </tr>
             </thead>
             <tbody>
-                <tr v-for="(row, i) in statement.statement" :key="i" class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
-                    <td class="px-4 py-3">{{ row.date }}</td>
-                    <td class="px-4 py-3">{{ row.description }}</td>
-                    <td class="px-4 py-3 text-left font-mono">{{ fmt(row.debit) }}</td>
-                    <td class="px-4 py-3 text-left font-mono">{{ fmt(row.credit) }}</td>
-                    <td class="px-4 py-3 text-left font-mono font-semibold" :class="row.balance < 0 ? 'text-hospital-danger' : 'text-hospital-success'">
-                        {{ fmtBal(Math.abs(row.balance)) }}
-                    </td>
-                    <td class="px-4 py-3 text-hospital-text-2">{{ row.reference ?? '—' }}</td>
-                </tr>
+                <template v-for="(row, i) in statement.statement" :key="i">
+                    <tr class="border-b border-hospital-border/50 hover:bg-hospital-bg/40">
+                        <td class="px-4 py-3">{{ row.date }}</td>
+                        <td class="px-4 py-3">{{ row.description }}</td>
+                        <td class="px-4 py-3 text-left font-mono">{{ fmt(row.debit) }}</td>
+                        <td class="px-4 py-3 text-left font-mono">{{ fmt(row.credit) }}</td>
+                        <td class="px-4 py-3 text-left font-mono font-semibold" :class="row.balance < 0 ? 'text-hospital-danger' : 'text-hospital-success'">
+                            {{ fmtBal(Math.abs(row.balance)) }}
+                        </td>
+                        <td class="px-4 py-3 text-hospital-text-2">{{ row.reference ?? '—' }}</td>
+                    </tr>
+                    <tr v-if="row.lines?.length" class="border-b border-hospital-border/50 bg-hospital-bg/30">
+                        <td></td>
+                        <td colspan="5" class="px-4 pb-3 pt-1">
+                            <table class="w-full text-xs text-hospital-text-2">
+                                <thead>
+                                    <tr>
+                                        <th class="py-1 text-right font-semibold">الصنف</th>
+                                        <th class="py-1 text-left font-semibold">الكمية</th>
+                                        <th class="py-1 text-left font-semibold">السعر</th>
+                                        <th class="py-1 text-left font-semibold">الإجمالي</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(line, j) in row.lines" :key="j">
+                                        <td class="py-0.5">{{ line.name }}</td>
+                                        <td class="py-0.5 text-left font-mono">{{ line.qty }}</td>
+                                        <td class="py-0.5 text-left font-mono">{{ fmtBal(line.unit_price) }}</td>
+                                        <td class="py-0.5 text-left font-mono">{{ fmtBal(line.total) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                </template>
             </tbody>
         </table>
     </div>

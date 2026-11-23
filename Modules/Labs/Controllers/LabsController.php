@@ -3,18 +3,18 @@
 namespace Modules\Labs\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use Modules\Labs\Actions\StoreLabResultAction;
-use Modules\Labs\Http\Requests\StoreLabResultRequest;
+use Modules\Clinic\Services\MedicalExaminationService;
+use Modules\Labs\Models\DiagnosticResult;
 use Modules\Labs\Services\LabsService;
 
 class LabsController extends Controller
 {
     public function __construct(
         private readonly LabsService $labsService,
-        private readonly StoreLabResultAction $storeResultAction,
+        private readonly MedicalExaminationService $examinationService,
     ) {}
 
     public function index(): Response
@@ -29,10 +29,24 @@ class LabsController extends Controller
         ]);
     }
 
-    public function storeResult(StoreLabResultRequest $request, string $bookingId): RedirectResponse
+    /**
+     * Result letter for a recorded result. The visit's medical examination is
+     * now where findings are recorded, so when one exists its findings are
+     * shown in the letter too (for users allowed to view examinations).
+     */
+    public function referralLetter(Request $request, string $resultId): Response
     {
-        $this->storeResultAction->execute($bookingId, $request->validated(), $request->user()->id);
+        $result = DiagnosticResult::with(['booking:id,file_no,patient_name', 'technician:id,name'])
+            ->findOrFail($resultId);
 
-        return back()->with('success', 'تم تسجيل نتيجة الفحص بنجاح.');
+        $examination = $request->user()->can('examinations.view')
+            ? $result->booking?->medicalExamination
+            : null;
+
+        return Inertia::render('labs/ReferralLetter', [
+            'result' => $result,
+            'examination' => $examination ? $this->examinationService->loadForDisplay($examination) : null,
+            'options' => $examination ? $this->examinationService->formOptions() : null,
+        ]);
     }
 }

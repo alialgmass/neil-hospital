@@ -4,11 +4,13 @@ namespace Modules\Booking\Actions;
 
 use App\Services\ActivityLogService;
 use Illuminate\Validation\ValidationException;
+use Modules\Accounting\Actions\AutoPostInsuranceClaimAction;
 use Modules\Booking\Enums\PayStatus;
 use Modules\Booking\Models\Booking;
 use Modules\Booking\Repositories\Contracts\BookingRepositoryInterface;
 use Modules\Booking\States\CancelledState;
 use Modules\Booking\States\CompletedState;
+use Modules\Doctor\Actions\SyncDoctorEntitlementAction;
 use Modules\Surgery\Services\SurgeryService;
 
 class CancelBookingAction
@@ -17,6 +19,8 @@ class CancelBookingAction
         private readonly BookingRepositoryInterface $bookingRepository,
         private readonly SurgeryService $surgeryService,
         private readonly ActivityLogService $activityLog,
+        private readonly SyncDoctorEntitlementAction $syncDoctorEntitlement,
+        private readonly AutoPostInsuranceClaimAction $autoPostInsuranceClaim,
     ) {}
 
     /**
@@ -43,6 +47,9 @@ class CancelBookingAction
         $booking = $this->bookingRepository->updateStatus($id, 'cancelled', $cancelReason);
 
         $this->surgeryService->updateStatusByBooking($booking->id, 'cancelled');
+
+        $this->syncDoctorEntitlement->voidFor($booking);
+        $this->autoPostInsuranceClaim->reverseForBooking($booking->id, 'إلغاء الحجز');
 
         $this->activityLog->log(
             action: 'cancelled',

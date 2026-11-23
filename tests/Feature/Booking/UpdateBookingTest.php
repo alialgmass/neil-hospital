@@ -4,6 +4,9 @@ namespace Tests\Feature\Booking;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Accounting\Enums\AccountGroup;
+use Modules\Accounting\Enums\AccountNature;
+use Modules\Accounting\Models\Account;
 use Modules\Booking\Models\Booking;
 use Modules\Surgery\Models\OrBed;
 use Modules\Surgery\Models\OrRoom;
@@ -28,6 +31,17 @@ class UpdateBookingTest extends TestCase
         $role->givePermissionTo($editPermission);
         $this->user = User::factory()->create();
         $this->user->assignRole($role);
+
+        Account::create([
+            'code' => '1010', 'name' => 'الخزنة الرئيسية',
+            'group' => AccountGroup::Assets, 'nature' => AccountNature::Debit,
+            'balance' => 0, 'is_active' => true,
+        ]);
+        Account::create([
+            'code' => '4010', 'name' => 'إيرادات العيادة الخارجية (كشف)',
+            'group' => AccountGroup::Revenues, 'nature' => AccountNature::Credit,
+            'balance' => 0, 'is_active' => true,
+        ]);
     }
 
     private function createBooking(array $attributes = []): Booking
@@ -36,6 +50,7 @@ class UpdateBookingTest extends TestCase
             'file_no' => 'MRN-001',
             'patient_name' => 'محمد علي',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'price' => 150.00,
             'discount' => 0.00,
@@ -53,6 +68,7 @@ class UpdateBookingTest extends TestCase
         return array_merge([
             'patient_name' => 'محمد علي',
             'dept' => 'clinic',
+            'eye_side' => 'OD',
             'visit_date' => '2026-04-20',
             'price' => 150,
             'discount' => 0,

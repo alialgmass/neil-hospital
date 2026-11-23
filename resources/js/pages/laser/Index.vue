@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner';
 import Badge from '@/components/shared/Badge.vue';
 import DataTable from '@/components/shared/DataTable.vue';
 import Modal from '@/components/shared/Modal.vue';
+import { NO_PERMISSION_TITLE, usePermissions } from '@/composables/usePermissions';
 
 interface Surgery {
     id: string;
@@ -30,16 +31,26 @@ const props = defineProps<{
     doctors: { id: string; name: string }[];
     dept: string;
     filters: { status?: string };
+    prefill?: {
+        booking_id: string;
+        dept: string;
+        eye: string | null;
+        service_id: string | null;
+    } | null;
 }>();
 
+// ── Permissions ──
+const { can } = usePermissions();
+const canWrite = computed(() => can('laser.write'));
+
 const columns = [
-    { key: 'scheduled_at', label: 'الموعد',     sortable: true },
-    { key: 'file_no',      label: 'رقم الملف' },
-    { key: 'patient',      label: 'المريض' },
-    { key: 'procedure',    label: 'نوع الليزر' },
-    { key: 'eye',          label: 'العين' },
-    { key: 'surgeon',      label: 'الطبيب' },
-    { key: 'status',       label: 'الحالة' },
+    { key: 'scheduled_at', label: 'الموعد', sortable: true },
+    { key: 'file_no', label: 'رقم الملف' },
+    { key: 'patient', label: 'المريض' },
+    { key: 'procedure', label: 'نوع الليزر' },
+    { key: 'eye', label: 'العين' },
+    { key: 'surgeon', label: 'الطبيب' },
+    { key: 'status', label: 'الحالة' },
 ];
 
 const statusFilter = ref(props.filters.status ?? '');
@@ -47,8 +58,8 @@ const statusFilter = ref(props.filters.status ?? '');
 let filterTimeout: ReturnType<typeof setTimeout> | null = null;
 watch(statusFilter, () => {
     if (filterTimeout) {
-clearTimeout(filterTimeout);
-}
+        clearTimeout(filterTimeout);
+    }
 
     filterTimeout = setTimeout(() => {
         applyFilters();
@@ -56,30 +67,52 @@ clearTimeout(filterTimeout);
 });
 
 function applyFilters() {
-    router.get('/laser', { status: statusFilter.value || undefined }, { preserveState: true });
+    router.get(
+        '/laser',
+        { status: statusFilter.value || undefined },
+        { preserveState: true },
+    );
 }
 function goToPage(page: number) {
-    router.get('/laser', { status: statusFilter.value || undefined, page }, { preserveState: true });
+    router.get(
+        '/laser',
+        { status: statusFilter.value || undefined, page },
+        { preserveState: true },
+    );
 }
 
-const totalToday     = computed(() => props.surgeries.total);
-const completedToday = computed(() => props.surgeries.data.filter((s) => s.status === 'completed').length);
-const completedPct   = computed(() => totalToday.value ? Math.round(completedToday.value / totalToday.value * 100) : 0);
+const totalToday = computed(() => props.surgeries.total);
+const completedToday = computed(
+    () => props.surgeries.data.filter((s) => s.status === 'completed').length,
+);
+const completedPct = computed(() =>
+    totalToday.value
+        ? Math.round((completedToday.value / totalToday.value) * 100)
+        : 0,
+);
 
-const eyeLabel: Record<string, string> = { OD: 'عين يمنى', OS: 'عين يسرى', OU: 'كلاهما' };
+const eyeLabel: Record<string, string> = {
+    OD: 'عين يمنى',
+    OS: 'عين يسرى',
+    OU: 'كلاهما',
+};
 
 /* ── Schedule ── */
 const showSchedule = ref(false);
 const scheduleForm = useForm({
-    booking_id:   '',
-    dept:         'laser',
-    surgeon_id:   '',
-    eye:          '' as string,
-    procedure:    '',
+    booking_id: '',
+    dept: 'laser',
+    surgeon_id: '',
+    eye: '' as string,
+    procedure: '',
     scheduled_at: '',
     pre_op_notes: '',
 });
 function submitSchedule() {
+    if (!canWrite.value) {
+        return;
+    }
+
     scheduleForm.post('/laser', {
         onSuccess: () => {
             showSchedule.value = false;
@@ -89,16 +122,39 @@ function submitSchedule() {
     });
 }
 
+// Arrived from the medical-record "تحويل" action.
+if (props.prefill) {
+    scheduleForm.booking_id = props.prefill.booking_id;
+
+    if (props.prefill.eye) {
+        scheduleForm.eye = props.prefill.eye;
+    }
+
+    showSchedule.value = true;
+}
+
 /* ── Report ── */
-const showReport   = ref(false);
+const showReport = ref(false);
 const reportTarget = ref('');
-const reportForm   = useForm({ op_report: '', post_op_notes: '', complications: '' });
+const reportForm = useForm({
+    op_report: '',
+    post_op_notes: '',
+    complications: '',
+});
 function openReport(id: string) {
+    if (!canWrite.value) {
+        return;
+    }
+
     reportTarget.value = id;
     reportForm.reset();
     showReport.value = true;
 }
 function submitReport() {
+    if (!canWrite.value) {
+        return;
+    }
+
     reportForm.post(`/laser/${reportTarget.value}/report`, {
         onSuccess: () => {
             showReport.value = false;
@@ -107,7 +163,13 @@ function submitReport() {
     });
 }
 
-const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوكوما (SLT)', 'ليزر جلوكوما (ALT)', 'ليزر ملتحمة'];
+const laserProcedures = [
+    'YAG Laser',
+    'ليزر شبكية',
+    'ليزر جلوكوما (SLT)',
+    'ليزر جلوكوما (ALT)',
+    'ليزر ملتحمة',
+];
 </script>
 
 <template>
@@ -136,7 +198,9 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
     <div class="dept-card">
         <div class="dept-card-hd">
             <div>
-                <p class="dept-card-title">حجوزات قسم الليزر التشخيصي / العلاجي</p>
+                <p class="dept-card-title">
+                    حجوزات قسم الليزر التشخيصي / العلاجي
+                </p>
             </div>
             <div class="flex items-center gap-2">
                 <select
@@ -151,8 +215,10 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
                     <option value="cancelled">ملغاة</option>
                 </select>
                 <button
-                    class="flex items-center gap-1.5 rounded-lg bg-[#1A8C5B] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#167a4e]"
-                    @click="showSchedule = true"
+                    class="flex items-center gap-1.5 rounded-lg bg-[#1A8C5B] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#167a4e] disabled:cursor-not-allowed disabled:opacity-50"
+                    @click="canWrite && (showSchedule = true)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <CalendarPlus class="h-3.5 w-3.5" />
                     جدولة ليزر
@@ -170,19 +236,41 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
             @page="goToPage"
         >
             <template #cell-scheduled_at="{ value }">
-                {{ value ? (value as string).replace('T', ' ').slice(0, 16) : '—' }}
+                {{
+                    value
+                        ? (value as string).replace('T', ' ').slice(0, 16)
+                        : '—'
+                }}
             </template>
-            <template #cell-file_no="{ row }">{{ (row as Surgery).booking?.file_no ?? '—' }}</template>
-            <template #cell-patient="{ row }">{{ (row as Surgery).booking?.patient_name ?? '—' }}</template>
-            <template #cell-eye="{ value }">{{ value ? eyeLabel[value as string] ?? value : '—' }}</template>
-            <template #cell-surgeon="{ row }">{{ (row as Surgery).surgeon?.name ?? '—' }}</template>
+            <template #cell-file_no="{ row }">{{
+                (row as Surgery).booking?.file_no ?? '—'
+            }}</template>
+            <template #cell-patient="{ row }">{{
+                (row as Surgery).booking?.patient_name ?? '—'
+            }}</template>
+            <template #cell-eye="{ value }">{{
+                value ? (eyeLabel[value as string] ?? value) : '—'
+            }}</template>
+            <template #cell-surgeon="{ row }">{{
+                (row as Surgery).surgeon?.name ?? '—'
+            }}</template>
             <template #cell-status="{ value }">
-                <Badge :variant="(value as 'scheduled' | 'in_progress' | 'completed' | 'cancelled')" />
+                <Badge
+                    :variant="
+                        value as
+                            | 'scheduled'
+                            | 'in_progress'
+                            | 'completed'
+                            | 'cancelled'
+                    "
+                />
             </template>
             <template #actions="{ row }">
                 <button
-                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#1A8C5B] transition-colors hover:bg-green-50"
+                    class="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-[#1A8C5B] transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="openReport((row as Surgery).id)"
+                    :disabled="!canWrite"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
                 >
                     <ClipboardList class="h-3.5 w-3.5" />
                     تقرير
@@ -196,27 +284,58 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
         <form class="space-y-4" @submit.prevent="submitSchedule">
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-1 block text-sm font-medium">رقم الحجز</label>
-                    <select v-model="scheduleForm.booking_id" class="dept-input">
+                    <label class="mb-1 block text-sm font-medium"
+                        >رقم الحجز</label
+                    >
+                    <select
+                        v-model="scheduleForm.booking_id"
+                        class="dept-input"
+                    >
                         <option value="">-- اختر الحجز --</option>
-                        <option v-for="b in props.bookings" :key="b.id" :value="b.id">
+                        <option
+                            v-for="b in props.bookings"
+                            :key="b.id"
+                            :value="b.id"
+                        >
                             {{ b.file_no }} — {{ b.patient_name }}
                         </option>
                     </select>
-                    <p v-if="scheduleForm.errors.booking_id" class="mt-1 text-xs text-hospital-danger">{{ scheduleForm.errors.booking_id }}</p>
+                    <p
+                        v-if="scheduleForm.errors.booking_id"
+                        class="mt-1 text-xs text-hospital-danger"
+                    >
+                        {{ scheduleForm.errors.booking_id }}
+                    </p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium">الطبيب</label>
-                    <select v-model="scheduleForm.surgeon_id" class="dept-input">
+                    <select
+                        v-model="scheduleForm.surgeon_id"
+                        class="dept-input"
+                    >
                         <option value="">— اختر الطبيب —</option>
-                        <option v-for="doc in doctors" :key="doc.id" :value="doc.id">{{ doc.name }}</option>
+                        <option
+                            v-for="doc in doctors"
+                            :key="doc.id"
+                            :value="doc.id"
+                        >
+                            {{ doc.name }}
+                        </option>
                     </select>
                 </div>
                 <div>
-                    <label class="mb-1 block text-sm font-medium">نوع الليزر</label>
+                    <label class="mb-1 block text-sm font-medium"
+                        >نوع الليزر</label
+                    >
                     <select v-model="scheduleForm.procedure" class="dept-input">
                         <option value="">— اختر —</option>
-                        <option v-for="p in laserProcedures" :key="p" :value="p">{{ p }}</option>
+                        <option
+                            v-for="p in laserProcedures"
+                            :key="p"
+                            :value="p"
+                        >
+                            {{ p }}
+                        </option>
                     </select>
                 </div>
                 <div>
@@ -229,17 +348,42 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
                     </select>
                 </div>
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium">موعد الجلسة</label>
-                    <input v-model="scheduleForm.scheduled_at" type="datetime-local" class="dept-input" />
+                    <label class="mb-1 block text-sm font-medium"
+                        >موعد الجلسة</label
+                    >
+                    <input
+                        v-model="scheduleForm.scheduled_at"
+                        type="datetime-local"
+                        class="dept-input"
+                    />
                 </div>
                 <div class="col-span-2">
-                    <label class="mb-1 block text-sm font-medium">ملاحظات ما قبل الجلسة</label>
-                    <textarea v-model="scheduleForm.pre_op_notes" rows="3" class="dept-input" />
+                    <label class="mb-1 block text-sm font-medium"
+                        >ملاحظات ما قبل الجلسة</label
+                    >
+                    <textarea
+                        v-model="scheduleForm.pre_op_notes"
+                        rows="3"
+                        class="dept-input"
+                    />
                 </div>
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showSchedule = false">إلغاء</button>
-                <button type="submit" :disabled="scheduleForm.processing" class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">جدولة</button>
+                <button
+                    type="button"
+                    class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
+                    @click="showSchedule = false"
+                >
+                    إلغاء
+                </button>
+                <button
+                    type="submit"
+                    :disabled="scheduleForm.processing || !canWrite"
+                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                >
+                    جدولة
+                </button>
             </div>
         </form>
     </Modal>
@@ -248,20 +392,49 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
     <Modal v-model="showReport" title="تقرير جلسة الليزر" size="md">
         <form class="space-y-4" @submit.prevent="submitReport">
             <div>
-                <label class="mb-1 block text-sm font-medium">تقرير الجلسة</label>
-                <textarea v-model="reportForm.op_report" rows="4" class="dept-input" />
+                <label class="mb-1 block text-sm font-medium"
+                    >تقرير الجلسة</label
+                >
+                <textarea
+                    v-model="reportForm.op_report"
+                    rows="4"
+                    class="dept-input"
+                />
             </div>
             <div>
-                <label class="mb-1 block text-sm font-medium">ملاحظات ما بعد الجلسة</label>
-                <textarea v-model="reportForm.post_op_notes" rows="3" class="dept-input" />
+                <label class="mb-1 block text-sm font-medium"
+                    >ملاحظات ما بعد الجلسة</label
+                >
+                <textarea
+                    v-model="reportForm.post_op_notes"
+                    rows="3"
+                    class="dept-input"
+                />
             </div>
             <div>
                 <label class="mb-1 block text-sm font-medium">مضاعفات</label>
-                <textarea v-model="reportForm.complications" rows="2" class="dept-input" />
+                <textarea
+                    v-model="reportForm.complications"
+                    rows="2"
+                    class="dept-input"
+                />
             </div>
             <div class="flex justify-end gap-2 pt-2">
-                <button type="button" class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg" @click="showReport = false">إلغاء</button>
-                <button type="submit" :disabled="reportForm.processing" class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">حفظ</button>
+                <button
+                    type="button"
+                    class="rounded-lg border border-hospital-border px-4 py-2 text-sm hover:bg-hospital-bg"
+                    @click="showReport = false"
+                >
+                    إلغاء
+                </button>
+                <button
+                    type="submit"
+                    :disabled="reportForm.processing || !canWrite"
+                    class="rounded-lg bg-[#1A8C5B] px-4 py-2 text-sm font-medium text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    :title="canWrite ? undefined : NO_PERMISSION_TITLE"
+                >
+                    حفظ
+                </button>
             </div>
         </form>
     </Modal>
@@ -270,50 +443,72 @@ const laserProcedures = ['YAG Laser', 'ليزر شبكية', 'ليزر جلوك�
 <style scoped>
 .stat-card {
     background: var(--color-hospital-surface, #fff);
-    border: 1px solid var(--color-hospital-border, #DDE4EF);
+    border: 1px solid var(--color-hospital-border, #dde4ef);
     border-radius: 10px;
     border-right-width: 4px;
     padding: 12px 14px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
-.stat-lbl { font-size: 10px; font-weight: 600; color: var(--color-hospital-text-3, #8A96AE); margin-bottom: 4px; }
-.stat-val { font-size: 22px; font-weight: 800; color: var(--color-hospital-text, #0D1F3C); line-height: 1; margin-bottom: 2px; }
-.stat-sub { font-size: 10px; color: var(--color-hospital-text-3, #8A96AE); }
+.stat-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-hospital-text-3, #8a96ae);
+    margin-bottom: 4px;
+}
+.stat-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--color-hospital-text, #0d1f3c);
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.stat-sub {
+    font-size: 10px;
+    color: var(--color-hospital-text-3, #8a96ae);
+}
 
 .dept-card {
     background: #fff;
-    border: 1px solid var(--color-hospital-border, #DDE4EF);
+    border: 1px solid var(--color-hospital-border, #dde4ef);
     border-radius: 10px;
-    box-shadow: 0 1px 6px rgba(0,0,0,.06);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
     overflow: hidden;
 }
 .dept-card-hd {
     padding: 11px 15px;
-    border-bottom: 1px solid var(--color-hospital-border, #DDE4EF);
+    border-bottom: 1px solid var(--color-hospital-border, #dde4ef);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--color-hospital-bg, #F3F6FA);
+    background: var(--color-hospital-bg, #f3f6fa);
 }
-.dept-card-title { font-size: 13px; font-weight: 700; color: var(--color-hospital-text, #0D1F3C); }
+.dept-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-hospital-text, #0d1f3c);
+}
 
 .dept-input {
     width: 100%;
     padding: 7px 10px;
-    border: 1.5px solid var(--color-hospital-border, #DDE4EF);
+    border: 1.5px solid var(--color-hospital-border, #dde4ef);
     border-radius: 7px;
     font-size: 13px;
     font-family: inherit;
-    color: var(--color-hospital-text, #0D1F3C);
+    color: var(--color-hospital-text, #0d1f3c);
     background: #fff;
     direction: rtl;
 }
 .dept-input:focus {
     outline: none;
-    border-color: #1A8C5B;
-    box-shadow: 0 0 0 3px rgba(26,140,91,.1);
+    border-color: #1a8c5b;
+    box-shadow: 0 0 0 3px rgba(26, 140, 91, 0.1);
 }
 
 :deep(.dept-card > div > table),
-:deep(.dept-card > div > div > table) { border-radius: 0; border: none; box-shadow: none; }
+:deep(.dept-card > div > div > table) {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+}
 </style>

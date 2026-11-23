@@ -3,12 +3,21 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Booking\Controllers\BookingController;
 use Modules\Booking\Controllers\BookingStatusController;
+use Modules\Booking\Controllers\CallCenterController;
 use Modules\Booking\Controllers\PayBookingController;
 
 Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->group(function () {
     Route::get('/', [BookingController::class, 'index'])
         ->middleware('can:booking.view')
         ->name('index');
+
+    Route::get('/export', [BookingController::class, 'export'])
+        ->middleware('can:booking.view')
+        ->name('export');
+
+    Route::get('/patients/search', [BookingController::class, 'searchPatients'])
+        ->middleware('can:booking.view')
+        ->name('patients.search');
 
     Route::post('/', [BookingController::class, 'store'])
         ->middleware('can:booking.create')
@@ -34,7 +43,34 @@ Route::middleware(['auth', 'verified'])->prefix('booking')->name('booking.')->gr
         ->middleware('can:booking.view')
         ->name('receipt');
 
-    Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
+    Route::get('/{id}/barcode', [BookingController::class, 'barcode'])
         ->middleware('can:booking.view')
+        ->name('barcode');
+
+    Route::get('/patient/{fileNo}', [BookingController::class, 'patientFile'])
+        ->middleware('permission:booking.view|archive.view')
         ->name('patient-file');
+});
+
+// Call center: call log, preliminary bookings for reception, reminders & follow-ups.
+Route::middleware(['auth', 'verified'])->prefix('call-center')->name('call-center.')->group(function () {
+    Route::get('/', [CallCenterController::class, 'index'])
+        ->middleware('can:callcenter.view')
+        ->name('index');
+
+    Route::get('/lookup', [CallCenterController::class, 'lookup'])
+        ->middleware('can:callcenter.view')
+        ->name('lookup');
+
+    Route::post('/calls', [CallCenterController::class, 'storeCall'])
+        ->middleware('can:callcenter.write')
+        ->name('calls.store');
+
+    Route::post('/pre-bookings', [CallCenterController::class, 'storePreBooking'])
+        ->middleware('can:callcenter.write')
+        ->name('pre-bookings.store');
+
+    Route::patch('/pre-bookings/{id}/cancel', [CallCenterController::class, 'cancelPreBooking'])
+        ->middleware('can:callcenter.write')
+        ->name('pre-bookings.cancel');
 });

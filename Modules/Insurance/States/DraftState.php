@@ -8,6 +8,6 @@ class DraftState extends ClaimStatus
 
     public function label(): string
     {
-        return 'مسودة';
+        return 'غير مسددة';
     }
 }

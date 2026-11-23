@@ -91,25 +91,31 @@
 }
 
 .dark {
-    --background: hsl(0 0% 3.9%);
-    --foreground: hsl(0 0% 98%);
-    --card: hsl(0 0% 3.9%);
-    --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(0 0% 3.9%);
-    --popover-foreground: hsl(0 0% 98%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(0 0% 9%);
-    --secondary: hsl(0 0% 14.9%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(0 0% 16.08%);
-    --muted-foreground: hsl(0 0% 63.9%);
-    --accent: hsl(0 0% 14.9%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 84% 60%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 14.9%);
-    --input: hsl(0 0% 14.9%);
-    --ring: hsl(0 0% 83.1%);
+    /* The hospital business pages (bookings, claims, patients, etc.) are built
+       entirely on the fixed light --hospital-* palette above and have no dark
+       styling. Pinning these shadcn tokens to that same light palette prevents
+       inherited text (e.g. text-foreground) from flipping to a light color on
+       top of those permanently-light backgrounds, which was rendering
+       app-wide text invisible whenever the OS/user preference is dark. */
+    --background: var(--bg);
+    --foreground: var(--t);
+    --card: var(--sf);
+    --card-foreground: var(--t);
+    --popover: var(--sf);
+    --popover-foreground: var(--t);
+    --primary: var(--p);
+    --primary-foreground: #ffffff;
+    --secondary: var(--pp);
+    --secondary-foreground: var(--p);
+    --muted: var(--sf2);
+    --muted-foreground: var(--t3);
+    --accent: var(--a);
+    --accent-foreground: #ffffff;
+    --destructive: var(--d);
+    --destructive-foreground: #ffffff;
+    --border: var(--br);
+    --input: var(--br);
+    --ring: var(--pl);
 }
 
 @theme inline {
@@ -248,14 +254,27 @@
     /* Reset layout to single column */
     body,
     #app,
-    main,
-    [data-page] {
+    main {
         display: block !important;
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #fff !important;
+    }
+
+    /* Break out of nested overflow-hidden flex containers */
+    .flex.h-screen,
+    .flex.flex-1.flex-col,
+    .flex.flex-1 {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    main.content {
+        overflow: visible !important;
+        padding: 10mm 0 !important;
     }
 
     /* Hide action buttons when printing */
@@ -272,6 +291,32 @@
         direction: rtl;
     }
 
+    /* Clear Arabic print typeface (Cairo/Tajawal are loaded in app.blade.php) */
+    body,
+    #app,
+    table,
+    th,
+    td,
+    input,
+    select,
+    textarea {
+        font-family: 'Cairo', 'Tajawal', 'Segoe UI', 'Tahoma', 'Arial', sans-serif !important;
+        color: #111827 !important;
+        line-height: 1.5;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Soft grey text is unreadable on paper — darken it */
+    [class*="text-t2"],
+    [class*="text-t3"],
+    [class*="text-hospital-text-2"],
+    [class*="text-hospital-text-3"],
+    [class*="text-gray-"],
+    [class*="text-slate-"] {
+        color: #374151 !important;
+    }
+
     /* Improve table legibility */
     table {
         border-collapse: collapse;
@@ -280,12 +325,43 @@
 
     th,
     td {
-        border: 1px solid #dde4ef;
+        border: 1px solid #9ca3af;
         padding: 6px 8px;
         font-size: 11pt;
+        text-align: right;
+        vertical-align: middle;
     }
 
-    /* Avoid page breaks inside rows */
+    th {
+        background: #e5e7eb !important;
+        color: #111827 !important;
+        font-weight: 700;
+        font-size: 11.5pt;
+    }
+
+    tbody tr:nth-child(even) td {
+        background: #f9fafb !important;
+    }
+
+    /* Numbers stay aligned and legible */
+    .font-mono,
+    td[dir="ltr"] {
+        font-family: 'Cairo', 'Segoe UI', 'Tahoma', sans-serif !important;
+        font-variant-numeric: tabular-nums;
+    }
+
+    h1,
+    h2,
+    h3 {
+        color: #111827 !important;
+        font-weight: 800;
+    }
+
+    /* Repeat the header on every page; avoid page breaks inside rows */
+    thead {
+        display: table-header-group;
+    }
+
     tr,
     .print-no-break {
         page-break-inside: avoid;
@@ -302,7 +378,7 @@
     .rounded-lg,
     [class*="shadow"] {
         box-shadow: none !important;
-        border: 1px solid #dde4ef !important;
+        border: 1px solid #9ca3af !important;
     }
 
     /* Color adjustments for print */

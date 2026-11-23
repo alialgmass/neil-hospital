@@ -7,6 +7,7 @@ use App\Enums\EyeSide;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Modules\Booking\Enums\PayMethod;
 use Modules\Booking\Models\Booking;
 use Modules\Doctor\Models\Doctor;
 use Modules\Surgery\Enums\Anaesthesia;
@@ -64,5 +65,11 @@ class Surgery extends Model
     public function orBed(): BelongsTo
     {
         return $this->belongsTo(OrBed::class, 'or_bed_id');
+    }
+
+    /** Whether this surgery's linked booking is paid via insurance. */
+    public function isInsurancePaid(): bool
+    {
+        return $this->loadMissing('booking:id,pay_method')->booking?->pay_method === PayMethod::Insurance;
     }
 }

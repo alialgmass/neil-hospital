@@ -4,10 +4,12 @@ namespace Modules\Insurance\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Modules\Insurance\States\ApprovedState;
+use Modules\Insurance\States\ClosedState;
 use Modules\Insurance\States\DraftState;
 use Modules\Insurance\States\PaidState;
 use Modules\Insurance\States\RejectedState;
 use Modules\Insurance\States\SubmittedState;
+use Modules\Insurance\States\UnderReviewState;
 
 class UpdateInsuranceClaimRequest extends FormRequest
 {
@@ -24,6 +26,8 @@ class UpdateInsuranceClaimRequest extends FormRequest
             ApprovedState::$name,
             RejectedState::$name,
             PaidState::$name,
+            UnderReviewState::$name,
+            ClosedState::$name,
         ]);
 
         return [

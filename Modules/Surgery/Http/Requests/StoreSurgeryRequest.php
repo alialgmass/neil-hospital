@@ -26,6 +26,12 @@ class StoreSurgeryRequest extends FormRequest
             'anaesthesia' => ['nullable', 'in:local,general,topical,sedation'],
             'pre_op_notes' => ['nullable', 'string', 'max:5000'],
             'scheduled_at' => ['nullable', 'date'],
+            'delegations' => ['nullable', 'array'],
+            'delegations.*.doctor_id' => ['required', 'exists:doctors,id'],
+            'delegations.*.role' => ['required', 'in:delegate,anesthesia'],
+            'delegations.*.service_id' => ['nullable', 'exists:services,id'],
+            'delegations.*.service_name' => ['required', 'string', 'max:200'],
+            'delegations.*.amount' => ['required', 'numeric', 'min:0.01'],
         ];
     }
 }

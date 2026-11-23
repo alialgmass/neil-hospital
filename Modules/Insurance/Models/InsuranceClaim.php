@@ -5,6 +5,7 @@ namespace Modules\Insurance\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Modules\Booking\Models\Booking;
 use Modules\Insurance\States\ClaimStatus;
 use Modules\Inventory\Models\Service;
@@ -29,6 +30,11 @@ class InsuranceClaim extends Model
         'insurance_share',
         'approved_amount',
         'paid_amount',
+        'deduction',
+        'deduction_reason',
+        'rejected_amount',
+        'collected_by',
+        'collected_at',
         'status',
         'service_date',
         'claim_date',
@@ -50,6 +56,9 @@ class InsuranceClaim extends Model
             'insurance_share' => 'float',
             'approved_amount' => 'float',
             'paid_amount' => 'float',
+            'deduction' => 'float',
+            'rejected_amount' => 'float',
+            'collected_at' => 'datetime',
             'service_date' => 'date',
             'claim_date' => 'date',
             'submission_date' => 'date',
@@ -72,5 +81,10 @@ class InsuranceClaim extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class, 'service_id');
+    }
+
+    public function collectionApprovals(): HasMany
+    {
+        return $this->hasMany(InsuranceCollectionApproval::class, 'claim_id');
     }
 }

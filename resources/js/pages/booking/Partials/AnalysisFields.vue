@@ -13,16 +13,8 @@ const emit = defineEmits<{
 }>();
 
 const analysisOptions = [
-    'تحاليل ما قبل العملية (روتين)',
-    'تحاليل دم كاملة CBC',
-    'تحاليل كيمياء الدم',
-    'OCT شبكية',
-    'تصوير قرنية Topography',
-    'A-Scan قياسات',
-    'فحص مجال بصري',
-    'أنجيوغرافيا',
-    'أشعة صدر',
-    'رسم قلب ECG',
+    { value: 'negative', label: 'Negative' },
+    { value: 'positive', label: 'Positive' },
 ];
 
 function update(field: keyof Props['modelValue'], value: string) {
@@ -39,8 +31,8 @@ function update(field: keyof Props['modelValue'], value: string) {
             @change="update('analysis_type', ($event.target as HTMLSelectElement).value)"
         >
             <option value="">— بدون —</option>
-            <option v-for="opt in analysisOptions" :key="opt" :value="opt">
-                {{ opt }}
+            <option v-for="opt in analysisOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
             </option>
         </select>
     </div>

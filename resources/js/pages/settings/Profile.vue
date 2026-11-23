@@ -50,14 +50,26 @@ const user = computed(() => page.props.auth.user);
             </div>
 
             <div class="fg">
+                <label>اسم المستخدم</label>
+                <input
+                    name="username"
+                    type="text"
+                    :default-value="user.username"
+                    placeholder="اسم المستخدم"
+                    required
+                    autocomplete="username"
+                />
+                <InputError :message="errors.username" />
+            </div>
+
+            <div class="fg">
                 <label>البريد الإلكتروني</label>
                 <input
                     name="email"
                     type="email"
                     :default-value="user.email"
                     placeholder="example@domain.com"
-                    required
-                    autocomplete="username"
+                    autocomplete="email"
                 />
                 <InputError :message="errors.email" />
             </div>

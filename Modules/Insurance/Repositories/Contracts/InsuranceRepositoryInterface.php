@@ -22,4 +22,6 @@ interface InsuranceRepositoryInterface
     public function priceLists(string $companyId): Collection;
 
     public function createPriceList(array $data, array $items): PriceList;
+
+    public function updatePriceList(PriceList $priceList, array $data, array $items): PriceList;
 }

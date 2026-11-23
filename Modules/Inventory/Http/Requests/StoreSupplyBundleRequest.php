@@ -20,11 +20,19 @@ class StoreSupplyBundleRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'is_active' => ['boolean'],
             'notes' => ['nullable', 'string'],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.inventory_item_id' => ['nullable', 'string', 'exists:inventory,id'],
+            'items' => ['nullable', 'array'],
+            'items.*.inventory_item_id' => ['required', 'string', 'exists:inventory,id'],
             'items.*.item_name' => ['required', 'string', 'max:200'],
             'items.*.qty' => ['required', 'numeric', 'min:0.01'],
             'items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'items.*.inventory_item_id.required' => 'اختر الصنف من المخزن لكل سطر.',
+            'items.*.inventory_item_id.exists' => 'الصنف المختار غير موجود في المخزن.',
         ];
     }
 }

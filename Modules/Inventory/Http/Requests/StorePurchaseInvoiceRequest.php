@@ -3,6 +3,7 @@
 namespace Modules\Inventory\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePurchaseInvoiceRequest extends FormRequest
 {
@@ -21,10 +22,11 @@ class StorePurchaseInvoiceRequest extends FormRequest
             'paid_amount' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.item_id' => 'nullable|string|exists:inventory,id',
+            'items.*.item_id' => ['nullable', 'string', Rule::exists('inventory', 'id')->where('is_active', true)],
             'items.*.item_name' => 'required|string|max:200',
             'items.*.qty' => 'required|numeric|min:0.01',
             'items.*.unit_cost' => 'required|numeric|min:0',
+            'items.*.expiry_date' => 'nullable|date',
         ];
     }
 }

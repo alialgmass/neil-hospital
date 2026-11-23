@@ -16,6 +16,7 @@ class JournalEntry extends Model
     protected $fillable = [
         'date', 'description', 'debit_account_id', 'credit_account_id',
         'amount', 'reference', 'source', 'cost_center', 'created_by',
+        'idempotency_key', 'reversal_of_id', 'reversed_at',
     ];
 
     protected $casts = [
@@ -23,6 +24,7 @@ class JournalEntry extends Model
         'date' => 'date',
         'source' => JournalSource::class,
         'cost_center' => CostCenter::class,
+        'reversed_at' => 'datetime',
     ];
 
     public function debitAccount(): BelongsTo
@@ -38,5 +40,11 @@ class JournalEntry extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** The entry this one reverses, if any. */
+    public function reversalOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reversal_of_id');
     }
 }

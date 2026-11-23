@@ -18,8 +18,8 @@ class StoreJournalRequest extends FormRequest
         return [
             'date' => ['required', 'date'],
             'description' => ['required', 'string', 'max:300'],
-            'debit_account_id' => ['required', 'exists:accounts,id'],
-            'credit_account_id' => ['required', 'exists:accounts,id', 'different:debit_account_id'],
+            'debit_account_id' => ['required', 'exists:accounts,id,is_postable,1,is_active,1'],
+            'credit_account_id' => ['required', 'exists:accounts,id,is_postable,1,is_active,1', 'different:debit_account_id'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'reference' => ['nullable', 'string', 'max:80'],
             'cost_center' => ['nullable', new Enum(CostCenter::class)],

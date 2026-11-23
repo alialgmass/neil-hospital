@@ -33,7 +33,7 @@ class AlertService
      */
     private function getLowStockAlerts(): array
     {
-        return InventoryItem::whereRaw('quantity <= min_quantity')
+        return InventoryItem::active()->whereRaw('quantity <= min_quantity')
             ->where('min_quantity', '>', 0)
             ->get()
             ->map(fn ($item) => [
